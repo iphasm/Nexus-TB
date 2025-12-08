@@ -1,97 +1,95 @@
+import os
 import yfinance as yf
 import pandas as pd
-from pycoingecko import CoinGeckoAPI
+from binance.client import Client
 
-# Initialize CoinGecko API
-cg = CoinGeckoAPI()
+# Initialize Binance Client (Public data doesn't strictly require keys, but we use them if available)
+api_key = os.getenv('BINANCE_API_KEY')
+api_secret = os.getenv('BINANCE_SECRET')
 
-# Symbol Mapping for CoinGecko
-# Maps the 'BASE' of 'BASE/QUOTE' to CoinGecko ID
-SYMBOL_MAP = {
-    'BTC': 'bitcoin',
-    'ETH': 'ethereum',
-    'SOL': 'solana',
-    'XRP': 'ripple',
-    'ADA': 'cardano',
-    'DOGE': 'dogecoin',
-    # Add others as needed
-}
+client = None
+try:
+    client = Client(api_key, api_secret)
+except Exception as e:
+    print(f"Warning: Binance Client init failed in fetcher: {e}")
 
 def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd.DataFrame:
     """
-    Fetches market data for a given symbol.
+    Fetches market data from Binance (Crypto) or YFinance (Stocks).
     
     Args:
-        symbol: Ticker symbol (e.g., 'BTC/USDT' for crypto, 'AAPL' for stock).
+        symbol: Ticker symbol (e.g., 'BTCUSDT', 'MSFT').
         timeframe: Candle timeframe (default '15m').
         limit: Number of candles to return (default 100).
         
     Returns:
         pd.DataFrame: Columns ['timestamp', 'open', 'high', 'low', 'close', 'volume'].
-                      Sorted ascending by timestamp.
     """
     
-    # Expected columns
     expected_cols = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
     
     try:
-        if '/' in symbol:
-            # --- CRYPTO (CoinGecko) ---
-            base, quote = symbol.split('/')
-            coin_id = SYMBOL_MAP.get(base.upper())
-            
-            if not coin_id:
-                print(f"Error: Symbol {base} not found in SYMBOL_MAP for CoinGecko.")
+        # --- CRYPTO (Binance) ---
+        if 'USDT' in symbol.upper() or 'BUSD' in symbol.upper():
+            if not client:
+                print("Binance client not ready for data fetch.")
                 return pd.DataFrame(columns=expected_cols)
                 
-            # CoinGecko granularity logic:
-            # days=1 -> 30 min candles (Closest to 15m we can get for free)
-            # days=14 -> 4 hour candles
-            # days=30 -> 4 hour candles
-            days = '1' 
+            # Map timeframe
+            # Binance uses: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M
+            # Just pass directly if valid
             
-            # CoinGecko uses 'usd' not 'usdt' typically for vs_currency
-            quote_currency = quote.lower()
-            if quote_currency == 'usdt':
-                quote_currency = 'usd'
+            # Fetch Klines
+            klines = client.get_klines(symbol=symbol, interval=timeframe, limit=limit)
             
-            # Fetch OHLC
-            # Returns: [[time, open, high, low, close], ...]
-            ohlc_data = cg.get_coin_ohlc_by_id(id=coin_id, vs_currency=quote_currency, days=days)
+            if not klines:
+                return pd.DataFrame(columns=expected_cols)
             
-            if not ohlc_data:
-                 print(f"No data returned from CoinGecko for {symbol}")
-                 return pd.DataFrame(columns=expected_cols)
-
-            # Convert to DataFrame
-            # CoinGecko OHLC does NOT return volume.
-            df = pd.DataFrame(ohlc_data, columns=['timestamp', 'open', 'high', 'low', 'close'])
+            # Binance Klines: 
+            # [
+            #   [1499040000000,      // Open time
+            #    "0.01634790",       // Open
+            #    "0.80000000",       // High
+            #    "0.01575800",       // Low
+            #    "0.01577100",       // Close
+            #    "148976.11427815",  // Volume
+            #    1499644799999,      // Close time
+            #    ...
+            #   ]
+            # ]
             
-            # Add fake volume (0)
-            df['volume'] = 0.0
+            df = pd.DataFrame(klines, columns=[
+                'timestamp', 'open', 'high', 'low', 'close', 'volume', 
+                'close_time', 'quote_asset_volume', 'number_of_trades', 
+                'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'
+            ])
             
-            # Convert timestamp (ms to datetime)
+            # Clean up
+            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
+            
+            # Types
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            
+            for col in ['open', 'high', 'low', 'close', 'volume']:
+                df[col] = df[col].astype(float)
+                
+            return df
+
+        # --- STOCK (YFINANCE) ---
         else:
-            # --- STOCK (YFINANCE) ---
             ticker = yf.Ticker(symbol)
             
-            # Map timeframe/limit to period for yfinance
+            # Map timeframe/limit
             fetch_period = "1mo"
             if timeframe in ['1m', '2m', '5m']:
                 fetch_period = "5d"
                 
-            # Fetch history
             df = ticker.history(interval=timeframe, period=fetch_period)
             
             if df.empty:
                 return pd.DataFrame(columns=expected_cols)
             
-            # Reset index to make Date/Datetime a column
             df = df.reset_index()
             
-            # Rename columns to match expected format
             rename_map = {
                 'Date': 'timestamp', 
                 'Datetime': 'timestamp',
@@ -103,32 +101,19 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
             }
             df = df.rename(columns=rename_map)
             
-        # --- NORMALIZATION ---
-        
-        # Ensure correct column order
-        # If stock, we have volume. If crypto, we have volume=0.
-        # Ensure all cols exist
-        for col in expected_cols:
-            if col not in df.columns:
-                df[col] = 0.0
-        
-        df = df[expected_cols]
-        
-        # Ensure ascending order
-        df = df.sort_values('timestamp', ascending=True)
-        
-        # Reset index
-        df = df.reset_index(drop=True)
-        
-        # Limit to requested number (tail because we want the MOST RECENT data)
-        if len(df) > limit:
-            df = df.tail(limit).reset_index(drop=True)
+            # Ensure columns exist
+            for col in expected_cols:
+                if col not in df.columns:
+                    df[col] = 0.0
             
-        # Ensure numeric types
-        cols_numeric = ['open', 'high', 'low', 'close', 'volume']
-        df[cols_numeric] = df[cols_numeric].astype(float)
+            df = df[expected_cols]
+            df = df.sort_values('timestamp', ascending=True)
+            df = df.reset_index(drop=True)
             
-        return df
+            if len(df) > limit:
+                df = df.tail(limit).reset_index(drop=True)
+                
+            return df
 
     except Exception as e:
         print(f"Error fetching data for {symbol}: {e}")

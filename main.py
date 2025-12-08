@@ -13,8 +13,8 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 WATCHLIST = [
-    'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 
-    'ADA-USD', 'ZEC-USD', 
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 
+    'ADAUSDT', 'ZECUSDT',
     'MSFT', 'TSLA', 'NVDA', 'GC=F', 'CL=F']
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_IDS = [id.strip() for id in os.getenv('TELEGRAM_CHAT_ID', '').split(',') if id.strip()]
@@ -189,10 +189,9 @@ def start_bot():
                         alert_history[asset].append(current_time)
                         
                         # --- BINANCE EXECUTION (Crypto Only) ---
-                        if 'USD' in asset and '-' in asset: # e.g. BTC-USD
-                            binance_symbol = asset.replace('-', '').replace('USD', 'USDT')
-                            print(f"⚡ Attempting Trade on {binance_symbol}...")
-                            trader.execute_long_position(binance_symbol)
+                        if asset.endswith('USDT'): 
+                            print(f"⚡ Attempting Trade on {asset}...")
+                            trader.execute_long_position(asset)
                             
                     else:
                         print(f"⚠️ Rate limit hit for {asset}. Skipping.")
