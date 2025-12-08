@@ -119,6 +119,32 @@ def handle_price_request(message):
     
     bot.send_message(message.chat.id, report, parse_mode='Markdown')
 
+@bot.message_handler(commands=['debug'])
+def handle_debug(message):
+    """Runs system diagnostics and sends report"""
+    user_id = str(message.chat.id)
+    
+    # Security: Only Admin
+    if TELEGRAM_ADMIN_ID and user_id != TELEGRAM_ADMIN_ID:
+        bot.reply_to(message, "⛔ Access Denied.")
+        return
+
+    bot.reply_to(message, "🕵️ Running diagnostics... please wait.")
+    
+    try:
+        from utils.diagnostics import run_diagnostics
+        report = run_diagnostics()
+        
+        # Telegram has a 4096 char limit, split if needed
+        if len(report) > 4000:
+            for x in range(0, len(report), 4000):
+                bot.send_message(message.chat.id, report[x:x+4000], parse_mode='Markdown')
+        else:
+            bot.send_message(message.chat.id, report, parse_mode='Markdown')
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ diagnostic failed: {e}")
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, "🤖 **Trading Bot Active**\n\nCommands:\n/price - Get current market prices")
