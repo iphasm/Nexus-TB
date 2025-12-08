@@ -17,7 +17,7 @@ Tu proyecto ya está listo para Railway gracias al archivo `Dockerfile` que crea
     *   Una vez creado el proyecto, ve a la pestaña **"Variables"**.
     *   Añade las mismas variables que tienes en tu `.env` local:
         *   `TELEGRAM_TOKEN`: (Tu token)
-        *   `TELEGRAM_CHAT_ID`: (Tu ID)
+        *   `TELEGRAM_CHAT_ID`: (Tu ID o lista de IDs separados por comas: `123,456`)
 
 4.  **Verifica el Despliegue**
     *   Railway detectará automáticamente el `Dockerfile` y construirá la imagen.

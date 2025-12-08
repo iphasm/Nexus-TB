@@ -17,7 +17,7 @@ WATCHLIST = [
     'ADA-USD', 'ZEC-USD', 
     'MSFT', 'TSLA', 'NVDA', 'GC=F', 'CL=F']
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_CHAT_IDS = [id.strip() for id in os.getenv('TELEGRAM_CHAT_ID', '').split(',') if id.strip()]
 
 # Initialize Bot
 bot = None
@@ -28,11 +28,12 @@ else:
 
 def send_alert(message):
     """Wrapper to send messages using TeleBot instance"""
-    if bot and TELEGRAM_CHAT_ID:
-        try:
-            bot.send_message(TELEGRAM_CHAT_ID, message, parse_mode='Markdown')
-        except Exception as e:
-            print(f"Error sending alert: {e}")
+    if bot and TELEGRAM_CHAT_IDS:
+        for chat_id in TELEGRAM_CHAT_IDS:
+            try:
+                bot.send_message(chat_id, message, parse_mode='Markdown')
+            except Exception as e:
+                print(f"Error sending alert to {chat_id}: {e}")
     else:
         print(f"ALERT (No Telegram): {message}")
 
@@ -44,7 +45,7 @@ def handle_price_request(message):
     user_id = str(message.chat.id)
     
     # Optional: Security check to only reply to owner
-    if TELEGRAM_CHAT_ID and user_id != str(TELEGRAM_CHAT_ID):
+    if TELEGRAM_CHAT_IDS and user_id not in TELEGRAM_CHAT_IDS:
         bot.reply_to(message, "⛔ Unauthorized.")
         return
 
