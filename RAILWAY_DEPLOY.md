@@ -27,3 +27,18 @@ Tu proyecto ya está listo para Railway gracias al archivo `Dockerfile` que crea
 ## Notas:
 *   El bot correrá 24/7 en la nube.
 *   Si necesitas detenerlo, puedes pausar el servicio en Railway.
+
+## 5. Configuración Avanzada (Binance & Security)
+
+Una vez desplegado, ve a la pestaña **Variables** en Railway y AGREGA las siguientes para activar el trading:
+
+| Variable | Descripción | Ejemplo |
+| :--- | :--- | :--- |
+| `TELEGRAM_ADMIN_ID` | **(Requerido)** Tu ID personal de Telegram. Solo este ID podrá usar `/long`. | `123456789` |
+| `BINANCE_API_KEY` | Tu API Key de Binance Futures. | `vmPUZE...` |
+| `BINANCE_SECRET` | Tu Secret Key de Binance Futures. | `NhqPt...` |
+| `LEVERAGE` | Apalancamiento para operaciones (x). | `5` |
+| `STOP_LOSS_PCT` | Porcentaje de Stop Loss (0.02 = 2%). | `0.02` |
+| `MAX_CAPITAL_PCT` | Máximo % de balance a arriesgar por trade. | `0.10` |
+
+> **Nota de Seguridad**: Railway encripta estas variables. Para el bot, solo tu `TELEGRAM_ADMIN_ID` tendrá permisos para ejecutar operaciones de compra/venta.
