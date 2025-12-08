@@ -11,16 +11,16 @@ api_secret = os.getenv('BINANCE_SECRET')
 client = None
 try:
     if api_key and api_secret:
-        client = Client(api_key, api_secret)
-        print("✅ Binance Client (Authenticated) initialized for data.")
+        client = Client(api_key, api_secret, tld='com')
+        print("✅ Binance Client (Authenticated) initialized for data [International API].")
     else:
-        client = Client()
-        print("⚠️ Binance Client (Public Only) initialized. Trading will fail, but data fetching works.")
+        client = Client(tld='com')
+        print("⚠️ Binance Client (Public Only) initialized [International API]. Trading will fail, but data fetching works.")
 except Exception as e:
     print(f"❌ Warning: Binance Client init failed in fetcher: {e}")
     # Fallback to public
     try:
-        client = Client()
+        client = Client(tld='com')
     except:
         pass
 
@@ -59,7 +59,7 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
             except Exception as e:
                 print(f"⚠️ Authenticated fetch failed for {symbol} ({e}). Retrying with Public Client...")
                 try:
-                    public_client = Client()
+                    public_client = Client(tld='com')
                     klines = public_client.get_klines(symbol=symbol, interval=timeframe, limit=limit)
                     print(f"DEBUG: Public fetch result: {len(klines) if klines else 'None/Empty'}")
                 except Exception as e2:

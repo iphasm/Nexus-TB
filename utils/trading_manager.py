@@ -17,8 +17,8 @@ class BinanceManager:
         
         if self.api_key and self.api_secret:
             try:
-                self.client = Client(self.api_key, self.api_secret)
-                print("✅ Binance Client initialized.")
+                self.client = Client(self.api_key, self.api_secret, tld='com')
+                print("✅ Binance Client initialized [International API].")
             except Exception as e:
                 print(f"❌ Failed to init Binance Client: {e}")
         else:
