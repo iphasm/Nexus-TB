@@ -1,0 +1,9 @@
+ccxt
+yfinance
+pandas
+# pandas_ta # Incompatible with Python 3.14
+python-dotenv
+python-dotenv
+requests
+pycoingecko
+pyTelegramBotAPI
