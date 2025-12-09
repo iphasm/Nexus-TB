@@ -14,7 +14,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 WATCHLIST = [
-    'BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', 'PEPEUSDT', 'ZECUSDT',
+    'BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', '1000PEPEUSDT', 'ZECUSDT',
     'TSLA', 'NVDA', 'MSFT',
     'GC=F', 'CL=F']
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -140,16 +140,32 @@ def handle_price_request(message):
     name_map = {
         'GC=F': 'Oro (Gold)',
         'CL=F': 'Petróleo (Oil)',
-        'BTCUSDT': 'Bitcoin',
-        'ETHUSDT': 'Ethereum',
-        'XRPUSDT': 'Ripple',
-        'SOLUSDT': 'Solana',
-        'SUIUSDT': 'Sui',
-        'PEPEUSDT': 'Pepe',
-        'ZECUSDT': 'Zcash',
-        'TSLA': 'Tesla',
-        'NVDA': 'Nvidia',
-        'MSFT': 'Microsoft'
+        'BTCUSDT': 'Bitcoin (BTC)',
+        'ETHUSDT': 'Ethereum (ETH)',
+        'XRPUSDT': 'Ripple (XRP)',
+        'SOLUSDT': 'Solana (SOL)',
+        'SUIUSDT': 'SUI (SUI)',
+        '1000PEPEUSDT': 'PEPE (1000PEPE)',
+        'ZECUSDT': 'Zcash (ZEC)',
+        'TSLA': 'Tesla (TSLA)',
+        'NVDA': 'Nvidia (NVDA)',
+        'MSFT': 'Microsoft (MSFT)'
+    }
+
+    # Icons
+    icon_map = {
+        'BTCUSDT': '₿',
+        'ETHUSDT': 'Ξ',
+        'XRPUSDT': '✕',
+        'SOLUSDT': '◎',
+        'SUIUSDT': '💧',
+        '1000PEPEUSDT': '🐸',
+        'ZECUSDT': '🛡️',
+        'TSLA': '🚗',
+        'NVDA': '🟢',
+        'MSFT': '🪟',
+        'GC=F': '🥇',
+        'CL=F': '🛢️'
     }
 
     for asset in WATCHLIST:
@@ -175,9 +191,10 @@ def handle_price_request(message):
             
             trend_icon = "📈" if price > ema_200 else "🐻"
             display_name = name_map.get(asset, asset)
+            asset_icon = icon_map.get(asset, '💎')
             
             entry = (
-                f"💎 **{display_name}**\n"
+                f"{asset_icon} **{display_name}**\n"
                 f"💰 ${price:,.2f} {trend_icon}\n"
                 f"📉 RSI: {rsi:.1f} | 🌊 Vol: {vol_ratio}x\n"
                 f"📊 Stoch: {stoch_k:.1f}/{stoch_d:.1f}\n"
