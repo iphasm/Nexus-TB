@@ -291,6 +291,20 @@ def start_bot():
         cycle_count += 1
         
         # Heartbeat
+        if cycle_count % 60 == 0:
+            print(f"🟢 Cycle {cycle_count}: Bot online.")
+        
+        for asset in WATCHLIST:
+            try:
+                # 1. Fetch Data
+                # Need 300 candles for EMA_200
+                df = get_market_data(asset, timeframe='15m', limit=300)
+                if df.empty: continue
+
+                # 2. Analyze
+                buy_signal, metrics = analyze_market(df)
+                
+                # 3. Alert & Trade
                 if buy_signal:
                     current_time = time.time()
                     if asset not in alert_history: alert_history[asset] = []
