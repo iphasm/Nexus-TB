@@ -69,8 +69,6 @@ class BinanceManager:
             return False, "Execution skipped: No Binance Client configured."
             
         try:
-
-        try:
             # 1. Update Leverage
             self.client.futures_change_leverage(symbol=symbol, leverage=self.leverage)
 
