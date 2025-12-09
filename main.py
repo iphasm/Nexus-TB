@@ -120,6 +120,84 @@ def handle_long_position(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+@bot.message_handler(commands=['sell', 'close'])
+def handle_sell_position(message):
+    """Manually close a position"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session:
+        bot.reply_to(message, "⛔ Session not found.") 
+        return
+
+    try:
+        args = message.text.split()
+        if len(args) < 2:
+            bot.reply_to(message, "⚠️ Usage: `/sell <SYMBOL>` (e.g. `/sell BTC`)", parse_mode='Markdown')
+            return
+            
+        symbol = args[1].upper()
+        if 'USDT' not in symbol: symbol += 'USDT'
+        
+        bot.reply_to(message, f"📉 Closing position for **{symbol}**...", parse_mode='Markdown')
+        
+        success, msg = session.execute_close_position(symbol)
+        bot.reply_to(message, msg if success else f"⚠️ {msg}", parse_mode='Markdown')
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['pnl', 'profit'])
+def handle_pnl_request(message):
+    """Shows realized PnL from Binance"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session: 
+        bot.reply_to(message, "⛔ Session not found.")
+        return
+    
+    bot.send_chat_action(message.chat.id, 'typing')
+    
+    # Get Last 24h
+    total_pnl, history = session.get_pnl_history(days=1)
+    
+    icon = "🟢" if total_pnl >= 0 else "🔴"
+    
+    report = (
+        f"💰 **Daily PnL Check**\n"
+        f"Total (24h): {icon} **${total_pnl:.2f}**\n\n"
+        f"**Recent Trades:**\n"
+    )
+    
+    if not history:
+        report += "No realized trades found in last 24h."
+    else:
+        # Show last 5
+        for trade in history[-5:]: 
+            s_icon = "🟢" if trade['amount'] > 0 else "🔴"
+            t_str = time.strftime('%H:%M', time.localtime(trade['time']/1000))
+            report += f"{s_icon} {trade['symbol']}: ${trade['amount']:.2f} ({t_str})\n"
+            
+    bot.reply_to(message, report, parse_mode='Markdown')
+
+@bot.message_handler(commands=['balance', 'wallet', 'saldo'])
+def handle_balance(message):
+    """Shows current wallet balance and equity"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session: 
+        bot.reply_to(message, "⛔ Session not found.")
+        return
+        
+    avail, total = session.get_balance_details()
+    
+    msg = (
+        f"💳 **WALLET BALANCE (USDT)**\n\n"
+        f"💵 **Available:** `${avail:,.2f}`\n"
+        f"💰 **Total Equity:** `${total:,.2f}`\n"
+        f"_(Includes Unrealized PnL based on open positions)_"
+    )
+    bot.reply_to(message, msg, parse_mode='Markdown')
+
 @bot.message_handler(commands=['price', 'precios'])
 def handle_price_request(message):
     """Handles /price command to show current status of all assets"""
@@ -345,7 +423,10 @@ def send_welcome(message):
         
         "**📊 Market & Trading**\n"
         "`/price` — View market prices & indicators.\n"
-        "`/long <SYMBOL>` — Manually open a Long position.\n\n"
+        "`/long <SYMBOL>` — Manually open a Long position.\n"
+        "`/sell <SYMBOL>` — Close active position (Market).\n"
+        "`/pnl` — View Daily Realized PnL.\n"
+        "`/balance` — View Wallet Balance & Equity.\n\n"
         
         "**🛠️ System**\n"
         "`/debug` — Run diagnostics (Admin only)."

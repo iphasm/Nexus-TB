@@ -148,6 +148,94 @@ class TradingSession:
         except Exception as e:
             return False, f"Error: {str(e)}"
 
+    def execute_close_position(self, symbol):
+        """Closes all positions and open orders for a symbol"""
+        if not self.client: return False, "No valid session."
+        
+        try:
+            # 1. Cancel Open Orders (SL/TP)
+            self.client.futures_cancel_all_open_orders(symbol=symbol)
+            
+            # 2. Get Position Info
+            try:
+                positions = self.client.futures_position_information(symbol=symbol)
+            except:
+                # Fallback for some library versions that return list
+                positions = self.client.futures_position_information()
+                
+            qty = 0.0
+            for p in positions:
+                if p['symbol'] == symbol:
+                    qty = float(p['positionAmt'])
+                    break
+            
+            if qty == 0:
+                return False, f"No open position found for {symbol}."
+            
+            # 3. Close Position
+            side = 'SELL' if qty > 0 else 'BUY'
+            
+            self.client.futures_create_order(
+                symbol=symbol, 
+                side=side, 
+                type='MARKET', 
+                reduceOnly=True,
+                quantity=abs(qty)
+            )
+            
+            return True, f"✅ Closed {symbol} ({qty}). PnL pending update."
+            
+        except BinanceAPIException as e:
+            return False, f"Binance Error: {e.message}"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+
+    def get_pnl_history(self, days=1):
+        """Fetches Realized PnL from Binance for the last N days"""
+        if not self.client: return 0.0, []
+        
+        try:
+            start_time = int((time.time() - (days * 86400)) * 1000)
+            income_history = self.client.futures_income_history(
+                incomeType='REALIZED_PNL', 
+                startTime=start_time,
+                limit=50
+            )
+            
+            total_pnl = 0.0
+            details = []
+            
+            for item in income_history:
+                amt = float(item['income'])
+                total_pnl += amt
+                details.append({
+                    'symbol': item['symbol'],
+                    'amount': amt,
+                    'time': item['time']
+                })
+                
+            return total_pnl, details
+            
+        except Exception as e:
+            print(f"Error fetching PnL: {e}")
+            return 0.0, []
+
+    def get_balance_details(self):
+        """Returns (available_usdt, total_equity_usdt)"""
+        if not self.client: return 0.0, 0.0
+        try:
+            # futures_account returns summary of assets usually in USDT context if single-asset
+            # totalMarginBalance = Wallet Balance + Unrealized PnL
+            acc = self.client.futures_account()
+            
+            available = float(acc.get('availableBalance', 0))
+            total_equity = float(acc.get('totalMarginBalance', 0))
+            
+            return available, total_equity
+        except Exception as e:
+            print(f"Error fetching balance: {e}")
+            return 0.0, 0.0
+
 
     def _log_trade(self, symbol, entry, qty, sl, tp):
         """Logs trade to local JSON file for history"""
