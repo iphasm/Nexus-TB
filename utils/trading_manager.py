@@ -73,9 +73,9 @@ class BinanceManager:
             self.client.futures_change_leverage(symbol=symbol, leverage=self.leverage)
 
             # 2. Calculate Position Size
-            # Get USDT Balance
+            # Get USDT Balance (Use availableBalance to avoid -2019 error)
             account = self.client.futures_account_balance()
-            usdt_balance = next((float(a['balance']) for a in account if a['asset'] == 'USDT'), 0)
+            usdt_balance = next((float(a['availableBalance']) for a in account if a['asset'] == 'USDT'), 0)
             
             if usdt_balance <= 0:
                 print("❌ Insufficient USDT Balance.")
@@ -152,7 +152,10 @@ class BinanceManager:
             return True, f"Long {symbol} Executed @ {entry_price}"
 
         except BinanceAPIException as e:
-            msg = f"Binance API Error: {e.message} (Code: {e.code})"
+            if e.code == -2019:
+                msg = f"Margin Insufficient. Available: ${usdt_balance:.2f}. Reduce Margin % (currently {self.max_capital_pct*100:.1f}%) or Leverage."
+            else:
+                msg = f"Binance API Error: {e.message} (Code: {e.code})"
             print(f"❌ {msg}")
             return False, msg
         except Exception as e:
