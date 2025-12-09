@@ -129,15 +129,33 @@ def handle_price_request(message):
     
     bot.reply_to(message, "⏳ Fetching prices... please wait.")
     
-    report = "📊 **MARKET REPORT**\n\n"
+    # Categories
+    groups = {
+        "� CRYPTO": [],
+        "💵 ACIONES": [], 
+        "🛢️ MATERIAS PRIMAS": []
+    }
     
+    # Friendly Names
+    name_map = {
+        'GC=F': 'Oro (Gold)',
+        'CL=F': 'Petróleo (Oil)',
+        'BTCUSDT': 'Bitcoin',
+        'ETHUSDT': 'Ethereum',
+        'SOLUSDT': 'Solana',
+        'XRPUSDT': 'Ripple'
+    }
+
     for asset in WATCHLIST:
         try:
-            df = get_market_data(asset, timeframe='15m', limit=300)
+            # Determine Category
+            category = "💵 ACIONES"
+            if 'USDT' in asset: category = "📉 CRYPTO"
+            elif '=F' in asset: category = "🛢️ MATERIAS PRIMAS"
             
-            if df.empty:
-                report += f"❌ {asset}: No data\n"
-                continue
+            # Fetch
+            df = get_market_data(asset, timeframe='15m', limit=300)
+            if df.empty: continue
                 
             latest = df.iloc[-1]
             price = latest['close']
@@ -149,18 +167,30 @@ def handle_price_request(message):
             vol_ratio = metrics.get('vol_ratio', 0)
             ema_200 = metrics.get('ema_200', 0)
             
-            # Trend Icon
             trend_icon = "📈" if price > ema_200 else "🐻"
+            display_name = name_map.get(asset, asset)
             
-            report += (
-                f"💎 **{asset}**\n"
-                f"💰 ${price:.2f} {trend_icon}\n"
+            entry = (
+                f"💎 **{display_name}**\n"
+                f"💰 ${price:,.2f} {trend_icon}\n"
                 f"📉 RSI: {rsi:.1f} | 🌊 Vol: {vol_ratio}x\n"
-                f"📊 Stoch: {stoch_k:.1f}/{stoch_d:.1f}\n\n"
+                f"📊 Stoch: {stoch_k:.1f}/{stoch_d:.1f}\n"
             )
+            groups[category].append(entry)
             
         except Exception as e:
-            report += f"⚠️ {asset}: Error ({str(e)[:20]}...)\n"
+            print(f"Error {asset}: {e}")
+
+    # Build Final Report
+    report = "📋 **REPORTE ACTUAL DE PRECIOS**\n\n"
+    for cat_name, items in groups.items():
+        if items:
+            report += f"{cat_name}\n" + "―"*15 + "\n"
+            report += "\n".join(items)
+            report += "\n\n"
+    
+    # Avoid empty message error
+    if len(report) < 50: report = "❌ No data available."
     
     bot.send_message(message.chat.id, report, parse_mode='Markdown')
 
