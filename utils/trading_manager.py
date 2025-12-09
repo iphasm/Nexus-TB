@@ -96,13 +96,20 @@ class BinanceManager:
             qty_precision, price_precision = self.get_symbol_precision(symbol)
             quantity = float(round(raw_quantity, qty_precision))
             
+            # --- VALIDATION CHECK ---
+            if quantity <= 0:
+                msg = f"Position size too small ({raw_quantity:.6f} -> 0). Sizing requires ~${(current_price * (10**-qty_precision))/self.leverage:.2f} margin."
+                print(f"❌ {msg}")
+                return False, msg
+            # ------------------------
+            
             print(f"⚖️ Sizing: Bal=${usdt_balance:.2f} | Margin=${margin_assignment:.2f} | Qty={quantity} {symbol}")
 
             # 3. Execute Market Buy
             order = self.client.futures_create_order(
                 symbol=symbol,
-                side=SIDE_BUY,
-                type=ORDER_TYPE_MARKET,
+                side='BUY',
+                type='MARKET',
                 quantity=quantity
             )
             entry_price = float(order.get('avgPrice', current_price))
@@ -121,10 +128,12 @@ class BinanceManager:
 
             # Send Orders
             # Stop Loss
+            # Send Orders
+            # Stop Loss
             self.client.futures_create_order(
                 symbol=symbol,
-                side=SIDE_SELL,
-                type=ORDER_TYPE_STOP_MARKET,
+                side='SELL',
+                type='STOP_MARKET',
                 stopPrice=sl_price,
                 closePosition=True
             )
@@ -132,8 +141,8 @@ class BinanceManager:
             # Take Profit
             self.client.futures_create_order(
                 symbol=symbol,
-                side=SIDE_SELL,
-                type=ORDER_TYPE_TAKE_PROFIT_MARKET,
+                side='SELL',
+                type='TAKE_PROFIT_MARKET',
                 stopPrice=tp_price,
                 closePosition=True
             )
