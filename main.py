@@ -69,11 +69,11 @@ def handle_long_position(message):
         
         # Execute
         if trader:
-            success = trader.execute_long_position(symbol)
+            success, msg = trader.execute_long_position(symbol)
             if success:
-                bot.reply_to(message, f"✅ Trade Executed for {symbol}!")
+                bot.reply_to(message, f"✅ {msg}")
             else:
-                bot.reply_to(message, f"❌ Trade Failed for {symbol}. Check logs.")
+                bot.reply_to(message, f"❌ Trade Failed: {msg}")
         else:
              bot.reply_to(message, "❌ Trading System not initialized.")
 

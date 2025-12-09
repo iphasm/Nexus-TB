@@ -66,7 +66,9 @@ class BinanceManager:
     def execute_long_position(self, symbol):
         if not self.client:
             print("❌ Execution skipped: No Binance Client.")
-            return
+            return False, "Execution skipped: No Binance Client configured."
+            
+        try:
 
         try:
             # 1. Update Leverage
@@ -79,7 +81,7 @@ class BinanceManager:
             
             if usdt_balance <= 0:
                 print("❌ Insufficient USDT Balance.")
-                return
+                return False, f"Insufficient USDT Balance: ${usdt_balance:.2f}"
 
             # Max amount to risk (Margin) = 10% of Balance
             margin_assignment = usdt_balance * self.max_capital_pct
@@ -139,10 +141,14 @@ class BinanceManager:
             )
             
             print(f"🛡️ SL @ {sl_price} | 🎯 TP @ {tp_price}")
-            return True
+            print(f"🛡️ SL @ {sl_price} | 🎯 TP @ {tp_price}")
+            return True, f"Long {symbol} Executed @ {entry_price}"
 
         except BinanceAPIException as e:
-            print(f"❌ Binance API Error: {e}")
+            msg = f"Binance API Error: {e.message} (Code: {e.code})"
+            print(f"❌ {msg}")
+            return False, msg
         except Exception as e:
-            print(f"❌ Error executing trade: {e}")
-            return False
+            msg = f"Error executing trade: {str(e)}"
+            print(f"❌ {msg}")
+            return False, msg
