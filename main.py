@@ -4,40 +4,47 @@ import threading
 import telebot
 from dotenv import load_dotenv
 
-# Import internal modules
+# Importar módulos internos
 from data.fetcher import get_market_data
 from strategies.analyzer import analyze_market
-from utils.trading_manager import SessionManager # CHANGED
+from utils.trading_manager import SessionManager
 
-# Load environment variables
+# Cargar variables de entorno
 load_dotenv()
 
-# --- CONFIGURATION ---
+# --- CONFIGURACIÓN ---
 WATCHLIST = [
     'BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', 'ZECUSDT',
     'TSLA', 'NVDA', 'MSFT',
     'GC=F', 'CL=F']
+
+# Configuración Global de Estrategia
+STRATEGY_CONFIG = {
+    'mean_reversion': True,
+    'trend_velocity': True
+}
+
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
-# Note: TELEGRAM_CHAT_IDS is less relevant for commands now, but still useful for broadcasts?
-# We will use valid sessions for broadcasts potentially, or keep the env var for admin alerts.
+# Nota: TELEGRAM_CHAT_IDS es menos relevante para comandos ahora, ¿pero útil para transmisiones?
+# Usaremos sesiones válidas para transmisiones potencialmente, o mantendremos la variable de entorno para alertas de administrador.
 TELEGRAM_CHAT_IDS = [id.strip() for id in os.getenv('TELEGRAM_CHAT_ID', '').split(',') if id.strip()]
 
-# Initialize Bot
+# Inicializar Bot
 bot = None
-session_manager = None # Global session manager
+session_manager = None # Gestor de sesiones global
 
 if TELEGRAM_TOKEN:
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
 else:
-    print("WARNING: TELEGRAM_TOKEN not found.")
+    print("ADVERTENCIA: No se encontró TELEGRAM_TOKEN.")
 
 def send_alert(message):
-    """Broadcasts message to all registered sessions + Env Chat IDs"""
-    # 1. Env Chat IDs
+    """Transmite el mensaje a todas las sesiones registradas + IDs de chat del entorno"""
+    # 1. IDs de chat del entorno
     targets = set(TELEGRAM_CHAT_IDS)
     
-    # 2. Add Active Sessions
+    # 2. Agregar Sesiones Activas
     if session_manager:
         for s in session_manager.get_all_sessions():
             targets.add(s.chat_id)
@@ -47,34 +54,79 @@ def send_alert(message):
             try:
                 bot.send_message(chat_id, message, parse_mode='Markdown')
             except Exception as e:
-                print(f"Error sending alert to {chat_id}: {e}")
+                print(f"Error enviando alerta a {chat_id}: {e}")
     else:
-        print(f"ALERT (No Telegram): {message}")
+        print(f"ALERTA (Sin Telegram): {message}")
 
-# --- BOT COMMAND HANDLERS ---
+# --- MANEJADORES DE COMANDOS DEL BOT ---
+
+@bot.message_handler(commands=['strategies'])
+def handle_strategies_status(message):
+    """Muestra el estado actual de la estrategia"""
+    status_text = "🧠 **Estrategias Activas**\n\n"
+    
+    mr_icon = "✅" if STRATEGY_CONFIG['mean_reversion'] else "🔴"
+    tv_icon = "✅" if STRATEGY_CONFIG['trend_velocity'] else "🔴"
+    
+    status_text += f"{mr_icon} **Reversión a la Media** (`mr`)\n"
+    status_text += f"{tv_icon} **Velocidad de Tendencia** (`tv`)\n\n"
+    status_text += "Usa `/toggle <nombre>` para cambiar."
+    
+    bot.reply_to(message, status_text, parse_mode='Markdown')
+
+@bot.message_handler(commands=['toggle'])
+def handle_toggle_strategy(message):
+    """Activa/Desactiva una estrategia"""
+    try:
+        args = message.text.split()
+        if len(args) < 2:
+            bot.reply_to(message, "⚠️ Uso: `/toggle mr` o `/toggle tv`", parse_mode='Markdown')
+            return
+            
+        target = args[1].lower()
+        
+        if target in ['mr', 'mean_reversion']:
+            key = 'mean_reversion'
+            name = "Reversión a la Media"
+        elif target in ['tv', 'trend_velocity', 'trend']:
+            key = 'trend_velocity'
+            name = "Velocidad de Tendencia"
+        else:
+            bot.reply_to(message, "❌ Estrategia desconocida. Usa `mr` o `tv`.")
+            return
+            
+        # Cambiar estado
+        STRATEGY_CONFIG[key] = not STRATEGY_CONFIG[key]
+        state = "✅ ACTIVADA" if STRATEGY_CONFIG[key] else "🔴 DESACTIVADA"
+        
+        bot.reply_to(message, f"🔄 **{name}** está ahora {state}")
+        print(f"Actualización de Estrategia: {STRATEGY_CONFIG}")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 @bot.message_handler(commands=['set_keys'])
 def handle_set_keys(message):
     """
-    Usage: /set_keys <API_KEY> <API_SECRET>
+    Uso: /set_keys <API_KEY> <API_SECRET>
     """
     chat_id = str(message.chat.id)
     try:
         args = message.text.split()
         if len(args) < 3:
-            bot.reply_to(message, "⚠️ Usage: `/set_keys <API_KEY> <API_SECRET>`\n\n_We recommend deleting this message after sending._", parse_mode='Markdown')
+            bot.reply_to(message, "⚠️ Uso: `/set_keys <API_KEY> <API_SECRET>`\n\n_Recomendamos borrar este mensaje después de enviarlo._", parse_mode='Markdown')
             return
         
         api_key = args[1]
         api_secret = args[2]
         
-        # Create or Update Session
+        # Crear o Actualizar Sesión
         session = session_manager.create_or_update_session(chat_id, api_key, api_secret)
         
         if session.client:
-            bot.reply_to(message, "✅ **API Keys Registered!**\nYou can now trade. Default settings: Leverage 5x, Margin 10%. Use /config to view.")
+            bot.reply_to(message, "✅ **¡Claves API Registradas!**\nAhora puedes operar. Configuración predeterminada: Apalancamiento 5x, Margen 10%. Usa /config para ver.")
         else:
-            bot.reply_to(message, "❌ Keys saved, but **Binance Connection Failed**. Please check your keys and permissions.")
+            bot.reply_to(message, "❌ Claves guardadas, pero **Falló la Conexión con Binance**. Por favor verifica tus claves y permisos.")
             
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
@@ -83,62 +135,62 @@ def handle_set_keys(message):
 def handle_delete_keys(message):
     chat_id = str(message.chat.id)
     if session_manager.delete_session(chat_id):
-        bot.reply_to(message, "🗑️ **Session Deleted.** Your keys have been removed from this bot.")
+        bot.reply_to(message, "🗑️ **Sesión Eliminada.** Tus claves han sido eliminadas de este bot.")
     else:
-        bot.reply_to(message, "⚠️ No session found to delete.")
+        bot.reply_to(message, "⚠️ No se encontró ninguna sesión para eliminar.")
 
 @bot.message_handler(commands=['long'])
 def handle_long_position(message):
-    """Manually trigger a LONG position for the current chat session"""
+    """Activa manualmente una posición LONG para la sesión de chat actual"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     
     if not session or not session.client:
-        bot.reply_to(message, "⛔ **No Active Session.**\nPlease register your Binance API keys first using:\n`/set_keys <API_KEY> <API_SECRET>`", parse_mode='Markdown')
+        bot.reply_to(message, "⛔ **Sin Sesión Activa.**\nPor favor registra tus claves API de Binance primero usando:\n`/set_keys <API_KEY> <API_SECRET>`", parse_mode='Markdown')
         return
 
-    # Parse message: /long BTC
+    # Analizar mensaje: /long BTC
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: `/long <SYMBOL>` (e.g., `/long BTC`)", parse_mode='Markdown')
+            bot.reply_to(message, "⚠️ Uso: `/long <SIMBOLO>` (ej., `/long BTC`)", parse_mode='Markdown')
             return
             
         symbol = args[1].upper()
         if 'USDT' not in symbol:
             symbol += 'USDT'
             
-        bot.reply_to(message, f"⚡ Executing LONG for **{symbol}**...", parse_mode='Markdown')
+        bot.reply_to(message, f"⚡ Ejecutando LONG para **{symbol}**...", parse_mode='Markdown')
         
-        # Execute on specific session
+        # Ejecutar en sesión específica
         success, msg = session.execute_long_position(symbol)
         if success:
             bot.reply_to(message, f"✅ {msg}")
         else:
-            bot.reply_to(message, f"❌ Trade Failed: {msg}")
+            bot.reply_to(message, f"❌ Operación Fallida: {msg}")
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
 @bot.message_handler(commands=['sell', 'close'])
 def handle_sell_position(message):
-    """Manually close a position"""
+    """Cierra manualmente una posición"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session:
-        bot.reply_to(message, "⛔ Session not found.") 
+        bot.reply_to(message, "⛔ Sesión no encontrada.") 
         return
 
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: `/sell <SYMBOL>` (e.g. `/sell BTC`)", parse_mode='Markdown')
+            bot.reply_to(message, "⚠️ Uso: `/sell <SIMBOLO>` (ej. `/sell BTC`)", parse_mode='Markdown')
             return
             
         symbol = args[1].upper()
         if 'USDT' not in symbol: symbol += 'USDT'
         
-        bot.reply_to(message, f"📉 Closing position for **{symbol}**...", parse_mode='Markdown')
+        bot.reply_to(message, f"📉 Cerrando posición para **{symbol}**...", parse_mode='Markdown')
         
         success, msg = session.execute_close_position(symbol)
         bot.reply_to(message, msg if success else f"⚠️ {msg}", parse_mode='Markdown')
@@ -148,30 +200,30 @@ def handle_sell_position(message):
 
 @bot.message_handler(commands=['pnl', 'profit'])
 def handle_pnl_request(message):
-    """Shows realized PnL from Binance"""
+    """Muestra el PnL realizado de Binance"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: 
-        bot.reply_to(message, "⛔ Session not found.")
+        bot.reply_to(message, "⛔ Sesión no encontrada.")
         return
     
     bot.send_chat_action(message.chat.id, 'typing')
     
-    # Get Last 24h
+    # Obtener Últimas 24h
     total_pnl, history = session.get_pnl_history(days=1)
     
     icon = "🟢" if total_pnl >= 0 else "🔴"
     
     report = (
-        f"💰 **Daily PnL Check**\n"
+        f"💰 **Comprobación Diaria de PnL**\n"
         f"Total (24h): {icon} **${total_pnl:.2f}**\n\n"
-        f"**Recent Trades:**\n"
+        f"**Operaciones Recientes:**\n"
     )
     
     if not history:
-        report += "No realized trades found in last 24h."
+        report += "No se encontraron operaciones realizadas en las últimas 24h."
     else:
-        # Show last 5
+        # Mostrar últimas 5
         for trade in history[-5:]: 
             s_icon = "🟢" if trade['amount'] > 0 else "🔴"
             t_str = time.strftime('%H:%M', time.localtime(trade['time']/1000))
@@ -181,40 +233,40 @@ def handle_pnl_request(message):
 
 @bot.message_handler(commands=['balance', 'wallet', 'saldo'])
 def handle_balance(message):
-    """Shows current wallet balance and equity"""
+    """Muestra el saldo y patrimonio actual de la billetera"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: 
-        bot.reply_to(message, "⛔ Session not found.")
+        bot.reply_to(message, "⛔ Sesión no encontrada.")
         return
         
     avail, total = session.get_balance_details()
     
     msg = (
-        f"💳 **WALLET BALANCE (USDT)**\n\n"
-        f"💵 **Available:** `${avail:,.2f}`\n"
-        f"💰 **Total Equity:** `${total:,.2f}`\n"
-        f"_(Includes Unrealized PnL based on open positions)_"
+        f"💳 **SALDO DE BILLETERA (USDT)**\n\n"
+        f"💵 **Disponible:** `${avail:,.2f}`\n"
+        f"💰 **Patrimonio Total:** `${total:,.2f}`\n"
+        f"_(Incluye PnL No Realizado basado en posiciones abiertas)_"
     )
     bot.reply_to(message, msg, parse_mode='Markdown')
 
 @bot.message_handler(commands=['price', 'precios'])
 def handle_price_request(message):
-    """Handles /price command to show current status of all assets"""
-    # Public command, accessible to anyone or restricted?
-    # Let's keep it open or restrict to known sessions/admin?
-    # For now, open.
+    """Maneja el comando /price para mostrar el estado actual de todos los activos"""
+    # Comando público, ¿accesible para cualquiera o restringido?
+    # ¿Mantenerlo abierto o restringir a sesiones conocidas/admin?
+    # Por ahora, abierto.
     
-    bot.reply_to(message, "⏳ Fetching prices... please wait.")
+    bot.reply_to(message, "⏳ Obteniendo precios... por favor espere.")
     
-    # Categories
+    # Categorías
     groups = {
         "📉 CRYPTO": [],
         "💵 ACCIONES": [], 
         "🛢️ MATERIAS PRIMAS": []
     }
     
-    # Friendly Names
+    # Nombres Amigables
     name_map = {
         'GC=F': 'Oro (Gold)',
         'CL=F': 'Petróleo (Oil)',
@@ -229,7 +281,7 @@ def handle_price_request(message):
         'MSFT': 'Microsoft (MSFT)'
     }
 
-    # Icons
+    # Iconos
     icon_map = {
         'BTCUSDT': '₿',
         'ETHUSDT': 'Ξ',
@@ -246,31 +298,38 @@ def handle_price_request(message):
 
     for asset in WATCHLIST:
         try:
-            # Determine Category
+            # Determinar Categoría
             category = "💵 ACCIONES"
             if 'USDT' in asset: category = "📉 CRYPTO"
             elif '=F' in asset: category = "🛢️ MATERIAS PRIMAS"
             
-            # Fetch
+            # Obtener datos
             df = get_market_data(asset, timeframe='15m', limit=300)
             if df.empty: continue
                 
             latest = df.iloc[-1]
             price = latest['close']
             
-            _, metrics = analyze_market(df)
+            # Analizar mercado con configuración actual
+            _, metrics = analyze_market(df, enabled_strategies=STRATEGY_CONFIG)
+            
             rsi = metrics.get('rsi', 0)
             stoch_k = metrics.get('stoch_k', 0)
             stoch_d = metrics.get('stoch_d', 0)
             vol_ratio = metrics.get('vol_ratio', 0)
             ema_200 = metrics.get('ema_200', 0)
+            source = metrics.get('source', 'None')
             
             trend_icon = "📈" if price > ema_200 else "🐻"
             display_name = name_map.get(asset, asset)
             asset_icon = icon_map.get(asset, '💎')
             
+            sig_icon = ""
+            if source != 'None':
+                sig_icon = "🔥 COMPRA"
+            
             entry = (
-                f"{asset_icon} **{display_name}**\n"
+                f"{asset_icon} **{display_name}** {sig_icon}\n"
                 f"💰 ${price:,.2f} {trend_icon}\n"
                 f"📉 RSI: {rsi:.1f} | 🌊 Vol: {vol_ratio}x\n"
                 f"📊 Stoch: {stoch_k:.1f}/{stoch_d:.1f}\n"
@@ -280,28 +339,31 @@ def handle_price_request(message):
         except Exception as e:
             print(f"Error {asset}: {e}")
 
-    # Build Final Report
-    report = "📋 **REPORTE ACTUAL DE PRECIOS**\n\n"
+    # Construir Reporte Final
+    report = "📋 **REPORTE ACTUAL DE PRECIOS**\n"
+    # Mostrar Estado de Estrategia en Encabezado
+    report += f"_(Activa: {'MR' if STRATEGY_CONFIG['mean_reversion'] else ''} {'TV' if STRATEGY_CONFIG['trend_velocity'] else ''})_\n\n"
+    
     for cat_name, items in groups.items():
         if items:
             report += f"{cat_name}\n" + "―"*15 + "\n"
             report += "\n".join(items)
             report += "\n\n"
     
-    # Avoid empty message error
-    if len(report) < 50: report = "❌ No data available."
+    # Evitar error de mensaje vacío
+    if len(report) < 50: report = "❌ Sin datos disponibles."
     
     bot.send_message(message.chat.id, report, parse_mode='Markdown')
 
 @bot.message_handler(commands=['debug'])
 def handle_debug(message):
-    """Runs system diagnostics"""
+    """Ejecuta diagnósticos del sistema"""
     user_id = str(message.chat.id)
     if TELEGRAM_ADMIN_ID and user_id != TELEGRAM_ADMIN_ID:
-        bot.reply_to(message, "⛔ Access Denied.")
+        bot.reply_to(message, "⛔ Acceso Denegado.")
         return
 
-    bot.reply_to(message, "🕵️ Running diagnostics...")
+    bot.reply_to(message, "🕵️ Ejecutando diagnósticos...")
     try:
         from utils.diagnostics import run_diagnostics
         report = run_diagnostics()
@@ -311,9 +373,9 @@ def handle_debug(message):
         else:
             bot.send_message(message.chat.id, report, parse_mode='Markdown')
     except Exception as e:
-        bot.reply_to(message, f"❌ diagnostic failed: {e}")
+        bot.reply_to(message, f"❌ diagnóstico fallido: {e}")
 
-# --- CONFIGURATION COMMANDS ---
+# --- COMANDOS DE CONFIGURACIÓN ---
 
 @bot.message_handler(commands=['config'])
 def handle_config(message):
@@ -321,19 +383,19 @@ def handle_config(message):
     session = session_manager.get_session(chat_id)
     
     if not session:
-        bot.reply_to(message, "❌ No session found. Use `/set_keys` first.")
+        bot.reply_to(message, "❌ Sesión no encontrada. Usa `/set_keys` primero.")
         return
 
     cfg = session.get_configuration()
     
     msg = (
-        "⚙️ **YOUR CONFIGURATION**\n\n"
-        f"🔑 **API Access:** {'✅ Ready' if cfg['has_keys'] else '❌ Missing/Invalid'}\n"
-        f"🕹️ **Leverage:** {cfg['leverage']}x\n"
-        f"💰 **Max Margin:** {cfg['max_capital_pct']*100:.1f}% of balance\n"
+        "⚙️ **TU CONFIGURACIÓN**\n\n"
+        f"🔑 **Acceso API:** {'✅ Listo' if cfg['has_keys'] else '❌ Faltante/Inválido'}\n"
+        f"🕹️ **Apalancamiento:** {cfg['leverage']}x\n"
+        f"💰 **Margen Máx:** {cfg['max_capital_pct']*100:.1f}% del saldo\n"
         f"🛡️ **Stop Loss:** {cfg['stop_loss_pct']*100:.1f}%\n"
-        f"🌍 **Proxy:** {'Enabled' if cfg['proxy_enabled'] else 'Disabled'}\n\n"
-        "To change:\n"
+        f"🌍 **Proxy:** {'Habilitado' if cfg['proxy_enabled'] else 'Deshabilitado'}\n\n"
+        "Para cambiar:\n"
         "`/set_leverage 10`\n"
         "`/set_margin 0.1`\n"
         "`/set_sl 0.02`"
@@ -349,16 +411,16 @@ def handle_set_leverage(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: `/set_leverage 10` (Integer 1-125)")
+            bot.reply_to(message, "⚠️ Uso: `/set_leverage 10` (Entero 1-125)")
             return
             
         val = int(args[1])
         if 1 <= val <= 125:
             new_val = session.update_config('leverage', val)
             session_manager.save_sessions()
-            bot.reply_to(message, f"✅ Leverage set to **{new_val}x**")
+            bot.reply_to(message, f"✅ Apalancamiento establecido en **{new_val}x**")
         else:
-            bot.reply_to(message, "❌ Invalid value. Must be 1-125.")
+            bot.reply_to(message, "❌ Valor inválido. Debe ser 1-125.")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
@@ -371,16 +433,16 @@ def handle_set_margin(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: `/set_margin 0.1` (Float 0.01-1.0)")
+            bot.reply_to(message, "⚠️ Uso: `/set_margin 0.1` (Decimal 0.01-1.0)")
             return
             
         val = float(args[1])
         if 0.01 <= val <= 1.0:
             new_val = session.update_config('max_capital_pct', val)
             session_manager.save_sessions()
-            bot.reply_to(message, f"✅ Max Margin set to **{new_val*100:.1f}%**")
+            bot.reply_to(message, f"✅ Margen Máx establecido en **{new_val*100:.1f}%**")
         else:
-            bot.reply_to(message, "❌ Invalid value. Must be 0.01 - 1.0")
+            bot.reply_to(message, "❌ Valor inválido. Debe ser 0.01 - 1.0")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
@@ -393,129 +455,124 @@ def handle_set_sl(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: `/set_sl 0.02` (Float 0.005-0.5)")
+            bot.reply_to(message, "⚠️ Uso: `/set_sl 0.02` (Decimal 0.005-0.5)")
             return
             
         val = float(args[1])
         if 0.001 <= val <= 0.5:
             new_val = session.update_config('stop_loss_pct', val)
             session_manager.save_sessions()
-            bot.reply_to(message, f"✅ Stop Loss set to **{new_val*100:.2f}%**")
+            bot.reply_to(message, f"✅ Stop Loss establecido en **{new_val*100:.2f}%**")
         else:
-            bot.reply_to(message, "❌ Invalid value. Must be 0.001 - 0.5")
+            bot.reply_to(message, "❌ Valor inválido. Debe ser 0.001 - 0.5")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     help_text = (
-        "🤖 **ANTIGRAVITY BOT HELP**\n\n"
-        "**🔑 Session Management**\n"
-        "`/set_keys <API_KEY> <API_SECRET>`\n"
-        "Register your Binance keys to start trading.\n"
-        "`/delete_keys` — Remove your keys.\n"
-        "`/config` — View current settings.\n\n"
+        "🤖 **AYUDA DE ANTIGRAVITY BOT v2.0**\n\n"
+        "**🎮 Control de Estrategia**\n"
+        "`/strategies` — Ver estado de estrategias activas.\n"
+        "`/toggle <mr/tv>` — Activar/Desactivar Reversión a la Media / Velocidad de Tendencia.\n"
+        "   • `mr`: Reversión a la Media (Compra en caídas)\n"
+        "   • `tv`: Velocidad de Tendencia (Momento)\n\n"
         
-        "**⚙️ Configuration**\n"
-        "`/set_leverage <1-125>` — Set leverage (e.g. 10).\n"
-        "`/set_margin <0.01-1.0>` — Set max margin % per trade.\n"
-        "`/set_sl <0.005-0.5>` — Set Stop Loss % (e.g. 0.02).\n\n"
+        "**📊 Inteligencia de Mercado**\n"
+        "`/price` — Reporte Detallado Multi-Activo (Cripto/Acciones/Materias Primas).\n"
+        "`/pnl` — PnL Diario e Historial de Operaciones.\n"
+        "`/balance` — Patrimonio en Billetera y Margen Disponible.\n\n"
         
-        "**📊 Market & Trading**\n"
-        "`/price` — View market prices & indicators.\n"
-        "`/long <SYMBOL>` — Manually open a Long position.\n"
-        "`/sell <SYMBOL>` — Close active position (Market).\n"
-        "`/pnl` — View Daily Realized PnL.\n"
-        "`/balance` — View Wallet Balance & Equity.\n\n"
+        "**⚙️ Riesgo y Configuración**\n"
+        "`/config` — Ver parámetros actuales.\n"
+        "`/set_leverage <1-125>` — Establecer Apalancamiento.\n"
+        "`/set_margin <0.01-1.0>` — Margen Máx por operación (%).\n"
+        "`/set_sl <0.005-0.5>` — Stop Loss (%).\n"
+        "`/set_keys` — Registrar API de Binance.\n\n"
         
-        "**🛠️ System**\n"
-        "`/debug` — Run diagnostics (Admin only)."
+        "**⚡ Acciones Manuales**\n"
+        "`/long <SIMBOLO>` — Forzar una posición Long.\n"
+        "`/sell <SIMBOLO>` — Forzar cierre de posición.\n"
+        "`/debug` — Diagnósticos del Sistema."
     )
     bot.reply_to(message, help_text, parse_mode='Markdown')
 
-# --- ENTRY POINT ---
+# --- PUNTO DE ENTRADA ---
 
 def start_bot():
     global session_manager
-    # 1. Initialize Session Manager
+    # 1. Inicializar Gestor de Sesiones
     session_manager = SessionManager()
     
-    # 2. Start Telegram Polling
+    # 2. Iniciar Polling de Telegram
     if bot:
-        print("📡 Starting Telegram Polling...")
+        print("📡 Iniciando Polling de Telegram...")
         t = threading.Thread(target=bot.infinity_polling, kwargs={'interval': 1, 'timeout': 20}) 
         t.daemon = True 
         t.start()
     
-    # 3. Run Trading Loop
-    print("🚀 Trading Loop Started (60s interval)...")
+    # 3. Ejecutar Bucle de Trading
+    print("🚀 Bucle de Trading Iniciado (intervalo de 60s)...")
     cycle_count = 0
-    alert_history = {} 
+    
+    # Rastreo de Enfriamiento de Alertas
+    # Formato: {'BTCUSDT': timestamp_de_ultima_alerta}
+    last_alert_times = {}
+    COOLDOWN_SECONDS = 900 # 15 Minutos (1 vela)
     
     while True:
         cycle_count += 1
         
-        # Heartbeat
+        # Latido
         if cycle_count % 60 == 0:
-            print(f"🟢 Cycle {cycle_count}: Bot online.")
+            print(f"🟢 Ciclo {cycle_count}: Bot en línea.")
         
         for asset in WATCHLIST:
             try:
-                # 1. Fetch Data
-                # Need 300 candles for EMA_200
+                # 1. Obtener Datos
                 df = get_market_data(asset, timeframe='15m', limit=300)
                 if df.empty: continue
 
-                # 2. Analyze
-                buy_signal, metrics = analyze_market(df)
+                # 2. Analizar (con Configuración Global de Estrategia)
+                buy_signal, metrics = analyze_market(df, enabled_strategies=STRATEGY_CONFIG)
                 
-                # 3. Alert & Trade
+                # 3. Lógica de Alerta y Trading
                 if buy_signal:
-                    current_time = time.time()
-                    if asset not in alert_history: alert_history[asset] = []
-                    alert_history[asset] = [t for t in alert_history[asset] if current_time - t < 300]
+                    now = time.time()
+                    last_time = last_alert_times.get(asset, 0)
                     
-                    if len(alert_history[asset]) < 3:
-                        price = metrics.get('close', 0)
-                        rsi = metrics.get('rsi', 0)
+                    # Verificación de Enfriamiento
+                    if (now - last_time) < COOLDOWN_SECONDS:
+                        # La señal existe pero la ignoramos (prevención de spam)
+                        continue
                         
-                        msg = f"🚀 *SEÑAL DE COMPRA* \n\n💎 {asset}\n💰 ${price:.2f}\n📉 RSI: {rsi:.2f}"
-                        # Broadcast
-                        send_alert(msg)
-                        
-                        alert_history[asset].append(current_time)
-                        
-                        # --- BINANCE EXECUTION (Multi-Tenant) ---
-                        if asset.endswith('USDT'): 
-                            sessions = session_manager.get_all_sessions()
-                            if not sessions:
-                                print(f"⚠️ Signal for {asset}, but no active sessions.")
-                            
-                            for session in sessions:
-                                if session.client: # Only execute if client is valid
-                                    print(f"⚡ [Chat {session.chat_id}] Auto-Trading {asset}...")
-                                    success, trade_msg = session.execute_long_position(asset)
-                                    if success:
-                                        bot.send_message(session.chat_id, f"✅ **Auto-Trade Executed:**\n{trade_msg}", parse_mode='Markdown')
-                                    else:
-                                        # Only notify user of failure if it was attempted (e.g. balance issues), 
-                                        # silence connection errors to avoid spam?
-                                        if "Insufficient" in trade_msg:
-                                            bot.send_message(session.chat_id, f"⚠️ Auto-Trade Failed: {trade_msg}", parse_mode='Markdown')
-                                        else:
-                                            print(f"❌ [Chat {session.chat_id}] User Trade Failed: {trade_msg}")
+                    # Nueva Alerta Válida
+                    last_alert_times[asset] = now
+                    
+                    price = metrics['close']
+                    source = metrics.get('source', 'Desconocido')
+                    
+                    msg = (
+                        f"🚀 **SEÑAL DE COMPRA: {asset}**\n"
+                        f"estrategia: `{source}`\n"
+                        f"precio: `${price:,.2f}`\n"
+                        f"rsi: {metrics.get('rsi',0):.1f} | adx: {metrics.get('adx',0):.1f}"
+                    )
+                    send_alert(msg)
+                    print(f"✅ ALERTA ENVIADA: {asset} ({source})")
+                    
+                    # Ejecutar Operación (Iterar todas las sesiones)
+                    # Por seguridad, restringimos el trading automático o solo alertamos por ahora.
+                    if session_manager:
+                        for session in session_manager.get_all_sessions():
+                            # Lógica de auto-trading iría aquí
+                            # success, res = session.execute_long_position(asset)
+                            pass
 
-                    else:
-                        print(f"⚠️ Rate limit hit for {asset}.")
-            
             except Exception as e:
-                print(f"Error processing {asset}: {e}")
-        
-        print("--- Cycle complete. Waiting 60s ---")
+                print(f"❌ Error en bucle ({asset}): {e}")
+                
         time.sleep(60)
 
 if __name__ == "__main__":
-    try:
-        start_bot()
-    except KeyboardInterrupt:
-        print("\n🛑 Bot stopped by user.")
+    start_bot()

@@ -3,63 +3,63 @@ import numpy as np
 
 def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """
-    Calculates the Relative Strength Index (RSI).
-    Uses Wilder's smoothing (alpha = 1/period) via ewm(com=period-1).
+    Calcula el Índice de Fuerza Relativa (RSI).
+    Usa el suavizado de Wilder (alpha = 1/periodo) vía ewm(com=periodo-1).
     """
     delta = series.diff()
     
-    # Separate gains and losses
+    # Separar ganancias y pérdidas
     gain = (delta.where(delta > 0, 0)).fillna(0)
-    loss = (-delta.where(delta < 0, 0)).fillna(0) # Store as positive values
+    loss = (-delta.where(delta < 0, 0)).fillna(0) # Almacenar como valores positivos
 
-    # Wilder's Smoothing
+    # Suavizado de Wilder
     avg_gain = gain.ewm(com=period - 1, min_periods=period).mean()
     avg_loss = loss.ewm(com=period - 1, min_periods=period).mean()
 
-    # Calculate RS
+    # Calcular RS
     rs = avg_gain / avg_loss
     
-    # Calculate RSI: 100 - (100 / (1 + RS))
+    # Calcular RSI: 100 - (100 / (1 + RS))
     rsi = 100 - (100 / (1 + rs))
     
-    # Handle division by zero (avg_loss == 0 means RSI is 100)
+    # Manejar división por cero (avg_loss == 0 significa que RSI es 100)
     rsi = rsi.replace([np.inf], 100)
     
-    # Handle NaN at start
+    # Manejar NaN al inicio
     rsi = rsi.fillna(0)
     
     return rsi
 
 def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int = 3, d_period: int = 3) -> pd.DataFrame:
     """
-    Calculates the Stochastic RSI.
-    Input: RSI Series (not price).
-    Formula: (rsi - min_rsi) / (max_rsi - min_rsi)
-    Returns values in 0-100 range (multiplied by 100).
-    Returns DataFrame with 'k' (smoothed StochRSI) and 'd' (SMA of k).
+    Calcula el RSI Estocástico.
+    Entrada: Serie RSI (no precio).
+    Fórmula: (rsi - min_rsi) / (max_rsi - min_rsi)
+    Devuelve valores en rango 0-100 (multiplicado por 100).
+    Devuelve DataFrame con 'k' (StochRSI suavizado) y 'd' (SMA de k).
     """
-    # Calculate Min/Max RSI in window
+    # Calcular Min/Max RSI en ventana
     min_rsi = rsi_series.rolling(window=period).min()
     max_rsi = rsi_series.rolling(window=period).max()
     
-    # Calculate Stoch RSI (Fast %K)
-    # Avoid division by zero
+    # Calcular Stoch RSI (Fast %K)
+    # Evitar división por cero
     denominator = max_rsi - min_rsi
     stoch_rsi = (rsi_series - min_rsi) / denominator
     
-    # Handle NaNs from calculation (0/0 etc)
+    # Manejar NaNs del cálculo (0/0 etc)
     stoch_rsi = stoch_rsi.fillna(0)
     
-    # Scale to 0-100 as per common oscillators for consistency
+    # Escalar a 0-100 según osciladores comunes para consistencia
     stoch_rsi_100 = stoch_rsi * 100
     
-    # Smooth %K
+    # Suavizar %K
     k_line = stoch_rsi_100.rolling(window=k_period).mean()
     
-    # Calculate %D (SMA of %K)
+    # Calcular %D (SMA de %K)
     d_line = k_line.rolling(window=d_period).mean()
     
-    # Handle NaNs
+    # Manejar NaNs
     k_line = k_line.fillna(0)
     d_line = d_line.fillna(0)
     
@@ -67,24 +67,24 @@ def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int =
 
 def calculate_macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
     """
-    Calculates MACD, Signal line, and Histogram.
+    Calcula MACD, Línea de Señal e Histograma.
     """
-    # EMA Fast
+    # EMA Rápida
     ema_fast = series.ewm(span=fast, adjust=False).mean()
     
-    # EMA Slow
+    # EMA Lenta
     ema_slow = series.ewm(span=slow, adjust=False).mean()
     
-    # MACD Line
+    # Línea MACD
     macd_line = ema_fast - ema_slow
     
-    # Signal Line
+    # Línea de Señal
     signal_line = macd_line.ewm(span=signal, adjust=False).mean()
     
-    # Histogram
+    # Histograma
     histogram = macd_line - signal_line
     
-    # Handle NaNs
+    # Manejar NaNs
     macd_line = macd_line.fillna(0)
     signal_line = signal_line.fillna(0)
     histogram = histogram.fillna(0)
@@ -97,19 +97,19 @@ def calculate_macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: in
 
 def calculate_bollinger_bands(series: pd.Series, period: int = 20, std_dev: int = 2) -> pd.DataFrame:
     """
-    Calculates Bollinger Bands (Upper, Middle, Lower).
+    Calcula Bandas de Bollinger (Superior, Media, Inferior).
     """
-    # Middle Band: SMA
+    # Banda Media: SMA
     middle = series.rolling(window=period).mean()
     
-    # Standard Deviation
+    # Desviación Estándar
     std = series.rolling(window=period).std()
     
-    # Upper/Lower Bands
+    # Bandas Superior/Inferior
     upper = middle + (std * std_dev)
     lower = middle - (std * std_dev)
     
-    # Handle NaNs (e.g. initial rolling window)
+    # Manejar NaNs (ej. ventana inicial)
     middle = middle.bfill().fillna(0)
     upper = upper.bfill().fillna(0)
     lower = lower.bfill().fillna(0)
@@ -122,21 +122,21 @@ def calculate_bollinger_bands(series: pd.Series, period: int = 20, std_dev: int 
 
 def calculate_ema(series: pd.Series, period: int = 200) -> pd.Series:
     """
-    Calculates Exponential Moving Average (EMA).
+    Calcula Media Móvil Exponencial (EMA).
     """
     return series.ewm(span=period, adjust=False).mean()
 
 def calculate_wma(series: pd.Series, period: int) -> pd.Series:
     """
-    Calculates Weighted Moving Average (WMA).
+    Calcula Media Móvil Ponderada (WMA).
     weights: [1, 2, ..., period]
     """
     return series.rolling(period).apply(lambda x: ((x * np.arange(1, period + 1)).sum()) / (np.arange(1, period + 1).sum()), raw=True)
 
 def calculate_hma(series: pd.Series, period: int = 55) -> pd.Series:
     """
-    Calculates Hull Moving Average (HMA).
-    Formula: WMA(2 * WMA(n/2) - WMA(n), sqrt(n))
+    Calcula Media Móvil de Hull (HMA).
+    Fórmula: WMA(2 * WMA(n/2) - WMA(n), sqrt(n))
     """
     half_period = int(period / 2)
     sqrt_period = int(np.sqrt(period))
@@ -150,10 +150,10 @@ def calculate_hma(series: pd.Series, period: int = 55) -> pd.Series:
 
 def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     """
-    Calculates ADX, DI+, DI-.
-    Returns DataFrame with columns: ['adx', 'plus_di', 'minus_di']
+    Calcula ADX, DI+, DI-.
+    Devuelve DataFrame con columnas: ['adx', 'plus_di', 'minus_di']
     """
-    # 1. True Range
+    # 1. Rango Verdadero (True Range)
     high = df['high']
     low = df['low']
     close = df['close']
@@ -164,30 +164,30 @@ def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     
-    # 2. Directional Movement
+    # 2. Movimiento Direccional
     up_move = high - high.shift(1)
     down_move = low.shift(1) - low
     
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
     
-    # 3. Smoothed TR and DM (Wilder's Smoothing)
-    # Note: ewm(alpha=1/period) is equivalent to Wilder's
+    # 3. TR y DM Suavizados (Suavizado de Wilder)
+    # Nota: ewm(alpha=1/periodo) es equivalente a Wilder
     alpha = 1 / period
     
     tr_smooth = tr.ewm(alpha=alpha, adjust=False).mean()
     plus_dm_smooth = pd.Series(plus_dm, index=df.index).ewm(alpha=alpha, adjust=False).mean()
     minus_dm_smooth = pd.Series(minus_dm, index=df.index).ewm(alpha=alpha, adjust=False).mean()
     
-    # 4. DI+ and DI-
+    # 4. DI+ y DI-
     plus_di = 100 * (plus_dm_smooth / tr_smooth)
     minus_di = 100 * (minus_dm_smooth / tr_smooth)
     
     # 5. DX
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
     
-    # 6. ADX (Smoothed DX)
-    # Standard ADX uses the same smoothing on DX
+    # 6. ADX (DX Suavizado)
+    # ADX estándar usa el mismo suavizado en DX
     adx = dx.ewm(alpha=alpha, adjust=False).mean()
     
     return pd.DataFrame({
@@ -198,6 +198,6 @@ def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 def calculate_adx_slope(adx_series: pd.Series) -> pd.Series:
     """
-    Returns boolean series: True if ADX is rising (current > prev).
+    Devuelve serie booleana: True si ADX está subiendo (actual > anterior).
     """
     return adx_series > adx_series.shift(1)
