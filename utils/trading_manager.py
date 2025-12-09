@@ -142,6 +142,36 @@ class SessionManager:
         self.data_file = data_file
         self.sessions = {} # chat_id -> TradingSession
         self._load_sessions()
+        self._ensure_admin_session_from_env()
+
+    def _ensure_admin_session_from_env(self):
+        """
+        Auto-loads admin session if environment variables are present.
+        Prioritizes environment variables for the Admin ID.
+        """
+        admin_id = os.getenv('TELEGRAM_ADMIN_ID')
+        api_key = os.getenv('BINANCE_API_KEY')
+        api_secret = os.getenv('BINANCE_SECRET')
+        
+        if admin_id and api_key and api_secret:
+            print(f"👑 Admin ID {admin_id} detected in Env. Auto-configuring session...")
+            # We create or update, but we DO NOT save to disk to avoid leaking Env keys into JSON
+            # This session will exist in memory.
+            
+            # Check if session exists
+            if str(admin_id) in self.sessions:
+                # Update existing session in memory with env keys (overrides file)
+                self.sessions[str(admin_id)].api_key = api_key
+                self.sessions[str(admin_id)].api_secret = api_secret
+                self.sessions[str(admin_id)]._init_client()
+            else:
+                # Create new in-memory session
+                self.sessions[str(admin_id)] = TradingSession(
+                    chat_id=str(admin_id),
+                    api_key=api_key,
+                    api_secret=api_secret
+                )
+            print("✅ Admin Session Auto-Configured from Environment.")
 
     def _load_sessions(self):
         if not os.path.exists(self.data_file):
