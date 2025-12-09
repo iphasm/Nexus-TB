@@ -131,8 +131,8 @@ def handle_price_request(message):
     
     # Categories
     groups = {
-        "� CRYPTO": [],
-        "💵 ACIONES": [], 
+        "📉 CRYPTO": [],
+        "💵 ACCIONES": [], 
         "🛢️ MATERIAS PRIMAS": []
     }
     
@@ -143,13 +143,16 @@ def handle_price_request(message):
         'BTCUSDT': 'Bitcoin',
         'ETHUSDT': 'Ethereum',
         'SOLUSDT': 'Solana',
-        'XRPUSDT': 'Ripple'
+        'XRPUSDT': 'Ripple',
+        'MSFT': 'Microsoft',
+        'TSLA': 'Tesla',
+        'NVDA': 'Nvidia'
     }
 
     for asset in WATCHLIST:
         try:
             # Determine Category
-            category = "💵 ACIONES"
+            category = "💵 ACCIONES"
             if 'USDT' in asset: category = "📉 CRYPTO"
             elif '=F' in asset: category = "🛢️ MATERIAS PRIMAS"
             
