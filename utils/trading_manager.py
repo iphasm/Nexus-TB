@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import threading
 from binance.client import Client
 from binance.enums import *
@@ -82,6 +83,18 @@ class TradingSession:
             max_capital_pct = self.config['max_capital_pct']
             stop_loss_pct = self.config['stop_loss_pct']
 
+            # 0. Safety Check: Existing Position
+            # We fetch position info to ensure we don't double-buy
+            positions = self.client.futures_position_information(symbol=symbol)
+            # In One-Way Mode, len is 1. In Hedge Mode, len is 2 (Long/Short).
+            # We assume we only want ONE net exposure per symbol.
+            net_qty = 0.0
+            for p in positions:
+                net_qty += float(p['positionAmt'])
+            
+            if net_qty != 0:
+                return False, f"⚠️ Position already open ({net_qty} {symbol})."
+
             # 1. Update Leverage
             self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
 
@@ -126,12 +139,65 @@ class TradingSession:
                 symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp_price, closePosition=True
             )
             
+            
+            self._log_trade(symbol, entry_price, quantity, sl_price, tp_price)
             return True, f"Long {symbol} @ {entry_price} (SL: {sl_price}, TP: {tp_price})"
 
         except BinanceAPIException as e:
             return False, f"Binance Error: {e.message}"
         except Exception as e:
             return False, f"Error: {str(e)}"
+
+
+    def _log_trade(self, symbol, entry, qty, sl, tp):
+        """Logs trade to local JSON file for history"""
+        try:
+            log_file = 'data/trades.json'
+            entry_data = {
+                "timestamp": time.time(),
+                "date": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "chat_id": self.chat_id,
+                "symbol": symbol,
+                "side": "LONG",
+                "entry_price": entry,
+                "quantity": qty,
+                "sl": sl,
+                "tp": tp
+            }
+            
+            data = []
+            if os.path.exists(log_file):
+                with open(log_file, 'r') as f:
+                    try:
+                        data = json.load(f)
+                    except: pass # Handle corrupt file
+            
+            data.append(entry_data)
+            
+            with open(log_file, 'w') as f:
+                json.dump(data, f, indent=4)
+                
+        except Exception as e:
+            print(f"⚠️ Failed to log trade: {e}")
+
+    def get_active_positions(self):
+        """Returns list of symbols with active positions"""
+        if not self.client: return []
+        try:
+            positions = self.client.futures_position_information()
+            active = []
+            for p in positions:
+                if float(p['positionAmt']) != 0:
+                    active.append({
+                        "symbol": p['symbol'],
+                        "amt": p['positionAmt'],
+                        "entry": p['entryPrice'],
+                        "pnl": p['unRealizedProfit']
+                    })
+            return active
+        except Exception as e:
+            print(f"Error fetching positions: {e}")
+            return []
 
 
 class SessionManager:
