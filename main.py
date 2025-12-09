@@ -14,7 +14,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 WATCHLIST = [
-    'BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', '1000PEPEUSDT', 'ZECUSDT',
+    'BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', 'ZECUSDT',
     'TSLA', 'NVDA', 'MSFT',
     'GC=F', 'CL=F']
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -145,7 +145,6 @@ def handle_price_request(message):
         'XRPUSDT': 'Ripple (XRP)',
         'SOLUSDT': 'Solana (SOL)',
         'SUIUSDT': 'SUI (SUI)',
-        '1000PEPEUSDT': 'PEPE (1000PEPE)',
         'ZECUSDT': 'Zcash (ZEC)',
         'TSLA': 'Tesla (TSLA)',
         'NVDA': 'Nvidia (NVDA)',
@@ -159,7 +158,6 @@ def handle_price_request(message):
         'XRPUSDT': '✕',
         'SOLUSDT': '◎',
         'SUIUSDT': '💧',
-        '1000PEPEUSDT': '🐸',
         'ZECUSDT': '🛡️',
         'TSLA': '🚗',
         'NVDA': '🟢',
@@ -332,7 +330,27 @@ def handle_set_sl(message):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "🤖 **Trading Bot Active**\n\n1️⃣ Use `/set_keys <KEY> <SECRET>` to start.\n2️⃣ Use `/config` to see settings.\n3️⃣ Use `/price` for market data.")
+    help_text = (
+        "🤖 **ANTIGRAVITY BOT HELP**\n\n"
+        "**🔑 Session Management**\n"
+        "`/set_keys <API_KEY> <API_SECRET>`\n"
+        "Register your Binance keys to start trading.\n"
+        "`/delete_keys` — Remove your keys.\n"
+        "`/config` — View current settings.\n\n"
+        
+        "**⚙️ Configuration**\n"
+        "`/set_leverage <1-125>` — Set leverage (e.g. 10).\n"
+        "`/set_margin <0.01-1.0>` — Set max margin % per trade.\n"
+        "`/set_sl <0.005-0.5>` — Set Stop Loss % (e.g. 0.02).\n\n"
+        
+        "**📊 Market & Trading**\n"
+        "`/price` — View market prices & indicators.\n"
+        "`/long <SYMBOL>` — Manually open a Long position.\n\n"
+        
+        "**🛠️ System**\n"
+        "`/debug` — Run diagnostics (Admin only)."
+    )
+    bot.reply_to(message, help_text, parse_mode='Markdown')
 
 # --- ENTRY POINT ---
 
