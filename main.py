@@ -306,96 +306,12 @@ def handle_manual_closeall(message):
     success, msg = session.execute_close_all()
     bot.reply_to(message, msg)
 
-# ... (Handlers remain) ...
-
-# --- TRADING LOOP ---
-
-def run_trading_loop():
-    """Bucle de Trading en Background"""
-    print("🚀 Bucle de Trading Híbrido Iniciado (Background)...")
-    
-    while True:
-        try:
-            # Iterar Grupos Activos
-            for group_name, assets in ASSET_GROUPS.items():
-                if not GROUP_CONFIG.get(group_name, False):
-                    continue
-                    
-                for asset in assets:
-                    try:
-                        # 1. Obtener Datos
-                        df = get_market_data(asset, timeframe='15m', limit=200)
-                        if df.empty: continue
-                        
-                        current_time = time.time()
-                        last_alert = last_alert_times.get(asset, 0)
-                        
-                        # Cooldown check
-                        if (current_time - last_alert) < SIGNAL_COOLDOWN:
-                            continue
-                            
-                        # 2. Análisis Híbrido
-                        is_spot_buy, spot_metrics = analyze_mean_reversion(df)
-                        
-                        engine = StrategyEngine(df)
-                        fut_result = engine.analyze()
-                        fut_signal = fut_result['signal']
-                        
-                        # 3. Alertas y Estado
-                        
-                        # SPOT (Independiente de Futuros, siempre avisa si hay señal fuerte)
-                        if is_spot_buy:
-                            msg = (
-                                f"💎 **SEÑAL SPOT: {asset}**\n"
-                                f"Estrategia: Reversión a la Media\n"
-                                f"Precio: ${spot_metrics['close']:,.2f}\n"
-                                f"Razón: {spot_metrics['reason']}"
-                            )
-                            send_alert(msg)
-                            last_alert_times[asset] = current_time
-                            # No afectamos pos_state de futuros
-                            continue 
-                            
-                        # FUTUROS (Con Estado para evitar spam de salidas)
-                        curr_state = pos_state.get(asset, 'NEUTRAL')
-                        
-                        if fut_signal == 'BUY':
-                            msg = (
-                                f"🚀 **SEÑAL FUTUROS: {asset}**\n"
-                                f"Estrategia: Squeeze & Velocity\n"
-                                f"Precio: ${fut_result['metrics']['close']:,.2f}\n"
-                                f"Razón: {fut_result['reason']}\n"
-                                f"ADX: {fut_result['metrics']['adx']:.1f} | Squeeze: {'ON' if fut_result['metrics']['squeeze_on'] else 'OFF'}"
-                            )
-                            send_alert(msg)
-                            last_alert_times[asset] = current_time
-                            pos_state[asset] = 'LONG' # Actualizar estado
-                        
-                        elif fut_signal == 'CLOSE_LONG':
-                             # SOLO avisar salida si estábamos en LONG (o si no sabemos, una vez)
-                             # Para ser seguros: Si estado es NEUTRAL, NO avisar salida (asumimos que ya salimos o nunca entramos)
-                             if curr_state == 'LONG':
-                                 msg = (
-                                    f"📉 **SALIDA FUTUROS: {asset}**\n"
-                                    f"Razón: {fut_result['reason']}"
-                                 )
-                                 send_alert(msg)
-                                 last_alert_times[asset] = current_time
-                                 pos_state[asset] = 'NEUTRAL' # Resetear estado
-
-                    except Exception as e:
-                        print(f"⚠️ Error procesando {asset}: {e}")
-                        
-        except Exception as e:
-            print(f"❌ Error CRÍTICO en bucle de trading: {e}")
-            
-        time.sleep(60)
-
 def send_welcome(message):
     # Texto en plano para evitar errores de parseo (Markdown legacy es estricto con _)
     help_text = (
         "🤖 ANTIGRAVITY BOT v3.2 - COMMAND LIST\n\n"
         "🎮 *CONTROL GENERAL*\n"
+        "• /start - Verificar Estado y Conexión.\n"
         "• /status - Ver estado del sistema y modo de riesgo.\n"
         "• /toggle_group <GRUPO> - Activar/Desactivar (CRYPTO, STOCKS, COMMODITY).\n"
         "• /set_interval <MIN> - Ajustar frecuencia de análisis.\n"
@@ -407,7 +323,8 @@ def send_welcome(message):
         "• /close <TICKER> - Cerrar posición específica.\n"
         "• /closeall - CERRAR TODO (Botón de Pánico).\n\n"
         
-        "�️ *GESTIÓN Y RIESGO*\n"
+        "🛡️ *GESTIÓN Y RIESGO*\n"
+        "• /risk - Explicación detallada del modelo de Riesgo.\n"
         "• /config - Ver parámetros de riesgo activos.\n"
         "• /wallet - Ver Capital Spot, Balance Futuros y PnL.\n"
         "• /pnl - Reporte rápido de ganancias (24h).\n"
@@ -419,6 +336,40 @@ def send_welcome(message):
         "• /price - Radar de precios y señales técnicas."
     )
     bot.reply_to(message, help_text, parse_mode='Markdown')
+
+def handle_risk(message):
+    """Explication detallada de la gestión de riesgo activa"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    # Defaults
+    margin = "10%"
+    sl_fixed = "2%"
+    if session:
+        margin = f"{session.config['max_capital_pct']*100:.1f}%"
+        sl_fixed = f"{session.config['stop_loss_pct']*100:.1f}%"
+
+    msg = (
+        "🛡️ *SISTEMA DE GESTIÓN DE RIESGO AVANZADO*\n"
+        "〰️〰️〰️〰️〰️〰️\n"
+        "1. *Stop Loss Dinámico (ATR)*\n"
+        "   El bot analiza la volatilidad (Average True Range). \n"
+        "   • *Distancia SL:* `2.0 x ATR` (Se aleja si hay ruido, se acerca si hay calma).\n"
+        "   • *Objetivo:* Evitar barridas de stop en mercados volátiles.\n\n"
+        
+        "2. *Cálculo de Posición (Sizing)*\n"
+        "   El tamaño de la operación NO es fijo. Se calcula para arriesgar máx un **2%** de tu capital por trade.\n"
+        "   • *Fórmula:* `Capital * 0.02 / Distancia_SL`\n"
+        "   • *Límite de Seguridad:* Nunca superará el Margin Global configurado (actual: **{margin}**).\n\n"
+        
+        "3. *Take Profit Dividido (Split)*\n"
+        "   • *TP1 (50%):* Se cierra al alcanzar **1.5R** (Retorno/Riesgo). Asegura ganancias rápido.\n"
+        "   • *TP2 (50%):* Activa un **Trailing Stop** del 1.5%. Si el precio sigue subiendo, el bot lo persigue para maximizar la ganancia.\n\n"
+        
+        "ℹ️ _Si la volatilidad (ATR) no está disponible, el sistema usa el modo 'Fallback' (SL {sl_fixed} fijo)._"
+    ).format(margin=margin, sl_fixed=sl_fixed)
+    
+    bot.reply_to(message, msg, parse_mode='Markdown')
 
 def handle_start(message):
     """Simple Health Check & Intro"""
@@ -732,51 +683,6 @@ def handle_wallet(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-def handle_wallet(message):
-    """Muestra detalles completos de la cartera (Spot + Futuros)"""
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    if not session: 
-        bot.reply_to(message, "⚠️ Sin sesión activa. Usa /set_keys.")
-        return
-    
-    bot.reply_to(message, "⏳ Consultando Blockchain y Binance...")
-    
-    try:
-        details = session.get_wallet_details()
-        if not details:
-            bot.reply_to(message, "❌ Error obteniendo datos de cartera.")
-            return
-            
-        # Unpack
-        spot = details.get('spot_usdt', 0.0)
-        fut_bal = details.get('futures_balance', 0.0)
-        fut_pnl = details.get('futures_pnl', 0.0)
-        fut_total = details.get('futures_total', 0.0)
-        
-        # Calculate Total Net Worth
-        net_worth = spot + fut_total
-        
-        # Formatting
-        pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
-        
-        msg = (
-            "🏦 *WALLET REPORT*\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"💎 *SPOT Capital:* `${spot:,.2f}` (USDT)\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
-            f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"
-            f"💰 *FUTUROS Total:* `${fut_total:,.2f}`\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🏆 *NET WORTH:* `${net_worth:,.2f}`"
-        )
-        
-        bot.reply_to(message, msg, parse_mode='Markdown')
-        
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-
 
 # --- MASTER LISTENER ---
 @bot.message_handler(func=lambda m: True)
@@ -796,6 +702,8 @@ def master_listener(message):
                 handle_start(message)
             elif cmd_part == '/help':
                 send_welcome(message)
+            elif cmd_part == '/risk':
+                handle_risk(message)
             elif cmd_part == '/status':
                 handle_status(message)
             elif cmd_part == '/toggle_group':
