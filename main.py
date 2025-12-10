@@ -335,7 +335,12 @@ def send_welcome(message):
         "📡 *INTELIGENCIA*\n"
         "• /price - Radar de precios y señales técnicas."
     )
-    bot.reply_to(message, help_text, parse_mode='Markdown')
+    try:
+        bot.reply_to(message, help_text, parse_mode='Markdown')
+    except Exception as e:
+        # Fallback to plain text if Markdown fails (usually due to bad char or syntax)
+        print(f"⚠️ Error enviando Help (Markdown): {e}")
+        bot.reply_to(message, help_text.replace('*', '').replace('`', ''))
 
 def handle_risk(message):
     """Explication detallada de la gestión de riesgo activa"""
