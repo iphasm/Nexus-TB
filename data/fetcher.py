@@ -5,8 +5,28 @@ from binance.client import Client
 
 # Initialize Binance Client
 # Use environment variables if present, otherwise default to public mode
+# --- BINANCE SETUP ---
 api_key = os.getenv('BINANCE_API_KEY')
 api_secret = os.getenv('BINANCE_SECRET')
+
+# --- ALPACA SETUP ---
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+from datetime import datetime, timedelta
+
+alpaca_api_key = os.getenv('APCA_API_KEY_ID')
+alpaca_secret_key = os.getenv('APCA_API_SECRET_KEY')
+alpaca_data_client = None
+
+try:
+    if alpaca_api_key and alpaca_secret_key:
+        alpaca_data_client = StockHistoricalDataClient(alpaca_api_key, alpaca_secret_key)
+        print("✅ Alpaca Data Client initialized.")
+    else:
+        print("⚠️ Alpaca Keys missing. Stocks will use YFinance (Delayed/Unofficial).")
+except Exception as e:
+    print(f"❌ Warning: Alpaca Client init failed: {e}")
 
 # Proxy Configuration
 proxy_url = os.getenv('PROXY_URL')
@@ -106,8 +126,62 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
                 
             return df
 
-        # --- STOCK (YFINANCE) ---
+        # --- STOCK (ALPACA or YFINANCE) ---
         else:
+            # 1. Try Alpaca First
+            if alpaca_data_client:
+                try:
+                    # Map Timeframe
+                    alpaca_tf = TimeFrame(15, TimeFrameUnit.Minute) # Default 15m
+                    if timeframe == '1m': alpaca_tf = TimeFrame.Minute
+                    elif timeframe == '5m': alpaca_tf = TimeFrame(5, TimeFrameUnit.Minute)
+                    elif timeframe == '1h': alpaca_tf = TimeFrame.Hour
+                    elif timeframe == '1d': alpaca_tf = TimeFrame.Day
+                    
+                    # Calculate start time (approx limit * timeframe)
+                    # Simple approx: 15m * 200 = 3000m = 50 hours. Let's fetch 5 days to be safe.
+                    start_dt = datetime.utcnow() - timedelta(days=10) 
+                    
+                    req = StockBarsRequest(
+                        symbol_or_symbols=symbol,
+                        timeframe=alpaca_tf,
+                        start=start_dt,
+                        limit=limit
+                    )
+                    
+                    bars = alpaca_data_client.get_stock_bars(req)
+                    
+                    if not bars.df.empty:
+                        df = bars.df.reset_index()
+                        # Alpaca DF columns: [symbol, timestamp, open, high, low, close, volume, trade_count, vwap]
+                        rename_map = {
+                            'timestamp': 'timestamp',
+                            'open': 'open',
+                            'high': 'high',
+                            'low': 'low', 
+                            'close': 'close',
+                            'volume': 'volume'
+                        }
+                        
+                        # Ensure columns
+                        for old, new in rename_map.items():
+                             if old not in df.columns: df[new] = 0.0
+
+                        df = df[list(rename_map.values())] 
+
+                        # TZ naive conversion for consistency
+                        if df['timestamp'].dt.tz is not None:
+                             df['timestamp'] = df['timestamp'].dt.tz_convert(None)
+                        
+                        return df
+                    else:
+                        print(f"⚠️ Alpaca returned empty for {symbol}. Falling back to YF.")
+
+                except Exception as e:
+                    print(f"⚠️ Alpaca fetch error for {symbol}: {e}. Falling back to YF.")
+
+            # 2. Fallback to YFinance
+            print(f"DEBUG: Fetching Stock {symbol} via YFinance...")
             ticker = yf.Ticker(symbol)
             
             # Map timeframe/limit

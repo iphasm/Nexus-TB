@@ -5,6 +5,10 @@ import threading
 from binance.client import Client
 from binance.enums import *
 from binance.exceptions import BinanceAPIException
+# --- ALPACA IMPORTS ---
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
 
 class TradingSession:
     """
@@ -38,9 +42,11 @@ class TradingSession:
              # print(f"🌍 Using Global Proxy for Chat {self.chat_id}")
 
         # Initialize Client
+        self.alpaca_client = None
         self._init_client()
 
     def _init_client(self):
+        # 1. BINANCE
         if self.api_key and self.api_secret:
             try:
                 self.client = Client(self.api_key, self.api_secret, tld='com', requests_params=self.request_params)
@@ -50,6 +56,21 @@ class TradingSession:
                 self.client = None
         else:
             print(f"⚠️ [Chat {self.chat_id}] Missing API Keys.")
+            
+        # 2. ALPACA (Env Vars only for now)
+        ak = os.getenv('APCA_API_KEY_ID')
+        ask = os.getenv('APCA_API_SECRET_KEY')
+        base_url = os.getenv('APCA_API_BASE_URL') # Optional: defaults to paper if not set or set to paper
+        paper = True
+        if base_url and 'paper' not in base_url and 'api.alpaca' in base_url:
+            paper = False
+            
+        if ak and ask:
+            try:
+                self.alpaca_client = TradingClient(ak, ask, paper=paper)
+                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
+            except Exception as e:
+                print(f"❌ [Chat {self.chat_id}] Failed to init Alpaca: {e}")
 
     # --- CONFIGURATION METHODS ---
     def update_config(self, key, value):
@@ -75,7 +96,99 @@ class TradingSession:
             print(f"Error getting precision for {symbol}: {e}")
         return 2, 2
 
+    def _execute_alpaca_order(self, symbol, side, atr=None):
+        if not self.alpaca_client:
+            return False, "⚠️ Alpaca Client not initialized (Check env vars)."
+
+        try:
+            # 1. Check existing position
+            try:
+                pos = self.alpaca_client.get_open_position(symbol)
+                if pos:
+                    return False, f"⚠️ Position already open for {symbol} ({pos.qty})."
+            except:
+                pass # No position found
+
+            # 2. Get Account Info
+            acct = self.alpaca_client.get_account()
+            equity = float(acct.equity) if hasattr(acct, 'equity') else 100000.0
+
+            # 3. Get Price (Quick Snapshot via YF)
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            # Use fast_info for speed, fallback to history
+            try:
+                current_price = ticker.fast_info['last_price']
+            except:
+                hist = ticker.history(period="1d")
+                if not hist.empty:
+                     current_price = hist['Close'].iloc[-1]
+                else: 
+                     return False, f"❌ Failed to fetch price for {symbol}"
+
+            if not current_price: return False, "❌ Price is zero/null."
+
+            # 4. Calculate Sizing
+            risk_pct = 0.02 # 2% risk
+            
+            # SL / TP
+            if atr and atr > 0:
+                sl_dist = 2.0 * atr
+                if side == 'LONG':
+                    sl_price = current_price - sl_dist
+                    tp_price = current_price + (1.5 * sl_dist)
+                else: 
+                    sl_price = current_price + sl_dist
+                    tp_price = current_price - (1.5 * sl_dist)
+            else:
+                # Fallback 2% SL
+                sl_pct = 0.02
+                if side == 'LONG':
+                    sl_price = current_price * (1 - sl_pct)
+                    tp_price = current_price * (1 + (sl_pct * 3))
+                else:
+                    sl_price = current_price * (1 + sl_pct)
+                    tp_price = current_price * (1 - (sl_pct * 3))
+
+            dist_to_stop = abs(current_price - sl_price)
+            if dist_to_stop == 0: dist_to_stop = 0.01
+
+            # Units = (Equity * Risk) / Distance
+            risk_amt = equity * risk_pct
+            qty = risk_amt / dist_to_stop
+            
+            # Check Max Allocation (20% max per stock)
+            max_alloc = equity * 0.20
+            if (qty * current_price) > max_alloc:
+                qty = max_alloc / current_price
+
+            qty = round(qty, 2) 
+            if qty < 0.01: return False, f"Calculated qty too small ({qty})."
+
+            # 5. Order Request (Bracket)
+            side_enum = OrderSide.BUY if side == 'LONG' else OrderSide.SELL
+            
+            req = MarketOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=side_enum,
+                time_in_force=TimeInForce.DAY,
+                take_profit=TakeProfitRequest(limit_price=round(tp_price, 2)),
+                stop_loss=StopLossRequest(stop_price=round(sl_price, 2))
+            )
+
+            res = self.alpaca_client.submit_order(req)
+            
+            return True, f"✅ Alpaca {side} {symbol}\nQty: {qty}\nSL: {sl_price:.2f}\nTP: {tp_price:.2f}\nStatus: {res.status}"
+
+        except Exception as e:
+            return False, f"Alpaca Error: {e}"
+
     def execute_long_position(self, symbol, atr=None):
+        # Dispatch: Stocks (Alpaca) vs Crypto (Binance)
+        if 'USDT' not in symbol:
+             return self._execute_alpaca_order(symbol, 'LONG', atr)
+
         if not self.client:
             return False, "No valid API Keys provided for this chat."
             
@@ -200,6 +313,9 @@ class TradingSession:
             return False, f"Error: {str(e)}"
 
     def execute_short_position(self, symbol, atr=None):
+        if 'USDT' not in symbol:
+             return self._execute_alpaca_order(symbol, 'SHORT', atr)
+
         if not self.client:
             return False, "No valid API Keys provided for this chat."
             
@@ -432,6 +548,15 @@ class TradingSession:
             details['futures_total'] = float(acc_fut.get('totalMarginBalance', 0)) # Equity (Bal + PnL)
             details['futures_pnl'] = float(acc_fut.get('totalUnrealizedProfit', 0))
             
+            # 1b. ALPACA
+            details['alpaca_equity'] = 0.0
+            if self.alpaca_client:
+                try:
+                    acct = self.alpaca_client.get_account()
+                    details['alpaca_equity'] = float(acct.equity)
+                except Exception as e:
+                    print(f"Alpaca Wallet Error: {e}")
+
             # 2. SPOT
             # We want at least USDT. 
             # Ideally we want Total Net Asset Value but that requires ticker prices for all assets.
@@ -520,6 +645,21 @@ class TradingSession:
                         "entry": p['entryPrice'],
                         "pnl": p['unRealizedProfit']
                     })
+            
+            # 2. ALPACA
+            if self.alpaca_client:
+                try:
+                    apos = self.alpaca_client.get_all_positions()
+                    for p in apos:
+                        active.append({
+                            "symbol": p.symbol,
+                            "amt": p.qty,
+                            "entry": p.avg_entry_price,
+                            "pnl": p.unrealized_pl
+                        })
+                except Exception as e:
+                    print(f"Alpaca Positions Error: {e}")
+
             return active
         except Exception as e:
             print(f"Error fetching positions: {e}")

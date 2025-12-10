@@ -33,8 +33,8 @@ if sys_proxy:
 # --- CONFIGURACIÓN DE ACTIVOS Y GRUPOS ---
 ASSET_GROUPS = {
     'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'SOLUSDT', 'SUIUSDT', 'ZECUSDT'],
-    'STOCKS': ['TSLA', 'NVDA', 'MSFT'],
-    'COMMODITY': ['GC=F', 'CL=F']
+    'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
+    'COMMODITY': ['GLD', 'USO'] # ETFs for Alpaca (Gold, Oil)
 }
 
 # Mapping de nombres amigables
@@ -48,8 +48,10 @@ TICKER_MAP = {
     'TSLA': 'Tesla',
     'NVDA': 'NVIDIA',
     'MSFT': 'Microsoft',
-    'GC=F': 'Oro',
-    'CL=F': 'Petróleo'
+    'AAPL': 'Apple',
+    'AMD': 'AMD',
+    'GLD': 'Gold (ETF)',
+    'USO': 'Oil (ETF)'
 }
 
 # Estado de los Grupos (Switch ON/OFF)
@@ -680,9 +682,10 @@ def handle_wallet(message):
         fut_bal = details.get('futures_balance', 0.0)
         fut_pnl = details.get('futures_pnl', 0.0)
         fut_total = details.get('futures_total', 0.0)
+        alpaca_native = details.get('alpaca_equity', 0.0)
         
         # Calculate Total Net Worth
-        net_worth = spot + earn + fut_total
+        net_worth = spot + earn + fut_total + alpaca_native
         
         # Formatting
         pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
@@ -696,6 +699,8 @@ def handle_wallet(message):
             f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
             f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"
             f"💰 *FUTUROS Total:* `${fut_total:,.2f}`\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"🦙 *ALPACA (Stocks):* `${alpaca_native:,.2f}`\n"
             "〰️〰️〰️〰️〰️〰️\n"
             f"🏆 *NET WORTH TOTAL:* `${net_worth:,.2f}`"
         )
