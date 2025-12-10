@@ -380,19 +380,21 @@ def start_bot():
     t_trading.start()
     
     # 2. Iniciar Polling de Telegram en Hilo Principal
-    # telebot.infinity_polling se maneja mejor en el main thread para señales y excepciones
     if bot:
         print("📡 Iniciando Telegram Polling (Main Thread)...")
         try:
-            # skip_pending=True descarta comandos viejos acumulados durante el reinicio
-            bot.infinity_polling(timeout=20, long_polling_timeout=20)
+            # Enviar mensaje de INICIO para confirmar que ESTA instancia está viva
+            send_alert("⚡ **ANTIGRAVITY BOT REINICIADO**\nSistema v3.0 en línea. Esperando comandos...")
+            
+            # Polling Loop
+            bot.delete_webhook(drop_pending_updates=True) # Eliminar Webhook si existiera y purgar pendientes
+            bot.infinity_polling(timeout=10, long_polling_timeout=10, allowed_updates=['message', 'callback_query'])
+            
         except Exception as e:
             print(f"❌ Polling detenido por error: {e}")
             time.sleep(5)
-            # En producción, aquí podríamos tener un loop externo de reinicio
     else:
         print("❌ No se pudo iniciar Polling (Bot no inicializado)")
-        # Si no hay bot, mantenemos el script vivo para el trading loop
         while True:
             time.sleep(10)
 
