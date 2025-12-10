@@ -701,9 +701,35 @@ def master_listener(message):
         
         if text.startswith('/'):
             cmd_part = text.split()[0].lower()
+            user_id = str(message.chat.id)
             
-            # Mapa de comandos
-            if cmd_part == '/start':
+            # --- RBAC LAYER ---
+            role = 'PUBLIC'
+            if user_id == TELEGRAM_ADMIN_ID:
+                role = 'ADMIN'
+            elif user_id in TELEGRAM_CHAT_IDS:
+                role = 'SUBSCRIBER'
+            
+            # 1. PUBLIC ACCESS (Blocked except /id)
+            if role == 'PUBLIC':
+                if cmd_part == '/id':
+                    bot.reply_to(message, f"🆔 Tu ID: `{user_id}`\n❌ No autorizado.", parse_mode='Markdown')
+                else:
+                    bot.reply_to(message, f"⛔ Acceso Denegado. ID: `{user_id}`\nContacta al Administrador.", parse_mode='Markdown')
+                return
+            
+            # 2. SYSTEM COMMANDS (Admin Only)
+            # /toggle_group, /set_interval, /debug
+            SYSTEM_CMDS = ['/toggle_group', '/set_interval', '/debug']
+            if cmd_part in SYSTEM_CMDS and role != 'ADMIN':
+                bot.reply_to(message, "🛡️ Comando reservado para Administrador.")
+                return
+
+            # --- COMMAND DISPATCH ---
+            if cmd_part == '/id':
+                bot.reply_to(message, f"🆔 Tu ID: `{user_id}`\nRol: *{role}*", parse_mode='Markdown')           
+            # General / Hybrid
+            elif cmd_part == '/start':
                 handle_start(message)
             elif cmd_part == '/help':
                 send_welcome(message)
@@ -711,20 +737,22 @@ def master_listener(message):
                 handle_risk(message)
             elif cmd_part == '/status':
                 handle_status(message)
+            
+            # System (Admin Only - Filtered above)
             elif cmd_part == '/toggle_group':
                 handle_toggle_group(message)
             elif cmd_part in ['/set_interval', '/set_cooldown']:
                 handle_set_interval(message)
-            elif cmd_part == '/set_proxy':
-                handle_set_proxy(message)
+            elif cmd_part == '/debug':
+                handle_debug(message)
+            
+            # User Config & Trading (Allowed for Subscribers)
             elif cmd_part == '/config':
                 handle_config(message)
             elif cmd_part == '/price':
                 handle_price(message)
             elif cmd_part == '/set_keys':
                 handle_set_keys(message)
-            elif cmd_part == '/debug':
-                handle_debug(message)
             elif cmd_part == '/set_leverage':
                 handle_set_leverage(message)
             elif cmd_part == '/set_margin':
@@ -733,6 +761,9 @@ def master_listener(message):
                 handle_pnlrequest(message)
             elif cmd_part == '/wallet':
                 handle_wallet(message)
+            elif cmd_part == '/set_proxy':
+                handle_set_proxy(message)
+            
             # Manual Trading
             elif cmd_part == '/long':
                 handle_manual_long(message)
