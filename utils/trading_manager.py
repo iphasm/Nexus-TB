@@ -191,7 +191,10 @@ class TradingSession:
 
             res = self.alpaca_client.submit_order(req)
             
-            return True, f"✅ Alpaca {side} {symbol}\nQty: {qty}\nSL: {sl_price:.2f}\nTP: {tp_price:.2f}\nStatus: {res.status}"
+            # Escape underscores in status (e.g. partially_filled -> partially\_filled)
+            status_str = str(res.status).replace('_', ' ') # Replace with space is cleaner than escaping
+            
+            return True, f"✅ Alpaca {side} {symbol}\nQty: {qty}\nSL: {sl_price:.2f}\nTP: {tp_price:.2f}\nStatus: {status_str}"
 
         except Exception as e:
             return False, f"Alpaca Error: {e}"
