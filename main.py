@@ -81,6 +81,43 @@ def resolve_symbol(text):
     """Clean and standardize input symbol"""
     return text.strip().upper()
 
+def process_asset(asset):
+    """
+    Función helper unificada para procesar un activo.
+    Usada tanto por /price (reporte) como por el Trading Loop (señales).
+    Devuelve: (Success: bool, Data: dict|str)
+    """
+    try:
+        # 1. Obtener Datos
+        df = get_market_data(asset, timeframe='15m', limit=200)
+        if df.empty: 
+            return False, "No Data"
+        
+        # 2. Análisis Unificado (Spot + Futuros)
+        engine = StrategyEngine(df)
+        analysis_result = engine.analyze()
+        
+        return True, analysis_result
+        
+    except Exception as e:
+        return False, str(e)
+
+def send_alert(message):
+    """Transmite el mensaje a todos los destinos configurados"""
+    targets = set(TELEGRAM_CHAT_IDS)
+    if session_manager:
+        for s in session_manager.get_all_sessions():
+            targets.add(s.chat_id)
+            
+    if bot and targets:
+        for chat_id in targets:
+            try:
+                bot.send_message(chat_id, message, parse_mode='Markdown')
+            except Exception as e:
+                print(f"Error enviando alerta a {chat_id}: {e}")
+    else:
+        print(f"ALERTA (Log): {message}")
+
 def handle_price(message):
     try:
         sent = bot.reply_to(message, "⏳ Escaneando mercado con Motores Híbridos...")
@@ -326,7 +363,7 @@ def run_trading_loop():
 def send_welcome(message):
     # Texto en plano para evitar errores de parseo (Markdown legacy es estricto con _)
     help_text = (
-        "🤖 ANTIGRAVITY BOT v3.1 - MANUAL OVERRIDE\n\n"
+        "🤖 ANTIGRAVITY BOT v3.1\n\n"
         "🎮 Control de Mercado\n"
         "/toggle_group <grupo> - Activ/Des (CRYPTO, STOCKS, COMMODITY).\n"
         "/status - Ver estado de Grupos y Estrategias.\n"
