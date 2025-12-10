@@ -20,11 +20,14 @@ if not ak or not ask:
     sys.exit(1)
 
 try:
-    print("\n📡 Connecting to Alpaca Trading API...")
+    print(f"📡 Connecting to Alpaca Trading API...")
+    if base_url:
+        print(f"   Target Endpoint: {base_url}")
+        
     from alpaca.trading.client import TradingClient
     
-    paper = 'paper' in base_url
-    client = TradingClient(ak, ask, paper=paper)
+    paper = 'paper' in base_url if base_url else True
+    client = TradingClient(ak, ask, paper=paper, url_override=base_url)
     
     acct = client.get_account()
     print(f"✅ Connection Success!")

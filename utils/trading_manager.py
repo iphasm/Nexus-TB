@@ -57,18 +57,22 @@ class TradingSession:
         else:
             print(f"⚠️ [Chat {self.chat_id}] Missing API Keys.")
             
-        # 2. ALPACA (Env Vars only for now)
+        # 2. ALPACA (Env Vars only)
         ak = os.getenv('APCA_API_KEY_ID')
         ask = os.getenv('APCA_API_SECRET_KEY')
-        base_url = os.getenv('APCA_API_BASE_URL') # Optional: defaults to paper if not set or set to paper
-        paper = True
-        if base_url and 'paper' not in base_url and 'api.alpaca' in base_url:
-            paper = False
-            
+        base_url = os.getenv('APCA_API_BASE_URL') 
+        
+        # Determine paper mode default
+        paper = True 
+        if base_url:
+            if 'paper' not in base_url and 'api.alpaca' in base_url:
+                paper = False
+        
         if ak and ask:
             try:
-                self.alpaca_client = TradingClient(ak, ask, paper=paper)
-                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
+                # Pass url_override if set, otherwise rely on paper=True/False defaults
+                self.alpaca_client = TradingClient(ak, ask, paper=paper, url_override=base_url)
+                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper}, URL: {base_url or 'Default'})")
             except Exception as e:
                 print(f"❌ [Chat {self.chat_id}] Failed to init Alpaca: {e}")
 
