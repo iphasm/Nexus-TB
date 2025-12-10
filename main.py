@@ -420,6 +420,32 @@ def send_welcome(message):
     )
     bot.reply_to(message, help_text, parse_mode='Markdown')
 
+def handle_start(message):
+    """Simple Health Check & Intro"""
+    bot.reply_to(message, "⏳ Iniciando sistemas...")
+    
+    # Quick Check
+    status = "✅ *ONLINE*\n"
+    if not bot.get_me():
+        status = "⚠️ *CONEXIÓN INESTABLE*"
+        
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    auth_status = "❌ Sin Llaves"
+    if session and session.client:
+        auth_status = "✅ Autenticado"
+        
+    msg = (
+        "🤖 *ANTIGRAVITY BOT v3.2*\n"
+        f"Estado: {status}\n"
+        f"API: {auth_status}\n\n"
+        "Comandos: `/help`\n"
+        "Configuración: `/config`\n"
+        "Diagnóstico: `/debug`"
+    )
+    bot.reply_to(message, msg, parse_mode='Markdown')
+
 def handle_status(message):
     """Muestra estado de grupos y configuración"""
     status = "🕹️ *ESTADO DEL SISTEMA*\n\n"
@@ -766,7 +792,9 @@ def master_listener(message):
             cmd_part = text.split()[0].lower()
             
             # Mapa de comandos
-            if cmd_part in ['/start', '/help']:
+            if cmd_part == '/start':
+                handle_start(message)
+            elif cmd_part == '/help':
                 send_welcome(message)
             elif cmd_part == '/status':
                 handle_status(message)
