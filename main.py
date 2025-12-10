@@ -295,17 +295,9 @@ def handle_pnlrequest(message):
 
 # --- BUCLE PRINCIPAL DE TRADING ---
 
-def start_bot():
-    global session_manager
-    session_manager = SessionManager()
-    
-    if bot:
-        print("📡 Iniciando Polling...")
-        t = threading.Thread(target=bot.infinity_polling, kwargs={'interval': 1, 'timeout': 20})
-        t.daemon = True
-        t.start()
-        
-    print("🚀 Bucle de Trading Híbrido Iniciado...")
+def run_trading_loop():
+    """Bucle de Trading que corre en un hilo secundario"""
+    print("🚀 Bucle de Trading Híbrido Iniciado (Background)...")
     
     while True:
         try:
@@ -323,24 +315,22 @@ def start_bot():
                         current_time = time.time()
                         last_alert = last_alert_times.get(asset, 0)
                         
-                        # Si está en cooldown, saltar análisis pesado para optimizar, 
-                        # A MENOS que queramos loguear algo. Pero mejor saltar.
+                        # Cooldown check
                         if (current_time - last_alert) < SIGNAL_COOLDOWN:
                             continue
                             
                         # 2. Análisis Híbrido
                         
-                        # A. Estrategia SPOT: Mean Reversion
+                        # A. Estrategia SPOT
                         is_spot_buy, spot_metrics = analyze_mean_reversion(df)
                         
-                        # B. Estrategia FUTUROS: Squeeze & Velocity
+                        # B. Estrategia FUTUROS
                         engine = StrategyEngine(df)
                         fut_result = engine.analyze()
                         fut_signal = fut_result['signal']
                         
                         # 3. Decisiones y Alertas
                         
-                        # Prioridad de Alerta: ¿Tiene señal SPOT?
                         if is_spot_buy:
                             msg = (
                                 f"💎 **SEÑAL SPOT: {asset}**\n"
@@ -350,9 +340,8 @@ def start_bot():
                             )
                             send_alert(msg)
                             last_alert_times[asset] = current_time
-                            continue # Evitar doble alerta (Spot y Futuros) en la misma vela si coinciden (raro)
+                            continue 
                             
-                        # Si no es Spot, ¿es Futuros?
                         if fut_signal == 'BUY':
                             msg = (
                                 f"🚀 **SEÑAL FUTUROS: {asset}**\n"
@@ -365,12 +354,6 @@ def start_bot():
                             last_alert_times[asset] = current_time
                         
                         elif fut_signal == 'CLOSE_LONG':
-                             # Señal de Salida (Opcional: Alertar para cerrar manual o auto)
-                             # Para no spamear salidas, podríamos chequear si teníamos posición, pero por ahora alertamos.
-                             # Usamos un cooldown diferente para salidas? O el mismo.
-                             # Para salidas, a veces es urgente. Ignoremos cooldown si es CLOSE?
-                             # El usuario pidió "ajustar recurrencia de señal de COMPRA". Asumimos salidas criticas.
-                             # Pero para simplificar, usaremos el mismo cooldown para no spamear "Cierra cierra cierra".
                              msg = (
                                 f"📉 **SALIDA FUTUROS: {asset}**\n"
                                 f"Razón: {fut_result['reason']}"
@@ -379,12 +362,40 @@ def start_bot():
                              last_alert_times[asset] = current_time
 
                     except Exception as e:
-                        print(f"Error procesando {asset}: {e}")
+                        print(f"⚠️ Error procesando {asset}: {e}")
                         
         except Exception as e:
-            print(f"Error en bucle principal: {e}")
+            print(f"❌ Error CRÍTICO en bucle de trading: {e}")
             
-        time.sleep(60) # Intervalo de ciclo base
+        time.sleep(60) # Intervalo de pulso
+
+def start_bot():
+    global session_manager
+    session_manager = SessionManager()
+    
+    # 1. Iniciar Bucle de Trading en Hilo Secundario (Daemon)
+    # Esto asegura que el trading corra de fondo y no bloquee
+    t_trading = threading.Thread(target=run_trading_loop)
+    t_trading.daemon = True
+    t_trading.start()
+    
+    # 2. Iniciar Polling de Telegram en Hilo Principal
+    # telebot.infinity_polling se maneja mejor en el main thread para señales y excepciones
+    if bot:
+        print("📡 Iniciando Telegram Polling (Main Thread)...")
+        try:
+            # skip_pending=True descarta comandos viejos acumulados durante el reinicio
+            bot.infinity_polling(timeout=20, long_polling_timeout=20)
+        except Exception as e:
+            print(f"❌ Polling detenido por error: {e}")
+            time.sleep(5)
+            # En producción, aquí podríamos tener un loop externo de reinicio
+    else:
+        print("❌ No se pudo iniciar Polling (Bot no inicializado)")
+        # Si no hay bot, mantenemos el script vivo para el trading loop
+        while True:
+            time.sleep(10)
 
 if __name__ == "__main__":
     start_bot()
+
