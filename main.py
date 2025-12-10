@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 # Importar módulos internos
 from data.fetcher import get_market_data
-from strategies.analyzer import analyze_mean_reversion
+
 from strategies.engine import StrategyEngine
 from utils.trading_manager import SessionManager
 
@@ -59,6 +59,27 @@ if TELEGRAM_TOKEN:
 else:
     print("ADVERTENCIA: No se encontró TELEGRAM_TOKEN.")
 
+def process_asset(asset):
+    """
+    Función helper unificada para procesar un activo.
+    Usada tanto por /price (reporte) como por el Trading Loop (señales).
+    Devuelve: (Success: bool, Data: dict|str)
+    """
+    try:
+        # 1. Obtener Datos
+        df = get_market_data(asset, timeframe='15m', limit=200)
+        if df.empty: 
+            return False, "No Data"
+        
+        # 2. Análisis Unificado (Spot + Futuros)
+        engine = StrategyEngine(df)
+        analysis_result = engine.analyze()
+        
+        return True, analysis_result
+        
+    except Exception as e:
+        return False, str(e)
+
 def send_alert(message):
     """Transmite el mensaje a todos los destinos configurados"""
     targets = set(TELEGRAM_CHAT_IDS)
@@ -92,41 +113,41 @@ def handle_price(message):
             report += f"**{group_name}**\n"
             
             for asset in assets:
-                try:
-                    df = get_market_data(asset, timeframe='15m', limit=200)
-                    if df.empty: 
-                        report += f"• {asset}: ⚠️ No data\n"
-                        continue
-                    
-                    # Ejecutar Motor Híbrido solo para métricas
-                    # 1. Spot (Mean Reversion)
-                    is_mr, mr_metrics = analyze_mean_reversion(df)
-                    
-                    # 2. Futuros (Strategy Engine)
-                    engine = StrategyEngine(df)
-                    fut_res = engine.analyze()
-                    
-                    price = df.iloc[-1]['close']
-                    rsi = df.iloc[-1]['rsi']
-                    
-                    # Iconos de señal
-                    sig_icon = ""
-                    if is_mr: sig_icon += "💎 SPOT BUY "
-                    if fut_res['signal'] == 'BUY': sig_icon += "🚀 FUT LONG"
-                    elif fut_res['signal'] == 'CLOSE_LONG': sig_icon += "📉 CLOSE"
-                    
-                    entry = f"• {asset}: ${price:,.2f} | RSI: {rsi:.1f} {sig_icon}\n"
-                    report += entry
-                    
-                except Exception as e:
-                    report += f"• {asset}: ❌ Err: {str(e)}\n"
+                success, res = process_asset(asset)
+                
+                if not success:
+                    # Sanitize error
+                    safe_err = str(res).replace('`', "'").replace('_', ' ')
+                    report += f"• {asset}: ❌ Err: `{safe_err}`\n"
                     continue
+                
+                # Unpack metrics
+                m = res['metrics']
+                spot_sig = res['signal_spot']
+                fut_sig = res['signal_futures']
+                
+                # Iconos
+                sig_icon = ""
+                if spot_sig: sig_icon += "💎 SPOT "
+                if fut_sig == 'BUY': sig_icon += "🚀 LONG "
+                elif fut_sig == 'CLOSE_LONG': sig_icon += "📉 CLOSE "
+                
+                entry = f"• {asset}: ${m['close']:,.2f} | RSI: {m['rsi']:.1f} {sig_icon}\n"
+                report += entry
+            
             report += "\n"
             
         bot.edit_message_text(report, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
     except Exception as e:
         print(f"Error crítico en /price: {e}")
-        bot.reply_to(message, f"❌ Error generando reporte: {e}")
+        # Intentar enviar en texto plano si falla Markdown
+        if 'sent' in locals() and sent:
+            try:
+                bot.edit_message_text(f"❌ Error generando reporte (Markdown fallido):\n\n{report}", chat_id=sent.chat.id, message_id=sent.message_id)
+            except:
+                pass
+        else:
+            bot.reply_to(message, f"❌ Error Fatal: {str(e)}")
 
 # ... (Handlers remain) ...
 
@@ -331,80 +352,6 @@ def handle_config(message):
     
     msg = (
         "⚙️ **CONFIGURACIÓN PERSONAL**\n\n"
-        f"🔑 **API Binance:** {'✅ Conectado' if cfg['has_keys'] else '❌ Desconectado'}\n"
-        f"🌍 **Proxy:** {'✅ Activado' if cfg['proxy_enabled'] else '🔴 Apagado'}\n"
-        f"🕹️ **Apalancamiento:** {cfg['leverage']}x\n"
-        f"💰 **Margen Máx:** {cfg['max_capital_pct']*100:.1f}%\n"
-        f"🛡️ **Stop Loss:** {cfg['stop_loss_pct']*100:.1f}%\n\n"
-        "Para editar: `/set_leverage`, `/set_margin`, `/set_proxy`."
-    )
-    bot.reply_to(message, msg, parse_mode='Markdown')
-
-def handle_price(message):
-    try:
-        sent = bot.reply_to(message, "⏳ Escaneando mercado con Motores Híbridos...")
-        
-        report = "📡 **RADAR DE MERCADO (SPOT + FUTUROS)**\n\n"
-        
-        # Check Groups
-        active_groups = [g for g, active in GROUP_CONFIG.items() if active]
-        if not active_groups:
-            bot.edit_message_text("⚠️ Todos los grupos están desactivados. Usa `/toggle_group`.", chat_id=sent.chat.id, message_id=sent.message_id)
-            return
-
-        for group_name in active_groups:
-            assets = ASSET_GROUPS.get(group_name, [])
-            report += f"**{group_name}**\n"
-            
-            for asset in assets:
-                try:
-                    df = get_market_data(asset, timeframe='15m', limit=200)
-                    if df.empty: 
-                        report += f"• {asset}: ⚠️ No data\n"
-                        continue
-                    
-                    # Ejecutar Motor Híbrido solo para métricas
-                    # 1. Spot (Mean Reversion)
-                    is_mr, mr_metrics = analyze_mean_reversion(df)
-                    
-                    # 2. Futuros (Strategy Engine)
-                    engine = StrategyEngine(df)
-                    fut_res = engine.analyze()
-                    
-                    price = df.iloc[-1]['close']
-                    rsi = df.iloc[-1]['rsi']
-                    
-                    # Iconos de señal
-                    sig_icon = ""
-                    if is_mr: sig_icon += "💎 SPOT BUY "
-                    if fut_res['signal'] == 'BUY': sig_icon += "🚀 FUT LONG"
-                    elif fut_res['signal'] == 'CLOSE_LONG': sig_icon += "📉 CLOSE"
-                    
-                    entry = f"• {asset}: ${price:,.2f} | RSI: {rsi:.1f} {sig_icon}\n"
-                    report += entry
-                    
-                except Exception as e:
-                    report += f"• {asset}: ❌ Err: {str(e)}\n"
-                    continue
-            report += "\n"
-            
-        bot.edit_message_text(report, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
-    except Exception as e:
-        print(f"Error crítico en /price: {e}")
-        bot.reply_to(message, f"❌ Error generando reporte: {e}")
-
-def handle_set_keys(message):
-    chat_id = str(message.chat.id)
-    try:
-        args = message.text.split()
-        if len(args) < 3:
-            bot.reply_to(message, "⚠️ Uso: `/set_keys <API_KEY> <API_SECRET>`")
-            return
-        session = session_manager.create_or_update_session(chat_id, args[1], args[2])
-        status = "✅ Conectado" if session.client else "⚠️ Keys guardadas (Sin conexión)"
-        bot.reply_to(message, f"{status}")
-    except Exception as e:
-        bot.reply_to(message, f"Error: {e}")
 
 def handle_set_leverage(message):
     chat_id = str(message.chat.id)
@@ -498,65 +445,58 @@ def run_trading_loop():
                     
                 for asset in assets:
                     try:
-                        # 1. Obtener Datos
-                        df = get_market_data(asset, timeframe='15m', limit=200)
-                        if df.empty: continue
-                        
                         current_time = time.time()
                         last_alert = last_alert_times.get(asset, 0)
                         
                         # Cooldown check
                         if (current_time - last_alert) < SIGNAL_COOLDOWN:
                             continue
-                            
-                        # 2. Análisis Híbrido
-                        is_spot_buy, spot_metrics = analyze_mean_reversion(df)
+
+                        # 1. Procesar Activo (Unified)
+                        success, res = process_asset(asset)
+                        if not success: continue
                         
-                        engine = StrategyEngine(df)
-                        fut_result = engine.analyze()
-                        fut_signal = fut_result['signal']
+                        m = res['metrics']
                         
-                        # 3. Alertas y Estado
+                        # 2. Alertas
                         
-                        # SPOT (Independiente de Futuros, siempre avisa si hay señal fuerte)
-                        if is_spot_buy:
+                        # SPOT ALERT
+                        if res['signal_spot']:
                             msg = (
                                 f"💎 **SEÑAL SPOT: {asset}**\n"
                                 f"Estrategia: Reversión a la Media\n"
-                                f"Precio: ${spot_metrics['close']:,.2f}\n"
-                                f"Razón: {spot_metrics['reason']}"
+                                f"Precio: ${m['close']:,.2f}\n"
+                                f"Razón: {res['reason_spot']}"
                             )
                             send_alert(msg)
                             last_alert_times[asset] = current_time
-                            # No afectamos pos_state de futuros
-                            continue 
+                            continue # Si es Spot, enviamos y pasamos (no mezclamos con Futuros por ahora)
                             
-                        # FUTUROS (Con Estado para evitar spam de salidas)
+                        # FUTUROS ALERTS (Con State)
                         curr_state = pos_state.get(asset, 'NEUTRAL')
+                        fut_sig = res['signal_futures']
                         
-                        if fut_signal == 'BUY':
+                        if fut_sig == 'BUY':
                             msg = (
                                 f"🚀 **SEÑAL FUTUROS: {asset}**\n"
                                 f"Estrategia: Squeeze & Velocity\n"
-                                f"Precio: ${fut_result['metrics']['close']:,.2f}\n"
-                                f"Razón: {fut_result['reason']}\n"
-                                f"ADX: {fut_result['metrics']['adx']:.1f} | Squeeze: {'ON' if fut_result['metrics']['squeeze_on'] else 'OFF'}"
+                                f"Precio: ${m['close']:,.2f}\n"
+                                f"Razón: {res['reason_futures']}\n"
+                                f"ADX: {m['adx']:.1f} | Squeeze: {'ON' if m['squeeze_on'] else 'OFF'}"
                             )
                             send_alert(msg)
                             last_alert_times[asset] = current_time
-                            pos_state[asset] = 'LONG' # Actualizar estado
+                            pos_state[asset] = 'LONG'
                         
-                        elif fut_signal == 'CLOSE_LONG':
-                             # SOLO avisar salida si estábamos en LONG (o si no sabemos, una vez)
-                             # Para ser seguros: Si estado es NEUTRAL, NO avisar salida (asumimos que ya salimos o nunca entramos)
+                        elif fut_sig == 'CLOSE_LONG':
                              if curr_state == 'LONG':
                                  msg = (
                                     f"📉 **SALIDA FUTUROS: {asset}**\n"
-                                    f"Razón: {fut_result['reason']}"
+                                    f"Razón: {res['reason_futures']}"
                                  )
                                  send_alert(msg)
                                  last_alert_times[asset] = current_time
-                                 pos_state[asset] = 'NEUTRAL' # Resetear estado
+                                 pos_state[asset] = 'NEUTRAL'
 
                     except Exception as e:
                         print(f"⚠️ Error procesando {asset}: {e}")

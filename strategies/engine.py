@@ -8,7 +8,9 @@ from strategies.indicators import (
     calculate_keltner_channels,
     calculate_adx,
     calculate_rsi,
-    calculate_adx_slope
+    calculate_adx_slope,
+    calculate_ema,
+    calculate_stoch_rsi
 )
 
 class StrategyEngine:
@@ -26,131 +28,132 @@ class StrategyEngine:
         
     def calculate_indicators(self):
         """
-        Calcula todos los indicadores técnicos necesarios matemáticamente.
-        Eficiencia de memoria: Se agregan columnas directamente al DF o se usan series temporales.
+        Calcula todos los indicadores técnicos necesarios (Spot + Futuros).
         """
         if self.df.empty:
             return
 
-        # 1. HMA (55) - Tendencia Principal
+        # --- INDICADORES COMUNES & FUTUROS ---
+        # 1. HMA (55)
         self.df['hma_55'] = calculate_hma(self.df['close'], period=55)
         
-        # 2. Bandas de Bollinger (20, 2.0) - Volatilidad
+        # 2. Bandas de Bollinger (20, 2.0)
         bb = calculate_bollinger_bands(self.df['close'], period=20, std_dev=2.0)
         self.df['bb_upper'] = bb['upper']
         self.df['bb_lower'] = bb['lower']
-        # Usamos ancho de banda para detectar compresión, pero la lógica pide BB dentro de Keltner
         
-        # 3. Canales de Keltner (20, 1.5 ATR) - Rango Medio
+        # 3. Canales de Keltner (20, 1.5)
         kc = calculate_keltner_channels(self.df, period=20, multiplier=1.5)
         self.df['kc_upper'] = kc['upper']
         self.df['kc_lower'] = kc['lower']
         
-        # 4. ADX (14) - Fuerza de Tendencia
+        # 4. ADX (14)
         adx_df = calculate_adx(self.df, period=14)
         self.df['adx'] = adx_df['adx']
         
-        # 5. RSI (14) - Momento
+        # 5. RSI (14)
         self.df['rsi'] = calculate_rsi(self.df['close'], period=14)
+
+        # --- INDICADORES EXTRA PARA SPOT ---
+        # 6. EMA (200)
+        self.df['ema_200'] = calculate_ema(self.df['close'], period=200)
+
+        # 7. StochRSI (14, 3, 3)
+        stoch = calculate_stoch_rsi(self.df['rsi'], period=14, k_period=3, d_period=3)
+        self.df['stoch_k'] = stoch['k']
+        self.df['stoch_d'] = stoch['d']
+
+        # 8. Volumen SMA (20)
+        self.df['vol_sma'] = self.df['volume'].rolling(20).mean()
 
     def analyze(self) -> dict:
         """
-        Ejecuta la lógica "Squeeze & Velocity".
-        Devuelve diccionario estructurado con Señal, Razón y Métricas.
+        Ejecuta el análisis Híbrido (Spot Mean Reversion + Futures Squeeze/Velocity).
+        Devuelve un diccionario unificado.
         """
-        if len(self.df) < 60:
+        if len(self.df) < 200: # Requisito subido a 200 por EMA200
             return {
-                "signal": "WAIT",
-                "reason": "Datos insuficientes (< 60 velas)",
+                "signal_spot": False,
+                "signal_futures": "WAIT",
+                "reason_spot": "",
+                "reason_futures": "Datos insuficientes (< 200 velas)",
                 "metrics": {}
             }
 
         self.calculate_indicators()
         
-        # Obtener última vela (Cierre actual) y anterior para comparaciones
         curr = self.df.iloc[-1]
         prev = self.df.iloc[-2]
         
-        # --- LÓGICA DE DETECCIÓN ---
+        # --- 1. ANÁLISIS SPOT (Mean Reversion) ---
+        # Precio < BB Inferior Y RSI < 40 Y StochRSI Cruce Alcista en zona baja (<20)
         
-        # 1. Fase de Compresión (Squeeze)
-        # Bollinger Bands DENTRO de Keltner Channels
-        # Esto indica volatilidad extremadamente baja, precursora de explosión.
-        # Chequeamos si hubo squeeze recientemente (ej. en la vela anterior o actual)
-        # Para entrada real, buscamos la RUPTURA del squeeze.
+        spot_signal = False
+        spot_reason = ""
         
-        # Definición estricta de TTM Squeeze: BB Upper < KC Upper Y BB Lower > KC Lower.
+        cond_bb_spot = curr['close'] < curr['bb_lower']
+        cond_rsi_spot = curr['rsi'] < 40
+        cond_stoch_spot = (prev['stoch_k'] < prev['stoch_d']) and (curr['stoch_k'] > curr['stoch_d']) and (curr['stoch_k'] < 20)
+        
+        # Confirmación volumen (Opcional)
+        vol_threshold = curr['vol_sma'] * 1.2 if pd.notna(curr['vol_sma']) else 0
+        cond_vol = curr['volume'] > vol_threshold
+        
+        if cond_bb_spot and cond_rsi_spot and cond_stoch_spot:
+            spot_signal = True
+            spot_reason = "💎 **MEAN REVERSION**: Precio bajo BB + RSI bajo + Cruce StochRSI."
+
+        # --- 2. ANÁLISIS FUTUROS (Squeeze & Velocity) ---
+        
+        fut_signal = "WAIT"
+        fut_reason = "Monitorizando..."
+
+        # Definiciones
         is_squeeze = (curr['bb_upper'] < curr['kc_upper']) and (curr['bb_lower'] > curr['kc_lower'])
-        was_squeeze = (prev['bb_upper'] < prev['kc_upper']) and (prev['bb_lower'] > prev['kc_lower'])
+        # Squeeze reciente (últimas 5 velas)
+        recent_squeeze = any((self.df['bb_upper'].iloc[i] < self.df['kc_upper'].iloc[i]) for i in range(-5, -1))
         
-        # 2. Señal de Ruptura (Breakout) - "Velocity"
-        # Precio rompe Banda Superior de Bollinger + RSI > 50 (Fuerza alcista)
         breakout_up = (curr['close'] > curr['bb_upper'])
         momentum_bullish = (curr['rsi'] > 50)
-        
-        # Validación de Tendencia (HMA) + ADX
-        # Precio sobre HMA 55 y ADX con pendiente positiva o fuerte (>20)
         trend_bullish = (curr['close'] > curr['hma_55'])
         adx_rising = curr['adx'] > prev['adx']
         adx_strong = curr['adx'] > 20
         
-        # --- MÁQUINA DE ESTADOS / DECISIÓN ---
-        
-        signal = "WAIT"
-        reason = "Monitorizando mercado..."
-        
-        # A. SEÑAL DE ENTRADA (BUY)
-        # Condiciones: 
-        # 1. Venimos de un squeeze o estamos rompiendo volatilidad.
-        # 2. Breakout Alcista confirmado.
-        # 3. Tendencia a favor (Sobre HMA).
-        # 4. ADX despertando (Rising).
-        
-        # Relajamos "Venimos de squeeze" a "Ruptura de BB" + Confirmación, 
-        # pero el usuario pidió "lógica debe detectar fases de compresión para activar entradas".
-        # Interpretación: Si hubo squeeze reciente Y ahora rompe.
-        
-        # Simplificación robusta: Si Breakout UP Y Tendencia UP Y Momento UP.
-        # El Squeeze es un plus de calidad, pero si el precio ya explotó, el squeeze ya pasó.
-        # Chequeamos si hubo squeeze en las últimas 5 velas para dar validez "Squeeze Breakout".
-        recent_squeeze = any((self.df['bb_upper'].iloc[i] < self.df['kc_upper'].iloc[i]) for i in range(-5, -1))
-        
+        # Lógica de Entrada
         if breakout_up and trend_bullish and momentum_bullish and adx_rising:
-             # Prioridad a entradas post-squeeze
             if recent_squeeze:
-                signal = "BUY"
-                reason = "🚀 **SQUEEZE BREAKOUT**: Ruptura de Squeeze confirmada con Volatilidad + ADX al alza."
-            # O entradas de continuación de tendencia fuerte
+                fut_signal = "BUY"
+                fut_reason = "🚀 **SQUEEZE BREAKOUT**: Ruptura tras compresión."
             elif adx_strong:
-                signal = "BUY"
-                reason = "🌊 **TREND VELOCITY**: Continuación de tendencia fuerte (ADX>20) con ruptura de BB."
+                fut_signal = "BUY"
+                fut_reason = "🌊 **TREND VELOCITY**: Continuación de tendencia fuerte."
         
-        # B. SALIDA (CLOSE_LONG)
-        # Cierre bajo HMA O ADX colapsa (pierde fuerza significativamente)
-        # Colapso ADX: Cae más de 5 puntos o cae bajo 20 desde arriba (cruce bajista).
-        adx_collapse = (prev['adx'] > 30 and curr['adx'] < 25) # Ejemplo de pérdida de momento
+        # Lógica de Salida (Close Long)
+        adx_collapse = (prev['adx'] > 30 and curr['adx'] < 25)
         trend_loss = (curr['close'] < curr['hma_55'])
         
         if trend_loss:
-            signal = "CLOSE_LONG"
-            reason = "📉 **TENDENCIA ROTA**: Precio cerró bajo HMA 55."
+            fut_signal = "CLOSE_LONG"
+            fut_reason = "📉 **TENDENCIA ROTA**: Precio bajo HMA 55."
         elif adx_collapse:
-             signal = "CLOSE_LONG"
-             reason = "exhaustion **ADX**: Pérdida significativa de fuerza en la tendencia."
-             
-        # Construir Métricas Optimizadas
+             fut_signal = "CLOSE_LONG"
+             fut_reason = "exhaustion **ADX**: Pérdida de fuerza."
+
+        # --- MÉTRICAS FINALES ---
         final_metrics = {
             "close": float(curr['close']),
-            "hma_55": float(curr['hma_55']),
             "rsi": float(curr['rsi']),
             "adx": float(curr['adx']),
             "squeeze_on": bool(is_squeeze or recent_squeeze),
-            "bb_upper": float(curr['bb_upper']),
-            "kc_upper": float(curr['kc_upper'])
+            "stoch_k": float(curr['stoch_k']),
+            "bb_lower": float(curr['bb_lower']),
+            "hma_55": float(curr['hma_55'])
         }
-        
+
         return {
-            "signal": signal,
-            "reason": reason,
+            "signal_spot": spot_signal,
+            "signal_futures": fut_signal,
+            "reason_spot": spot_reason,
+            "reason_futures": fut_reason,
             "metrics": final_metrics
         }
