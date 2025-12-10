@@ -118,6 +118,11 @@ class TradingSession:
                 
                 raw_quantity = risk_amount / sl_dist
                 
+                # Check Min Notional (Binance requires > 5 USDT)
+                notional = raw_quantity * current_price
+                if notional < 5.5:
+                    raw_quantity = 5.5 / current_price # Bump to min
+                
                 # Check absolute margin limit
                 notional = raw_quantity * current_price
                 margin_req = notional / leverage
@@ -211,6 +216,11 @@ class TradingSession:
                 risk_amount = usdt_balance * 0.02
                 raw_quantity = risk_amount / sl_dist
                 
+                # Check Min Notional
+                notional = raw_quantity * current_price
+                if notional < 5.5:
+                    raw_quantity = 5.5 / current_price
+
                 notional = raw_quantity * current_price
                 margin_req = notional / leverage
                 
