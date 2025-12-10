@@ -65,6 +65,14 @@ class TradingSession:
         # Determine paper mode default
         paper = True 
         if base_url:
+            # Sanitize URL: alpaca-py appends /v2 automatically for many calls. 
+            # If user provides .../v2, strip it to avoid .../v2/v2/orders (404 Not Found)
+            if base_url.endswith('/v2'):
+                base_url = base_url[:-3]
+            elif base_url.endswith('/v2/'):
+                base_url = base_url[:-4]
+            
+            # Simple check for paper/live
             if 'paper' not in base_url and 'api.alpaca' in base_url:
                 paper = False
         
