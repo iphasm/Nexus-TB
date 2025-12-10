@@ -140,6 +140,12 @@ class TradingSession:
                 tp1_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision) 
 
             quantity = float(round(raw_quantity, qty_precision))
+            
+            # --- PRE-FLIGHT CHECK ---
+            final_notional = quantity * current_price
+            if final_notional < 5.0:
+                 return False, f"❌ Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
+
             if quantity <= 0: return False, "Position too small."
 
             # 3. Execute Market Buy
@@ -156,26 +162,37 @@ class TradingSession:
                     symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
                 )
             
-            # TP1 (Half Size)
+            # --- SPLIT ORDER LOGIC ---
             qty_tp1 = float(round(quantity / 2, qty_precision))
-            if qty_tp1 > 0:
+            tp_notional = qty_tp1 * entry_price
+            
+            if tp_notional < 5.5:
+                # 🚫 Small Position: NO SPLIT (100% TP1)
                 self.client.futures_create_order(
-                   symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                   symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
                 )
-                
-            # TP2 (Trailing - Remainder)
-            qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-            if qty_tp2 > 0:
-                 self.client.futures_create_order(
-                    symbol=symbol, 
-                    side='SELL', 
-                    type='TRAILING_STOP_MARKET', 
-                    callbackRate=1.5, 
-                    quantity=qty_tp2
-                )
+                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
+            else:
+                # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
+                if qty_tp1 > 0:
+                    self.client.futures_create_order(
+                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                    )
+                    
+                # TP2 (Trailing - Remainder)
+                qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
+                if qty_tp2 > 0:
+                     self.client.futures_create_order(
+                        symbol=symbol, 
+                        side='SELL', 
+                        type='TRAILING_STOP_MARKET', 
+                        callbackRate=1.5, 
+                        quantity=qty_tp2
+                    )
+                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
             self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
-            return True, f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+            return True, success_msg
 
         except BinanceAPIException as e:
             return False, f"Binance Error: {e.message}"
@@ -236,6 +253,12 @@ class TradingSession:
                 tp1_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
 
             quantity = float(round(raw_quantity, qty_precision))
+            
+            # --- PRE-FLIGHT CHECK ---
+            final_notional = quantity * current_price
+            if final_notional < 5.0:
+                 return False, f"❌ Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
+
             if quantity <= 0: return False, "Position too small."
 
             # 3. Execute Market SELL
@@ -251,26 +274,36 @@ class TradingSession:
                     symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
                 )
             
-            # TP1 (Half Size)
+            # --- SPLIT ORDER LOGIC ---
             qty_tp1 = float(round(quantity / 2, qty_precision))
-            if qty_tp1 > 0:
-                self.client.futures_create_order(
-                   symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
-                )
+            tp_notional = qty_tp1 * entry_price
             
-            # TP2 (Trailing)
-            qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-            if qty_tp2 > 0:
-                 self.client.futures_create_order(
-                    symbol=symbol, 
-                    side='BUY', 
-                    type='TRAILING_STOP_MARKET', 
-                    callbackRate=1.5, 
-                    quantity=qty_tp2
+            if tp_notional < 5.5:
+                # 🚫 Small Position: NO SPLIT (100% TP1)
+                self.client.futures_create_order(
+                   symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
                 )
+                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
+            else:
+                 # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
+                if qty_tp1 > 0:
+                    self.client.futures_create_order(
+                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                    )
+                
+                qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
+                if qty_tp2 > 0:
+                     self.client.futures_create_order(
+                        symbol=symbol, 
+                        side='BUY', 
+                        type='TRAILING_STOP_MARKET', 
+                        callbackRate=1.5, 
+                        quantity=qty_tp2
+                    )
+                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
             self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
-            return True, f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+            return True, success_msg
 
         except BinanceAPIException as e:
             return False, f"Binance Error: {e.message}"

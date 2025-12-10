@@ -325,11 +325,11 @@ def send_welcome(message):
         
         "🛡️ *GESTIÓN Y RIESGO*\n"
         "• /risk - Explicación detallada del modelo de Riesgo.\n"
-        "• /config - Ver parámetros de riesgo activos.\n"
-        "• /wallet - Ver Capital Spot, Balance Futuros y PnL.\n"
-        "• /pnl - Reporte rápido de ganancias (24h).\n"
+        "• /config - Ver tu apalancamiento y margen.\n"
+        "• /wallet - Ver Capital Spot, Balance Futuros y PnL Total.\n"
+        "• /pnl - Reporte de rendimiento (24h).\n"
         "• /set_leverage <X> - Cambiar apalancamiento (Ej: 10).\n"
-        "• /set_margin <%> - Límite global asignación (Ej: 0.1 para 10%).\n"
+        "• /set_margin <%> - Límite asignación (Ej: 0.1 para 10%).\n"
         "• /set_keys <KEY> <SECRET> - Configurar API Binance.\n\n"
         
         "📡 *INTELIGENCIA*\n"
@@ -406,16 +406,10 @@ def handle_status(message):
     """Muestra estado de grupos y configuración"""
     status = "🕹️ *ESTADO DEL SISTEMA*\n\n"
     
-    # Grupos
-    status += "*Grupos de Activos:*\n"
-    for group, enabled in GROUP_CONFIG.items():
-        icon = "✅" if enabled else "🔴"
-        display_name = group.replace('_', ' ')
-        status += f"{icon} {display_name}\n"
-        
-    status += f"\n*Cooldown de Señal:* {SIGNAL_COOLDOWN/60:.0f} minutos\n"
     status += f"*Activos Vigilados:* {sum(len(v) for k,v in ASSET_GROUPS.items() if GROUP_CONFIG[k])}\n"
-    status += "🔥 *Modo Riesgo:* Avanzado (ATR + Split TP)"
+    status += f"*Cooldown de Señal:* {SIGNAL_COOLDOWN/60:.0f} minutos\n"
+    status += f"*Threads Activos:* {threading.active_count()}\n"
+    status += "🤖 *Motor:* Antigravity v3.2 (Hybrid Engine)"
     
     bot.reply_to(message, status, parse_mode='Markdown')
 
@@ -500,18 +494,26 @@ def handle_config(message):
     proxy_status = "✅ Activado (Global)" if sys_proxy else "🔴 Apagado"
     
     msg = (
-        "⚙️ *CONFIGURACIÓN & RIESGO*\n\n"
-        f"🔑 *API Binance:* {'✅ Conectado' if cfg['has_keys'] else '❌ Desconectado'}\n"
-        f"🌍 *Proxy:* {proxy_status}\n"
+        "⚙️ *CONFIGURACIÓN PERSONAL*\n\n"
+        f"🔑 *API:* {'✅ Vinculada' if cfg['has_keys'] else '❌ Sin Vincular'}\n"
+        "〰️〰️〰️〰️〰️〰️\n"
+        "📡 *Grupos Activos (Scanner):*\n"
+    )
+    
+    for group, enabled in GROUP_CONFIG.items():
+        icon = "✅" if enabled else "🔴"
+        display_name = group.replace('_', ' ')
+        msg += f"{icon} {display_name}\n"
+    
+    msg += (
         "〰️〰️〰️〰️〰️〰️\n"
         f"🕹️ *Apalancamiento:* {cfg['leverage']}x\n"
-        f"💰 *Margen Máx (Total):* {cfg['max_capital_pct']*100:.1f}% (Límite Global)\n"
+        f"💰 *Margen Máx:* {cfg['max_capital_pct']*100:.1f}%\n"
+        f"🛡️ *Stop Loss:* {cfg['stop_loss_pct']*100:.1f}% (Fallback)\n"
         "〰️〰️〰️〰️〰️〰️\n"
-        "🛡️ *GESTIÓN DE RIESGO (Automático)*\n"
-        "• *Stop Loss:* Dinámico (2.0 x ATR)\n"
-        "• *Tamaño:* 2% Riesgo/Trade (Dinámico)\n"
-        "• *Take Profit:* Split (50% Fijo 1.5R + 50% Trailing)\n\n"
-        "ℹ️ _El sistema ajusta automáticamente el SL y el tamaño según la volatilidad del mercado._"
+        "ℹ️ _Para cambiar:_\n"
+        "• `/set_leverage <x>`\n"
+        "• `/set_margin <0.1>`"
     )
     bot.reply_to(message, msg, parse_mode='Markdown')
 
@@ -636,12 +638,25 @@ def handle_pnlrequest(message):
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: 
-        bot.reply_to(message, "Sin sesión.")
+        bot.reply_to(message, "⚠️ Sin sesión activa.")
         return
     
-    pnl, _ = session.get_pnl_history()
+    # Obtener datos
+    pnl, _ = session.get_pnl_history() # Simulado o real según implementación
     avail, total = session.get_balance_details()
-    bot.reply_to(message, f"💰 *PnL (24h):* ${pnl:.2f}\n💳 *Balance:* ${avail:.2f} / ${total:.2f}", parse_mode='Markdown')
+    
+    # Determinar iconos
+    icon = "🟢" if pnl >= 0 else "🔴"
+    
+    msg = (
+        "� *REPORTE DE RENDIMIENTO (24h)*\n"
+        "〰️〰️〰️〰️〰️〰️\n"
+        f"💰 *PnL Realizado:* {icon} `${pnl:,.2f}`\n"
+        "〰️〰️〰️〰️〰️〰️\n"
+        f"💳 *Balance Disponible:* `${avail:,.2f}`\n"
+        f"🏦 *Balance Total:* `${total:,.2f}`"
+    )
+    bot.reply_to(message, msg, parse_mode='Markdown')
 
 def handle_wallet(message):
     """Muestra detalles completos de la cartera (Spot + Futuros)"""
