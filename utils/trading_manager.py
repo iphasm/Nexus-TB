@@ -365,21 +365,48 @@ class TradingSession:
             print(f"Error fetching PnL: {e}")
             return 0.0, []
 
-    def get_balance_details(self):
-        """Returns (available_usdt, total_equity_usdt)"""
-        if not self.client: return 0.0, 0.0
+    def get_wallet_details(self):
+        """
+        Returns full wallet details:
+        - Spot Balance (Total USDT estimate if possible, or just USDT free)
+        - Futures Balance (Margin Balance)
+        - Futures PnL (Unrealized)
+        """
+        if not self.client: return {}
+        
+        details = {
+            "spot_usdt": 0.0,
+            "futures_balance": 0.0,
+            "futures_pnl": 0.0,
+            "futures_total": 0.0
+        }
+        
         try:
-            # futures_account returns summary of assets usually in USDT context if single-asset
-            # totalMarginBalance = Wallet Balance + Unrealized PnL
-            acc = self.client.futures_account()
+            # 1. FUTURES
+            acc_fut = self.client.futures_account()
+            details['futures_balance'] = float(acc_fut.get('availableBalance', 0)) # Available for Trade
+            details['futures_total'] = float(acc_fut.get('totalMarginBalance', 0)) # Equity (Bal + PnL)
+            details['futures_pnl'] = float(acc_fut.get('totalUnrealizedProfit', 0))
             
-            available = float(acc.get('availableBalance', 0))
-            total_equity = float(acc.get('totalMarginBalance', 0))
+            # 2. SPOT
+            # We want at least USDT. 
+            # Ideally we want Total Net Asset Value but that requires ticker prices for all assets.
+            # Let's start with USDT Free + Locked
+            acc_spot = self.client.get_account()
+            spot_usdt = 0.0
             
-            return available, total_equity
+            for bal in acc_spot['balances']:
+                if bal['asset'] == 'USDT':
+                    spot_usdt = float(bal['free']) + float(bal['locked'])
+                    break
+            
+            details['spot_usdt'] = spot_usdt
+            
+            return details
+            
         except Exception as e:
-            print(f"Error fetching balance: {e}")
-            return 0.0, 0.0
+            print(f"Error fetching wallet: {e}")
+            return details
 
 
     def _log_trade(self, symbol, entry, qty, sl, tp, side='LONG'):

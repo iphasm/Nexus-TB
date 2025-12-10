@@ -394,33 +394,31 @@ def run_trading_loop():
 def send_welcome(message):
     # Texto en plano para evitar errores de parseo (Markdown legacy es estricto con _)
     help_text = (
-        "🤖 ANTIGRAVITY BOT v3.1\n\n"
-        "🎮 Control de Mercado\n"
-        "/toggle_group <grupo> - Activ/Des (CRYPTO, STOCKS, COMMODITY).\n"
-        "/status - Ver estado de Grupos y Estrategias.\n"
-        "/set_interval <min> - Ajustar cooldown.\n\n"
+        "🤖 ANTIGRAVITY BOT v3.2 - COMMAND LIST\n\n"
+        "🎮 *CONTROL GENERAL*\n"
+        "• /status - Ver estado del sistema y modo de riesgo.\n"
+        "• /toggle_group <GRUPO> - Activar/Desactivar (CRYPTO, STOCKS, COMMODITY).\n"
+        "• /set_interval <MIN> - Ajustar frecuencia de análisis.\n"
+        "• /debug - Diagnóstico completo de conexión y claves.\n\n"
         
-        "🔫 Trading Manual (FUTUROS)\n"
-        "/long <TICKER> - Abrir LONG.\n"
-        "/sell <TICKER> - Smart Sell (Cierra Long o Abre Short).\n"
-        "/close <TICKER> - Cerrar posición específica.\n"
-        "/closeall - CERRAR TODO (Pánico).\n\n"
+        "🔫 *TRADING MANUAL (FUTUROS)*\n"
+        "• /long <TICKER> - Abrir LONG (Ej: `/long BTC`).\n"
+        "• /sell <TICKER> - Smart Sell (Cierra Long o Abre Short).\n"
+        "• /close <TICKER> - Cerrar posición específica.\n"
+        "• /closeall - CERRAR TODO (Botón de Pánico).\n\n"
         
-        "📊 Estrategias Duales\n"
-        "1. Reversion a la Media (SPOT).\n"
-        "2. Squeeze & Velocity (FUTUROS).\n\n"
+        "�️ *GESTIÓN Y RIESGO*\n"
+        "• /config - Ver parámetros de riesgo activos.\n"
+        "• /wallet - Ver Capital Spot, Balance Futuros y PnL.\n"
+        "• /pnl - Reporte rápido de ganancias (24h).\n"
+        "• /set_leverage <X> - Cambiar apalancamiento (Ej: 10).\n"
+        "• /set_margin <%> - Límite global asignación (Ej: 0.1 para 10%).\n"
+        "• /set_keys <KEY> <SECRET> - Configurar API Binance.\n\n"
         
-        "⚙️ Configuracion\n"
-        "/config - Ver parametros.\n"
-        "/set_leverage <x> - Apalancamiento.\n"
-        "/set_margin <%> - % Capital.\n"
-        "/set_keys <k> <s> - API Keys.\n\n"
-        
-        "📡 Inteligencia\n"
-        "/price - Radar (Nombres Reales).\n"
-        "/pnl - Resultados."
+        "📡 *INTELIGENCIA*\n"
+        "• /price - Radar de precios y señales técnicas."
     )
-    bot.reply_to(message, help_text) # Removed parse_mode='Markdown'
+    bot.reply_to(message, help_text, parse_mode='Markdown')
 
 def handle_status(message):
     """Muestra estado de grupos y configuración"""
@@ -434,7 +432,8 @@ def handle_status(message):
         status += f"{icon} {display_name}\n"
         
     status += f"\n*Cooldown de Señal:* {SIGNAL_COOLDOWN/60:.0f} minutos\n"
-    status += f"*Activos Vigilados:* {sum(len(v) for k,v in ASSET_GROUPS.items() if GROUP_CONFIG[k])}"
+    status += f"*Activos Vigilados:* {sum(len(v) for k,v in ASSET_GROUPS.items() if GROUP_CONFIG[k])}\n"
+    status += "🔥 *Modo Riesgo:* Avanzado (ATR + Split TP)"
     
     bot.reply_to(message, status, parse_mode='Markdown')
 
@@ -519,13 +518,18 @@ def handle_config(message):
     proxy_status = "✅ Activado (Global)" if sys_proxy else "🔴 Apagado"
     
     msg = (
-        "⚙️ *CONFIGURACIÓN PERSONAL*\n\n"
+        "⚙️ *CONFIGURACIÓN & RIESGO*\n\n"
         f"🔑 *API Binance:* {'✅ Conectado' if cfg['has_keys'] else '❌ Desconectado'}\n"
         f"🌍 *Proxy:* {proxy_status}\n"
+        "〰️〰️〰️〰️〰️〰️\n"
         f"🕹️ *Apalancamiento:* {cfg['leverage']}x\n"
-        f"💰 *Margen Máx:* {cfg['max_capital_pct']*100:.1f}%\n"
-        f"🛡️ *Stop Loss:* {cfg['stop_loss_pct']*100:.1f}%\n\n"
-        "Para editar: `/set_leverage`, `/set_margin`, `/set_keys`."
+        f"💰 *Margen Máx (Total):* {cfg['max_capital_pct']*100:.1f}% (Límite Global)\n"
+        "〰️〰️〰️〰️〰️〰️\n"
+        "🛡️ *GESTIÓN DE RIESGO (Automático)*\n"
+        "• *Stop Loss:* Dinámico (2.0 x ATR)\n"
+        "• *Tamaño:* 2% Riesgo/Trade (Dinámico)\n"
+        "• *Take Profit:* Split (50% Fijo 1.5R + 50% Trailing)\n\n"
+        "ℹ️ _El sistema ajusta automáticamente el SL y el tamaño según la volatilidad del mercado._"
     )
     bot.reply_to(message, msg, parse_mode='Markdown')
 
@@ -537,8 +541,8 @@ def handle_set_leverage(message):
         val = int(message.text.split()[1])
         session.update_config('leverage', val)
         session_manager.save_sessions()
-        bot.reply_to(message, f"✅ Leverage: {val}x")
-    except: bot.reply_to(message, "Error.")
+        bot.reply_to(message, f"✅ *Palanca Ajustada:* {val}x")
+    except: bot.reply_to(message, "❌ Error: Usa `/set_leverage 10`")
 
 def handle_debug(message):
     """Generates a System Diagnostics Report"""
@@ -643,8 +647,8 @@ def handle_set_margin(message):
         val = float(message.text.split()[1])
         session.update_config('max_capital_pct', val)
         session_manager.save_sessions()
-        bot.reply_to(message, f"✅ Margen: {val*100}%")
-    except: bot.reply_to(message, "Error.")
+        bot.reply_to(message, f"✅ *Margen Máximo Global:* {val*100:.1f}%\nℹ️ _Límite de seguridad para asignación total._")
+    except: bot.reply_to(message, "❌ Error: Usa `/set_margin 0.1` (10%)")
 
 def handle_pnlrequest(message):
     chat_id = str(message.chat.id)
@@ -656,6 +660,96 @@ def handle_pnlrequest(message):
     pnl, _ = session.get_pnl_history()
     avail, total = session.get_balance_details()
     bot.reply_to(message, f"💰 *PnL (24h):* ${pnl:.2f}\n💳 *Balance:* ${avail:.2f} / ${total:.2f}", parse_mode='Markdown')
+
+def handle_wallet(message):
+    """Muestra detalles completos de la cartera (Spot + Futuros)"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session: 
+        bot.reply_to(message, "⚠️ Sin sesión activa. Usa /set_keys.")
+        return
+    
+    bot.reply_to(message, "⏳ Consultando Blockchain y Binance...")
+    
+    try:
+        details = session.get_wallet_details()
+        if not details:
+            bot.reply_to(message, "❌ Error obteniendo datos de cartera.")
+            return
+            
+        # Unpack
+        spot = details.get('spot_usdt', 0.0)
+        fut_bal = details.get('futures_balance', 0.0)
+        fut_pnl = details.get('futures_pnl', 0.0)
+        fut_total = details.get('futures_total', 0.0)
+        
+        # Calculate Total Net Worth
+        net_worth = spot + fut_total
+        
+        # Formatting
+        pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
+        
+        msg = (
+            "🏦 *WALLET REPORT*\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"💎 *SPOT Capital:* `${spot:,.2f}` (USDT)\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
+            f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"
+            f"💰 *FUTUROS Total:* `${fut_total:,.2f}`\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"🏆 *NET WORTH:* `${net_worth:,.2f}`"
+        )
+        
+        bot.reply_to(message, msg, parse_mode='Markdown')
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+def handle_wallet(message):
+    """Muestra detalles completos de la cartera (Spot + Futuros)"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session: 
+        bot.reply_to(message, "⚠️ Sin sesión activa. Usa /set_keys.")
+        return
+    
+    bot.reply_to(message, "⏳ Consultando Blockchain y Binance...")
+    
+    try:
+        details = session.get_wallet_details()
+        if not details:
+            bot.reply_to(message, "❌ Error obteniendo datos de cartera.")
+            return
+            
+        # Unpack
+        spot = details.get('spot_usdt', 0.0)
+        fut_bal = details.get('futures_balance', 0.0)
+        fut_pnl = details.get('futures_pnl', 0.0)
+        fut_total = details.get('futures_total', 0.0)
+        
+        # Calculate Total Net Worth
+        net_worth = spot + fut_total
+        
+        # Formatting
+        pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
+        
+        msg = (
+            "🏦 *WALLET REPORT*\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"💎 *SPOT Capital:* `${spot:,.2f}` (USDT)\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
+            f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"
+            f"💰 *FUTUROS Total:* `${fut_total:,.2f}`\n"
+            "〰️〰️〰️〰️〰️〰️\n"
+            f"🏆 *NET WORTH:* `${net_worth:,.2f}`"
+        )
+        
+        bot.reply_to(message, msg, parse_mode='Markdown')
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 
 # --- MASTER LISTENER ---
@@ -696,6 +790,8 @@ def master_listener(message):
                 handle_set_margin(message)
             elif cmd_part == '/pnl':
                 handle_pnlrequest(message)
+            elif cmd_part == '/wallet':
+                handle_wallet(message)
             # Manual Trading
             elif cmd_part == '/long':
                 handle_manual_long(message)
