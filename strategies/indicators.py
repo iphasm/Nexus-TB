@@ -201,3 +201,51 @@ def calculate_adx_slope(adx_series: pd.Series) -> pd.Series:
     Devuelve serie booleana: True si ADX está subiendo (actual > anterior).
     """
     return adx_series > adx_series.shift(1)
+
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    Calcula el Rango Verdadero Promedio (ATR).
+    """
+    high = df['high']
+    low = df['low']
+    close = df['close']
+    
+    # 1. True Range (TR)
+    tr1 = high - low
+    tr2 = abs(high - close.shift(1))
+    tr3 = abs(low - close.shift(1))
+    
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    
+    # 2. ATR (Suavizado similar a Wilder)
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
+    
+    return atr
+
+def calculate_keltner_channels(df: pd.DataFrame, period: int = 20, multiplier: float = 1.5) -> pd.DataFrame:
+    """
+    Calcula Canales de Keltner.
+    Línea Central: EMA(20)
+    Banda Superior: EMA + (ATR * multiplicador)
+    Banda Inferior: EMA - (ATR * multiplicador)
+    """
+    # Usar EMA para línea central
+    central = calculate_ema(df['close'], period)
+    
+    # Calcular ATR
+    atr = calculate_atr(df, period=10) # El periodo de ATR en Keltner suele ser 10, o igual al EMA (20). Usaremos 20 por consistencia si no se especifica.
+    # Ajuste: El usuario pidió Keltner (20, 1.5 ATR). Asumiremos ATR(20) si no se especifica otro, pero el estándar suele ser ATR(10). 
+    # Siguiendo la petición estricta "Canales de Keltner (20, 1.5 ATR)", usaremos ATR(20) para el rango o ATR(10)? 
+    # Usaremos el mismo periodo que el canal (20) para simplificar a menos que se requiera otro.
+    # Corrección: El ATR estándar para Keltner suele ser 10, pero usaremos 'period' para todo para ser "Keltner (20, 1.5)".
+    
+    atr = calculate_atr(df, period=period)
+    
+    upper = central + (atr * multiplier)
+    lower = central - (atr * multiplier)
+    
+    return pd.DataFrame({
+        'upper': upper,
+        'central': central,
+        'lower': lower
+    })
