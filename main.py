@@ -427,6 +427,65 @@ def handle_risk(message):
         "   • ✅ **SHORT** solo si 1H es Bajista (Precio < EMA200).\n"
         "   • _Esto evita operar contra la marea institucional._\n\n"
         
+        "2. *Gestión de Capital*\n"
+        "   • **Posición Dinámica**: Riesgo fijo del **2%** por trade.\n"
+        "   • **Stop Loss (ATR)**: Se adapta a la volatilidad real del activo.\n"
+        "   • **Límite Global**: Nunca usará más del **{margin}** de tu cuenta total.\n\n"
+        
+        "3. *Salidas Inteligentes*\n"
+        "   • **TP1 (50%)**: Asegura ganancia rápida (1.5R).\n"
+        "   • **TP2 (Running)**: Deja correr ganancias con Trailing Stop.\n"
+    ).format(margin=margin)
+    
+    bot.reply_to(message, msg, parse_mode='Markdown')
+
+def handle_start(message):
+    """ Bienvenida Profesional con Efecto de Carga """
+    # 1. Mensaje de carga inicial
+    msg_load = bot.reply_to(message, "🔄 _Estableciendo enlace seguro con el Núcleo..._", parse_mode='Markdown')
+    
+    # Simular micro-check
+    time.sleep(0.5)
+    
+    # 2. Verificar estado
+    me = bot.get_me()
+    status_icon = "🟢" if me else "🔴"
+    status_text = "SISTEMA ONLINE" if me else "ERROR DE CONEXIÓN"
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    # 3. Datos de Sesión
+    mode = "WATCHER"
+    auth = "🔒 Sin Credenciales"
+    
+    if session:
+        cfg = session.get_configuration()
+        mode = cfg.get('mode', 'WATCHER')
+        if session.client:
+            auth = "🔑 Binance Vinculado"
+    
+    # 4. Mensaje Final
+    welcome = (
+        "🌌 *ANTIGRAVITY QUANTUM CORE v3.2*\n"
+        "〰️〰️〰️〰️〰️〰️〰️\n\n"
+        f"🔋 *Estado:* `{status_text}` {status_icon}\n"
+        f"🎮 *Modo Operativo:* `{mode}`\n"
+        f"🔐 *Nivel de Acceso:* `{auth}`\n\n"
+        "🚀 *Motor Algorítmico Activo*\n"
+        "El sistema está monitoreando el mercado en tiempo real utilizando lógica **Multi-Timeframe (MTF)** y análisis de volatilidad institucional.\n\n"
+        "👇 *PANEL DE CONTROL*\n"
+        "• `/status` - Dashboard de Mercado\n"
+        "• `/risk` - Protocolos de Riesgo\n"
+        "• `/help` - Centro de Comandos\n"
+    )
+    
+    bot.edit_message_text(welcome, chat_id=chat_id, message_id=msg_load.message_id, parse_mode='Markdown')
+
+def get_fear_and_greed_index():
+    """Fetch Fear and Greed Index from alternative.me"""
+    try:
+        url = "https://api.alternative.me/fng/"
         resp = requests.get(url, timeout=5)
         data = resp.json()
         if 'data' in data and len(data['data']) > 0:
