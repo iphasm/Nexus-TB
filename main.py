@@ -982,6 +982,11 @@ def run_trading_loop():
     """Bucle de Trading en Background"""
     print("🚀 Bucle de Trading Híbrido Iniciado (Background)...")
     
+    # State Tracking (Smart Filtering)
+    last_alert_times = {}
+    last_alert_prices = {}
+    last_signals = {} # Tracks 'BUY', 'SELL' etc per asset
+
     while True:
         try:
             # Iterar Grupos Activos
@@ -992,23 +997,52 @@ def run_trading_loop():
                 for asset in assets:
                     try:
                         current_time = time.time()
-                        last_alert = last_alert_times.get(asset, 0)
                         
-                        # Cooldown check
-                        if (current_time - last_alert) < SIGNAL_COOLDOWN:
-                            continue
-
-                        # 1. Procesar Activo (Unified)
+                        # 1. PROCESS FIRST (Always Monitor)
                         success, res = process_asset(asset)
                         if not success: continue
                         
                         m = res['metrics']
+                        curr_price = m['close']
+                        
+                        # Determine Current Signal Type (Unified)
+                        curr_sig_type = None
+                        if res['signal_spot']: curr_sig_type = 'SPOT_BUY'
+                        elif res['signal_futures'] in ['BUY', 'SHORT', 'CLOSE_LONG', 'CLOSE_SHORT', 'EXIT_ALL']: 
+                            curr_sig_type = res['signal_futures']
+                        
+                        # --- SMART FILTER ---
+                        last_time = last_alert_times.get(asset, 0)
+                        last_price = last_alert_prices.get(asset, 0)
+                        last_sig = last_signals.get(asset, None)
+                        
+                        # Conditions
+                        time_passed = (current_time - last_time) > SIGNAL_COOLDOWN
+                        price_change = abs((curr_price - last_price) / last_price) if last_price > 0 else 0
+                        is_big_move = price_change > 0.008 # 0.8% deviation
+                        is_new_signal = (curr_sig_type is not None) and (curr_sig_type != last_sig)
+                        
+                        # Has the bot signaled anything?
+                        has_signal = res['signal_spot'] or (res['signal_futures'] not in ['WAIT'])
+                        
+                        # Strict Filter: Pass if (Time OK OR Big Move OR New Signal) AND Has Signal
+                        should_alert = has_signal and (time_passed or is_big_move or is_new_signal)
+                        
+                        # If filtering active, skip
+                        if not should_alert:
+                            continue
+                            
+                        # UPDATE STATE (Only if Alerting)
+                        last_alert_times[asset] = current_time
+                        last_alert_prices[asset] = curr_price
+                        if curr_sig_type: last_signals[asset] = curr_sig_type
+                        
+
                         
                         # 2. Alertas
                         
                         # SPOT LOGIC
                         if res['signal_spot']:
-                            last_alert_times[asset] = current_time
                             
                             # Prepare basic alert text
                             base_msg = (
@@ -1066,12 +1100,10 @@ def run_trading_loop():
                         if fut_sig == 'BUY' and curr_state == 'NEUTRAL':
                             action_needed = 'OPEN_LONG'
                             pos_state[asset] = 'LONG'
-                            last_alert_times[asset] = current_time
                             
                         elif fut_sig == 'SHORT' and curr_state == 'NEUTRAL':
                             action_needed = 'OPEN_SHORT'
                             pos_state[asset] = 'SHORT'
-                            last_alert_times[asset] = current_time
                             
                         elif fut_sig == 'CLOSE_LONG' and curr_state == 'LONG':
                             action_needed = 'CLOSE'
