@@ -133,13 +133,13 @@ class StrategyEngine:
                 fut_reason = "🌊 **TREND VELOCITY**: Continuación de tendencia fuerte."
 
         # Lógica de Entrada (SHORT)
-        # Inverse logic: Breakout Down, Price < HMA, RSI < 50
+        # Lógica Inversa: Ruptura bajista, Precio < HMA, RSI < 50
         breakout_down = (curr['close'] < curr['bb_lower'])
         momentum_bearish = (curr['rsi'] < 50)
         trend_bearish = (curr['close'] < curr['hma_55'])
         
         if breakout_down and trend_bearish and momentum_bearish and adx_rising:
-             # Prioritizes Shorts if we are not already in Long logic (which we aren't if fut_signal is WAIT)
+             # Prioriza Shorts si no estamos ya en lógica Long (espera)
              if fut_signal == "WAIT":
                 if recent_squeeze:
                     fut_signal = "SHORT"
@@ -153,24 +153,22 @@ class StrategyEngine:
         trend_loss_bull = (curr['close'] < curr['hma_55'])
         trend_loss_bear = (curr['close'] > curr['hma_55'])
         
-        # Determine Exit based on assumed state (Caller handles state, here we return generic close signals depending on chart violation)
-        # Actually, best practice is to return specific "CLOSE_LONG" or "CLOSE_SHORT" if we detect that specific violation.
-        # But since we don't know the state here, we can flag both? 
-        # Better approach: Return distinct signals. The Loop checks state.
+        # Determina salida basada en estado asumido (El invocador maneja el estado)
+        # Retorna señales distintas. El Bucle verifica el estado.
         
         if trend_loss_bull:
-            # Crucial for Longs to close
+            # Crucial para cerrar Longs
             if fut_signal == "WAIT": fut_signal = "CLOSE_LONG"
             fut_reason = "📉 **TENDENCIA ROTA**: Precio bajo HMA 55."
             
         elif trend_loss_bear:
-            # Crucial for Shorts to close
+            # Crucial para cerrar Shorts
             if fut_signal == "WAIT": fut_signal = "CLOSE_SHORT"
             fut_reason = "📈 **RECUPERACIÓN**: Precio sobre HMA 55."
             
         elif adx_collapse:
-             # Valid for both
-             if fut_signal == "WAIT": fut_signal = "EXIT_ALL" # Generic Exit
+             # Válido para ambos
+             if fut_signal == "WAIT": fut_signal = "EXIT_ALL" # Salida Genérica
              fut_reason = "exhaustion **ADX**: Pérdida de fuerza (Side)."
 
         # --- MÉTRICAS FINALES ---

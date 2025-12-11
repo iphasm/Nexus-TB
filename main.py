@@ -95,7 +95,7 @@ def threaded_handler(func):
     return wrapper
 
 def resolve_symbol(text):
-    """Clean and standardize input symbol. Auto-appends USDT if needed."""
+    """Limpia y estandariza el símbolo (input). Agrega 'USDT' automáticamente."""
     s = text.strip().upper()
     
     # 1. Exact Match Check (Groups or Map keys)
@@ -417,7 +417,7 @@ def handle_risk(message):
     bot.reply_to(message, msg, parse_mode='Markdown')
 
 def handle_start(message):
-    """Simple Health Check & Intro"""
+    """ Verificación Rápida de Salud e Intro """
     bot.reply_to(message, "⏳ Iniciando sistemas...")
     
     # Quick Check
@@ -562,7 +562,7 @@ def handle_set_keys(message):
 
 @threaded_handler
 def handle_debug(message):
-    """Generates a System Diagnostics Report"""
+    """ Genera un Reporte de Diagnóstico del Sistema """
     sent = bot.reply_to(message, "🔍 Ejecutando diagnóstico de sistema...")
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
@@ -1191,7 +1191,7 @@ def start_bot():
         try:
             me = bot.get_me()
             print(f"✅ Bot Connected: {me.username} (ID: {me.id})")
-            send_alert("✅ *SISTEMA OPERATIVO* (v3.2.1)\nModo: Recuperación")
+            send_alert("✅ *SISTEMA ONLINE* (v3.2.2)\n🚀 Antigravity Activo")
             bot.delete_webhook(drop_pending_updates=True)
         except Exception as e:
             print(f"⚠️ Startup Warning: {e}")

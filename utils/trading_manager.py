@@ -497,7 +497,7 @@ class TradingSession:
             return False, f"Error: {e}"
 
     def execute_close_all(self):
-        """Closes ALL active positions"""
+        """Cierra TODAS las posiciones activas"""
         if not self.client: return False, "No valid session."
         
         active_pos = self.get_active_positions()
@@ -513,7 +513,7 @@ class TradingSession:
         return True, "Batch Close:\n" + "\n".join(results)
 
     def execute_close_position(self, symbol):
-        """Closes all positions and open orders for a symbol"""
+        """Cierra posiciones y órdenes abiertas para un símbolo"""
         if not self.client: return False, "No valid session."
         
         try:
@@ -555,7 +555,7 @@ class TradingSession:
             return False, f"Error: {str(e)}"
 
     def execute_spot_buy(self, symbol):
-        """Executes a SPOT Market Buy (Binance)"""
+        """Ejecuta compra de mercado SPOT (Binance)"""
         if not self.client: return False, "No valid keys."
         
         try:
@@ -713,7 +713,7 @@ class TradingSession:
 
 
     def _log_trade(self, symbol, entry, qty, sl, tp, side='LONG'):
-        """Logs trade to local JSON file for history"""
+        """Registra la operación en un JSON local para historial"""
         try:
             log_file = 'data/trades.json'
             entry_data = {
@@ -744,7 +744,7 @@ class TradingSession:
             print(f"⚠️ Failed to log trade: {e}")
 
     def get_active_positions(self):
-        """Returns list of symbols with active positions"""
+        """Devuelve lista de símbolos con posiciones activas"""
         if not self.client: return []
         try:
             positions = self.client.futures_position_information()
