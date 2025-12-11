@@ -190,3 +190,25 @@ class StrategyEngine:
             "reason_futures": fut_reason,
             "metrics": final_metrics
         }
+
+    def analyze_macro_trend(self, df_macro: pd.DataFrame) -> str:
+        """
+        Analiza la tendencia MACRO (ej. 1H o 4H) para filtrar señales.
+        Regla: Precio vs EMA 200.
+        Retorna: "BULL", "BEAR" o "NEUTRAL".
+        """
+        if df_macro.empty or len(df_macro) < 200:
+            return "NEUTRAL" # Datos insuficientes, no filtramos (o seguro por defecto)
+            
+        # Calcular EMA 200 en marco mayor
+        ema_200 = calculate_ema(df_macro['close'], period=200)
+        
+        last_close = df_macro['close'].iloc[-1]
+        last_ema = ema_200.iloc[-1]
+        
+        if last_close > last_ema:
+            return "BULL"
+        elif last_close < last_ema:
+            return "BEAR"
+            
+        return "NEUTRAL"

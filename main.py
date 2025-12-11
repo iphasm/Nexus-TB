@@ -127,16 +127,46 @@ def process_asset(asset):
     Devuelve: (Success: bool, Data: dict|str)
     """
     try:
-        # 1. Obtener Datos
+        # 1. Obtener Datos (Micro - 15m)
         df = get_market_data(asset, timeframe='15m', limit=200)
         if df.empty: 
             return False, "No Data"
         
-        # 2. Análisis Unificado (Spot + Futuros)
+        # 2. Análisis Micro (Spot + Futuros)
         engine = StrategyEngine(df)
-        analysis_result = engine.analyze()
+        res = engine.analyze()
         
-        return True, analysis_result
+        # --- 3. LAZY FETCHING (MTF - 1H) ---
+        # Solo gastamos API si hay señal potencial
+        has_signal = res['signal_spot'] or (res['signal_futures'] not in ['WAIT', 'EXIT_ALL', 'CLOSE_LONG', 'CLOSE_SHORT'])
+        
+        if has_signal:
+            try:
+                # Descargar Tendencia Macro (1H)
+                df_macro = get_market_data(asset, timeframe='1H', limit=200)
+                trend_1h = engine.analyze_macro_trend(df_macro)
+                
+                # Reglas de Filtrado MTF
+                # Long solo en tendencia BULL/NEUTRAL (Evita Bear)
+                # Short solo en tendencia BEAR/NEUTRAL (Evita Bull)
+                
+                current_fut = res['signal_futures']
+                
+                if current_fut == 'BUY' and trend_1h == 'BEAR':
+                    res['signal_futures'] = 'WAIT'
+                    res['reason_futures'] = f"⛔ FILTRADO MTF: Señal Long en Tendencia 1H Bajista ({trend_1h})"
+                    
+                elif current_fut == 'SHORT' and trend_1h == 'BULL':
+                    res['signal_futures'] = 'WAIT'
+                    res['reason_futures'] = f"⛔ FILTRADO MTF: Señal Short en Tendencia 1H Alcista ({trend_1h})"
+                else:
+                    # Append MTF info to reason
+                    res['reason_futures'] += f" [MTF: {trend_1h}]"
+
+            except Exception as e:
+                print(f"MTF Error for {asset}: {e}")
+        
+        return True, res
         
     except Exception as e:
         return False, str(e)
