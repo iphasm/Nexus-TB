@@ -529,7 +529,11 @@ def handle_risk(message):
         
         "3. *Salidas Inteligentes*\n"
         "   • **TP1 (50%)**: Asegura ganancia rápida (1.5R).\n"
-        "   • **TP2 (Running)**: Deja correr ganancias con Trailing Stop.\n"
+        "   • **TP2 (Running)**: Deja correr ganancias con Trailing Stop.\n\n"
+        
+        "4. *Circuit Breaker (Seguridad Extrema)* 🚨\n"
+        "   • Si detecta **5 pérdidas consecutivas** en modo PILOT, se degrada a **COPILOT** automáticamente.\n"
+        "   • Evita rachas negativas automáticas ('Account Drain')."
     ).format(margin=margin)
     
     bot.reply_to(message, msg, parse_mode='Markdown')
