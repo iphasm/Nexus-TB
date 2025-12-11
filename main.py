@@ -656,6 +656,9 @@ def handle_status(message):
     
     bot.reply_to(message, status, parse_mode='Markdown')
 
+    bot.reply_to(message, status, parse_mode='Markdown')
+
+@bot.message_handler(commands=['toggle_group', 'togglegroup'])
 def handle_toggle_group(message):
     """Ej: /toggle_group CRYPTO"""
     try:
@@ -674,7 +677,7 @@ def handle_toggle_group(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-@bot.message_handler(commands=['reset_breaker'])
+@bot.message_handler(commands=['reset_breaker', 'resetbreaker'])
 def handle_reset_breaker(message):
     """Reinicia el contador del Circuit Breaker"""
     chat_id = str(message.chat.id)
@@ -684,6 +687,9 @@ def handle_reset_breaker(message):
     session.reset_circuit_breaker()
     bot.reply_to(message, "✅ **Circuit Breaker Reiniciado**.\nEl contador de pérdidas consecutivas se ha restablecido a 0.\nPuedes reactivar `/pilot` si lo deseas.", parse_mode='Markdown')
 
+    bot.reply_to(message, "✅ **Circuit Breaker Reiniciado**.\nEl contador de pérdidas consecutivas se ha restablecido a 0.\nPuedes reactivar `/pilot` si lo deseas.", parse_mode='Markdown')
+
+@bot.message_handler(commands=['set_interval', 'setinterval'])
 def handle_set_interval(message):
     """Ajusta el cooldown global en minutos"""
     global SIGNAL_COOLDOWN
@@ -703,6 +709,10 @@ def handle_set_interval(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['set_keys', 'setkeys'])
 def handle_set_keys(message):
     """Configura API Keys: /set_keys <KEY> <SECRET>"""
     chat_id = str(message.chat.id)
@@ -788,6 +798,8 @@ def handle_debug(message):
 def handle_config(message):
     handle_status(message)
 
+@threaded_handler
+@bot.message_handler(commands=['set_leverage', 'setleverage'])
 def handle_set_leverage(message):
     """ /set_leverage - Interactive Menu """
     markup = InlineKeyboardMarkup()
@@ -801,6 +813,8 @@ def handle_set_leverage(message):
     )
     bot.reply_to(message, "⚖️ *Selecciona Apalancamiento Futuros:*", reply_markup=markup, parse_mode='Markdown')
 
+@threaded_handler
+@bot.message_handler(commands=['set_margin', 'setmargin'])
 def handle_set_margin(message):
     """ /set_margin - Interactive Menu """
     markup = InlineKeyboardMarkup()
@@ -813,6 +827,8 @@ def handle_set_margin(message):
     )
     bot.reply_to(message, "💰 *Selecciona Margen Máximo Global:*", reply_markup=markup, parse_mode='Markdown')
 
+@threaded_handler
+@bot.message_handler(commands=['buy'])
 def handle_manual_buy_spot(message):
     """ /buy <SYMBOL> """
     chat_id = str(message.chat.id)
@@ -839,6 +855,11 @@ def handle_manual_buy_spot(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@threaded_handler
+@bot.message_handler(commands=['set_spot_allocation', 'setspotallocation'])
 def handle_set_spot_allocation(message):
     markup = InlineKeyboardMarkup()
     markup.row_width = 4
