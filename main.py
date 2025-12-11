@@ -1046,41 +1046,34 @@ def start_bot():
     # Iniciar Polling
     if bot:
         print("📡 Iniciando Telegram Polling (Main Thread)...")
+        
+        # Attempt safe startup checks
         try:
             me = bot.get_me()
             print(f"✅ Bot Connected: {me.username} (ID: {me.id})")
+            send_alert("✅ *SISTEMA OPERATIVO* (v3.2.1)\nModo: Recuperación")
+            bot.delete_webhook(drop_pending_updates=True)
         except Exception as e:
-            print(f"❌ Failed to get_me(): {e}")
+            print(f"⚠️ Startup Warning: {e}")
 
-        print("📤 Sending Startup Alert...")
-        try:
-            send_alert("✅ *SISTEMA REINICIADO*\nEnvía /start para probar.")
-            print("✅ Startup Alert Sent.")
-        except Exception as e:
-            print(f"⚠️ Startup Alert Failed: {e}")
-
-        try:
-            print("🧹 Clearing Webhook...")
-            bot.remove_webhook() # Safer alias usually
-            time.sleep(1) # Give it a moment to clear
-            print("✅ Webhook Cleared.")
-        except Exception as e:
-            print(f"⚠️ Webhook cleanup error: {e}")
-            
+        # Robust Polling Loop
         while True:
             try:
-                print("🔄 Starting Infinity Polling...")
-                # Removed 'allowed_updates' restriction to default to ALL allowed (safer for debugging)
-                bot.infinity_polling(timeout=20, long_polling_timeout=20)
+                print("🔄 Starting Infinity Polling (Filters: Message, Callback)...")
+                bot.infinity_polling(timeout=10, long_polling_timeout=10, allowed_updates=['message', 'callback_query'])
+            
             except Exception as e:
                 import traceback
-                print("❌ Polling Exception:")
-                traceback.print_exc()
+                print(f"❌ Polling Error: {e}")
+                # traceback.print_exc() # Optional: reduce log spam
                 time.sleep(5)
                 print("⚠️ Restarting Polling...")
+            
             except BaseException as e:
-                print(f"❌ Critical Crash (BaseException): {e}")
+                print(f"❌ Critical Error (BaseException): {e}")
                 time.sleep(5)
+                # Check if we should exit on specific signals? 
+                # For now, restarting is safer for a worker.
                 print("⚠️ Force Restarting...")
     else:
         print("❌ Bot no inicializado.")
