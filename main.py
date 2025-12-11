@@ -1046,30 +1046,41 @@ def start_bot():
     # Iniciar Polling
     if bot:
         print("📡 Iniciando Telegram Polling (Main Thread)...")
-        send_alert("✅ *SISTEMA DEPURADO Y LISTO (MANUAL DISPATCH)*\nEnvía /start o /help para probar.")
         try:
-            bot.delete_webhook(drop_pending_updates=True)
+            me = bot.get_me()
+            print(f"✅ Bot Connected: {me.username} (ID: {me.id})")
         except Exception as e:
-            print(f"Webhook cleanup error: {e}")
+            print(f"❌ Failed to get_me(): {e}")
+
+        print("📤 Sending Startup Alert...")
+        try:
+            send_alert("✅ *SISTEMA REINICIADO*\nEnvía /start para probar.")
+            print("✅ Startup Alert Sent.")
+        except Exception as e:
+            print(f"⚠️ Startup Alert Failed: {e}")
+
+        try:
+            print("🧹 Clearing Webhook...")
+            bot.remove_webhook() # Safer alias usually
+            time.sleep(1) # Give it a moment to clear
+            print("✅ Webhook Cleared.")
+        except Exception as e:
+            print(f"⚠️ Webhook cleanup error: {e}")
             
         while True:
             try:
                 print("🔄 Starting Infinity Polling...")
-                bot.infinity_polling(timeout=10, long_polling_timeout=10, allowed_updates=['message', 'callback_query'])
+                # Removed 'allowed_updates' restriction to default to ALL allowed (safer for debugging)
+                bot.infinity_polling(timeout=20, long_polling_timeout=20)
             except Exception as e:
                 import traceback
+                print("❌ Polling Exception:")
                 traceback.print_exc()
-                print(f"❌ Polling Crash: {e}")
                 time.sleep(5)
                 print("⚠️ Restarting Polling...")
             except BaseException as e:
-                # Catch KeyboardInterrupt or SystemExit only to log, then re-raise or continue?
-                # If user wants to stop, we should let them.
-                # But if it's some other weird error...
                 print(f"❌ Critical Crash (BaseException): {e}")
                 time.sleep(5)
-                # break # If we want to allow exit
-                # If user implies 'crash' means it stops working, maybe we should just restart?
                 print("⚠️ Force Restarting...")
     else:
         print("❌ Bot no inicializado.")
