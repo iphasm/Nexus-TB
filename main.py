@@ -495,7 +495,8 @@ def send_welcome(message):
         "🔧 *AJUSTES*\n"
         "• /set_leverage <x> - Apalancamiento (Ej: 10).\n"
         "• /set_margin <%> - Riesgo máx del capital (Ej: 0.1).\n"
-        "• /toggle_group <GRUPO> - Activar/Desactivar Crypto/Stocks."
+        "• /toggle_group <GRUPO> - Activar/Desactivar Crypto/Stocks.\n"
+        "• /reset_breaker - Reiniciar contador de pérdidas (Circuit Breaker)."
     )
     try:
         bot.reply_to(message, help_text, parse_mode='Markdown')
@@ -672,6 +673,16 @@ def handle_toggle_group(message):
             bot.reply_to(message, f"❌ Grupo no encontrado. Disponibles: {', '.join(GROUP_CONFIG.keys())}")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['reset_breaker'])
+def handle_reset_breaker(message):
+    """Reinicia el contador del Circuit Breaker"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session: return
+
+    session.reset_circuit_breaker()
+    bot.reply_to(message, "✅ **Circuit Breaker Reiniciado**.\nEl contador de pérdidas consecutivas se ha restablecido a 0.\nPuedes reactivar `/pilot` si lo deseas.", parse_mode='Markdown')
 
 def handle_set_interval(message):
     """Ajusta el cooldown global en minutos"""

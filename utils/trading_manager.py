@@ -20,6 +20,7 @@ class TradingSession:
         self.api_key = api_key
         self.api_secret = api_secret
         self.client = None
+        self.cb_ignore_until = 0 # Timestamp (ms) to ignore previous losses
         
         # Default Config
         self.config = {
@@ -631,6 +632,9 @@ class TradingSession:
             for trade in income:
                 pnl = float(trade['income'])
                 if pnl < 0:
+                    # CHECK: Ignore if before reset time
+                    if trade['time'] < self.cb_ignore_until:
+                        break
                     consecutive_losses += 1
                 else:
                     # Found a win or zero, break the streak
