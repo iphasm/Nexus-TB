@@ -96,7 +96,8 @@ def threaded_handler(func):
 
 def resolve_symbol(text):
     """Limpia y estandariza el símbolo (input). Agrega 'USDT' automáticamente."""
-    s = text.strip().upper()
+    # FIX: Remove common separators
+    s = text.strip().upper().replace('/', '').replace('-', '').replace('_', '')
     
     # 1. Exact Match Check (Groups or Map keys)
     known_assets = []
@@ -1080,7 +1081,15 @@ def run_trading_loop():
                                     # AUTO BUY
                                     success_t, info = session.execute_spot_buy(asset)
                                     status_icon = "✅" if success_t else "❌"
-                                    bot.send_message(cid, f"{base_msg}\n\n🤖 *PILOT ACTION:*\n{status_icon} {info}", parse_mode='Markdown')
+                                    
+                                    # Identify Group
+                                    group_name = "UNKNOWN"
+                                    for g_key, g_assets in ASSET_GROUPS.items():
+                                        if asset in g_assets:
+                                            group_name = g_key
+                                            break
+
+                                    bot.send_message(cid, f"{base_msg}\n\n🤖 *PILOT ACTION ON {group_name}:*\n{status_icon} {info}", parse_mode='Markdown')
                                     
                                 elif mode == 'COPILOT':
                                     # PROPOSE

@@ -190,8 +190,13 @@ class TradingSession:
             if (qty * current_price) > max_alloc:
                 qty = max_alloc / current_price
 
-            qty = round(qty, 2) 
-            if qty < 0.01: return False, f"Calculated qty too small ({qty})."
+            qty = round(qty, 2)
+            # FIX: Alpaca Short requires Integer Quantity
+            if side == 'SHORT':
+                qty = int(qty)
+
+            if qty < 0.01 and side == 'LONG': return False, f"Calculated qty too small ({qty})."
+            if qty < 1 and side == 'SHORT': return False, f"Calculated qty too small ({qty})."
 
             # 5. Order Request (Bracket)
             side_enum = OrderSide.BUY if side == 'LONG' else OrderSide.SELL
@@ -207,8 +212,13 @@ class TradingSession:
 
             res = self.alpaca_client.submit_order(req)
             
+            
             # Escape underscores in status (e.g. partially_filled -> partially\_filled)
-            status_str = str(res.status).replace('_', ' ') # Replace with space is cleaner than escaping
+            # FIX: Clean Status Message (Remove OrderStatus. prefix if present)
+            status_str = str(res.status)
+            if 'OrderStatus.' in status_str:
+                status_str = status_str.replace('OrderStatus.', '')
+            status_str = status_str.replace('_', ' ').title()
             
             return True, f"✅ Alpaca {side} {symbol}\nQty: {qty}\nSL: {sl_price:.2f}\nTP: {tp_price:.2f}\nStatus: {status_str}"
 
@@ -294,7 +304,7 @@ class TradingSession:
             # --- PRE-FLIGHT CHECK ---
             final_notional = quantity * current_price
             if final_notional < 5.0:
-                 return False, f"❌ Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
+                 return False, f"❌ {symbol}: Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
 
             if quantity <= 0: return False, "Position too small."
 
@@ -429,7 +439,7 @@ class TradingSession:
             # --- PRE-FLIGHT CHECK ---
             final_notional = quantity * current_price
             if final_notional < 5.0:
-                 return False, f"❌ Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
+                 return False, f"❌ {symbol}: Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
 
             if quantity <= 0: return False, "Position too small."
 
@@ -439,6 +449,7 @@ class TradingSession:
                     symbol=symbol, side='SELL', type='MARKET', quantity=quantity
                 )
                 entry_price = float(order.get('avgPrice', current_price))
+                if entry_price == 0: entry_price = current_price
             except Exception as e:
                 return False, f"❌ Failed to Open Position: {e}"
 
