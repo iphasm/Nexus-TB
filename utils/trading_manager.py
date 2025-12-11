@@ -288,50 +288,64 @@ class TradingSession:
             if quantity <= 0: return False, "Position too small."
 
             # 3. Execute Market Buy
-            order = self.client.futures_create_order(
-                symbol=symbol, side='BUY', type='MARKET', quantity=quantity
-            )
-            entry_price = float(order.get('avgPrice', current_price))
-            if entry_price == 0: entry_price = current_price
+            try:
+                order = self.client.futures_create_order(
+                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price))
+                if entry_price == 0: entry_price = current_price
+            except Exception as e:
+                return False, f"❌ Failed to Open Position: {e}"
 
-            # 4. Orders
-            # SL (Full Size)
-            if sl_price > 0:
-                self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                )
-            
-            # --- SPLIT ORDER LOGIC ---
-            qty_tp1 = float(round(quantity / 2, qty_precision))
-            tp_notional = qty_tp1 * entry_price
-            
-            if tp_notional < 5.5:
-                # 🚫 Small Position: NO SPLIT (100% TP1)
-                self.client.futures_create_order(
-                   symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
-                )
-                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
-            else:
-                # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
-                if qty_tp1 > 0:
+            # 4. Post-Entry Orders (SL / TP) - ATOMIC SAFETY BLOCK
+            try:
+                # SL (Full Size)
+                if sl_price > 0:
                     self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                        symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
                     )
-                    
-                # TP2 (Trailing - Remainder)
-                qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-                if qty_tp2 > 0:
-                     self.client.futures_create_order(
-                        symbol=symbol, 
-                        side='SELL', 
-                        type='TRAILING_STOP_MARKET', 
-                        callbackRate=1.5, 
-                        quantity=qty_tp2
+                
+                # --- SPLIT ORDER LOGIC ---
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                tp_notional = qty_tp1 * entry_price
+                
+                if tp_notional < 5.5:
+                    # 🚫 Small Position: NO SPLIT (100% TP1)
+                    self.client.futures_create_order(
+                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
                     )
-                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+                    success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
+                else:
+                    # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
+                    if qty_tp1 > 0:
+                        self.client.futures_create_order(
+                           symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                        )
+                        
+                    # TP2 (Trailing - Remainder)
+                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
+                    if qty_tp2 > 0:
+                         self.client.futures_create_order(
+                            symbol=symbol, 
+                            side='SELL', 
+                            type='TRAILING_STOP_MARKET', 
+                            callbackRate=1.5, 
+                            quantity=qty_tp2
+                        )
+                    success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
-            self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
-            return True, success_msg
+                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
+                return True, success_msg
+
+            except Exception as e:
+                # 🚨 CRITICAL: ROLLBACK (Close Position)
+                print(f"⚠️ Order Placement Failed: {e}. closing position...")
+                try:
+                     self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='MARKET', quantity=quantity, reduceOnly=True
+                    )
+                except: pass # Best effort
+                return False, f"⚠️ Error placing SL/TP ({e}). Position CLOSED for safety."
 
         except BinanceAPIException as e:
             return False, f"Binance Error: {e.message}"
@@ -404,48 +418,62 @@ class TradingSession:
             if quantity <= 0: return False, "Position too small."
 
             # 3. Execute Market SELL
-            order = self.client.futures_create_order(
-                symbol=symbol, side='SELL', type='MARKET', quantity=quantity
-            )
-            entry_price = float(order.get('avgPrice', current_price))
+            try:
+                order = self.client.futures_create_order(
+                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price))
+            except Exception as e:
+                return False, f"❌ Failed to Open Position: {e}"
 
-            # 4. Orders
-            # SL (Full Size)
-            if sl_price > 0:
-                 self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                )
-            
-            # --- SPLIT ORDER LOGIC ---
-            qty_tp1 = float(round(quantity / 2, qty_precision))
-            tp_notional = qty_tp1 * entry_price
-            
-            if tp_notional < 5.5:
-                # 🚫 Small Position: NO SPLIT (100% TP1)
-                self.client.futures_create_order(
-                   symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
-                )
-                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
-            else:
-                 # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
-                if qty_tp1 > 0:
-                    self.client.futures_create_order(
-                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+            # 4. Post-Entry Orders (SL / TP) - ATOMIC SAFETY BLOCK
+            try:
+                # SL (Full Size)
+                if sl_price > 0:
+                     self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
                     )
                 
-                qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-                if qty_tp2 > 0:
-                     self.client.futures_create_order(
-                        symbol=symbol, 
-                        side='BUY', 
-                        type='TRAILING_STOP_MARKET', 
-                        callbackRate=1.5, 
-                        quantity=qty_tp2
+                # --- SPLIT ORDER LOGIC ---
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                tp_notional = qty_tp1 * entry_price
+                
+                if tp_notional < 5.5:
+                    # 🚫 Small Position: NO SPLIT (100% TP1)
+                    self.client.futures_create_order(
+                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
                     )
-                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
+                else:
+                     # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
+                    if qty_tp1 > 0:
+                        self.client.futures_create_order(
+                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                        )
+                    
+                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
+                    if qty_tp2 > 0:
+                         self.client.futures_create_order(
+                            symbol=symbol, 
+                            side='BUY', 
+                            type='TRAILING_STOP_MARKET', 
+                            callbackRate=1.5, 
+                            quantity=qty_tp2
+                        )
+                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
-            self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
-            return True, success_msg
+                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
+                return True, success_msg
+
+            except Exception as e:
+                # 🚨 CRITICAL: ROLLBACK (Close Position)
+                print(f"⚠️ Order Placement Failed: {e}. closing position...")
+                try:
+                     self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='MARKET', quantity=quantity, reduceOnly=True
+                    )
+                except: pass 
+                return False, f"⚠️ Error placing SL/TP ({e}). Position CLOSED for safety."
 
         except BinanceAPIException as e:
             return False, f"Binance Error: {e.message}"

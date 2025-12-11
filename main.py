@@ -80,6 +80,20 @@ if TELEGRAM_TOKEN:
 else:
     print("ADVERTENCIA: No se encontró TELEGRAM_TOKEN.")
 
+# --- DECORADORES HELPER ---
+
+def threaded_handler(func):
+    """
+    Decorador para ejecutar el handler en un hilo separado.
+    Evita que operaciones largas (API calls) bloqueen al bot.
+    """
+    def wrapper(message, *args, **kwargs):
+        # Creamos el thread
+        thread = threading.Thread(target=func, args=(message,) + args, kwargs=kwargs)
+        thread.daemon = True # El hilo muere si el programa principal muere
+        thread.start()
+    return wrapper
+
 def resolve_symbol(text):
     """Clean and standardize input symbol. Auto-appends USDT if needed."""
     s = text.strip().upper()
@@ -143,9 +157,10 @@ def send_alert(message):
     else:
         print(f"ALERTA (Log): {message}")
 
+@threaded_handler
 def handle_price(message):
     try:
-        sent = bot.reply_to(message, "⏳ Escaneando mercado con Motores Híbridos...")
+        sent = bot.reply_to(message, "⏳ *Escaneando mercado...* (Esto no bloquea el bot)", parse_mode='Markdown')
         
         report = "📡 *RADAR DE MERCADO (SPOT + FUTUROS)*\n\n"
         
@@ -162,29 +177,33 @@ def handle_price(message):
             report += f"*{display_name}*\n"
             
             for asset in assets:
-                success, res = process_asset(asset)
-                
-                if not success:
-                    # Sanitize error
-                    safe_err = str(res).replace('`', "'").replace('_', ' ')
+                try:
+                    success, res = process_asset(asset)
+                    
+                    if not success:
+                        # Sanitize error
+                        safe_err = str(res).replace('`', "'").replace('_', ' ')
+                        friendly_name = TICKER_MAP.get(asset, asset)
+                        report += f"• {friendly_name}: ❌ Err: `{safe_err}`\n"
+                        continue
+                    
+                    # Unpack metrics
+                    m = res['metrics']
+                    spot_sig = res['signal_spot']
+                    fut_sig = res['signal_futures']
+                    
+                    # Iconos
+                    sig_icon = ""
+                    if spot_sig: sig_icon += "💎 SPOT "
+                    if fut_sig == 'BUY': sig_icon += "🚀 LONG "
+                    elif fut_sig == 'CLOSE_LONG': sig_icon += "📉 CLOSE "
+                    
                     friendly_name = TICKER_MAP.get(asset, asset)
-                    report += f"• {friendly_name}: ❌ Err: `{safe_err}`\n"
+                    entry = f"• {friendly_name}: ${m['close']:,.2f} | RSI: {m['rsi']:.1f} {sig_icon}\n"
+                    report += entry
+                except Exception as inner_e:
+                    print(f"Error con asset {asset}: {inner_e}")
                     continue
-                
-                # Unpack metrics
-                m = res['metrics']
-                spot_sig = res['signal_spot']
-                fut_sig = res['signal_futures']
-                
-                # Iconos
-                sig_icon = ""
-                if spot_sig: sig_icon += "💎 SPOT "
-                if fut_sig == 'BUY': sig_icon += "🚀 LONG "
-                elif fut_sig == 'CLOSE_LONG': sig_icon += "📉 CLOSE "
-                
-                friendly_name = TICKER_MAP.get(asset, asset)
-                entry = f"• {friendly_name}: ${m['close']:,.2f} | RSI: {m['rsi']:.1f} {sig_icon}\n"
-                report += entry
             
             report += "\n"
             
@@ -203,6 +222,7 @@ def handle_price(message):
 
 # --- MANUAL TRADING HANDLERS ---
 
+@threaded_handler
 def handle_manual_long(message):
     """ /long <SYMBOL> """
     chat_id = str(message.chat.id)
@@ -237,6 +257,7 @@ def handle_manual_long(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error crítico: {e}")
 
+@threaded_handler
 def handle_manual_sell(message):
     """ /sell <SYMBOL> (Smart Sell: Close Long OR Open Short) """
     chat_id = str(message.chat.id)
@@ -286,6 +307,7 @@ def handle_manual_sell(message):
     except Exception as e:
          bot.reply_to(message, f"❌ Error crítico: {e}")
 
+@threaded_handler
 def handle_manual_close(message):
     """ /close <SYMBOL> """
     chat_id = str(message.chat.id)
@@ -305,6 +327,7 @@ def handle_manual_close(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+@threaded_handler
 def handle_manual_closeall(message):
     """ /closeall """
     chat_id = str(message.chat.id)
@@ -548,6 +571,7 @@ def handle_set_leverage(message):
         bot.reply_to(message, f"✅ *Palanca Ajustada:* {val}x")
     except: bot.reply_to(message, "❌ Error: Usa `/set_leverage 10`")
 
+@threaded_handler
 def handle_debug(message):
     """Generates a System Diagnostics Report"""
     sent = bot.reply_to(message, "🔍 Ejecutando diagnóstico de sistema...")
@@ -655,6 +679,7 @@ def handle_set_margin(message):
         bot.reply_to(message, f"✅ *Margen Máximo Global:* {val*100:.1f}%\nℹ️ _Límite de seguridad para asignación total._")
     except: bot.reply_to(message, "❌ Error: Usa `/set_margin 0.1` (10%)")
 
+@threaded_handler
 def handle_pnlrequest(message):
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
@@ -665,20 +690,10 @@ def handle_pnlrequest(message):
     # Obtener datos
     pnl, _ = session.get_pnl_history() # Simulado o real según implementación
     avail, total = session.get_balance_details()
-    
-    # Determinar iconos
-    icon = "🟢" if pnl >= 0 else "🔴"
-    
-    msg = (
-        "� *REPORTE DE RENDIMIENTO (24h)*\n"
-        "〰️〰️〰️〰️〰️〰️\n"
-        f"💰 *PnL Realizado:* {icon} `${pnl:,.2f}`\n"
-        "〰️〰️〰️〰️〰️〰️\n"
-        f"💳 *Balance Disponible:* `${avail:,.2f}`\n"
-        f"🏦 *Balance Total:* `${total:,.2f}`"
     )
     bot.reply_to(message, msg, parse_mode='Markdown')
 
+@threaded_handler
 def handle_wallet(message):
     """Muestra detalles completos de la cartera (Spot + Futuros)"""
     chat_id = str(message.chat.id)
@@ -757,12 +772,9 @@ def handle_get_mode(message):
     mode = session.config.get('mode', 'WATCHER')
     bot.reply_to(message, f"🎮 Modo Actual: **{mode}**", parse_mode='Markdown')
 
-# --- MASTER LISTENER ---
-    mode = session.config.get('mode', 'WATCHER')
-    bot.reply_to(message, f"🎮 Modo Actual: **{mode}**", parse_mode='Markdown')
-
 # --- CALLBACK HANDLER (COPILOT) ---
 @bot.callback_query_handler(func=lambda call: True)
+@threaded_handler
 def handle_trade_callback(call):
     print(f"🔘 Callback received: {call.data}")
     chat_id = str(call.message.chat.id)
