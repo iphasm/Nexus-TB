@@ -1370,7 +1370,7 @@ def dispatch_quantum_signal(signal):
 @bot.message_handler(commands=['help'])
 def send_welcome(message):
     help_text = (
-        "🤖 *ANTIGRAVITY BOT v3.3 - QUANTUM*\n"
+        "🤖 *ANTIGRAVITY BOT v3.3.1-FIX - QUANTUM*\n"
         "〰️〰️〰️〰️〰️〰️\n\n"
         "ℹ️ *INFO & MERCADO*\n"
         "• /price - Panel de Precios y Señales.\n"
