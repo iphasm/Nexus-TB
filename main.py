@@ -541,7 +541,8 @@ def send_welcome(message):
         "• /setleverage <x> - Apalancamiento (Ej: 10).\n"
         "• /setmargin <%> - Riesgo máx del capital (Ej: 0.1).\n"
         "• /togglegroup <GRUPO> - Activar/Desactivar Crypto/Stocks.\n"
-        "• /resetpilot - Reiniciar contador de pérdidas (Circuit Breaker)."
+        "• /resetpilot - Reiniciar contador de pérdidas (Circuit Breaker).\n"
+        "• /personality - Cambiar la personalidad del bot."
     )
     try:
         bot.reply_to(message, help_text, parse_mode='Markdown')
