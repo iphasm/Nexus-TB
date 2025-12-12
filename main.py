@@ -1413,11 +1413,19 @@ def handle_start(message):
     if session:
         cfg = session.get_configuration()
         mode = cfg.get('mode', 'WATCHER')
+        
+        # Build Auth String
+        auth_list = []
         if session.client:
-            auth = "🔑 Binance Vinculado"
+            auth_list.append("Binance")
+        if session.alpaca_client:
+            auth_list.append("🦙 Alpaca")
+            
+        if auth_list:
+            auth = "🔑 " + " + ".join(auth_list)
     
     # Get Personality
-    p_key = session.config.get('personality', 'STANDARD_ES')
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
 
     # 4. Mensaje Final Dinámico (Updated for Button UI)
     welcome = personality_manager.get_message(
@@ -1469,9 +1477,11 @@ def handle_query(call):
     chat_id = str(call.message.chat.id)
     session = session_manager.get_session(chat_id)
     
-    if not session:
-         bot.answer_callback_query(call.id, "⚠️ Sesión no encontrada.")
-         return
+    # Allow interaction even without session (for creating one or help)
+    # if not session:
+    #      bot.answer_callback_query(call.id, "⚠️ Sesión no encontrada.")
+    #      return
+
 
     data = call.data
     parts = data.split('|')
