@@ -428,6 +428,29 @@ def handle_manual_closeall(message):
 
 # --- AUTOMATION CONTROLS ---
 
+def handle_mode_switch(message, mode):
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    if not session:
+        bot.reply_to(message, "⚠️ Sin sesión activa. Usa /set_keys primero.")
+        return
+        
+    # Get Current Personality
+    p_key = session.config.get('personality', 'NEXUS')
+
+    if session.set_mode(mode):
+        session_manager.save_sessions()
+        
+        # Dynamic Message
+        msg_type = f"{mode}_ON" # PILOT_ON, COPILOT_ON, WATCHER_ON
+        msg = personality_manager.get_message(p_key, msg_type)
+        
+        bot.reply_to(message, msg, parse_mode='Markdown')
+    else:
+        bot.reply_to(message, "❌ Error cambiando modo.")
+
+def handle_get_mode(message):
+    chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: return
     
