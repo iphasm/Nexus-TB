@@ -17,5 +17,8 @@ GRID_WHITELIST = ['ADA', 'ZEC']
 # High Volatility assets only
 SCALPING_WHITELIST = ['ZEC', 'SUI', 'SOL'] 
 
+# Runtime Blacklist (Toggleable via /assets)
+DISABLED_ASSETS = set()
+
 # Global Settings
 USE_QUANTUM_ENGINE = True

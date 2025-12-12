@@ -138,6 +138,10 @@ def process_asset(asset):
     Devuelve: (Success: bool, Data: dict|str)
     """
     try:
+        from antigravity_quantum.config import DISABLED_ASSETS
+        if asset in DISABLED_ASSETS:
+            return False, "Asset in Blacklist"
+
         # 1. Obtener Datos (Micro - 15m)
         df = get_market_data(asset, timeframe='15m', limit=200)
         if df.empty: 
@@ -571,25 +575,18 @@ def handle_risk(message):
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     
-    # Defaults
-    margin = "10%"
-    sl_fixed = "2%"
-    if session:
-        # Pre-calculate formatting
-        m_val = session.config.get('max_capital_pct', 0.10) * 100
-        sl_val = session.config.get('stop_loss_pct', 0.02) * 100
-        margin = f"{m_val:.1f}%"
-        sl_fixed = f"{sl_val:.1f}%"
-
-    p_key = session.config.get('personality', 'STANDARD_ES')
+    lev = session.config.get('leverage', 5) if session else 5
+    cap = session.config.get('max_capital_pct', 0.10) * 100 if session else 10
+    sl = session.config.get('stop_loss_pct', 0.02) * 100 if session else 2
     
-    # Dynamic Risk Message
-    msg = personality_manager.get_message(
-        p_key, 'RISK_MSG', 
-        margin=margin, 
-        sl_fixed=sl_fixed
+    msg = (
+        "🛡️ **PROTOCOLO DE GESTIÓN DE RIESGO**\n\n"
+        f"• **Capital por Op:** `{cap:.1f}%` de la cuenta total.\n"
+        f"• **Apalancamiento:** `{lev}x` (Isolated).\n"
+        f"• **Stop Loss Base:** `{sl:.1f}%` (Fijo) o `2x ATR` (Dinámico).\n"
+        "• **Circuit Breaker:** 🛑 Se detiene tras 3 pérdidas consecutivas.\n\n"
+        "💡 _El sistema ajusta el tamaño de la posición basado en la volatilidad del activo (ATR) para mantener el riesgo constante._"
     )
-    
     bot.reply_to(message, msg, parse_mode='Markdown')
 
 def handle_strategy(message):
@@ -699,81 +696,108 @@ def get_fear_and_greed_index():
 
 @threaded_handler
 def handle_status(message):
-    """Muestra estado de grupos y configuración (Fusionado con /config)"""
+    """Muestra estado del sistema (Read Only)"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     
-    # Defaults if no session
-    if not session:
-        bot.reply_to(message, "⚠️ Sin sesión configurada. Se muestran valores por defecto.")
-        mode = "WATCHER (Default)"
-        has_keys = False
-        leverage = 5
-        max_margin = 0.10
-        spot_alloc = 0.20
-    else:
+    # Defaults
+    mode = "WATCHER"
+    has_keys = False
+    
+    if session:
         cfg = session.get_configuration()
         mode = cfg.get('mode', 'WATCHER')
         has_keys = cfg['has_keys']
-        leverage = cfg['leverage']
-        max_margin = cfg['max_capital_pct']
-        spot_alloc = cfg.get('spot_allocation_pct', 0.20)
     
-    # Get F&G
-    fg_index = get_fear_and_greed_index()
-
-    # Get Personality
-    p_key = session.config.get('personality', 'NEXUS')
+    fg = get_fear_and_greed_index()
+    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
     
-    # Headers
     header = personality_manager.get_message(p_key, 'STATUS_HEADER')
     footer = personality_manager.get_message(p_key, 'STATUS_FOOTER')
 
-    # 1. System State
     status = f"{header}\n"
-    status += "〰️〰️〰️〰️〰️〰️\n"
     status += f"🛡️ *Modo:* `{mode}`\n"
-    status += f"🧠 *Sentimiento:* {fg_index}\n" # Keeps Sentimiento static for now
-    status += f"🔌 *Conexión:* {'✅ Estable' if has_keys else '❌ Desconectado'}\n"
-    status += "〰️〰️〰️〰️〰️〰️\n"
-    
-    status += "⚙️ *Configuración Neural:*\n"
-    status += f"• *Apalancamiento:* `{leverage}x`\n"
-    status += f"• *Carga de Riesgo:* `{max_margin*100:.1f}%`\n"
-    status += f"• *Spot Alloc:* `{spot_alloc*100:.1f}%`\n"
+    status += f"🧠 *Sentimiento:* {fg}\n"
+    status += f"🔌 *Conexión:* {'✅ OK' if has_keys else '❌ OFF'}\n"
     
     status += "\n📡 *Radares Activos:*\n"
-    count = 0
     for group, enabled in GROUP_CONFIG.items():
-        icon = "👁️" if enabled else "🔴"
-        display_name = group.replace('_', ' ')
-        if enabled: count += len(ASSET_GROUPS.get(group, []))
-        status += f"{icon} {display_name}\n"
-    
-    status += f"{footer}"
-    
+        icon = "🟢" if enabled else "🔴"
+        name = group.replace('_', ' ')
+        count = len(ASSET_GROUPS.get(group, [])) if enabled else 0
+        status += f"{icon} {name} ({count})\n"
+        
+    status += f"\n{footer}"
     bot.reply_to(message, status, parse_mode='Markdown')
 
+@bot.message_handler(commands=['config'])
+def handle_config(message):
+    """Panel de Configuración Interactiva"""
+    cid = message.chat.id
+    session = session_manager.get_session(str(cid))
+    
+    # Values
+    lev = session.config.get('leverage', 5) if session else 5
+    margin = session.config.get('max_capital_pct', 0.1) * 100 if session else 10
+    
+    markup = InlineKeyboardMarkup(row_width=2)
+    # Toggles
+    markup.add(
+        InlineKeyboardButton("🎛️ Estrategias", callback_data="CMD|/strategies"),
+        InlineKeyboardButton("📡 Grupos", callback_data="CMD|/togglegroup")
+    )
+    # Assets
+    markup.add(InlineKeyboardButton("🪙 Activos (Blacklist)", callback_data="CMD|/assets"))
+    
+    # Params
+    markup.add(
+        InlineKeyboardButton(f"⚖️ Lev: {lev}x", callback_data="CFG|LEV_MENU"),
+        InlineKeyboardButton(f"💰 Margin: {margin:.0f}%", callback_data="CFG|MARGIN_MENU")
+    )
+    # Personality
+    markup.add(InlineKeyboardButton("🧠 Personalidad", callback_data="CMD|/personality"))
+    
+    bot.reply_to(message, "⚙️ **PANEL DE CONTROL**\nSelecciona qué deseas ajustar:", reply_markup=markup, parse_mode='Markdown')
 
-
-@bot.message_handler(commands=['toggle_group', 'togglegroup'])
+@bot.message_handler(commands=['togglegroup'])
 def handle_toggle_group(message):
-    """Ej: /toggle_group CRYPTO"""
-    try:
-        args = message.text.split()
-        if len(args) < 2:
-            bot.reply_to(message, "⚠️ Uso: `/toggle_group <NOMBRE>` (CRYPTO, STOCKS, COMMODITY)")
-            return
+    """Selector Interactivo de Grupos"""
+    markup = InlineKeyboardMarkup()
+    for group, enabled in GROUP_CONFIG.items():
+        state = "✅" if enabled else "❌"
+        markup.add(InlineKeyboardButton(f"{state} {group}", callback_data=f"TOGGLEGRP|{group}"))
+        
+    bot.reply_to(message, "📡 **CONFIGURACIÓN DE RADARES**\nActiva/Desactiva grupos de mercado:", reply_markup=markup, parse_mode='Markdown')
+
+from antigravity_quantum.config import DISABLED_ASSETS
+
+@bot.message_handler(commands=['assets', 'toggleassets'])
+def handle_assets(message):
+    """Selector de Activos Individuales (Blacklist/Whitelist)"""
+    cid = message.chat.id
+    
+    # Gather all assets from ENABLED groups ONLY
+    active_assets = []
+    for group, enabled in GROUP_CONFIG.items():
+        if enabled:
+            active_assets.extend(ASSET_GROUPS.get(group, []))
             
-        target = args[1].upper()
-        if target in GROUP_CONFIG:
-            GROUP_CONFIG[target] = not GROUP_CONFIG[target]
-            state = "ACTIVADO" if GROUP_CONFIG[target] else "DESACTIVADO"
-            bot.reply_to(message, f"🔄 Grupo **{target}** ahora está **{state}**.")
-        else:
-            bot.reply_to(message, f"❌ Grupo no encontrado. Disponibles: {', '.join(GROUP_CONFIG.keys())}")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+    if not active_assets:
+        bot.reply_to(message, "⚠️ No hay grupos activos. Usa /togglegroup primero.")
+        return
+    
+    markup = InlineKeyboardMarkup(row_width=3)
+    buttons = []
+    
+    # Limit 50 to avoid big payload error
+    for asset in active_assets[:50]: 
+        is_disabled = asset in DISABLED_ASSETS
+        icon = "❌" if is_disabled else "✅"
+        # callback: TOGGLEASSET|BTCUSDT
+        buttons.append(InlineKeyboardButton(f"{icon} {asset}", callback_data=f"TOGGLEASSET|{asset}"))
+        
+    markup.add(*buttons)
+    bot.reply_to(message, "🪙 **CONTROL DE ACTIVOS**\n(✅ = Activo / ❌ = Ignorado)\n_Toque para alternar_", reply_markup=markup, parse_mode='Markdown')
 
 @bot.message_handler(commands=['resetpilot', 'reset_pilot'])
 def handle_reset_pilot(message):
@@ -897,10 +921,7 @@ def handle_debug(message):
     
     bot.edit_message_text(report, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
 
-# --- CONFIG BTN HANDLERS ---
-@threaded_handler
-def handle_config(message):
-    handle_status(message)
+
 
 @threaded_handler
 @bot.message_handler(commands=['set_leverage', 'setleverage'])
@@ -1649,6 +1670,46 @@ def handle_query(call):
         markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
         markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
         
+        bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+        return
+
+    # --- GROUP TOGGLES ---
+    if cmd == "TOGGLEGRP":
+        group = parts[1]
+        if group in GROUP_CONFIG:
+            GROUP_CONFIG[group] = not GROUP_CONFIG[group]
+            bot.answer_callback_query(call.id, f"{group}: {'✅' if GROUP_CONFIG[group] else '❌'}")
+            
+            # Re-render
+            markup = InlineKeyboardMarkup()
+            for g, enabled in GROUP_CONFIG.items():
+                state = "✅" if enabled else "❌"
+                markup.add(InlineKeyboardButton(f"{state} {g}", callback_data=f"TOGGLEGRP|{g}"))
+            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+        return
+
+    # --- ASSET TOGGLES ---
+    if cmd == "TOGGLEASSET":
+        asset = parts[1]
+        if asset in DISABLED_ASSETS:
+            DISABLED_ASSETS.remove(asset)
+            bot.answer_callback_query(call.id, f"✅ {asset} ACTIVADO")
+        else:
+            DISABLED_ASSETS.add(asset)
+            bot.answer_callback_query(call.id, f"❌ {asset} BLOQUEADO")
+        
+        # Re-render (Limit 50 hack)
+        markup = InlineKeyboardMarkup(row_width=3)
+        buttons = []
+        active_assets = []
+        for g, enabled in GROUP_CONFIG.items():
+            if enabled: active_assets.extend(ASSET_GROUPS.get(g, []))
+            
+        for a in active_assets[:50]:
+            is_disabled = a in DISABLED_ASSETS
+            icon = "❌" if is_disabled else "✅"
+            buttons.append(InlineKeyboardButton(f"{icon} {a}", callback_data=f"TOGGLEASSET|{a}"))
+        markup.add(*buttons)
         bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
         return
 
