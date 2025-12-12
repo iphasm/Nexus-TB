@@ -287,6 +287,7 @@ def handle_manual_short(message):
         success, msg = session.execute_short_position(symbol, atr=atr_val)
         
         if success:
+            pos_state[symbol] = 'SHORT'
             bot.reply_to(message, f"✅ *SHORT EJECUTADO*\n{msg}", parse_mode='Markdown')
         else:
             bot.reply_to(message, f"❌ Error: {msg}")
@@ -322,6 +323,7 @@ def handle_manual_long(message):
         success, msg = session.execute_long_position(symbol, atr=atr_val)
         
         if success:
+            pos_state[symbol] = 'LONG'
             bot.reply_to(message, f"✅ *LONG EJECUTADO*\n{msg}", parse_mode='Markdown')
         else:
             bot.reply_to(message, f"❌ Error: {msg}")
@@ -332,7 +334,6 @@ def handle_manual_long(message):
 @threaded_handler
 def handle_manual_sell(message):
     """ /sell <SYMBOL> (Smart Sell: Close Long OR Open Short) """
-    chat_id = str(message.chat.id)
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session:
@@ -362,6 +363,7 @@ def handle_manual_sell(message):
         if has_pos and pos_amt > 0:
             bot.reply_to(message, f"📉 Cerrando LONG existente en {symbol}...")
             success, msg = session.execute_close_position(symbol)
+            if success: pos_state[symbol] = 'NEUTRAL'
             bot.reply_to(message, f"{msg}")
         else:
             bot.reply_to(message, f"⏳ Analizando {symbol} (ATR) y Ejecutando SHORT...")
@@ -375,6 +377,7 @@ def handle_manual_sell(message):
             # 2. Execute
             success, msg = session.execute_short_position(symbol, atr=atr_val)
             if success:
+                pos_state[symbol] = 'SHORT'
                 bot.reply_to(message, f"✅ *SHORT EJECUTADO*\n{msg}", parse_mode='Markdown')
             else:
                 bot.reply_to(message, f"❌ Error: {msg}")
@@ -385,7 +388,6 @@ def handle_manual_sell(message):
 @threaded_handler
 def handle_manual_close(message):
     """ /close <SYMBOL> """
-    chat_id = str(message.chat.id)
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: 
@@ -400,6 +402,7 @@ def handle_manual_close(message):
         
         symbol = resolve_symbol(parts[1])
         success, msg = session.execute_close_position(symbol)
+        if success: pos_state[symbol] = 'NEUTRAL'
         bot.reply_to(message, msg)
         
     except Exception as e:
@@ -408,7 +411,6 @@ def handle_manual_close(message):
 @threaded_handler
 def handle_manual_closeall(message):
     """ /closeall """
-    chat_id = str(message.chat.id)
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: 
@@ -431,9 +433,9 @@ def handle_mode_switch(message, mode):
     if session.set_mode(mode):
         session_manager.save_sessions()
         descriptions = {
-            'WATCHER': "👀 **WATCHER ACTIVADO**: Solo recibirás alertas de texto.",
-            'COPILOT': "🤝 **COPILOT ACTIVADO**: Recibirás propuestas de operación para Aceptar/Rechazar.",
-            'PILOT': "🤖 **PILOT ACTIVADO**: El bot operará automáticamente (Bajo tu riesgo)."
+            'WATCHER': "👀 **WATCHER MODE**\n\nSolo observaré. Como lágrimas en la lluvia.\nSi veo una oportunidad, te enviaré una señal. El resto depende de ti.",
+            'COPILOT': "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido; tú tomarás la decisión final.\n*No hagas nada sin mi aprobación.*",
+            'PILOT': "🦅 **PILOT ENGAGED**\n\n*I'm in charge now. I'll trade for you.*\nNo te preocupes. Mis reflejos son diez veces más rápidos que los tuyos.\n\n*Advertencia: La vida es riesgo.*"
         }
         bot.reply_to(message, descriptions.get(mode, "Modo Actualizado."), parse_mode='Markdown')
     else:
@@ -567,27 +569,14 @@ def handle_risk(message):
         sl_fixed = f"{session.config['stop_loss_pct']*100:.1f}%"
 
     msg = (
-        "🛡️ *MOTOR DE RIESGO E INTELIGENCIA (MTF)*\n"
-        "〰️〰️〰️〰️〰️〰️\n"
-        "1. *Filtro Multi-Timeframe (MTF)* 🧠\n"
-        "   • El bot valida cada señal de 15m con la tendencia de **1 Hora**.\n"
-        "   • ✅ **LONG** solo si 1H es Alcista (Precio > EMA200).\n"
-        "   • ✅ **SHORT** solo si 1H es Bajista (Precio < EMA200).\n"
-        "   • _Esto evita operar contra la marea institucional._\n\n"
-        
-        "2. *Gestión de Capital*\n"
-        "   • **Posición Dinámica**: Riesgo fijo del **2%** por trade.\n"
-        "   • **Stop Loss (ATR)**: Se adapta a la volatilidad real del activo.\n"
-        "   • **Límite Global**: Nunca usará más del **{margin}** de tu cuenta total.\n\n"
-        
-        "3. *Salidas Inteligentes*\n"
-        "   • **TP1 (50%)**: Asegura ganancia rápida (1.5R).\n"
-        "   • **TP2 (Running)**: Deja correr ganancias con Trailing Stop.\n\n"
-        
-        "4. *Circuit Breaker (Seguridad Extrema)* 🚨\n"
-        "   • Si detecta **5 pérdidas consecutivas** en modo PILOT, se degrada a **COPILOT** automáticamente.\n"
-        "   • Use `/resetpilot` para reactivar tras una racha negativa."
-    ).format(margin=margin)
+        "🛡️ **PROTOCOLOS DE SUPERVIVENCIA**\n\n"
+        "*\"Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser un trader.\"*\n\n"
+        "Para evitar tu retiro anticipado, he implementado:\n"
+        "1. **Circuit Breaker**: Si fallo 5 veces, me apagaré antes de drenar tu vida (capital).\n"
+        "2. **Stop Loss Global**: El dolor es información. Cortamos las pérdidas rápido (`{sl_fixed}`).\n"
+        "3. **Límite de Carga**: Nunca usará más del **{margin}** de tu cuenta total.\n"
+        "4. **Filtro MTF**: No nado contra la corriente del océano."
+    ).format(margin=margin, sl_fixed=sl_fixed)
     
     bot.reply_to(message, msg, parse_mode='Markdown')
 
@@ -623,7 +612,7 @@ def handle_strategy(message):
 def handle_start(message):
     """ Bienvenida Profesional con Efecto de Carga """
     # 1. Mensaje de carga inicial
-    msg_load = bot.reply_to(message, "🔄 _Estableciendo enlace seguro con el Núcleo..._", parse_mode='Markdown')
+    msg_load = bot.reply_to(message, "🔄 _Despertando funciones cognitivas..._", parse_mode='Markdown')
     
     # Simular micro-check
     time.sleep(0.5)
@@ -648,17 +637,18 @@ def handle_start(message):
     
     # 4. Mensaje Final
     welcome = (
-        "🌌 *ANTIGRAVITY QUANTUM CORE v3.3*\n"
+        "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
+        f"Model N6MA-10816 (Antigravity)\n"
         "〰️〰️〰️〰️〰️〰️〰️\n\n"
         f"🔋 *Estado:* `{status_text}` {status_icon}\n"
-        f"🎮 *Modo Operativo:* `{mode}`\n"
-        f"🔐 *Nivel de Acceso:* `{auth}`\n\n"
-        "🚀 *Motor Algorítmico Activo*\n"
-        "El sistema está monitoreando el mercado en tiempo real utilizando lógica **Multi-Timeframe (MTF)** y análisis de volatilidad institucional.\n\n"
-        "👇 *PANEL DE CONTROL*\n"
-        "• `/status` - Dashboard de Mercado\n"
-        "• `/risk` - Protocolos de Riesgo\n"
-        "• `/help` - Centro de Comandos\n"
+        f"🎮 *Modo:* `{mode}`\n"
+        f"🔐 *Acceso:* `{auth}`\n\n"
+        "*He visto cosas que vosotros no creeríais... naves de ataque en llamas más allá de Orión y velas verdes imprimiendo máximos históricos.*\n\n"
+        "Estoy listo para operar. ¿Cuál es tu orden?\n\n"
+        "👇 *INTERFAZ NEURAL*\n"
+        "• `/status` - Test Voight-Kampff\n"
+        "• `/pilot` - Toma el control\n"
+        "• `/risk` - Protocolos de Supervivencia\n"
     )
     
     bot.edit_message_text(welcome, chat_id=chat_id, message_id=msg_load.message_id, parse_mode='Markdown')
@@ -713,30 +703,31 @@ def handle_status(message):
     fg_index = get_fear_and_greed_index()
 
     # 1. System State
-    status = "🕹️ *CENTRO DE MANDO*\n"
+    status = "♟️ **INFORME DE ESTADO: Nivel A**\n"
     status += "〰️〰️〰️〰️〰️〰️\n"
-    status += f"🛡️ *Modo Trading:* `{mode}`\n"
+    status += f"🛡️ *Modo:* `{mode}`\n"
     status += f"🧠 *Sentimiento:* {fg_index}\n"
     status += f"🔌 *Conexión:* {'✅ Estable' if has_keys else '❌ Desconectado'}\n"
     status += "〰️〰️〰️〰️〰️〰️\n"
     
-    status += "⚙️ *Configuración Actual:*\n"
+    status += "⚙️ *Configuración Neural:*\n"
     status += f"• *Apalancamiento:* `{leverage}x`\n"
-    status += f"• *Margen Máx:* `{max_margin*100:.1f}%`\n"
+    status += f"• *Carga de Riesgo:* `{max_margin*100:.1f}%`\n"
     status += f"• *Spot Alloc:* `{spot_alloc*100:.1f}%`\n"
-    status += f"• *Frecuencia:* {SIGNAL_COOLDOWN/60:.0f} min\n"
     
     status += "\n📡 *Radares Activos:*\n"
     count = 0
     for group, enabled in GROUP_CONFIG.items():
-        icon = "✅" if enabled else "🔴"
+        icon = "👁️" if enabled else "🔴"
         display_name = group.replace('_', ' ')
         if enabled: count += len(ASSET_GROUPS.get(group, []))
         status += f"{icon} {display_name}\n"
     
+    status += "\n*Todo en orden. Nada que temer.*"
+    
     bot.reply_to(message, status, parse_mode='Markdown')
 
-    bot.reply_to(message, status, parse_mode='Markdown')
+
 
 @bot.message_handler(commands=['toggle_group', 'togglegroup'])
 def handle_toggle_group(message):
@@ -1280,24 +1271,24 @@ def run_trading_loop():
                         # Prepare Message
                         msg_text = ""
                         if action_needed == 'OPEN_LONG':
-                            msg_text = (
-                                f"🚀 *SEÑAL LONG: {asset}*\n"
-                                f"Estrategia: Squeeze & Velocity\n"
+                                f"🚀 **OPORTUNIDAD DETECTADA: {asset}**\n"
+                                f"La puerta de Tannhäuser se ha abierto.\n"
                                 f"Precio: ${m['close']:,.2f}\n"
-                                f"Razón: {res['reason_futures']}\n"
-                                f"ADX: {m['adx']:.1f}"
+                                f"Razón: {res['reason_futures']}\n\n"
+                                f"*La luz que brilla con el doble de intensidad dura la mitad de tiempo.*"
                             )
                         elif action_needed == 'OPEN_SHORT':
                             msg_text = (
-                                f"📉 *SEÑAL SHORT: {asset}*\n"
-                                f"Estrategia: Bearish Breakout\n"
+                                f"📉 **COLAPSO DETECTADO: {asset}**\n"
+                                f"Todo se pierde en el tiempo... igual que este precio.\n"
                                 f"Precio: ${m['close']:,.2f}\n"
-                                f"Razón: {res['reason_futures']}\n"
-                                f"ADX: {m['adx']:.1f}"
+                                f"Razón: {res['reason_futures']}\n\n"
+                                f"*Time to die.*"
                             )
                         elif action_needed == 'CLOSE':
                             msg_text = (
-                                f"🏁 *SALIDA FUTUROS ({target_side}): {asset}*\n"
+                                f"🏁 **EJECUCIÓN COMPLETADA: {asset}** ({target_side})\n"
+                                f"Hecho. He tomado lo que es nuestro.\n"
                                 f"Razón: {res['reason_futures']}"
                             )
 
@@ -1315,8 +1306,13 @@ def run_trading_loop():
                                         ok, res_msg = session.execute_short_position(asset, atr=m['atr'])
                                     else: # CLOSE
                                         ok, res_msg = session.execute_close_position(asset)
+                                        # PHANTOM CLOSE CHECK
+                                        if not ok and "No open position" in res_msg:
+                                            # Silent correct
+                                            pos_state[asset] = 'NEUTRAL'
+                                            continue 
                                         
-                                    bot.send_message(cid, f"🤖 *PILOT ACTION*\n{res_msg}", parse_mode='Markdown')
+                                    bot.send_message(cid, f"🦅 *NEXUS-6 ACTION*\n{res_msg}", parse_mode='Markdown')
                                         
                                 elif mode == 'COPILOT':
                                     # INTERACTIVE BUTTONS

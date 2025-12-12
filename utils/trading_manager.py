@@ -107,9 +107,6 @@ class TradingSession:
             "leverage": self.config['leverage'],
             "max_capital_pct": self.config['max_capital_pct'],
             "stop_loss_pct": self.config['stop_loss_pct'],
-            "leverage": self.config['leverage'],
-            "max_capital_pct": self.config['max_capital_pct'],
-            "stop_loss_pct": self.config['stop_loss_pct'],
             "spot_allocation_pct": self.config.get('spot_allocation_pct', 0.20),
             "has_keys": bool(self.client) # Status check
         }
@@ -341,7 +338,7 @@ class TradingSession:
                     # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
                     if qty_tp1 > 0:
                         self.client.futures_create_order(
-                           symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                           symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
                         )
                         
                     # TP2 (Trailing - Remainder)
@@ -352,7 +349,9 @@ class TradingSession:
                             side='SELL', 
                             type='TRAILING_STOP_MARKET', 
                             callbackRate=1.5, 
-                            quantity=qty_tp2
+                            quantity=qty_tp2,
+                            reduceOnly=True
+                        )
                         )
                     success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
@@ -367,12 +366,12 @@ class TradingSession:
                         symbol=symbol, side='SELL', type='MARKET', quantity=quantity, reduceOnly=True
                     )
                 except: pass # Best effort
-                return False, f"⚠️ Error placing SL/TP ({e}). Position CLOSED for safety."
+                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
 
         except BinanceAPIException as e:
-            return False, f"Binance Error: {e.message}"
+            return False, f"[{symbol}] Binance Error: {e.message}"
         except Exception as e:
-            return False, f"Error: {str(e)}"
+            return False, f"[{symbol}] Error: {str(e)}"
 
     def execute_short_position(self, symbol, atr=None):
         if 'USDT' not in symbol:
@@ -476,7 +475,7 @@ class TradingSession:
                      # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
                     if qty_tp1 > 0:
                         self.client.futures_create_order(
-                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1
+                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
                         )
                     
                     qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
@@ -486,7 +485,8 @@ class TradingSession:
                             side='BUY', 
                             type='TRAILING_STOP_MARKET', 
                             callbackRate=1.5, 
-                            quantity=qty_tp2
+                            quantity=qty_tp2,
+                            reduceOnly=True
                         )
                     success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
@@ -501,12 +501,12 @@ class TradingSession:
                         symbol=symbol, side='BUY', type='MARKET', quantity=quantity, reduceOnly=True
                     )
                 except: pass 
-                return False, f"⚠️ Error placing SL/TP ({e}). Position CLOSED for safety."
+                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
 
         except BinanceAPIException as e:
-            return False, f"Binance Error: {e.message}"
+            return False, f"[{symbol}] Binance Error: {e.message}"
         except Exception as e:
-            return False, f"Error: {e}"
+            return False, f"[{symbol}] Error: {e}"
 
     def execute_close_all(self):
         """Cierra TODAS las posiciones activas"""
@@ -753,8 +753,6 @@ class TradingSession:
                 if bal['asset'] == 'USDT':
                     spot_usdt = float(bal['free']) + float(bal['locked'])
                     break
-            
-            details['spot_usdt'] = spot_usdt
             
             details['spot_usdt'] = spot_usdt
 
