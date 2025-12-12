@@ -1479,24 +1479,24 @@ def handle_start(message):
 # The dispatched functions handle their own threading if needed.
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
-    chat_id = str(call.message.chat.id)
-    session = session_manager.get_session(chat_id)
+    # 1. DEBUG LOGGING
+    print(f"DEBUG: Callback received: {call.data} from {call.message.chat.id}")
     
-    # Allow interaction even without session (for creating one or help)
-    # Strict check removed, but ensure handlers are robust below.
-
-
-    data = call.data
-    parts = data.split('|')
-    cmd = parts[0]
-
     try:
+        chat_id = str(call.message.chat.id)
+        session = session_manager.get_session(chat_id)
+        
+        data = call.data
+        parts = data.split('|')
+        cmd = parts[0]
+
         # --- MENU COMMANDS ---
         if cmd == 'CMD':
-            # Command Routing from Buttons
             sub_cmd = parts[1]
-            bot.answer_callback_query(call.id) # Silence loading state
-            
+            try:
+                bot.answer_callback_query(call.id) # Ack immediately
+            except: pass
+
             # Dispatch
             if sub_cmd == '/status': handle_status(call.message)
             elif sub_cmd == '/wallet': handle_wallet(call.message)
@@ -1515,149 +1515,183 @@ def handle_query(call):
             elif sub_cmd == '/assets': handle_assets(call.message)
             return
         
+        # --- REQUIRES SESSION (Write Actions) ---
+        if not session:
+            try:
+                bot.answer_callback_query(call.id, "⚠️ Sin sesión activa.")
+                bot.send_message(chat_id, "⚠️ No tienes sesión activa. Usa /set_keys para configurar.", parse_mode='Markdown')
+            except: pass
+            return
+
         # --- STRATEGY TOGGLES ---
         if cmd == "TOGGLE":
-            strat = parts[1] # SCALPING or GRID
-            current = ENABLED_STRATEGIES.get(strat, False)
-            ENABLED_STRATEGIES[strat] = not current # Flip
-            state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
-            
-            # Refresh Menu
-            new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strat] else "❌ DESACTIVADO"
-            bot.answer_callback_query(call.id, f"{strat} ahora: {new_state}")
-            
-            # Re-render menu
-            markup = InlineKeyboardMarkup()
-            s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
-            g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
-            m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
-            
-            markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
-            markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
-            markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
-            
-            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            try:
+                strat = parts[1] # SCALPING or GRID
+                current = ENABLED_STRATEGIES.get(strat, False)
+                ENABLED_STRATEGIES[strat] = not current # Flip
+                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
+                
+                # Refresh Menu
+                new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strat] else "❌ DESACTIVADO"
+                bot.answer_callback_query(call.id, f"{strat} ahora: {new_state}")
+                
+                # Re-render menu
+                markup = InlineKeyboardMarkup()
+                s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
+                g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
+                m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
+                
+                markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
+                markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
+                markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
+                
+                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Error in TOGGLE: {e}")
+                bot.answer_callback_query(call.id, "❌ Error al cambiar.")
             return
 
         # --- GROUP TOGGLES ---
         if cmd == "TOGGLEGRP":
-            group = parts[1]
-            if group in GROUP_CONFIG:
-                GROUP_CONFIG[group] = not GROUP_CONFIG[group]
-                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
-                bot.answer_callback_query(call.id, f"{group}: {'✅' if GROUP_CONFIG[group] else '❌'}")
-                
-                # Re-render
-                markup = InlineKeyboardMarkup()
-                for g, enabled in GROUP_CONFIG.items():
-                    state = "✅" if enabled else "❌"
-                    markup.add(InlineKeyboardButton(f"{state} {g}", callback_data=f"TOGGLEGRP|{g}"))
-                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            try:
+                group = parts[1]
+                if group in GROUP_CONFIG:
+                    GROUP_CONFIG[group] = not GROUP_CONFIG[group]
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
+                    bot.answer_callback_query(call.id, f"{group}: {'✅' if GROUP_CONFIG[group] else '❌'}")
+                    
+                    # Re-render
+                    markup = InlineKeyboardMarkup()
+                    for g, enabled in GROUP_CONFIG.items():
+                        state = "✅" if enabled else "❌"
+                        markup.add(InlineKeyboardButton(f"{state} {g}", callback_data=f"TOGGLEGRP|{g}"))
+                    bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                 print(f"Error in TOGGLEGRP: {e}")
+                 bot.answer_callback_query(call.id, "❌ Error al cambiar grupo.")
             return
 
         if cmd == "TOGGLEASSET":
-            # DISABLED_ASSETS is now imported globally at top
-            asset = parts[1]
-            if asset in DISABLED_ASSETS:
-                DISABLED_ASSETS.remove(asset)
-                bot.answer_callback_query(call.id, f"✅ {asset} ACTIVADO")
-            else:
-                DISABLED_ASSETS.add(asset)
-                bot.answer_callback_query(call.id, f"❌ {asset} BLOQUEADO")
-            
-            state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
-            
-            # Re-render (Limit 50 hack)
-            markup = InlineKeyboardMarkup(row_width=3)
-            buttons = []
-            active_assets = []
-            for g, enabled in GROUP_CONFIG.items():
-                if enabled: active_assets.extend(ASSET_GROUPS.get(g, []))
+            try:
+                asset = parts[1]
+                if asset in DISABLED_ASSETS:
+                    DISABLED_ASSETS.remove(asset)
+                    bot.answer_callback_query(call.id, f"✅ {asset} ACTIVADO")
+                else:
+                    DISABLED_ASSETS.add(asset)
+                    bot.answer_callback_query(call.id, f"❌ {asset} BLOQUEADO")
                 
-            for a in active_assets[:50]:
-                is_disabled = a in DISABLED_ASSETS
-                icon = "❌" if is_disabled else "✅"
-                buttons.append(InlineKeyboardButton(f"{icon} {a}", callback_data=f"TOGGLEASSET|{a}"))
-            markup.add(*buttons)
-            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
+                
+                # Re-render (Limit 50 hack)
+                markup = InlineKeyboardMarkup(row_width=3)
+                buttons = []
+                active_assets = []
+                for g, enabled in GROUP_CONFIG.items():
+                    if enabled: active_assets.extend(ASSET_GROUPS.get(g, []))
+                    
+                for a in active_assets[:50]:
+                    is_disabled = a in DISABLED_ASSETS
+                    icon = "❌" if is_disabled else "✅"
+                    buttons.append(InlineKeyboardButton(f"{icon} {a}", callback_data=f"TOGGLEASSET|{a}"))
+                markup.add(*buttons)
+                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Error in TOGGLEASSET: {e}")
+                bot.answer_callback_query(call.id, "❌ Error.")
             return
 
+        # --- TRADING COMMANDS ---
+        if cmd == "BUY":
+            asset = parts[1]
+            side = parts[2]
+            
+            try:
+                bot.answer_callback_query(call.id, f"🚀 Ejecutando {side} en {asset}...")
+                
+                ok = False
+                msg = "Error desconocido"
+
+                if side == "LONG":
+                    ok, msg = session.execute_long_position(asset, atr=0) 
+                elif side == "SHORT":
+                    ok, msg = session.execute_short_position(asset, atr=0)
+                elif side == "SPOT":
+                     ok, msg = session.execute_spot_buy(asset)
+                else:
+                     msg = f"Tipo de orden desconocido: {side}"
+                    
+                bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
+            except Exception as e:
+                 bot.send_message(chat_id, f"❌ Error ejecutando orden: {e}")
+
+        elif cmd == "CLOSE":
+            asset = parts[1]
+            try:
+                bot.answer_callback_query(call.id, f"📉 Cerrando {asset}...")
+                ok, msg = session.execute_close_position(asset)
+                bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
+            except Exception as e:
+                 bot.send_message(chat_id, f"❌ Error cerrando: {e}")
+            
+        elif cmd == "IGNORE":
+            try:
+                bot.answer_callback_query(call.id, "❌ Señal descartada.")
+                bot.delete_message(chat_id, call.message.message_id)
+            except: pass
+
+        elif cmd == "CFG":
+            # Personality Config
+            sub = parts[1] # PERS, LEV_MENU, MARGIN_MENU, LEV, MARGIN
+            val = parts[2] if len(parts) > 2 else None
+            
+            try:
+                if sub == "PERS":
+                    session.config['personality'] = val
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    
+                    name = personality_manager.PROFILES.get(val, {}).get('NAME', val)
+                    bot.answer_callback_query(call.id, f"🧠 Personalidad: {name}")
+                    bot.send_message(chat_id, f"🧠 **Personalidad Cambiada a:** {name}", parse_mode='Markdown')
+                    # AUTO START
+                    time.sleep(0.5)
+                    handle_start(call.message)
+                    
+                elif sub == "LEV_MENU":
+                    handle_set_leverage(call.message)
+                    bot.answer_callback_query(call.id)
+                    
+                elif sub == "MARGIN_MENU":
+                    handle_set_margin(call.message)
+                    bot.answer_callback_query(call.id)
+                    
+                elif sub == "LEV": # CFG|LEV|10
+                    session.config['leverage'] = int(val)
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    bot.answer_callback_query(call.id, f"⚖️ Lev: {val}x")
+                    bot.send_message(chat_id, f"⚖️ **Apalancamiento actualizado:** {val}x", parse_mode='Markdown')
+                    
+                elif sub == "MARGIN": # CFG|MARGIN|0.1
+                    session.config['max_capital_pct'] = float(val)
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    bot.answer_callback_query(call.id, f"💰 Margin: {float(val)*100:.0f}%")
+                    bot.send_message(chat_id, f"💰 **Margen actualizado:** {float(val)*100:.0f}%", parse_mode='Markdown')
+                
+                elif sub == "SPOT": # CFG|SPOT|0.10
+                     session.config['spot_allocation_pct'] = float(val)
+                     state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                     bot.answer_callback_query(call.id, f"💎 Spot Alloc: {float(val)*100:.0f}%")
+                     bot.send_message(chat_id, f"💎 **Asignación Spot Actualizada:** {float(val)*100:.0f}% de USDT Libre", parse_mode='Markdown')
+
+            except Exception as e:
+                print(f"Error in CFG: {e}")
+                bot.answer_callback_query(call.id, "❌ Error de config.")
+
     except Exception as e:
-        print(f"Callback Error: {e}")
+        print(f"❌ Error CRÍTICO en handle_query: {e}")
         try:
-            bot.answer_callback_query(call.id, "❌ Error")
-            bot.send_message(chat_id, f"❌ Error interno en botón: {str(e)}", parse_mode='Markdown')
-        except:
-            pass
-
-    # --- TRADING COMMANDS ---
-    if cmd == "BUY":
-        asset = parts[1]
-        side = parts[2]
-        
-        bot.answer_callback_query(call.id, f"🚀 Ejecutando {side} en {asset}...")
-        
-        ok = False
-        msg = "Error desconocido"
-
-        if side == "LONG":
-            ok, msg = session.execute_long_position(asset, atr=0) 
-        elif side == "SHORT":
-            ok, msg = session.execute_short_position(asset, atr=0)
-        elif side == "SPOT":
-             ok, msg = session.execute_spot_buy(asset)
-        else:
-             msg = f"Tipo de orden desconocido: {side}"
-            
-        bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
-        
-    elif cmd == "CLOSE":
-        asset = parts[1]
-        bot.answer_callback_query(call.id, f"📉 Cerrando {asset}...")
-        ok, msg = session.execute_close_position(asset)
-        bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
-        
-    elif cmd == "IGNORE":
-        bot.answer_callback_query(call.id, "❌ Señal descartada.")
-        bot.delete_message(chat_id, call.message.message_id)
-
-    elif cmd == "CFG":
-        # Personality Config
-        sub = parts[1] # PERS, LEV_MENU, MARGIN_MENU, LEV, MARGIN
-        val = parts[2] if len(parts) > 2 else None
-        
-        if sub == "PERS":
-            session.config['personality'] = val
-            state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
-            
-            name = personality_manager.PROFILES.get(val, {}).get('NAME', val)
-            bot.answer_callback_query(call.id, f"🧠 Personalidad: {name}")
-            bot.send_message(chat_id, f"🧠 **Personalidad Cambiada a:** {name}", parse_mode='Markdown')
-            # AUTO START
-            time.sleep(0.5)
-            handle_start(call.message)
-            
-        elif sub == "LEV_MENU":
-            handle_set_leverage(call.message)
-            bot.answer_callback_query(call.id)
-            
-        elif sub == "MARGIN_MENU":
-            handle_set_margin(call.message)
-            bot.answer_callback_query(call.id)
-            
-        elif sub == "LEV": # CFG|LEV|10
-            session.config['leverage'] = int(val)
-            state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
-            bot.answer_callback_query(call.id, f"⚖️ Lev: {val}x")
-            bot.send_message(chat_id, f"⚖️ **Apalancamiento actualizado:** {val}x", parse_mode='Markdown')
-            # handle_status(call.message) # REMOVED: Too noisy
-            
-        elif sub == "MARGIN": # CFG|MARGIN|0.1
-            session.config['max_capital_pct'] = float(val)
-            state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
-            bot.answer_callback_query(call.id, f"💰 Margin: {float(val)*100:.0f}%")
-            bot.send_message(chat_id, f"💰 **Margen actualizado:** {float(val)*100:.0f}%", parse_mode='Markdown')
-            # handle_status(call.message) # REMOVED: Too noisy
+            bot.answer_callback_query(call.id, "❌ Error Interno")
+        except: pass
 
 # --- PERSONALITY COMMAND ---
 @bot.message_handler(commands=['personality', 'pers'])
