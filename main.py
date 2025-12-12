@@ -1644,7 +1644,7 @@ def handle_query(call):
         elif sub_cmd == '/copilot': handle_mode_switch(call.message, 'COPILOT')
         elif sub_cmd == '/watcher': handle_mode_switch(call.message, 'WATCHER')
         elif sub_cmd == '/personality': handle_personality(call.message)
-        elif sub_cmd == '/config': handle_status(call.message) # Reuse status for config
+        elif sub_cmd == '/config': handle_config(call.message)
         elif sub_cmd == '/help': send_welcome(call.message)
         elif sub_cmd == '/about': handle_about(call.message)
         elif sub_cmd == '/strategy': handle_strategy(call.message)
