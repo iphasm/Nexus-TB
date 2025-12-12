@@ -938,7 +938,8 @@ def master_listener(message):
             
             # 2. SYSTEM COMMANDS (Admin Only)
             # /toggle_group, /set_interval, /debug
-            SYSTEM_CMDS = ['/toggle_group', '/togglegroup', '/toggle', '/set_interval', '/setinterval', '/debug']
+            # /toggle_group, /set_interval, /debug
+            SYSTEM_CMDS = ['/toggle_group', '/togglegroup', '/toggle', '/set_interval', '/setinterval', '/debug', '/debug_buttons']
             if cmd_part in SYSTEM_CMDS and role != 'ADMIN':
                 bot.reply_to(message, "🛡️ Comando reservado para Administrador.")
                 return
@@ -965,6 +966,8 @@ def master_listener(message):
                 handle_set_interval(message)
             elif cmd_part == '/debug':
                 handle_debug(message)
+            elif cmd_part == '/debug_buttons':
+                handle_debug_buttons(message)
             
             # User Config & Trading (Allowed for Subscribers)
             elif cmd_part in ['/config', '/status']: # Alias /config to /status
@@ -1483,6 +1486,16 @@ def handle_start(message):
 def handle_query(call):
     # 1. DEBUG LOGGING
     print(f"DEBUG: Callback received: {call.data} from {call.message.chat.id}")
+    sys.stdout.flush() # FORCE LOG OUTPUT
+
+    # 1.1 IMMEDIATE TEST PATH
+    if call.data.startswith("TEST|"):
+        try:
+            bot.answer_callback_query(call.id, "✅ TEST OK")
+            bot.send_message(call.message.chat.id, "✅ Callback received successfully!")
+        except Exception as e:
+            print(f"TEST ERROR: {e}")
+        return
     
     try:
         chat_id = str(call.message.chat.id)
@@ -1743,6 +1756,14 @@ def handle_toggle_group(message):
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
+
+# --- DEBUG BUTTONS COMMAND ---
+@bot.message_handler(commands=['debug_buttons'])
+def handle_debug_buttons(message):
+    """Generates a guaranteed simple button for testing."""
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🧪 TEST CLICK (Check Logs)", callback_data="TEST|PING"))
+    bot.reply_to(message, "👇 Click below to test callbacks:", reply_markup=markup)
 
 # --- PERSONALITY COMMAND ---
 @threaded_handler
