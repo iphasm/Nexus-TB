@@ -456,7 +456,7 @@ def handle_trade_callback(call):
             key = data[1]
             val = data[2]
             
-                                    if key == 'LEV':
+            if key == 'LEV':
                 session.update_config('leverage', int(val))
                 msg = f"⚖️ *Apalancamiento:* {val}x"
             elif key == 'MARGIN':
@@ -468,7 +468,9 @@ def handle_trade_callback(call):
             elif key == 'PERS':
                 session.update_config('personality', val)
                 # Get Name
-                p_name = personality_manager.get_profile(val).get('NAME', val)
+                try:
+                    p_name = personality_manager.get_profile(val).get('NAME', val)
+                except: p_name = val
                 msg = f"🧠 *Personalidad:* {p_name}\n_Configuración Neural Actualizada_"
             
             session_manager.save_sessions()

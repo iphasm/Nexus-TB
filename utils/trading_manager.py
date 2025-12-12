@@ -353,7 +353,7 @@ class TradingSession:
                             quantity=qty_tp2,
                             reduceOnly=True
                         )
-                        )
+
                     success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
