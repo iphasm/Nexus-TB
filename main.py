@@ -528,7 +528,8 @@ def send_welcome(message):
         "🎮 *MODOS OPERATIVOS*\n"
         "• /pilot - Modo Automático (Sin confirmación).\n"
         "• /copilot - Modo Asistido (Requiere aprobación).\n"
-        "• /watcher - Modo Vigilancia (Solo alertas).\n\n"
+        "• /watcher - Modo Vigilancia (Solo alertas).\n"
+        "• /mode - Ver modo actual.\n\n"
         
         "🔫 *TRADING MANUAL*\n"
         "• /buy <TICKER> - Compra Spot instantánea.\n"
