@@ -94,7 +94,7 @@ class MeanReversionStrategy(IStrategy):
             return None
             
         return Signal(
-            symbol="ETH", # Dynamic in real usage but class name implies ETH
+            symbol=market_data.get('symbol', "ETH"), 
             action=signal_type,
             confidence=confidence,
             price=price,

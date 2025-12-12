@@ -46,7 +46,7 @@ class GridTradingStrategy(IStrategy):
             confidence = 0.8
             
         return Signal(
-            symbol="ADA",
+            symbol=market_data.get('symbol', "ADA"),
             action=signal_type,
             confidence=confidence,
             price=current_price,

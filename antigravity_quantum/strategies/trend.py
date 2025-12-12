@@ -43,7 +43,7 @@ class TrendFollowingStrategy(IStrategy):
             confidence = min(adx / 50, 1.0)
             
         return Signal(
-            symbol="BTC",
+            symbol=market_data.get('symbol', "BTC"),
             action=signal_type,
             confidence=confidence,
             price=price,

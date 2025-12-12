@@ -45,7 +45,7 @@ class ScalpingStrategy(IStrategy):
             return None
             
         return Signal(
-            symbol="UNKNOWN", # Engine sets this
+            symbol=market_data.get('symbol', "UNKNOWN"),
             action=signal_type,
             confidence=confidence,
             price=last['close'],

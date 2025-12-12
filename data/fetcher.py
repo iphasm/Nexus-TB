@@ -91,9 +91,41 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
                     print(f"DEBUG: Public fetch result: {len(klines) if klines else 'None/Empty'}")
                 except Exception as e2:
                      print(f"❌ Public fetch also failed for {symbol}: {e2}")
+                     
+                     # FALLBACK: Try YFinance (useful for Geo-blocked IPs like Railway US)
+                     try:
+                         yf_sym = symbol.replace('USDT', '-USD')
+                         print(f"⚠️ Binance blocked? Falling back to YFinance for {symbol} -> {yf_sym}")
+                         import yfinance as yf
+                         
+                         # Map interval
+                         yf_period = "1mo"
+                         if timeframe in ['1m', '5m', '15m']: yf_period = "5d"
+                         
+                         df = yf.Ticker(yf_sym).history(interval=timeframe, period=yf_period)
+                         if not df.empty:
+                             df = df.reset_index()
+                             # Rename cols
+                             rename_map = {'Date': 'timestamp', 'Datetime': 'timestamp', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'}
+                             df = df.rename(columns=rename_map)
+                             
+                             # Clean
+                             expected_cols = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+                             for c in expected_cols:
+                                 if c not in df.columns: df[c] = 0.0
+                             df = df[expected_cols]
+                             
+                             # Fix TZ
+                             if pd.api.types.is_datetime64_any_dtype(df['timestamp']) and df['timestamp'].dt.tz is not None:
+                                 df['timestamp'] = df['timestamp'].dt.tz_convert(None)
+                                 
+                             return df
+                     except Exception as ex_yf:
+                         print(f"❌ YF Fallback failed: {ex_yf}")
+            
                      return pd.DataFrame(columns=expected_cols)
             
-            if not klines:
+            if klines is None or len(klines) == 0:
                 print(f"DEBUG: klines is empty for {symbol}")
                 return pd.DataFrame(columns=expected_cols)
             

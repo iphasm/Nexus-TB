@@ -45,6 +45,7 @@
             margin-bottom: 10px;
             background: linear-gradient(to right, #60a5fa, #a78bfa);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -228,7 +229,7 @@
                 <tbody>
                     <tr>
                         <td><code>/start</code></td>
-                        <td>Abre el Menú Principal con accesos rápidos.</td>
+                        <td>Abre el Menú Principal. Verifica conexión a Binance y Alpaca.</td>
                     </tr>
                     <tr>
                         <td><code>/status</code></td>
@@ -263,6 +264,17 @@
                     riesgo máximo permitido.</li>
                 <li><strong>Blacklist en Tiempo Real:</strong> Usa <code>/assets</code> para desactivar monedas
                     volátiles o noticias peligrosas instantáneamente.</li>
+            </ul>
+        </div>
+
+        <h2>💾 Persistencia de Estado (Nuevo en v3.3)</h2>
+        <div class="card">
+            <p>El bot ahora posee memoria persistente (<code>bot_state.json</code>). No perderás tu configuración al
+                reiniciar:</p>
+            <ul>
+                <li>✅ <strong>Toggles de Estrategia:</strong> Recuerda si desactivaste el Scalping.</li>
+                <li>✅ <strong>Lista Negra:</strong> Recuerda qué activos bloqueaste en <code>/assets</code>.</li>
+                <li>✅ <strong>Configuración de Sesión:</strong> Mantiene tu apalancamiento, margen y personalidad.</li>
             </ul>
         </div>
     </div>
