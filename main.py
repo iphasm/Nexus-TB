@@ -474,7 +474,23 @@ def handle_trade_callback(call):
         data = call.data.split('|')
         action = data[0]
         
-        if action == 'CFG':
+        if action == 'CMD':
+            # Command Routing from Buttons
+            cmd = data[1]
+            # bot.answer_callback_query(call.id, f"Ejecutando {cmd}...")
+            
+            # Dispatch
+            if cmd == '/status': handle_status(call.message)
+            elif cmd == '/wallet': handle_wallet(call.message)
+            elif cmd == '/pilot': handle_mode_switch(call.message, 'PILOT')
+            elif cmd == '/copilot': handle_mode_switch(call.message, 'COPILOT')
+            elif cmd == '/watcher': handle_mode_switch(call.message, 'WATCHER')
+            elif cmd == '/personality': handle_personality(call.message)
+            elif cmd == '/config': handle_status(call.message) # Reuse status for config
+            elif cmd == '/help': send_welcome(call.message)
+            return
+
+        elif action == 'CFG':
             # Configuration Change
             key = data[1]
             val = data[2]
@@ -655,7 +671,7 @@ def handle_start(message):
     session = session_manager.get_session(chat_id)
     p_key = session.config.get('personality', 'NEXUS')
 
-    # 4. Mensaje Final Dinámico
+    # 4. Mensaje Final Dinámico (Updated for Button UI)
     welcome = personality_manager.get_message(
         p_key, 'WELCOME',
         status_text=status_text,
@@ -664,7 +680,28 @@ def handle_start(message):
         auth=auth
     )
     
-    bot.edit_message_text(welcome, chat_id=chat_id, message_id=msg_load.message_id, parse_mode='Markdown')
+    # Interactive Menu (Buttons)
+    markup = InlineKeyboardMarkup(row_width=2)
+    # Row 1: Status | Wallet
+    markup.add(
+        InlineKeyboardButton("📊 Estado", callback_data="CMD|/status"),
+        InlineKeyboardButton("💰 Cartera", callback_data="CMD|/wallet")
+    )
+    # Row 2: Modes
+    markup.add(
+        InlineKeyboardButton("🦅 Pilot", callback_data="CMD|/pilot"),
+        InlineKeyboardButton("🤝 Copilot", callback_data="CMD|/copilot"),
+        InlineKeyboardButton("👀 Watcher", callback_data="CMD|/watcher")
+    )
+    # Row 3: Config / Personality
+    markup.add(
+        InlineKeyboardButton("🧠 Persona", callback_data="CMD|/personality"),
+        InlineKeyboardButton("⚙️ Config", callback_data="CMD|/config")
+    )
+    # Row 4: Help
+    markup.add(InlineKeyboardButton("❓ Ayuda (Comandos)", callback_data="CMD|/help"))
+
+    bot.edit_message_text(welcome, chat_id=chat_id, message_id=msg_load.message_id, parse_mode='Markdown', reply_markup=markup)
 
 def get_fear_and_greed_index():
     """Fetch Fear and Greed Index from alternative.me"""
@@ -967,7 +1004,6 @@ def handle_set_spot_allocation(message):
         InlineKeyboardButton("100%", callback_data="CFG|SPOT|1.00")
     )
     bot.reply_to(message, "💎 *Selecciona Asignación SPOT (USDT Disponible):*", reply_markup=markup, parse_mode='Markdown')
-
 @threaded_handler
 def handle_wallet(message):
     """Muestra detalles completos de la cartera (Spot + Futuros)"""
@@ -986,24 +1022,29 @@ def handle_wallet(message):
             return
             
         # Unpack
-        spot = details.get('spot_usdt', 0.0)
-        earn = details.get('earn_usdt', 0.0)
-        fut_bal = details.get('futures_balance', 0.0)
-        fut_pnl = details.get('futures_pnl', 0.0)
-        fut_total = details.get('futures_total', 0.0)
+        spot_bal = details['spot_balance']
+        spot_val = details['spot_value']
+        fut_bal = details['futures_balance']
+        fut_pnl = details['futures_unrealized_pnl']
+        fut_total= details['futures_total_equity']
         alpaca_native = details.get('alpaca_equity', 0.0)
         
-        # Calculate Total Net Worth
-        net_worth = spot + earn + fut_total + alpaca_native
+        # Earn Logic (Simplified)
+        earn_bal = 0.0 # TODO: Add Earn Fetcher if needed
         
-        # Formatting
+        net_worth = spot_val + fut_total + earn_bal + alpaca_native
+        
         pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
         
+        # Get Personality Header
+        p_key = session.config.get('personality', 'NEXUS')
+        wallet_header = personality_manager.get_message(p_key, 'WALLET_HEADER')
+
         msg = (
-            "🏦 *WALLET REPORT*\n"
+            f"{wallet_header}\n"
             "〰️〰️〰️〰️〰️〰️\n"
-            f"💎 *SPOT Capital:* `${spot:,.2f}`\n"
-            f"🐷 *EARN (Ahorros):* `${earn:,.2f}`\n"
+            f"🏦 *SPOT Balance:* `${spot_bal:,.2f}`\n"
+            f"💎 *SPOT Valor:* `${spot_val:,.2f}`\n"
             "〰️〰️〰️〰️〰️〰️\n"
             f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
             f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"

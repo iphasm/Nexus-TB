@@ -26,6 +26,7 @@ class PersonalityManager:
             'COPILOT_ON': "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido; tú tomarás la decisión final.\n*No hagas nada sin mi aprobación.*",
             'WATCHER_ON': "👀 **WATCHER MODE**\n\nSolo observaré. Como lágrimas en la lluvia.\nSi veo una oportunidad, te enviaré una señal. El resto depende de ti.",
             'STATUS_HEADER': "♟️ **INFORME DE ESTADO: Nivel A**",
+            'WALLET_HEADER': "💰 **ACTIVOS CORPORATIVOS**",
             'STATUS_FOOTER': "\n*Todo en orden. Nada que temer.*",
             'RISK_MSG': (
                 "🛡️ **PROTOCOLOS DE SUPERVIVENCIA**\n\n"
@@ -61,6 +62,7 @@ class PersonalityManager:
             'COPILOT_ON': "🗡️ **COPILOT: MISIÓN CONJUNTA**\n\nTe enseñaré a ser un soldado. Yo marco el objetivo, tú aprietas el gatillo.\n*Nunca salgas del barco.*",
             'WATCHER_ON': "🔭 **WATCHER: VIGILANCIA**\n\nObservaré desde la oscuridad de la selva. Esperando el momento perfecto para atacar.",
             'STATUS_HEADER': "⛺ **INFORME DE SITUACIÓN: AVANZADA**",
+            'WALLET_HEADER': "🎒 **SUMINISTROS DE GUERRA**",
             'STATUS_FOOTER': "\n*El horror... el horror.*",
             'RISK_MSG': (
                 "🛡️ **DISCIPLINA OPERATIVA**\n\n"
@@ -95,6 +97,7 @@ class PersonalityManager:
             'COPILOT_ON': "🤝 **COPILOT BRO**\n\nVamos a medias. Yo te paso el call, tú le das al botón de comprar.\n*To the moon!*",
             'WATCHER_ON': "👀 **WATCHER**\n\nEstoy mirando los charts 24/7. Si veo algo que vaya a hacer un x10, te aviso.",
             'STATUS_HEADER': "💎 **DIAMOND HANDS DASHBOARD**",
+            'WALLET_HEADER': "💰 **THE BAG**",
             'STATUS_FOOTER': "\n*Scared money don't make money.*",
             'RISK_MSG': (
                 "🛡️ **ANTI-REKT SYSTEM**\n\n"
@@ -129,6 +132,7 @@ class PersonalityManager:
             'COPILOT_ON': "🤜🤛 **COPILOT KLK**\n\nYo te doy la luz y tú ejecutalas. Trabajando en equipo como debe ser.",
             'WATCHER_ON': "👀 **WATCHER: EN LA LOMA**\n\nEstoy vigilando el bloque. Si veo movimiento raro, te tiro por el DM.",
             'STATUS_HEADER': "🇩🇴 **REPORTE DEL BLOQUE**",
+            'WALLET_HEADER': "💸 **LA PACA**",
             'STATUS_FOOTER': "\n*Tamo activo y no de gratis.*",
             'RISK_MSG': (
                 "🛡️ **CÓDIGO DE LA CALLE**\n\n"
@@ -163,6 +167,7 @@ class PersonalityManager:
             'COPILOT_ON': "🤜🤛 **COPILOT AL HABLA**\n\nVale tío, vamos a medias. Yo te digo lo que veo y tú decides si entramos. ¡Sin agobios!",
             'WATCHER_ON': "👀 **MODO WATCHER**\n\nMe quedo aquí mirando el percal. Si veo algo guapo te pego un toque.",
             'STATUS_HEADER': "🇪🇸 **REPORTAJE DE LA HOSTIA**",
+            'WALLET_HEADER': "💶 **LA CARTERA**",
             'STATUS_FOOTER': "\n*¡A por todas, coño!*",
             'RISK_MSG': (
                 "🛡️ **NI UN PASO ATRÁS**\n\n"
@@ -197,6 +202,7 @@ class PersonalityManager:
             'COPILOT_ON': "✅ **Modo Copilot Activado**\n\nEl bot enviará propuestas de trading para su aprobación manual.",
             'WATCHER_ON': "✅ **Modo Watcher Activado**\n\nEl bot solo enviará alertas de mercado. No se ejecutarán operaciones.",
             'STATUS_HEADER': "📊 **REPORTE DE ESTADO**",
+            'WALLET_HEADER': "💳 **BALANCE DE CUENTA**",
             'STATUS_FOOTER': "\n*Sistema nominal.*",
             'RISK_MSG': (
                 "🛡️ **CONFIGURACIÓN DE RIESGO**\n\n"
