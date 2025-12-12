@@ -27,7 +27,8 @@ class TradingSession:
             "leverage": 5,
             "max_capital_pct": 0.10,
             "stop_loss_pct": 0.02,
-            "spot_allocation_pct": 0.20 # Default 20% for Spot Buys
+            "spot_allocation_pct": 0.20, # Default 20% for Spot Buys
+            "personality": "NEXUS" # Default: Nexus-6
         }
         
         if config:

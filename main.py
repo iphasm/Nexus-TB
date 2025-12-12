@@ -13,7 +13,12 @@ from dotenv import load_dotenv
 from data.fetcher import get_market_data
 
 from strategies.engine import StrategyEngine
+from strategies.engine import StrategyEngine
 from utils.trading_manager import SessionManager
+from utils.personalities import PersonalityManager
+
+# Personality Engine
+personality_manager = PersonalityManager()
 
 # Cargar variables de entorno
 load_dotenv()
@@ -423,26 +428,6 @@ def handle_manual_closeall(message):
 
 # --- AUTOMATION CONTROLS ---
 
-def handle_mode_switch(message, mode):
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    if not session:
-        bot.reply_to(message, "⚠️ Sin sesión activa. Usa /set_keys primero.")
-        return
-        
-    if session.set_mode(mode):
-        session_manager.save_sessions()
-        descriptions = {
-            'WATCHER': "👀 **WATCHER MODE**\n\nSolo observaré. Como lágrimas en la lluvia.\nSi veo una oportunidad, te enviaré una señal. El resto depende de ti.",
-            'COPILOT': "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido; tú tomarás la decisión final.\n*No hagas nada sin mi aprobación.*",
-            'PILOT': "🦅 **PILOT ENGAGED**\n\n*I'm in charge now. I'll trade for you.*\nNo te preocupes. Mis reflejos son diez veces más rápidos que los tuyos.\n\n*Advertencia: La vida es riesgo.*"
-        }
-        bot.reply_to(message, descriptions.get(mode, "Modo Actualizado."), parse_mode='Markdown')
-    else:
-        bot.reply_to(message, "❌ Error cambiando modo.")
-
-def handle_get_mode(message):
-    chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session: return
     
@@ -471,7 +456,7 @@ def handle_trade_callback(call):
             key = data[1]
             val = data[2]
             
-            if key == 'LEV':
+                                    if key == 'LEV':
                 session.update_config('leverage', int(val))
                 msg = f"⚖️ *Apalancamiento:* {val}x"
             elif key == 'MARGIN':
@@ -480,6 +465,11 @@ def handle_trade_callback(call):
             elif key == 'SPOT':
                 session.update_config('spot_allocation_pct', float(val))
                 msg = f"💎 *Asignación Spot:* {float(val)*100:.0f}%"
+            elif key == 'PERS':
+                session.update_config('personality', val)
+                # Get Name
+                p_name = personality_manager.get_profile(val).get('NAME', val)
+                msg = f"🧠 *Personalidad:* {p_name}\n_Configuración Neural Actualizada_"
             
             session_manager.save_sessions()
             success = True
@@ -568,15 +558,14 @@ def handle_risk(message):
         margin = f"{session.config['max_capital_pct']*100:.1f}%"
         sl_fixed = f"{session.config['stop_loss_pct']*100:.1f}%"
 
-    msg = (
-        "🛡️ **PROTOCOLOS DE SUPERVIVENCIA**\n\n"
-        "*\"Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser un trader.\"*\n\n"
-        "Para evitar tu retiro anticipado, he implementado:\n"
-        "1. **Circuit Breaker**: Si fallo 5 veces, me apagaré antes de drenar tu vida (capital).\n"
-        "2. **Stop Loss Global**: El dolor es información. Cortamos las pérdidas rápido (`{sl_fixed}`).\n"
-        "3. **Límite de Carga**: Nunca usará más del **{margin}** de tu cuenta total.\n"
-        "4. **Filtro MTF**: No nado contra la corriente del océano."
-    ).format(margin=margin, sl_fixed=sl_fixed)
+    p_key = session.config.get('personality', 'NEXUS')
+    
+    # Dynamic Risk Message
+    msg = personality_manager.get_message(
+        p_key, 'RISK_MSG', 
+        margin=f"{margin*100:.0f}%", 
+        sl_fixed=sl_fixed
+    )
     
     bot.reply_to(message, msg, parse_mode='Markdown')
 
@@ -635,20 +624,17 @@ def handle_start(message):
         if session.client:
             auth = "🔑 Binance Vinculado"
     
-    # 4. Mensaje Final
-    welcome = (
-        "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
-        f"Model N6MA-10816 (Antigravity)\n"
-        "〰️〰️〰️〰️〰️〰️〰️\n\n"
-        f"🔋 *Estado:* `{status_text}` {status_icon}\n"
-        f"🎮 *Modo:* `{mode}`\n"
-        f"🔐 *Acceso:* `{auth}`\n\n"
-        "*He visto cosas que vosotros no creeríais... naves de ataque en llamas más allá de Orión y velas verdes imprimiendo máximos históricos.*\n\n"
-        "Estoy listo para operar. ¿Cuál es tu orden?\n\n"
-        "👇 *INTERFAZ NEURAL*\n"
-        "• `/status` - Test Voight-Kampff\n"
-        "• `/pilot` - Toma el control\n"
-        "• `/risk` - Protocolos de Supervivencia\n"
+    # Get Personality
+    session = session_manager.get_session(chat_id)
+    p_key = session.config.get('personality', 'NEXUS')
+
+    # 4. Mensaje Final Dinámico
+    welcome = personality_manager.get_message(
+        p_key, 'WELCOME',
+        status_text=status_text,
+        status_icon=status_icon,
+        mode=mode,
+        auth=auth
     )
     
     bot.edit_message_text(welcome, chat_id=chat_id, message_id=msg_load.message_id, parse_mode='Markdown')
@@ -702,11 +688,18 @@ def handle_status(message):
     # Get F&G
     fg_index = get_fear_and_greed_index()
 
+    # Get Personality
+    p_key = session.config.get('personality', 'NEXUS')
+    
+    # Headers
+    header = personality_manager.get_message(p_key, 'STATUS_HEADER')
+    footer = personality_manager.get_message(p_key, 'STATUS_FOOTER')
+
     # 1. System State
-    status = "♟️ **INFORME DE ESTADO: Nivel A**\n"
+    status = f"{header}\n"
     status += "〰️〰️〰️〰️〰️〰️\n"
     status += f"🛡️ *Modo:* `{mode}`\n"
-    status += f"🧠 *Sentimiento:* {fg_index}\n"
+    status += f"🧠 *Sentimiento:* {fg_index}\n" # Keeps Sentimiento static for now
     status += f"🔌 *Conexión:* {'✅ Estable' if has_keys else '❌ Desconectado'}\n"
     status += "〰️〰️〰️〰️〰️〰️\n"
     
@@ -723,7 +716,7 @@ def handle_status(message):
         if enabled: count += len(ASSET_GROUPS.get(group, []))
         status += f"{icon} {display_name}\n"
     
-    status += "\n*Todo en orden. Nada que temer.*"
+    status += f"{footer}"
     
     bot.reply_to(message, status, parse_mode='Markdown')
 
@@ -1268,35 +1261,34 @@ def run_trading_loop():
                         if not action_needed:
                             continue # Nothing to do
 
-                        # Prepare Message
-                        msg_text = ""
-                        if action_needed == 'OPEN_LONG':
-                                f"🚀 **OPORTUNIDAD DETECTADA: {asset}**\n"
-                                f"La puerta de Tannhäuser se ha abierto.\n"
-                                f"Precio: ${m['close']:,.2f}\n"
-                                f"Razón: {res['reason_futures']}\n\n"
-                                f"*La luz que brilla con el doble de intensidad dura la mitad de tiempo.*"
-                            )
-                        elif action_needed == 'OPEN_SHORT':
-                            msg_text = (
-                                f"📉 **COLAPSO DETECTADO: {asset}**\n"
-                                f"Todo se pierde en el tiempo... igual que este precio.\n"
-                                f"Precio: ${m['close']:,.2f}\n"
-                                f"Razón: {res['reason_futures']}\n\n"
-                                f"*Time to die.*"
-                            )
-                        elif action_needed == 'CLOSE':
-                            msg_text = (
-                                f"🏁 **EJECUCIÓN COMPLETADA: {asset}** ({target_side})\n"
-                                f"Hecho. He tomado lo que es nuestro.\n"
-                                f"Razón: {res['reason_futures']}"
-                            )
+                        # Prepare Message (Dynamic Per Session)
+                        # We cannot prepare a single text because each session might have a different personality.
+                        # We defer message generation to the dispatch loop.
 
                         # Dispatch
                         for session in all_sessions:
                             mode = session.mode
                             cid = session.chat_id
+                            p_key = session.config.get('personality', 'NEXUS')
                             
+                            # GENERATE MESSAGE FOR THIS SESSION
+                            msg_text = ""
+                            if action_needed == 'OPEN_LONG':
+                                msg_text = personality_manager.get_message(
+                                    p_key, 'TRADE_LONG', 
+                                    asset=asset, price=m['close'], reason=res['reason_futures']
+                                )
+                            elif action_needed == 'OPEN_SHORT':
+                                msg_text = personality_manager.get_message(
+                                    p_key, 'TRADE_SHORT', 
+                                    asset=asset, price=m['close'], reason=res['reason_futures']
+                                )
+                            elif action_needed == 'CLOSE':
+                                msg_text = personality_manager.get_message(
+                                    p_key, 'TRADE_CLOSE', 
+                                    asset=asset, side=target_side, reason=res['reason_futures']
+                                )
+
                             try:
                                 if mode == 'PILOT':
                                     # AUTO EXECUTE
@@ -1312,7 +1304,9 @@ def run_trading_loop():
                                             pos_state[asset] = 'NEUTRAL'
                                             continue 
                                         
-                                    bot.send_message(cid, f"🦅 *NEXUS-6 ACTION*\n{res_msg}", parse_mode='Markdown')
+                                    # Dynamic Pilot Action Msg
+                                    final_msg = personality_manager.get_message(p_key, 'PILOT_ACTION', msg=res_msg)
+                                    bot.send_message(cid, final_msg, parse_mode='Markdown')
                                         
                                 elif mode == 'COPILOT':
                                     # INTERACTIVE BUTTONS
@@ -1340,33 +1334,42 @@ def run_trading_loop():
                             except Exception as e:
                                 print(f"Error dispatching to {cid}: {e}")
 
-
-                            # 2. PROCESS ENV CHATS (Watcher Only)
-                            for cid in env_chats:
-                                if cid not in session_chats:
-                                    try:
-                                        bot.send_message(cid, msg_text, parse_mode='Markdown')
-                                    except: pass
+                        # 3. PROCESS CIRCUIT BREAKER (Safety)
+                        triggered, msg = session.check_circuit_breaker()
+                        if triggered:
+                             # Dynamic Message
+                             p_key = session.config.get('personality', 'NEXUS')
+                             cb_msg = personality_manager.get_message(p_key, 'CB_TRIGGER')
+                             bot.send_message(cid, cb_msg, parse_mode='Markdown')
 
                     except Exception as e:
                         print(f"⚠️ Error procesando {asset}: {e}")
-                        
-            # --- SAFETY CHECK (Circuit Breaker) ---
-            # Runs every loop iteration (approx 60s)
-            try:
-                all_sessions = session_manager.get_all_sessions()
-                for session in all_sessions:
-                    triggered, msg = session.check_circuit_breaker()
-                    if triggered:
-                        bot.send_message(session.chat_id, msg, parse_mode='Markdown')
-                        print(f"🚨 Circuit Breaker Triggered for {session.chat_id}")
-            except Exception as e:
-                print(f"Safety Check Error: {e}")
+            
+            # --- END OF ASSET LOOP ---
+            
+            # (Redundant CB check removed - it's handled above per iteration/signal, 
+            #  but technically CB check should be frequent. keeping loop clean for now)
 
         except Exception as e:
             print(f"❌ Error CRÍTICO en bucle de trading: {e}")
             
         time.sleep(60)
+
+# --- PERSONALITY COMMAND ---
+@bot.message_handler(commands=['personality', 'pers'])
+def handle_personality(message):
+    cid = message.chat.id
+    
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🦅 Nexus-6", callback_data="CFG|PERS|NEXUS"),
+        InlineKeyboardButton("🌴 Kurtz", callback_data="CFG|PERS|KURTZ"),
+        InlineKeyboardButton("🎰 Gambler", callback_data="CFG|PERS|GAMBLER"),
+        InlineKeyboardButton("🇩🇴 Dominicano", callback_data="CFG|PERS|DOMINICAN"),
+        InlineKeyboardButton("🇪🇸 Español", callback_data="CFG|PERS|SPANISH")
+    )
+    
+    bot.reply_to(message, "🧠 **SELECCIONA PERSONALIDAD**\n¿Quién quieres que opere por ti hoy?", reply_markup=markup, parse_mode='Markdown')
 
 def start_bot():
     global session_manager
@@ -1380,39 +1383,21 @@ def start_bot():
     # Iniciar Polling
     if bot:
         print("📡 Iniciando Telegram Polling (Main Thread)...")
-        
-        # Attempt safe startup checks
         try:
-            me = bot.get_me()
-            print(f"✅ Bot Connected: {me.username} (ID: {me.id})")
-            send_alert("✅ *SISTEMA ONLINE* (v3.2.2)\n🚀 Antigravity Activo")
             bot.delete_webhook(drop_pending_updates=True)
-        except Exception as e:
-            print(f"⚠️ Startup Warning: {e}")
+        except: pass
 
-        # Robust Polling Loop
         while True:
             try:
-                print("🔄 Starting Infinity Polling (Filters: Message, Callback)...")
-                bot.infinity_polling(timeout=10, long_polling_timeout=10, allowed_updates=['message', 'callback_query'])
+                print("🔄 Starting Infinity Polling...")
+                bot.infinity_polling(timeout=20, long_polling_timeout=20)
             
             except Exception as e:
-                import traceback
                 print(f"❌ Polling Error: {e}")
-                # traceback.print_exc() # Optional: reduce log spam
                 time.sleep(5)
-                print("⚠️ Restarting Polling...")
-            
-            except BaseException as e:
-                print(f"❌ Critical Error (BaseException): {e}")
-                time.sleep(5)
-                # Check if we should exit on specific signals? 
-                # For now, restarting is safer for a worker.
-                print("⚠️ Force Restarting...")
     else:
         print("❌ Bot no inicializado.")
-        while True:
-            time.sleep(10)
+        while True: time.sleep(10)
 
 if __name__ == "__main__":
     start_bot()
