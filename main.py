@@ -661,6 +661,19 @@ def handle_start(message):
     mode = "WATCHER"
     auth = "🔒 Sin Credenciales"
     
+    if session:
+        cfg = session.get_configuration()
+        mode = cfg.get('mode', 'WATCHER')
+        if session.client:
+            auth = "🔑 Binance Vinculado"
+    
+    # Get Personality
+    p_key = session.config.get('personality', 'STANDARD_ES')
+
+    # 4. Mensaje Final Dinámico (Updated for Button UI)
+    welcome = personality_manager.get_message(
+        p_key, 'WELCOME',
+        status_text=status_text,
         status_icon=status_icon,
         mode=mode,
         auth=auth
