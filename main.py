@@ -1491,6 +1491,95 @@ def dispatch_quantum_signal(signal):
     except Exception as e:
         print(f"❌ Quantum Dispatch Critical: {e}")
 
+# --- CALLBACK QUERY HANDLER ---
+@bot.callback_query_handler(func=lambda call: True)
+def handle_query(call):
+    chat_id = str(call.message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+         bot.answer_callback_query(call.id, "⚠️ Sesión no encontrada.")
+         return
+
+    data = call.data
+    parts = data.split('|')
+    cmd = parts[0]
+
+    # --- MENU COMMANDS ---
+    if cmd == 'CMD':
+        # Command Routing from Buttons
+        sub_cmd = parts[1]
+        bot.answer_callback_query(call.id) # Silence loading state
+        
+        # Dispatch
+        if sub_cmd == '/status': handle_status(call.message)
+        elif sub_cmd == '/wallet': handle_wallet(call.message)
+        elif sub_cmd == '/pilot': handle_mode_switch(call.message, 'PILOT')
+        elif sub_cmd == '/copilot': handle_mode_switch(call.message, 'COPILOT')
+        elif sub_cmd == '/watcher': handle_mode_switch(call.message, 'WATCHER')
+        elif sub_cmd == '/personality': handle_personality(call.message)
+        elif sub_cmd == '/config': handle_status(call.message) # Reuse status for config
+        elif sub_cmd == '/help': send_welcome(call.message)
+        elif sub_cmd == '/about': handle_about(call.message)
+        elif sub_cmd == '/strategy': handle_strategy(call.message)
+        elif sub_cmd == '/price': handle_price(call.message)
+        return
+    
+    # --- STRATEGY TOGGLES ---
+    if cmd == "TOGGLE":
+        strat = parts[1] # SCALPING or GRID
+        current = ENABLED_STRATEGIES.get(strat, False)
+        ENABLED_STRATEGIES[strat] = not current # Flip
+        
+        # Refresh Menu
+        new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strat] else "❌ DESACTIVADO"
+        bot.answer_callback_query(call.id, f"{strat} ahora: {new_state}")
+        
+        # Re-render menu
+        markup = InlineKeyboardMarkup()
+        s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
+        g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
+        markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
+        markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
+        
+        bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+        return
+
+    # --- TRADING COMMANDS ---
+    if cmd == "BUY":
+        asset = parts[1]
+        side = parts[2]
+        
+        bot.answer_callback_query(call.id, f"🚀 Ejecutando {side} en {asset}...")
+        
+        if side == "LONG":
+            ok, msg = session.execute_long_position(asset, atr=0) 
+        elif side == "SHORT":
+            ok, msg = session.execute_short_position(asset, atr=0)
+            
+        bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
+        
+    elif cmd == "CLOSE":
+        asset = parts[1]
+        bot.answer_callback_query(call.id, f"📉 Cerrando {asset}...")
+        ok, msg = session.execute_close_position(asset)
+        bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
+        
+    elif cmd == "IGNORE":
+        bot.answer_callback_query(call.id, "❌ Señal descartada.")
+        bot.delete_message(chat_id, call.message.message_id)
+
+    elif cmd == "CFG":
+        # Personality Config
+        sub = parts[1] # PERS
+        val = parts[2] # KEY (e.g. DOMINICAN)
+        
+        if sub == "PERS":
+            session.config['personality'] = val
+            name = personality_manager.PROFILES.get(val, {}).get('NAME', val)
+            bot.answer_callback_query(call.id, f"🧠 Personalidad: {name}")
+            bot.send_message(chat_id, f"🧠 **Personalidad Cambiada a:** {name}", parse_mode='Markdown')
+
 # --- PERSONALITY COMMAND ---
 @bot.message_handler(commands=['personality', 'pers'])
 def handle_personality(message):
