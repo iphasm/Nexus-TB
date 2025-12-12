@@ -177,6 +177,39 @@ class PersonalityManager:
             'TRADE_CLOSE': "💰 **¡TOMA YA: {asset}!** ({side})\n¡Cerrada! A la saca. ¡Qué buena hostia!\nRazón: {reason}\n\n*¡Olé tus huevos!*",
             'PILOT_ACTION': "🇪🇸 *METIENDO CAÑA*\n{msg}",
             'CB_TRIGGER': "😡 **¡ME CAGO EN SUS MUERTOS!**\n\n5 seguidas palmando. Paro ya que me estoy calentando y le voy a pegar una hostia al monitor.\n*Vamos a relajarnos un poco en Copilot...* (`/resetpilot`)"
+        },
+
+        'STANDARD': {
+            'NAME': "😐 Estándar",
+            'WELCOME': (
+                "🤖 **ANTIGRAVITY BOT v3.3**\n"
+                "Sistema de Trading Automatizado.\n"
+                "〰️〰️〰️〰️〰️〰️〰️\n\n"
+                "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                "🎮 *Modo:* `{mode}`\n\n"
+                "Listo para operar. Seleccione una opción del menú.\n\n"
+                "👇 **MENÚ PRINCIPAL**\n"
+                "• `/status` - Ver estado y configuración\n"
+                "• `/pilot` - Activar modo automático\n"
+                "• `/personality` - Configuración de perfil"
+            ),
+            'PILOT_ON': "✅ **Modo Pilot Activado**\n\nEl bot operará automáticamente según las señales detectadas.\nSupervisión recomendada.",
+            'COPILOT_ON': "✅ **Modo Copilot Activado**\n\nEl bot enviará propuestas de trading para su aprobación manual.",
+            'WATCHER_ON': "✅ **Modo Watcher Activado**\n\nEl bot solo enviará alertas de mercado. No se ejecutarán operaciones.",
+            'STATUS_HEADER': "📊 **REPORTE DE ESTADO**",
+            'STATUS_FOOTER': "\n*Sistema nominal.*",
+            'RISK_MSG': (
+                "🛡️ **CONFIGURACIÓN DE RIESGO**\n\n"
+                "Parámetros de seguridad actuales:\n"
+                "1. **Circuit Breaker**: Detiene operaciones tras 5 pérdidas consecutivas.\n"
+                "2. **Stop Loss**: Fijo al `{sl_fixed}` por operación.\n"
+                "3. **Margen Global**: Máximo **{margin}** de la cuenta utilizado.\n"
+            ),
+            'TRADE_LONG': "📈 **SEÑAL DE COMPRA: {asset}**\nDirección: LONG\nPrecio: ${price:,.2f}\nRazón: {reason}",
+            'TRADE_SHORT': "📉 **SEÑAL DE VENTA: {asset}**\nDirección: SHORT\nPrecio: ${price:,.2f}\nRazón: {reason}",
+            'TRADE_CLOSE': "🏁 **POSICIÓN CERRADA: {asset}** ({side})\nLa operación ha concluido.\nRazón: {reason}",
+            'PILOT_ACTION': "🤖 *ACCIÓN AUTOMÁTICA*\n{msg}",
+            'CB_TRIGGER': "⚠️ **CIRCUIT BREAKER ACTIVADO**\n\nSe ha alcanzado el límite de pérdidas consecutivas (5). El sistema ha pasado a modo Seguro (Copilot/Watcher).\nUtilice `/resetpilot` para reiniciar."
         }
     }
 

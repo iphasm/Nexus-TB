@@ -1372,7 +1372,8 @@ def handle_personality(message):
         InlineKeyboardButton("🌴 Kurtz", callback_data="CFG|PERS|KURTZ"),
         InlineKeyboardButton("🎰 Gambler", callback_data="CFG|PERS|GAMBLER"),
         InlineKeyboardButton("🇩🇴 Dominicano", callback_data="CFG|PERS|DOMINICAN"),
-        InlineKeyboardButton("🇪🇸 Español", callback_data="CFG|PERS|SPANISH")
+        InlineKeyboardButton("🇪🇸 Español", callback_data="CFG|PERS|SPANISH"),
+        InlineKeyboardButton("😐 Estándar", callback_data="CFG|PERS|STANDARD")
     )
     
     bot.reply_to(message, "🧠 **SELECCIONA PERSONALIDAD**\n¿Quién quieres que opere por ti hoy?", reply_markup=markup, parse_mode='Markdown')
