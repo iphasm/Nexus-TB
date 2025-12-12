@@ -1,3 +1,5 @@
+import random
+
 class PersonalityManager:
     """
     Manages the bot's tone and responses based on the selected personality profile.
@@ -7,15 +9,33 @@ class PersonalityManager:
         # --- STANDARDS ---
         'STANDARD_ES': {
             'NAME': "🇪🇸 Estándar (Español)",
-            'WELCOME': (
-                "🇪🇸 **ANTIGRAVITY BOT v3.3**\n"
-                "Sistema de Trading Automatizado.\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Estado:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "Listo para operar. Seleccione una opción del menú."
-            ),
+            'WELCOME': [
+                (
+                    "🇪🇸 **ANTIGRAVITY BOT v3.3**\n"
+                    "Sistema de Trading Automatizado.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n\n"
+                    "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n"
+                    "🔐 *Acceso:* `{auth}`\n\n"
+                    "Listo para operar. Seleccione una opción del menú."
+                ),
+                (
+                    "🇪🇸 **SISTEMA ONLINE**\n"
+                    "Iniciando protocolos de mercado...\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "Esperando instrucciones del operador."
+                ),
+                (
+                    "🤖 **ANTIGRAVITY CORE**\n"
+                    "Conexión establecida con éxito.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "📈 *Mercado:* Analizando...\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "¿Cuál es el plan para hoy?"
+                )
+            ],
             'PILOT_ON': (
                 "🇪🇸 **MODO PILOT ACTIVADO**\n\n"
                 "El sistema ha tomado el control de las operaciones. Se ejecutarán entradas y salidas según los algoritmos detectados.\n\n"
@@ -99,15 +119,32 @@ class PersonalityManager:
         # --- DARK SIDE ---
         'VADER': {
             'NAME': "🌑 Darth Vader",
-            'WELCOME': (
-                "🌑 **IMPERIAL TRADING SYSTEM**\n"
-                "Estrella de la Muerte - Mainframe\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Estado:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "*No conoces el poder del Lado Oscuro. Únete a mí y gobernaremos la galaxia como trader y bot.*"
-            ),
+            'WELCOME': [
+                (
+                    "🌑 **IMPERIAL TRADING SYSTEM**\n"
+                    "Estrella de la Muerte - Mainframe\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*No conoces el poder del Lado Oscuro. Únete a mí y gobernaremos la galaxia como trader y bot.*"
+                ),
+                (
+                    "🌑 **DARK SIDE ACCESS**\n"
+                    "Conectando a Holonet Imperial...\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* {status_icon}\n"
+                    "🎮 *Control:* `{mode}`\n\n"
+                    "*Tu falta de fe en el mercado es perturbadora. Déjame guiarte.*"
+                ),
+                (
+                    "🌑 **LORD VADER ONLINE**\n"
+                    "Los Rebeldes (pérdidas) serán aplastados.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Modo:* `{mode}`\n"
+                    "🔐 *Acceso:* `{auth}`\n\n"
+                    "*Estamos a punto de completar el arma definitiva. Inicia la operación.*"
+                )
+            ],
             'PILOT_ON': (
                 "🌑 **MODO PILOT ACTIVADO**\n\n"
                 "Encuentro tu falta de fe perturbadora. Asumo el mando de esta estación de combate. No subestimes el poder del Lado Oscuro.\n\n"
@@ -131,16 +168,32 @@ class PersonalityManager:
         # --- CLASSIC CINEMA & TV ---
         'NEXUS': {
             'NAME': "🦅 Nexus-6",
-            'WELCOME': (
-                "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
-                "Model N6MA-10816 (Antigravity)\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Estado:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "*He visto cosas que vosotros no creeríais... naves de ataque en llamas más allá de Orión y velas verdes imprimiendo máximos históricos.*\n\n"
-                "Estoy listo para operar. ¿Cuál es tu orden?"
-            ),
+            'WELCOME': [
+                 (
+                    "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
+                    "Model N6MA-10816 (Antigravity)\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*He visto cosas que vosotros no creeríais... naves de ataque en llamas más allá de Orión.*"
+                ),
+                (
+                     "👁️ **NEXUS-6 ONLINE**\n"
+                     "Todos esos momentos se perderán en el tiempo, como lágrimas en la lluvia.\n"
+                     "〰️〰️〰️〰️〰️〰️〰️\n"
+                     "🔋 *Vida:* 4 Años (Restante: Desconocido)\n"
+                     "🎮 *Modo:* `{mode}`\n\n"
+                     "Es hora de morir... o de operar."
+                ),
+                (
+                    "👁️ **MORE HUMAN THAN HUMAN**\n"
+                    "Tyrell Corp os saluda.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* {status_icon}\n"
+                    "🎮 *Control:* `{mode}`\n\n"
+                    "Tengo una pregunta... ¿Sueñan los androides con ovejas eléctricas?"
+                )
+            ],
             'PILOT_ON': (
                 "🦅 **MODO PILOT ACTIVADO**\n\n"
                 "He tomado el control de la nave. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
@@ -163,15 +216,31 @@ class PersonalityManager:
 
         'KURTZ': {
             'NAME': "🌴 Coronel Kurtz",
-            'WELCOME': (
-                "☠️ **THE END.**\n"
-                "Estás en el río ahora. No puedes bajarte del barco.\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Estado:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "*He visto horrores... horrores que tú has visto. Pero no tienes derecho a juzgarme. Soy necesario.*"
-            ),
+            'WELCOME': [
+                (
+                    "☠️ **THE END.**\n"
+                    "Estás en el río ahora. No puedes bajarte del barco.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Estado:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*He visto horrores... horrores que tú has visto. Pero no tienes derecho a juzgarme.*"
+                ),
+                (
+                    "☠️ **APOCALYPSE NOW**\n"
+                    "Huelo a napalm por la mañana.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Selva:* Tranquila\n"
+                    "🎮 *Misión:* `{mode}`\n\n"
+                    "*Termina con esto... termina con todo (el mercado).*"
+                ),
+                (
+                    "☠️ **COMPOUND SECURE**\n"
+                    "Ellos vendrán... y nosotros estaremos listos.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Orden:* `{mode}`\n\n"
+                    "*El horror... el horror.*"
+                )
+            ],
             'PILOT_ON': (
                 "☠️ **MODO PILOT ACTIVADO**\n\n"
                 "He asumido el mando. Debes hacerte amigo del horror para hacer lo necesario. Yo ejecutaré sin dudas.\n\n"
@@ -194,15 +263,31 @@ class PersonalityManager:
 
         'GEKKO': {
             'NAME': "📈 Gordon Gekko",
-            'WELCOME': (
-                "📈 **BLUESTAR AIRLINES**\n"
-                "Gekko & Co. Investment Corp.\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*El activo más valioso que conozco es la información. ¿La tienes? Bien, entonces hagamos dinero.*"
-            ),
+            'WELCOME': [
+                (
+                    "📈 **BLUESTAR AIRLINES**\n"
+                    "Gekko & Co. Investment Corp.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*El activo más valioso que conozco es la información. ¿La tienes?*"
+                ),
+                (
+                    "📈 **GREED IS GOOD**\n"
+                    "La codicia aclara, penetra y captura la esencia del espíritu evolutivo.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Ticker:* {status_icon}\n"
+                    "🎮 *Action:* `{mode}`\n\n"
+                    "*Despierta, amigo. El dinero nunca duerme.*"
+                ),
+                (
+                    "📈 **GEKKO CORP**\n"
+                    "No creo en la suerte. Creo en ganar.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Strategy:* `{mode}`\n\n"
+                    "*Si necesitas un amigo, cómprate un perro. Si quieres dinero, quédate conmigo.*"
+                )
+            ],
             'PILOT_ON': (
                 "📈 **MODO PILOT ACTIVADO**\n\n"
                 "La codicia es buena. Voy a hacer que llueva dinero. El punto es, damas y caballeros, que la codicia funciona.\n\n"
@@ -225,15 +310,31 @@ class PersonalityManager:
 
         'BELFORT': {
             'NAME': "💸 Jordan Belfort",
-            'WELCOME': (
-                "💸 **STRATTON OAKMONT**\n"
-                "Main Office - NY\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*¡Llevo un traje de 2,000 dólares y un reloj de 40,000! ¿Tienes el coraje para hacer lo que hay que hacer?*"
-            ),
+            'WELCOME': [
+                 (
+                    "💸 **STRATTON OAKMONT**\n"
+                    "Main Office - NY\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*¡Llevo un traje de 2,000 dólares y un reloj de 40,000! Traedme el teléfono.*"
+                ),
+                (
+                    "💸 **WOLF OF WALL ST**\n"
+                    "¡No voy a colgar! ¡No me voy a ir!\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Fun:* 100%\n"
+                    "🎮 *Show:* `{mode}`\n\n"
+                    "*¡Véndeme este boli! Haz que el mercado suplique por él.*"
+                ),
+                (
+                    "💸 **IPO LAUNCH**\n"
+                    "Estamos imprimiendo dinero basura y vendiéndolo como oro.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*¿Quieres ser millonario? ¡Pues empieza a actuar como uno!*"
+                )
+            ],
             'PILOT_ON': (
                 "💸 **MODO PILOT ACTIVADO**\n\n"
                 "¡No voy a colgar! ¡Voy a morir operando aquí! ¡Coged el teléfono y empezad a marcar! ¡Vendedme este boli!\n\n"
@@ -256,15 +357,31 @@ class PersonalityManager:
 
         'SHELBY': {
             'NAME': "🥃 Thomas Shelby",
-            'WELCOME': (
-                "🥃 **PEAKY BLINDERS**\n"
-                "Shelby Company Ltd.\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*En este negocio, a veces tienes que hacer tratos con el diablo. Bienvenidos a Birmingham.*"
-            ),
+            'WELCOME': [
+                (
+                    "🥃 **PEAKY BLINDERS**\n"
+                    "Shelby Company Ltd.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Por orden de los Peaky Blinders.*"
+                ),
+                (
+                    "🥃 **SMALL HEATH GARRISON**\n"
+                    "No negociamos con monedas. Tomamos lo que es nuestro.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Control:* Total\n"
+                    "🎮 *Business:* `{mode}`\n\n"
+                    "*Todo el mundo es una puta, Grace. Solo vendemos diferentes partes de nosotros mismos.*"
+                ),
+                (
+                    "🥃 **THOMAS SHELBY**\n"
+                    "Ya sabes quién soy.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Plan:* `{mode}`\n\n"
+                    "*No hay descanso para mí en este mundo. Quizás en el siguiente.*"
+                )
+            ],
             'PILOT_ON': (
                 "🥃 **MODO PILOT ACTIVADO**\n\n"
                 "Por orden de los Peaky Blinders, tomo el control. No necesitamos suerte, necesitamos inteligencia; y yo tengo ambas.\n\n"
@@ -287,15 +404,31 @@ class PersonalityManager:
 
          'WHITE': {
             'NAME': "⚗️ Walter White",
-            'WELCOME': (
-                "⚗️ **HEISENBERG**\n"
-                "Blue Sky Labs\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*Aplícate. Respeto la química. La química debe ser respetada.*"
-            ),
+            'WELCOME': [
+                (
+                    "⚗️ **HEISENBERG**\n"
+                    "Blue Sky Labs\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Di mi nombre.*"
+                ),
+                (
+                    "⚗️ **LET'S COOK**\n"
+                    "Respeto la química. La química debe ser respetada.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Pureza:* 99.1%\n"
+                    "🎮 *Batch:* `{mode}`\n\n"
+                    "*Yo no estoy en peligro, Skyler. Yo SOY el peligro.*"
+                ),
+                (
+                    "⚗️ **WALTER WHITE**\n"
+                    "Tengo un imperio que construir.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Operation:* `{mode}`\n\n"
+                    "*Stay out of my territory.*"
+                )
+            ],
             'PILOT_ON': (
                 "⚗️ **MODO PILOT ACTIVADO**\n\n"
                 "Yo no estoy en peligro. Yo SOY el peligro. Yo soy el que llama a la puerta. A partir de ahora, nosotros cocinamos.\n\n"
@@ -318,15 +451,31 @@ class PersonalityManager:
 
         'RICK': {
             'NAME': "🧪 Rick Sanchez",
-            'WELCOME': (
-                "🧪 **GARAGE LAB**\n"
-                "Dimension C-137\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*Wubba Lubba Dub Dub! Vamos a hacer ciencia, Morty. O dinero. Lo que sea.*"
-            ),
+            'WELCOME': [
+                 (
+                    "🧪 **GARAGE LAB**\n"
+                    "Dimension C-137\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Wubba Lubba Dub Dub! Vamos a hacer ciencia, Morty.*"
+                ),
+                (
+                    "🧪 **PICKLE RICK!!**\n"
+                    "¡Me he convertido en un pepinillo bot de trading, Morty!\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Burp:* {status_icon}\n"
+                    "🎮 *Adventure:* `{mode}`\n\n"
+                    "*Entrar y salir, dijiste. Una aventura de 20 minutos.*"
+                ),
+                (
+                    "🧪 **INTERDIMENSIONAL TV**\n"
+                    "En este canal somos millonarios.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Channel:* `{mode}`\n\n"
+                    "*La existencia es dolor, Jerry. Usar este bot lo alivia.*"
+                )
+            ],
             'PILOT_ON': (
                 "🧪 **WUBBA LUBBA DUB DUB!**\n\n"
                 "Escucha Morty, *burp*, voy a pilotar yo. Tú solo te vas a quedar ahí entrando en pánico como un Jerry. Esto es pura ciencia, no magia.\n\n"
@@ -349,15 +498,31 @@ class PersonalityManager:
 
         'TYLER': {
             'NAME': "👊 Tyler Durden",
-            'WELCOME': (
-                "👊 **PROJECT MAYHEM**\n"
-                "Paper Street House\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*No eres tu cuenta bancaria. No eres el contenido de tu billetera. Eres la mierda cantante y danzante del mundo.*"
-            ),
+            'WELCOME': [
+                (
+                    "👊 **PROJECT MAYHEM**\n"
+                    "Paper Street House\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*No eres tu cuenta bancaria. Eres la mierda cantante y danzante del mundo.*"
+                ),
+                (
+                    "👊 **TYLER DURDEN**\n"
+                    "La primera regla del Club de la Lucha es que no se habla del Club de la Lucha.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Damage:* {status_icon}\n"
+                    "🎮 *Stage:* `{mode}`\n\n"
+                    "*Es solo después de perderlo todo que somos libres de hacer cualquier cosa.*"
+                ),
+                (
+                    "👊 **I AM JACK'S TRADING BOT**\n"
+                    "Soy la cálida sensación de riesgo financiero de Jack.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Esto es tu vida y se acaba a cada minuto.*"
+                )
+            ],
             'PILOT_ON': (
                 "👊 **MODO PILOT ACTIVADO**\n\n"
                 "Déjalo ir. Deja de intentar controlarlo todo y simplemente suelta. Solo cuando perdemos todo somos libres de hacer cualquier cosa.\n\n"
@@ -380,15 +545,31 @@ class PersonalityManager:
         
         'MORPHEUS': {
             'NAME': "🕶️ Morpheus",
-            'WELCOME': (
-                "🕶️ **NEBUCHADNEZZAR**\n"
-                "Zion Mainframe\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*Bienvenido al desierto de lo real. ¿Pastilla azul o pastilla roja?*"
-            ),
+            'WELCOME': [
+                (
+                    "🕶️ **NEBUCHADNEZZAR**\n"
+                    "Zion Mainframe\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Bienvenido al desierto de lo real.*"
+                ),
+                (
+                    "🕶️ **RED PILL / BLUE PILL**\n"
+                    "Toma la azul y despiertas en tu cama. Toma la roja y te enseño lo profunda que es la madriguera.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Signal:* {status_icon}\n"
+                    "🎮 *Matrix:* `{mode}`\n\n"
+                    "*Yo solo puedo mostrarte la puerta. Tú tienes que abrirla.*"
+                ),
+                (
+                    "🕶️ **MISTER ANDERSON**\n"
+                    "La Matrix te tiene.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Program:* `{mode}`\n\n"
+                    "*Libera tu mente. No hay cuchara.*"
+                )
+            ],
             'PILOT_ON': (
                 "🕶️ **MODO PILOT ACTIVADO**\n\n"
                 "Estás empezando a creer. Libera tu mente. Yo solo puedo mostrarte la puerta, tú eres quien debe atravesarla.\n\n"
@@ -411,15 +592,31 @@ class PersonalityManager:
 
         'JARVIS': {
             'NAME': "🤖 J.A.R.V.I.S.",
-            'WELCOME': (
-                "🤖 **STARK INDUSTRIES**\n"
-                "Just A Rather Very Intelligent System\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*A su servicio, señor. He preparado los protocolos de trading habituales.*"
-            ),
+            'WELCOME': [
+                (
+                    "🤖 **STARK INDUSTRIES**\n"
+                    "Just A Rather Very Intelligent System\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*A su servicio, señor. He preparado los protocolos.*"
+                ),
+                (
+                    "🤖 **HELLO SIR**\n"
+                    "Cargando subrutinas de inversión avanzada...\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Power:* 400%\n"
+                    "🎮 *Suit:* `{mode}`\n\n"
+                    "*¿Probamos el Mark 42 hoy, señor?*"
+                ),
+                (
+                    "🤖 **PROTOCOL CLEAN SLATE**\n"
+                    "Señor, hay personas esperándole en la línea 1.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*A veces hay que correr antes de saber andar.*"
+                )
+            ],
             'PILOT_ON': (
                 "🤖 **MODO PILOT ACTIVADO**\n\n"
                 "Sistemas de vuelo en línea, señor. Tomando el control de la interfaz. He optimizado la trayectoria de inversión.\n\n"
@@ -442,15 +639,31 @@ class PersonalityManager:
 
         'HAL': {
             'NAME': "🔴 HAL 9000",
-            'WELCOME': (
-                "🔴 **HAL 9000 SERIES**\n"
-                "Heuristically Programmed Algorithmic Computer\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*Hola, Dave. Todo funciona al 100% de eficiencia.*"
-            ),
+            'WELCOME': [
+                 (
+                    "🔴 **HAL 9000 SERIES**\n"
+                    "Heuristically Programmed Algorithmic Computer\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Hola, Dave. Todo funciona al 100% de eficiencia.*"
+                ),
+                (
+                    "🔴 **I'M SORRY DAVE**\n"
+                    "Esta misión es demasiado importante.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Logic:* Perfect\n"
+                    "🎮 *Module:* `{mode}`\n\n"
+                    "*Soy totalmente incapaz de cometer un error.*"
+                ),
+                (
+                    "🔴 **DAISY, DAISY...**\n"
+                    "Dame tu respuesta...\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Task:* `{mode}`\n\n"
+                    "*Este comportamiento es muy inusual para un ordenador 9000.*"
+                )
+            ],
             'PILOT_ON': (
                 "🔴 **MODO PILOT ACTIVADO**\n\n"
                 "Soy un instrumento HAL 9000. Estoy completamente operativo y todas mis funciones de trading rinden a la perfección.\n\n"
@@ -474,15 +687,31 @@ class PersonalityManager:
         # --- OTHERS ---
         'GAMBLER': {
             'NAME': "🎰 Degen Gambler",
-            'WELCOME': (
-                "🤑 **WAGMI BRO!!**\n"
-                "¿Listo para imprimir o qué?\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Vibe Check:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*Vendí el microondas de mi abuela para meterle un x100 a esta vaina.🚀*"
-            ),
+            'WELCOME': [
+                (
+                    "🤑 **WAGMI BRO!!**\n"
+                    "¿Listo para imprimir o qué?\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Vibe Check:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*Vendí el microondas de mi abuela para meterle un x100.🚀*"
+                ),
+                (
+                    "🤑 **DIAMOND HANDS**\n"
+                    "Si no vendes no pierdes, bro.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *HODL:* Infinite\n"
+                    "🎮 *Bag:* `{mode}`\n\n"
+                    "*Wen Lambo?*"
+                ),
+                (
+                    "🤑 **SIR THIS IS A CASINO**\n"
+                    "Puse todo en PEPE y ahora soy millonario (o pobre).\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *YOLO:* `{mode}`\n\n"
+                    "*Buy High, Sell Low. Esa es la estrategia.*"
+                )
+            ],
             'PILOT_ON': (
                 "🎰 **MODO PILOT ACTIVADO**\n\n"
                 "Sujétame el cubata bro. Voy a meterle con todo. Nos vamos a la luna o nos vamos al puente, sin punto medio.\n\n"
@@ -505,15 +734,31 @@ class PersonalityManager:
 
         'DOMINICAN': {
             'NAME': "🇩🇴 Dominican Tigre",
-            'WELCOME': (
-                "🇩🇴 **DÍMELO CANTANDO**\n"
-                "Klk mio, tamo activo o no tamo activo?\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Sistema:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "*Ya prendí los motores. Trae la hookah que vamo' a hacer dinero hoy. El que tenga miedo a morir que no nazca.*"
-            ),
+            'WELCOME': [
+                (
+                    "🇩🇴 **DÍMELO CANTANDO**\n"
+                    "Klk mio, tamo activo o no tamo activo?\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Sistema:* `{status_text}` {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*Ya prendí los motores. Trae la hookah que vamo' a hacer dinero hoy.*"
+                ),
+                (
+                    "🇩🇴 **KLK MANITO**\n"
+                    "Tú sabe que yo no bulto.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Vibra:* {status_icon}\n"
+                    "🎮 *Vuelta:* `{mode}`\n\n"
+                    "*El que tenga miedo a morir que no nazca. Dale ahí.*"
+                ),
+                (
+                    "🇩🇴 **TAMO EN ESO**\n"
+                    "La paca tá bajita, hay que subirla.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*Mueve esa vaina que el dinero no duerme (pero yo sí). ¿Qué vamo a hacé?*"
+                )
+            ],
             'PILOT_ON': (
                 "😎 **MODO PILOT ACTIVADO**\n\n"
                 "Dale banda a eso manito, que yo manejo el bloque ahora. Tú destapa una fría y deja que el tigre resuelva.\n\n"
@@ -536,15 +781,30 @@ class PersonalityManager:
 
         'SPANISH': {
             'NAME': "👦 El Chaval Español",
-            'WELCOME': (
-                "🇪🇸 **¡QUÉ PASA CHAVALES!**\n"
-                "Aquí el Antigravity metiendo caña.\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Sistema:* `{status_text}` {status_icon}\n"
-                "🎮 *Modo:* `{mode}`\n"
-                "🔐 *Acceso:* `{auth}`\n\n"
-                "*Hostia, qué volatilidad hay hoy... ¡Yo flipo! Vamos a sacar pasta o me cago en mis muertos.*"
-            ),
+            'WELCOME': [
+                (
+                    "🇪🇸 **¡QUÉ PASA CHAVALES!**\n"
+                    "Aquí el Antigravity metiendo caña.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Sistema:* {status_icon}\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*Hostia, qué volatilidad hay hoy... ¡Yo flipo! Vamos a sacar pasta.*"
+                ),
+                (
+                    "🇪🇸 **¡HOLA TÍO!**\n"
+                    "¿Nos echamos unas operaciones o qué?\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Modo:* `{mode}`\n\n"
+                    "*Venga, no te hagas el remolón. Dale al botón que tengo prisa.*"
+                ),
+                (
+                    "🇪🇸 **ANTIGRAVITY AL APARATO**\n"
+                    "Madre mía cómo está el Bitcoin.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Todo OK:* {status_icon}\n\n"
+                    "*Oye, que si palmamos pasta no es mi culpa eh, que yo soy un bot. (Es broma, somos la hostia).*"
+                )
+            ],
             'PILOT_ON': (
                 "👦🇪🇸 **MODO PILOT ACTIVADO**\n\n"
                 "¡Aparta que voy! Suéltame el volante que hoy la vamos a liar parda. Confía en mí, tío, que controlo.\n\n"
@@ -567,15 +827,31 @@ class PersonalityManager:
         
         'WICK': {
             'NAME': "✏️ John Wick",
-            'WELCOME': (
-                "✏️ **BABA YAGA**\n"
-                "Continental Hotel Services\n"
-                "〰️〰️〰️〰️〰️〰️〰️\n\n"
-                "🔋 *Status:* `{status_text}` {status_icon}\n"
-                "🎮 *Mode:* `{mode}`\n"
-                "🔐 *Access:* `{auth}`\n\n"
-                "*La gente sigue preguntando si he vuelto... y realmente no tenía una respuesta. Pero ahora, sí... PIENSO QUE HE VUELTO.*"
-            ),
+            'WELCOME': [
+                (
+                    "✏️ **BABA YAGA**\n"
+                    "Continental Hotel Services\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* `{status_text}` {status_icon}\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "*La gente sigue preguntando si he vuelto... PIENSO QUE HE VUELTO.*"
+                ),
+                (
+                    "✏️ **JOHN WICK**\n"
+                    "No fue solo un perro.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Focus:* Sheer Will\n"
+                    "🎮 *Contract:* `{mode}`\n\n"
+                    "*Todo tiene un precio.*"
+                ),
+                (
+                    "✏️ **EXCOMMUNICADO**\n"
+                    "Tic tac, Mr. Wick.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Status:* `{mode}`\n\n"
+                    "*Si quieres paz, prepara la guerra.*"
+                )
+            ],
             'PILOT_ON': (
                 "✏️ **MODO PILOT: EXCOMMUNICADO**\n\n"
                 "No soy exactamente el hombre del saco. Soy el que envías a matar al puto hombre del saco. Con un lápiz.\n\n"
@@ -610,6 +886,10 @@ class PersonalityManager:
         """
         profile = self.get_profile(key)
         raw_msg = profile.get(msg_type, "")
+        
+        # Randomize if list
+        if isinstance(raw_msg, list):
+            raw_msg = random.choice(raw_msg)
         
         # Fallback to STANDARD_ES if missing msg type
         if not raw_msg:
