@@ -90,7 +90,6 @@ if TELEGRAM_TOKEN:
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
 else:
     print("ADVERTENCIA: No se encontró TELEGRAM_TOKEN.")
-
 # --- DECORADORES HELPER ---
 
 def threaded_handler(func):
@@ -1248,6 +1247,12 @@ def run_trading_loop():
     last_signals = {} # Tracks 'BUY', 'SELL' etc per asset
 
     while True:
+        # QUANTUM BYPASS
+        if USE_QUANTUM_ENGINE:
+            # Legacy loop sleeps to allow QuantumBridge to handle signals
+            time.sleep(30)
+            continue
+            
         try:
             # Iterar Grupos Activos
             for group_name, assets in ASSET_GROUPS.items():
@@ -1485,16 +1490,103 @@ def run_trading_loop():
             
         time.sleep(60)
 
+# --- QUANTUM BRIDGE INTEGRATION ---
+from antigravity_quantum.bridge import QuantumBridge
+quantum_bridge = None
+USE_QUANTUM_ENGINE = True # Auto-enable on next restart
+
+def dispatch_quantum_signal(signal):
+    """
+    Callback triggered by QuantumBridge from Background Thread.
+    Routes signals to all active sessions.
+    """
+    try:
+        asset = signal.symbol
+        action = signal.action # BUY, SELL
+        price = signal.price
+        conf = signal.confidence
+        reason = f"{signal.metadata} (Conf: {conf:.2f})"
+        
+        # Log to Console
+        print(f"⚡ QUANTUM DISPATCH: {action} on {asset}")
+        
+        # Map Quantum Action to Bot Action
+        action_needed = None
+        target_side = None
+        
+        if action == "BUY":
+            action_needed = 'OPEN_LONG'
+        elif action == "SELL":
+            action_needed = 'CLOSE'
+            target_side = 'LONG' 
+        
+        if not action_needed: return
+
+        # Iterate Sessions
+        all_sessions = session_manager.get_all_sessions()
+        
+        for session in all_sessions:
+            mode = session.config.get('mode', 'WATCHER')
+            cid = session.chat_id
+            p_key = session.config.get('personality', 'NEXUS')
+            
+            # Prepare Message
+            msg_text = ""
+            if action_needed == 'OPEN_LONG':
+                msg_text = personality_manager.get_message(
+                    p_key, 'TRADE_LONG', 
+                    asset=asset, price=price, reason=reason
+                )
+            elif action_needed == 'CLOSE':
+                msg_text = personality_manager.get_message(
+                    p_key, 'TRADE_CLOSE', 
+                    asset=asset, side=target_side, reason=reason
+                )
+
+            # Mode Logic
+            try:
+                if mode == 'PILOT':
+                    # AUTO EXECUTE
+                    if action_needed == 'OPEN_LONG':
+                        ok, res_msg = session.execute_long_position(asset, atr=0) 
+                    elif action_needed == 'CLOSE':
+                        ok, res_msg = session.execute_close_position(asset)
+                    else:
+                        ok, res_msg = False, "Unknown Action"
+                        
+                    if ok:
+                        final_msg = personality_manager.get_message(p_key, 'PILOT_ACTION', msg=res_msg)
+                        bot.send_message(cid, final_msg, parse_mode='Markdown')
+                        
+                elif mode == 'COPILOT':
+                    markup = InlineKeyboardMarkup()
+                    if action_needed == 'OPEN_LONG':
+                        markup.add(
+                            InlineKeyboardButton("✅ Entrar (Quantum)", callback_data=f"BUY|{asset}|LONG"),
+                            InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|LONG")
+                        )
+                        bot.send_message(cid, msg_text, reply_markup=markup, parse_mode='Markdown')
+                    elif action_needed == 'CLOSE':
+                        markup.add(
+                            InlineKeyboardButton("✅ Cerrar (Quantum)", callback_data=f"CLOSE|{asset}|ANY"),
+                            InlineKeyboardButton("❌ Mantener", callback_data=f"IGNORE|{asset}|ANY")
+                        )
+                        bot.send_message(cid, msg_text, reply_markup=markup, parse_mode='Markdown')
+                else: # WATCHER
+                     bot.send_message(cid, msg_text, parse_mode='Markdown')
+                     
+            except Exception as e:
+                print(f"⚠️ Dispatch Error {cid}: {e}")
+
+    except Exception as e:
+        print(f"❌ Quantum Dispatch Critical: {e}")
+
 # --- PERSONALITY COMMAND ---
 @bot.message_handler(commands=['personality', 'pers'])
 def handle_personality(message):
     cid = message.chat.id
-    
     markup = InlineKeyboardMarkup(row_width=2)
     buttons = []
-    
-    # Sort: Standards first (ES, EN, FR), then Vader, then others alphabetically? 
-    # Or just iterate as defined in PROFILES (Python 3.7+ keeps insertion order, and we ordered them in file)
     
     for key, profile in personality_manager.PROFILES.items():
         name = profile['NAME']
@@ -1502,12 +1594,17 @@ def handle_personality(message):
         buttons.append(btn)
         
     markup.add(*buttons)
-    
     bot.reply_to(message, "🧠 **SELECCIONA PERSONALIDAD**\n¿Quién quieres que opere por ti hoy?", reply_markup=markup, parse_mode='Markdown')
 
 def start_bot():
-    global session_manager
+    global session_manager, quantum_bridge
     session_manager = SessionManager()
+    
+    # Start Quantum Bridge if Enabled
+    if USE_QUANTUM_ENGINE:
+        print("🌌 Initializing Quantum Bridge...")
+        quantum_bridge = QuantumBridge(notification_callback=dispatch_quantum_signal)
+        quantum_bridge.start()
     
     # Iniciar Trading Thread
     t_trading = threading.Thread(target=run_trading_loop)

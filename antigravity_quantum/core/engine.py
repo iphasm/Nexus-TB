@@ -13,7 +13,15 @@ class QuantumEngine:
         self.running = False
         # Only testing a few assets for prototype to avoid rate limits
         self.assets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT'] 
+        self.signal_callback = None
         
+    def set_callback(self, callback):
+        """
+        Sets the async callback for signal emission.
+        Signature: async def callback(signal: Signal)
+        """
+        self.signal_callback = callback
+
     async def initialize(self):
         print("🌌 QuantumEngine: Initializing Subsystems...")
         await self.market_stream.initialize()
@@ -28,7 +36,7 @@ class QuantumEngine:
         print("🚀 Quantum Core Loop Started.")
         while self.running:
             for asset in self.assets:
-                print(f"🔍 Scanning {asset}...")
+                # print(f"🔍 Scanning {asset}...") # Reduced Noise
                 
                 # 1. Fetch Data (Real)
                 market_data = await self.market_stream.get_candles(asset)
@@ -37,26 +45,24 @@ class QuantumEngine:
 
                 # 2. Get Dynamic Strategy
                 # In real version, we calculate volatility from market_data to pick strategy
-                volatility = 0.5 
-                strategy = StrategyFactory.get_strategy(asset.replace('USDT',''), volatility)
+                # For now using VOL=0.5 default, or based on asset
+                volatility_index = 0.5 
+                strategy = StrategyFactory.get_strategy(asset.replace('USDT',''), volatility_index)
                 
                 # 3. Analyze (Async)
                 signal = await strategy.analyze(market_data)
                 
                 if signal:
-                    print(f"💡 SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
-                    # 4. Risk Check
-                    # approved = await self.risk_guardian.check_trade_approval(signal, exposure)
+                    print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
+                    
+                    if self.signal_callback:
+                        await self.signal_callback(signal)
                 
-            await asyncio.sleep(10) # 10s wait
+            await asyncio.sleep(60) # 1 Minute Cycle (Matches 15m candle update speed approx)
 
     async def run(self):
         self.running = True
         await self.initialize()
-        
-        # Concurrent Execution
-        # In this Rest-Polling model, core_loop does the fetching.
-        # IF we had websockets, we'd run them in parallel.
         await self.core_loop()
 
     async def stop(self):

@@ -68,5 +68,83 @@ class MarketStream:
             print(f"⚠️ Data Fetch Error ({symbol}): {e}")
             return {"dataframe": pd.DataFrame()} # Empty DF
 
+    async def get_historical_candles(self, symbol: str, days: int = 30) -> pd.DataFrame:
+        """
+        Fetches a large dataset for backtesting using pagination.
+        """
+        timeframe = self.tf_map.get(symbol.split('USDT')[0], '15m')
+        formatted_symbol = symbol.replace('USDT', '/USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+        
+        # Calculate start time
+        now = pd.Timestamp.now()
+        start_time = now - pd.Timedelta(days=days)
+        start_ts = int(start_time.timestamp() * 1000)
+        
+        all_ohlcv = []
+        current_since = start_ts
+        
+        print(f"⏳ Fetching history for {symbol} ({days} days)...")
+        
+        for _ in range(10): # Safety limit 10 pages
+            try:
+                ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, since=current_since, limit=1000)
+                if not ohlcv:
+                    break
+                
+                all_ohlcv.extend(ohlcv)
+                current_since = ohlcv[-1][0] + 1 # Next ms
+                
+                # Check if we reached recent time
+                if len(ohlcv) < 1000:
+                    break
+                    
+                await asyncio.sleep(0.2) # Rate limit protection
+                
+            except Exception as e:
+                print(f"⚠️ History Fetch Error: {e}")
+                break
+                
+        if not all_ohlcv:
+            return pd.DataFrame()
+            
+        df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        
+        # 4. Add Basic Indicators (Native Pandas Implementation)
+        close = df['close']
+
+        # EMAs
+        df['ema_20'] = close.ewm(span=20, adjust=False).mean()
+        df['ema_50'] = close.ewm(span=50, adjust=False).mean()
+        df['ema_200'] = close.ewm(span=200, adjust=False).mean()
+        
+        # RSI (14)
+        delta = close.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['rsi'] = 100 - (100 / (1 + rs))
+        
+        # Bollinger Bands (20, 2)
+        sma_20 = close.rolling(window=20).mean()
+        std_20 = close.rolling(window=20).std()
+        df['upper_bb'] = sma_20 + (std_20 * 2)
+        df['lower_bb'] = sma_20 - (std_20 * 2)
+        
+        # Approximate ADX (Simplified TR/DX for prototype speed)
+        # Real ADX requires recursion, approximating with Volatility/Trend strength
+        # Using ATR-like measure relative to price
+        tr = df[['high', 'low', 'close']].max(axis=1) - df[['high', 'low', 'close']].min(axis=1)
+        atr_14 = tr.rolling(14).mean()
+        df['atr'] = atr_14
+        
+        # Synthetic ADX-like filter: 
+        # If SMA slopes are aligned and Volatility is rising -> High Trend Strength
+        # This is a robust proxy 
+        df['adx'] = (abs(df['ema_20'] - df['ema_50']) / close) * 1000 
+        # Normalized logic: > 5 usually means strong divergence/trend
+        
+        return df
+
     async def close(self):
         await self.exchange.close()

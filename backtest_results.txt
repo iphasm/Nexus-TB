@@ -1,0 +1,149 @@
+
+🚀 STARTING BACKTEST SIMULATION (Pilot Mode)
+🎯 Assets: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT']
+💰 Initial Capital: $1,000.00 per asset
+🗓️  Period: Last 90 Days
+==================================================
+🔌 Connecting to binance...
+✅ Connected to binance (Async).
+
+🔍 Analyzing BTCUSDT...
+⏳ Fetching history for BTCUSDT (90 days)...
+⚙️  Strategy: TrendFollowing (BTC)
+🏁 Result: $1,000.00 (+0.00%) | Trades: 0
+
+🔍 Analyzing ETHUSDT...
+⏳ Fetching history for ETHUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $1,088.41 (+8.84%) | Trades: 36
+
+🔍 Analyzing SOLUSDT...
+⏳ Fetching history for SOLUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $1,043.51 (+4.35%) | Trades: 44
+
+🔍 Analyzing BNBUSDT...
+⏳ Fetching history for BNBUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $982.82 (-1.72%) | Trades: 32
+
+🔍 Analyzing XRPUSDT...
+⏳ Fetching history for XRPUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $797.07 (-20.29%) | Trades: 36
+
+🔍 Analyzing ADAUSDT...
+⏳ Fetching history for ADAUSDT (90 days)...
+⚙️  Strategy: GridMaster (ADA)
+🏁 Result: $475.88 (-52.41%) | Trades: 1
+
+🔍 Analyzing LTCUSDT...
+⏳ Fetching history for LTCUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $969.05 (-3.09%) | Trades: 24
+
+🔍 Analyzing LINKUSDT...
+⏳ Fetching history for LINKUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $921.69 (-7.83%) | Trades: 26
+
+🔍 Analyzing DOGEUSDT...
+⏳ Fetching history for DOGEUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $934.31 (-6.57%) | Trades: 36
+
+🔍 Analyzing AVAXUSDT...
+⏳ Fetching history for AVAXUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $760.43 (-23.96%) | Trades: 30
+
+🔍 Analyzing ZECUSDT...
+⏳ Fetching history for ZECUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $1,753.00 (+75.30%) | Trades: 40
+
+🔍 Analyzing SUIUSDT...
+⏳ Fetching history for SUIUSDT (90 days)...
+⚙️  Strategy: MeanReversion (ETH)
+🏁 Result: $996.30 (-0.37%) | Trades: 32
+
+
+📊 **INFORME FINAL DE BACKTEST (PILOT MODE)**
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+🔴 **BTC**
+   • Balance Final: $1,000.00
+   • Rendimiento: +0.00%
+   • PnL: $+0.00
+   • Trades Ejecutados: 0
+
+🟢 **ETH**
+   • Balance Final: $1,088.41
+   • Rendimiento: +8.84%
+   • PnL: $+88.41
+   • Trades Ejecutados: 36
+
+🟢 **SOL**
+   • Balance Final: $1,043.51
+   • Rendimiento: +4.35%
+   • PnL: $+43.51
+   • Trades Ejecutados: 44
+
+🔴 **BNB**
+   • Balance Final: $982.82
+   • Rendimiento: -1.72%
+   • PnL: $-17.18
+   • Trades Ejecutados: 32
+
+🔴 **XRP**
+   • Balance Final: $797.07
+   • Rendimiento: -20.29%
+   • PnL: $-202.93
+   • Trades Ejecutados: 36
+
+🔴 **ADA**
+   • Balance Final: $475.88
+   • Rendimiento: -52.41%
+   • PnL: $-524.12
+   • Trades Ejecutados: 1
+
+🔴 **LTC**
+   • Balance Final: $969.05
+   • Rendimiento: -3.09%
+   • PnL: $-30.95
+   • Trades Ejecutados: 24
+
+🔴 **LINK**
+   • Balance Final: $921.69
+   • Rendimiento: -7.83%
+   • PnL: $-78.31
+   • Trades Ejecutados: 26
+
+🔴 **DOGE**
+   • Balance Final: $934.31
+   • Rendimiento: -6.57%
+   • PnL: $-65.69
+   • Trades Ejecutados: 36
+
+🔴 **AVAX**
+   • Balance Final: $760.43
+   • Rendimiento: -23.96%
+   • PnL: $-239.57
+   • Trades Ejecutados: 30
+
+🟢 **ZEC**
+   • Balance Final: $1,753.00
+   • Rendimiento: +75.30%
+   • PnL: $+753.00
+   • Trades Ejecutados: 40
+
+🔴 **SUI**
+   • Balance Final: $996.30
+   • Rendimiento: -0.37%
+   • PnL: $-3.70
+   • Trades Ejecutados: 32
+
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+💰 **CAPITAL TOTAL: $11,722.49** (Inicio: $12,000.00)
+📈 **ROI GLOBAL: -2.31%**
+💵 **PROFIT/LOSS: $-277.51**
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
