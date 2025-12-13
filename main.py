@@ -2256,8 +2256,8 @@ def handle_personality(message):
 # --- STRATEGY TOGGLE COMMAND ---
 from antigravity_quantum.config import ENABLED_STRATEGIES
 
-@threaded_handler
 @bot.message_handler(commands=['about'])
+@threaded_handler
 def handle_about(message):
     try:
         chat_id = str(message.chat.id)
@@ -2268,8 +2268,8 @@ def handle_about(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-@threaded_handler
 @bot.message_handler(commands=['strategy'])
+@threaded_handler
 def handle_strategy(message):
     try:
         chat_id = str(message.chat.id)
@@ -2280,8 +2280,8 @@ def handle_strategy(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-@threaded_handler
 @bot.message_handler(commands=['risk'])
+@threaded_handler
 def handle_risk(message):
     try:
         chat_id = str(message.chat.id)
@@ -2299,8 +2299,8 @@ def handle_risk(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-@threaded_handler
 @bot.message_handler(commands=['strategies'])
+@threaded_handler
 def handle_strategies(message):
     try:
         markup = InlineKeyboardMarkup()
@@ -2312,8 +2312,8 @@ def handle_strategies(message):
         bot.reply_to(message, f"❌ Error: {e}")
 
 # --- AI ANALYST COMMAND ---
-@threaded_handler
 @bot.message_handler(commands=['analyze'])
+@threaded_handler
 def handle_analyze(message):
     """
     Analyzes a given asset using OpenAI.
