@@ -146,6 +146,60 @@ class QuantumAnalyst:
             print(f"Sentiment Error: {e}")
             return {'score': 0, 'reason': "Error analysis", 'volatility_risk': "LOW"}
 
+    def analyze_fomc(self, personality="Standard"):
+        """
+        Analyzes Fed/FOMC sentiment using key macro tickers.
+        """
+        if not self.client:
+            return "⚠️ IA Desconectada. Configura OPENAI_API_KEY."
+
+        import yfinance as yf
+        
+        try:
+            # Macro Tickers for Fed Sentiment
+            # ^GSPC: S&P 500 (General Market)
+            # ^TNX: 10-Year Treasury Yield (Rates expectation)
+            # DX-Y.NYB: Dollar Index (Strength vs Rates)
+            tickers = ["^GSPC", "^TNX", "DX-Y.NYB"]
+            news_context = []
+            
+            for t in tickers:
+                obj = yf.Ticker(t)
+                news = obj.news or []
+                headlines = [n.get('title', '') for n in news[:3]]
+                news_context.extend(headlines)
+                
+            full_text = "\n".join(news_context)
+            
+            prompt = f"""
+            Act as a {personality} Persona (Crypto/Finance Expert).
+            Analyze the current Federal Reserve (FOMC) stance based on these headlines:
+            
+            {full_text}
+            
+            Output Requirements:
+            1. Verdict: HAWKISH (Aggressive/High Rates) or DOVISH (Soft/Low Rates) or NEUTRAL. (Use Emoji)
+            2. Explanation: Brief summary of the situation (Powell, Inflation, Rates).
+            3. Outlook: Impact on Crypto/Risk Assets.
+            
+            Tone: {personality} strictly.
+            Language: Spanish.
+            Limit: Approx 100 words.
+            """
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                     {"role": "system", "content": "You are an expert financial analyst AI."},
+                     {"role": "user", "content": prompt}
+                ],
+                max_tokens=250
+            )
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            return f"❌ Error analizando FOMC: {e}"
+
     def generate_market_briefing(self):
         """
         Fetches headlines for major tickers (Crypto, Macro, Politics)

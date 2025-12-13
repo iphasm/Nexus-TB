@@ -1397,7 +1397,8 @@ def send_welcome(message):
         "🧠 *AI & SENTIMIENTO*\n"
         "• /news - Boletín de Mercado (IA).\n"
         "• /sentiment - Radar de Sentimiento.\n"
-        "• /sniper - Escáner de Oportunidades.\n\n"
+        "• /sniper - Escáner de Oportunidades.\n"
+        "• /fomc - Análisis de Política Monetaria (FED).\n\n"
         
         "🔧 *OTROS*\n"
         "• /personality - Cambiar la personalidad.\n"
@@ -1451,6 +1452,24 @@ def handle_sentiment(message):
         )
         bot.edit_message_text(msg, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
         
+    except Exception as e:
+         bot.edit_message_text(f"❌ Error: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
+
+@threaded_handler
+@bot.message_handler(commands=['fomc'])
+def handle_fomc(message):
+    """ /fomc : Análisis de Política Monetaria (FED) """
+    sent = bot.reply_to(message, "🏦 *Analizando situación de la FED...* (Tasas, Bonos, Powell)", parse_mode='Markdown')
+    
+    # Get Session Personality
+    session = session_manager.get_session(str(message.chat.id))
+    p_key = session.config.get('personality', 'Standard') if session else 'Standard'
+    # Get Name from Personality
+    p_name = personality_manager.PROFILES.get(p_key, {}).get('NAME', 'Standard')
+    
+    try:
+        report = quantum_analyst.analyze_fomc(personality=p_name)
+        bot.edit_message_text(f"🏦 **ANÁLISIS FOMC (FED)**\n\n{report}", chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
     except Exception as e:
          bot.edit_message_text(f"❌ Error: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
 
@@ -1672,6 +1691,7 @@ def handle_query(call):
                 elif sub_cmd == '/news': handle_news(call.message)
                 elif sub_cmd == '/sentiment': handle_sentiment(call.message)
                 elif sub_cmd == '/sniper': handle_sniper(call.message)
+                elif sub_cmd == '/fomc': handle_fomc(call.message)
                 else: 
                      bot.send_message(chat_id, f"⚠️ Comando desconocido: {sub_cmd}")
             except Exception as e:
