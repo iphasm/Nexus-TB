@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Bot - Documentación Unificada</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code&display=swap"
+        rel="stylesheet">
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: { curve: 'basis' }
+        });
+    </script>
+    <style>
+        /* --- ESTILOS GENERALES (De styles.css) --- */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #3b82f6;
+            /* Blue 500 */
+            --accent-hover: #2563eb;
+            /* Blue 600 */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --quantum-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --font-main: 'Inter', sans-serif;
+
+            /* Mermaid Specifics */
+            --accent-mermaid: #66fcf1;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3,
+        h4 {
+            margin-top: 0;
+            color: var(--text-primary);
+            scroll-margin-top: 100px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 2rem;
+            background: var(--quantum-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            color: var(--accent-color);
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: #cbd5e1;
+            margin-top: 1.5rem;
+        }
+
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .nav-bar {
+            background-color: #1e293b95;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid #334155;
+            padding: 1rem 0;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: #334155;
+            color: var(--text-primary);
+            border-color: #475569;
+            text-decoration: none;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid #334155;
+            border-radius: 1rem;
+            padding: 2rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-color);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--accent-color);
+        }
+
+        /* Non-hover card for troubleshooting */
+        .card.non-hover:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: #334155;
+        }
+
+        /* Buttons & Elements */
+        .btn {
+            display: inline-block;
+            background: var(--quantum-gradient);
+            color: white !important;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            text-decoration: none !important;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        code {
+            background-color: #334155;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.3rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9em;
+            color: #e2e8f0;
+        }
+
+        pre {
+            background-color: #0f172a;
+            padding: 1.5rem;
+            border-radius: 0.8rem;
+            overflow-x: auto;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .tag.pilot {
+            background-color: #ef444420;
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+        }
+
+        .tag.copilot {
+            background-color: #f59e0b20;
+            color: #fcd34d;
+            border: 1px solid #f59e0b;
+        }
+
+        .tag.watcher {
+            background-color: #10b98120;
+            color: #6ee7b7;
+            border: 1px solid #10b981;
+        }
+
+        .tag-high {
+            background: rgba(255, 77, 77, 0.2);
+            color: #ff4d4d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ff4d4d;
+        }
+
+        .tag-med {
+            background: rgba(255, 165, 0, 0.2);
+            color: orange;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid orange;
+        }
+
+        .tag-low {
+            background: rgba(102, 252, 241, 0.2);
+            color: var(--accent-mermaid);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--accent-mermaid);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            background-color: #1e293b50;
+        }
+
+        tr:hover {
+            background-color: #33415520;
+        }
+
+        /* Pilot Logic specific */
+        .diagram-container {
+            text-align: center;
+            overflow-x: auto;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-left: 3px solid var(--accent-mermaid);
+            border-radius: 4px;
+        }
+
+        .feature-title {
+            color: var(--accent-mermaid);
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        /* Divider */
+        hr.section-divider {
+            border: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #334155, transparent);
+            margin: 4rem 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            margin-top: 4rem;
+            border-top: 1px solid #334155;
+            color: var(--text-secondary);
+            background-color: #0b1120;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="nav-bar">
+        <ul class="nav-links">
+            <li><a href="#intro">🏠 Inicio</a></li>
+            <li><a href="#manual-usuario">📖 Manual Usuario</a></li>
+            <li><a href="#manual-tecnico">⚙️ Técnica</a></li>
+            <li><a href="#logic-diagram">🧠 Lógica Pilot</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+
+        <!-- ==================== SECCIÓN 1: INTRODUCCIÓN ==================== -->
+        <section id="intro">
+            <header style="text-align: center; padding: 4rem 0;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">⚛️</div>
+                <h1>Quantum Antigravity Bot</h1>
+                <p style="font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
+                    Sistema de Trading Algorítmico Híbrido potenciado por Inteligencia Artificial y Lógica Cuántica.
+                </p>
+                <div style="margin-top: 2rem;">
+                    <a href="#manual-usuario" class="btn">Comenzar Ahora →</a>
+                </div>
+            </header>
+
+            <section>
+                <h2>Módulos Principales</h2>
+                <div class="card-grid">
+                    <article class="card">
+                        <h3>🤖 Pilot Mode</h3>
+                        <p>Trading 100% autónomo. El bot analiza el mercado, calcula riesgos y ejecuta operaciones sin
+                            intervención humana.</p>
+                        <div style="margin-top: 1rem;"><span class="tag pilot">Autónomo</span></div>
+                    </article>
+
+                    <article class="card">
+                        <h3>🤝 Copilot Mode</h3>
+                        <p>Colaboración Hombre-Máquina. El bot encuentra oportunidades y propone operaciones que tú
+                            confirmas con un clic.</p>
+                        <div style="margin-top: 1rem;"><span class="tag copilot">Semiautomático</span></div>
+                    </article>
+
+                    <article class="card">
+                        <h3>👀 Watcher Mode</h3>
+                        <p>Vigilancia constante. Recibe alertas y análisis de mercado en tiempo real sin ejecutar
+                            operaciones automáticamente.</p>
+                        <div style="margin-top: 1rem;"><span class="tag watcher">Monitorización</span></div>
+                    </article>
+                </div>
+            </section>
+
+            <section>
+                <h2>Características Quantum</h2>
+                <div class="card-grid">
+                    <article class="card">
+                        <h3>🧠 AI Analyst</h3>
+                        <p>Integración con LLMs para análisis de sentimiento, noticias macroeconómicas y factores
+                            geopolíticos en tiempo real.</p>
+                    </article>
+                    <article class="card">
+                        <h3>🛡️ Gestión de Riesgo Dinámica</h3>
+                        <p>Presets estratégicos (Ronin, Guardian, Quantum) que ajustan apalancamiento y Stop Loss según
+                            la volatilidad.</p>
+                    </article>
+                    <article class="card">
+                        <h3>🌌 Quantum Bridge</h3>
+                        <p>Arquitectura asíncrona que permite el procesamiento paralelo de señales de múltiples fuentes.
+                        </p>
+                    </article>
+                </div>
+            </section>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- ==================== SECCIÓN 2: MANUAL DE USUARIO ==================== -->
+        <section id="manual-usuario">
+            <h1>📖 Manual de Usuario</h1>
+
+            <section>
+                <h2>🚀 Inicio Rápido</h2>
+                <p>Para comenzar a operar con Antigravity Bot, sigue estos 3 pasos básicos:</p>
+                <ol style="margin-left: 1.5rem; color: var(--text-secondary);">
+                    <li>Inicia el bot con <code>/start</code>.</li>
+                    <li>Si es tu primera vez, configura tus llaves con <code>/set_keys</code> (o usa las variables de
+                        entorno).</li>
+                    <li>Selecciona un modo de operación (por defecto: <strong>Watcher</strong>).</li>
+                </ol>
+            </section>
+
+            <section>
+                <h2>🕹️ Comandos Principales</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Comando</th>
+                            <th>Descripción</th>
+                            <th>Ejemplo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/start</code></td>
+                            <td>Inicia el bot y muestra el panel de control interactivo.</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><code>/status</code></td>
+                            <td>Muestra el estado actual, PnL (Ganancias/Pérdidas), y exposición.</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><code>/mode [PERFIL]</code></td>
+                            <td>Cambia el modo de operación y gestión de riesgo.</td>
+                            <td><code>/mode RONIN</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>/wallet</code></td>
+                            <td>Muestra el balance detallado de tus cuentas (Spot, Futuros, Earn).</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><code>/price [TICKER]</code></td>
+                            <td>Consulta el precio en tiempo real de un activo.</td>
+                            <td><code>/price BTC</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>/sniper [TICKER]</code></td>
+                            <td>Análisis técnico rápido para buscar entradas (Scalping).</td>
+                            <td><code>/sniper ETH</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>/debug</code></td>
+                            <td>Diagnóstico completo del sistema (Red, Datos, Estrategia, IA).</td>
+                            <td>-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>🛡️ Perfiles Estratégicos (Presets)</h2>
+                <p>El bot cuenta con perfiles predefinidos que ajustan automáticamente el riesgo y la agresividad.</p>
+
+                <div class="card-grid">
+                    <article class="card">
+                        <h3>⚔️ RONIN</h3>
+                        <p><strong>Estilo:</strong> Agresivo / Scalping</p>
+                        <ul style="font-size: 0.9rem; color: var(--text-secondary);">
+                            <li>Apalancamiento: <strong>20x</strong></li>
+                            <li>Stop Loss: Ajustado (1.5 ATR)</li>
+                            <li>Filtro IA: Permisivo (-0.8)</li>
+                        </ul>
+                    </article>
+
+                    <article class="card">
+                        <h3>🌌 QUANTUM</h3>
+                        <p><strong>Estilo:</strong> Balanceado (Recomendado)</p>
+                        <ul style="font-size: 0.9rem; color: var(--text-secondary);">
+                            <li>Apalancamiento: <strong>5x</strong></li>
+                            <li>Stop Loss: Estándar (2.0 ATR)</li>
+                            <li>Filtro IA: Moderado (-0.6)</li>
+                        </ul>
+                    </article>
+
+                    <article class="card">
+                        <h3>🛡️ GUARDIAN</h3>
+                        <p><strong>Estilo:</strong> Conservador / Swing</p>
+                        <ul style="font-size: 0.9rem; color: var(--text-secondary);">
+                            <li>Apalancamiento: <strong>3x</strong></li>
+                            <li>Stop Loss: Amplio (3.0 ATR)</li>
+                            <li>Filtro IA: Estricto (-0.3)</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section>
+                <h2>Modos de Operación</h2>
+                <h3>👀 Watcher Mode</h3>
+                <p>Es el modo por defecto. El bot analiza el mercado 24/7 y te envía una notificación cuando encuentra
+                    una oportunidad. <strong>No abre operaciones por su cuenta.</strong></p>
+
+                <h3>🤝 Copilot Mode</h3>
+                <p>El bot analiza y te propone una operación con un botón de [✅ Aceptar] o [❌ Rechazar]. Si aceptas, el
+                    bot ejecuta la orden y gestiona el Stop Loss y Take Profit automáticamente.</p>
+
+                <h3>🤖 Pilot Mode</h3>
+                <p>Automatización total. El bot decide cuándo entrar y salir basándose en análisis técnico y fundamental
+                    (IA). Ideal para dejarlo correr en segundo plano (VPS).</p>
+            </section>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- ==================== SECCIÓN 3: MANUAL TÉCNICO ==================== -->
+        <section id="manual-tecnico">
+            <h1>⚙️ Documentación Técnica</h1>
+
+            <section>
+                <h2>🏗️ Arquitectura del Sistema</h2>
+                <p>Antigravity Bot utiliza una arquitectura asíncrona basada en eventos, orquestada por el núcleo
+                    <strong>QuantumBridge</strong>.</p>
+
+                <div class="card non-hover" style="margin-bottom: 2rem;">
+                    <h3>Diagrama de Flujo Simplificado</h3>
+                    <pre>
+[Market Data] --> [Strategy Engine] --> [Signal Generation]
+                                              |
+[News/RSS] -----> [AI Analyst] --------> [Signal Filter]
+                                              |
+                                              v
+                                       [Quantum Decision]
+                                       /       |        \
+                                  (Auto)    (Propose)  (Alert)
+                                    |          |          |
+                                  Pilot     Copilot    Watcher
+                    </pre>
+                </div>
+
+                <h3>Componentes Clave</h3>
+                <ul>
+                    <li><strong>main.py</strong>: Punto de entrada, bucle de eventos y handlers de Telegram.</li>
+                    <li><strong>utils/trading_manager.py</strong>: Gestión de sesiones, ejecución de órdenes, cálculo de
+                        posición (Kelly/ATR) y conexión con APIs.</li>
+                    <li><strong>strategies/engine.py</strong>: Motores de cálculo técnico (RSI, Bollinger, ATR, HMA).
+                        Genera señales 'raw'.</li>
+                    <li><strong>utils/ai_analyst.py</strong>: Integración con OpenAI para análisis de sentimiento de
+                        noticias financieras.</li>
+                    <li><strong>data/fetcher.py</strong>: Abstracción para obtención de datos de mercado (Binance,
+                        YFinance).</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>🔧 Configuración Avanzada</h2>
+                <p>La clase <code>TradingSession</code> en <code>trading_manager.py</code> maneja la configuración
+                    dinámica.</p>
+
+                <h3>Parámetros de Riesgo</h3>
+                <table>
+                    <tr>
+                        <th>Parámetro</th>
+                        <th>Descripción</th>
+                        <th>Default</th>
+                    </tr>
+                    <tr>
+                        <td><code>max_capital_pct</code></td>
+                        <td>% máximo de la cuenta por operación.</td>
+                        <td>10% (0.10)</td>
+                    </tr>
+                    <tr>
+                        <td><code>leverage</code></td>
+                        <td>Apalancamiento en Futuros.</td>
+                        <td>5x</td>
+                    </tr>
+                    <tr>
+                        <td><code>sentiment_threshold</code></td>
+                        <td>Puntuación mínima (-1 a 1) para operar.</td>
+                        <td>-0.6</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section>
+                <h2>🐛 Solución de Problemas</h2>
+                <div class="card non-hover">
+                    <h4>Error: "Binance API Exception"</h4>
+                    <p>Verifica que tus llaves API tengan permisos de "Futures Trading" habilitados y que tu IP esté en
+                        la lista blanca si es necesario.</p>
+                </div>
+                <br>
+                <div class="card non-hover">
+                    <h4>El bot no responde a botones</h4>
+                    <p>Asegúrate de que no haya otro proceso del bot corriendo con el mismo Token (conflicto de
+                        <code>getUpdates</code>).</p>
+                </div>
+            </section>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- ==================== SECCIÓN 4: LOGIC VISUALIZATION ==================== -->
+        <section id="logic-diagram">
+            <h1>🧠 Lógica Pilot Deep-Dive</h1>
+
+            <div class="card">
+                <h2>🌊 Flujo de Decisiones</h2>
+                <div class="diagram-container">
+                    <pre class="mermaid">
+graph TD
+    %% Estilos
+    classDef input fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef tech fill:#005f99,stroke:#00aaff,stroke-width:2px,color:#fff;
+    classDef ai fill:#6600cc,stroke:#cc00ff,stroke-width:2px,color:#fff;
+    classDef risk fill:#990000,stroke:#ff3333,stroke-width:2px,color:#fff;
+    classDef action fill:#006600,stroke:#00cc00,stroke-width:2px,color:#fff;
+
+    Start((📡 Market Data)):::input --> TechEngine[⚙️ Strategy Engine]:::tech
+    
+    %% Technical Analysis
+    subgraph Technical["1. Análisis Técnico (Quant)"]
+        TechEngine --> |Calcula| Indicators[RSI, Bands, Keltner, ADX, ATR]
+        Indicators --> Strategy{Estrategia?}
+        Strategy -- "Squeeze" --> SignalLong[🟢 Signal LONG]
+        Strategy -- "Mean Rev" --> SignalSpot[🔵 Signal SPOT]
+        Strategy -- "Velocity" --> SignalShort[🔴 Signal SHORT]
+        Strategy -- "Exhaustion" --> SignalClose[⚠️ Signal CLOSE]
+    end
+
+    %% Filters (AI & Macro)
+    subgraph Filters["2. Filtros Inteligentes (AI & Macro)"]
+        SignalLong --> AIGuard{🧠 AI Analyst}:::ai
+        SignalShort --> AIGuard
+        
+        AIGuard -- "Score < -0.6" --> Block[🚫 BLOQUEAR]:::risk
+        AIGuard -- "News: FOMC/WAR" --> MacroShield[🛡️ MACRO SHIELD]:::risk
+        AIGuard -- "OK Sentimiento" --> Pass[✅ APROBADO]
+    end
+
+    %% Execution & Risk
+    subgraph Execution["3. Ejecución & Riesgo"]
+        Pass --> Sizing[📐 Position Sizing]:::risk
+        MacroShield --> LevRed[📉 Leverage 3x]:::risk
+        LevRed --> Sizing
+        
+        Sizing -- "Risk 2%" --> VolCalcs[Calc. Lotes]
+        VolCalcs -- "ATR * 2.0" --> SL_TP[SL & TP Dinámicos]
+        
+        SL_TP --> Validate{Validar}
+        Validate -- "Margin OK" --> ExeBinance[🚀 EJECUTAR]:::action
+        Validate -- "Duplicado" --> Reject[❌ Rechazar]
+    end
+
+    %% Routes
+    SignalSpot --> AutoBuy[🛒 Compra Spot]:::action
+    SignalClose --> ClosePos[📉 Cerrar Futuros]:::action
+                    </pre>
+                </div>
+            </div>
+
+            <br>
+
+            <div class="card">
+                <h2>🧪 Presets Estratégicos (Resumen)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Perfil</th>
+                            <th>Objetivo</th>
+                            <th>Filtro IA</th>
+                            <th>Stop Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>⚔️ <strong>RONIN</strong></td>
+                            <td>Scalping / Sniper</td>
+                            <td><span class="tag tag-high">Laxo (-0.8)</span></td>
+                            <td>Apretado (1.5 ATR)</td>
+                        </tr>
+                        <tr>
+                            <td>🛡️ <strong>GUARDIAN</strong></td>
+                            <td>Protección / Swing</td>
+                            <td><span class="tag tag-med">Estricto (-0.3)</span></td>
+                            <td>Amplio (3.0 ATR)</td>
+                        </tr>
+                        <tr>
+                            <td>🌌 <strong>QUANTUM</strong></td>
+                            <td>Equilibrio (Default)</td>
+                            <td><span class="tag tag-low">Normal (-0.6)</span></td>
+                            <td>Estándar (2.0 ATR)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <br>
+
+            <div class="card">
+                <h2>🤝 Sinergias Clave</h2>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <span class="feature-title">The Veto (Tech + AI)</span>
+                        La matemática encuentra la entrada, pero la IA actúa como "Oficial de Riesgo".
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-title">Dynamic Risk</span>
+                        Si la volatilidad sube, el tamaño de la posición baja.
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-title">Macro Shield</span>
+                        Detecta palabras clave (War, FOMC) y activa defensa (3x Lev).
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>
+        <p>Antigravity Bot v3.1 | Documentación Unificada</p>
+        <p><small>Generado en Diciembre 2025</small></p>
+    </footer>
+
+</body>
+
+</html>
