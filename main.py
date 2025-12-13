@@ -566,7 +566,7 @@ def handle_status(message):
         "🤖 **Estado de Antigravity**\n\n"
         
         "**Modo de Operación**\n"
-        f"👉 `{mode_display}`\n\n"
+        f"🕹️ `{mode_display}`\n\n"
         
         "**Entorno de Mercado**\n"
         f"🌡️ Sentimiento: **{fg_text}**\n"
