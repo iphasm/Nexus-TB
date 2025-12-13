@@ -1753,6 +1753,9 @@ def handle_query(call):
                 elif sub_cmd == '/sentiment': handle_sentiment(call.message)
                 elif sub_cmd == '/sniper': handle_sniper(call.message)
                 elif sub_cmd == '/fomc': handle_fomc(call.message)
+                elif sub_cmd.startswith('/mode'):
+                    call.message.text = sub_cmd
+                    handle_mode(call.message)
                 else: 
                      bot.send_message(chat_id, f"⚠️ Comando desconocido: {sub_cmd}")
             except Exception as e:
