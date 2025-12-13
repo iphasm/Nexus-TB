@@ -1983,12 +1983,14 @@ def handle_query(call):
                 s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SCALPING', False) else "❌ DESACTIVADO"
                 g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('GRID', False) else "❌ DESACTIVADO"
                 m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
-                sh_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SHARK', True) else "❌ DESACTIVADO"
+                sh_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SHARK', False) else "❌ DESACTIVADO" # Attack
+                bs_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌ DESACTIVADO" # Defense
                 
                 markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
                 markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
                 markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
-                markup.add(InlineKeyboardButton(f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK"))
+                markup.add(InlineKeyboardButton(f"🦈 Shark (Attack): {sh_state}", callback_data="TOGGLE|SHARK"))
+                markup.add(InlineKeyboardButton(f"🛡️ Black Swan (Def): {bs_state}", callback_data="TOGGLE|BLACK_SWAN"))
                 
                 bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
             except Exception as e:

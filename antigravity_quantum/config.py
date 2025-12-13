@@ -7,7 +7,9 @@
 ENABLED_STRATEGIES = {
     'SCALPING': True,      # High Risk, High Reward
     'GRID': True,          # Grid Trading for sideways
-    'MEAN_REVERSION': True  # Default safe strategy
+    'MEAN_REVERSION': True, # Default safe strategy
+    'BLACK_SWAN': True,     # Defense: Panic Close on Crash
+    'SHARK': False          # Attack: Sniper Shorts on Crash
 }
 
 # Assets specifically allowed for Grid Trading (Whitelisted)

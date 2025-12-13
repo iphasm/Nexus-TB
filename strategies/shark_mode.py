@@ -77,14 +77,20 @@ class SharkSentinel(threading.Thread):
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
 
-            # 1. PANIC CLOSE LONGS
-            for session_id, session in sessions.items():
-                futures.append(executor.submit(self._panic_close_session, session))
+            # 1. PANIC CLOSE LONGS (BLACK SWAN - The Shield)
+            # This runs if 'BLACK_SWAN' is enabled (or implied by default as 'safe mode')
+            # Currently we use the global ENABLED_STRATEGIES via import inside function to avoid circular dep at top level logic
+            from antigravity_quantum.config import ENABLED_STRATEGIES
+            
+            if ENABLED_STRATEGIES.get('BLACK_SWAN', True):
+                for session_id, session in sessions.items():
+                    futures.append(executor.submit(self._panic_close_session, session))
 
-            # 2. SNIPER SHORTS
-            for session_id, session in sessions.items():
-                for target in self.sniper_targets:
-                    futures.append(executor.submit(self._sniper_short_session, session, target))
+            # 2. SNIPER SHORTS (SHARK MODE - The Sword)
+            if ENABLED_STRATEGIES.get('SHARK', False):
+                for session_id, session in sessions.items():
+                    for target in self.sniper_targets:
+                        futures.append(executor.submit(self._sniper_short_session, session, target))
 
             # Wait for all
             for f in as_completed(futures):
@@ -156,11 +162,27 @@ class SharkSentinel(threading.Thread):
                         
                         # LOGIC CHECK
                         if drop_pct <= -self.threshold and not self.triggered:
-                            msg = f"⚠️⚠️ **SHARK MODE ACTIVATED** ⚠️⚠️\nBTC Crash detected: {drop_pct:.2f}% in {self.window_seconds}s.\n⚔️ **EJECUTANDO DEFENSA TOTAL**"
+                            self.triggered = True
+                            
+                            # Determine active sub-strategies
+                            # We access ENABLED_STRATEGIES via the session or call arg, but here we passed a simple check callback.
+                            # We need to refine the check to know WHICH strategy is on.
+                            # Assuming session_manager.get_all_sessions() can check global state or individual.
+                            # For simplicity, we assume the passed enable_check relates to the MASTER toggle,
+                            # but we need granularity.
+                            
+                            # Let's perform a dynamic check on the global config if possible, or assume ENABLED_STRATEGIES is imported.
+                            # Since we can't easily import ENABLED_STRATEGIES here without circular dep risk if not careful,
+                            # we can inspect the session config or pass a secondary callback.
+                            # Alternatively, the user request implies using the SAME thread.
+                            
+                            # We will attempt to read the global config from the sessions or a helper method.
+                            # The execute_defense_sequence method can handle the branching based on config.
+                            
+                            msg = f"⚠️⚠️ **BLACK SWAN DETECTED** ⚠️⚠️\nBTC Crash: {drop_pct:.2f}% en {self.window_seconds}s."
                             logger.critical(msg)
                             self.notify_callback(msg)
                             
-                            self.triggered = True
                             self.execute_defense_sequence()
                             
                             # Cooldown to avoid spam loop (5 mins)

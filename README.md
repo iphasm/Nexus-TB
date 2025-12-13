@@ -6,23 +6,6 @@
 
 ### 🧠 Intelligence Engine (Quantum)
 - **Multi-Timeframe Logic (MTF):** Filters 15m signals against 1H macro trends.
-- **Strategies:**
-  - **Squeeze & Velocity (Futures):** Captures explosive moves after volatility contraction.
-  - **Mean Reversion (Spot):** Buys dips during oversold conditions.
-  - **Shark Sentinel 🦈:** Detects global market crashes (BTC/ETH drops) and halts trading instantly.
-  - **Smart Filters:** Ignores noise using ATR, RSI, and Volume checks.
-
-### 🛡️ Risk Management (Safety First)
-- **Circuit Breaker 🚨:** Automatically downgrades from **PILOT** to **COPILOT** after **5 consecutive losses** to prevent account drain.
-- **Shark Mode:** Freezes all buying during market crashes (>3% drops).
-- **Dynamic Stop Loss:** Adapts to market volatility (ATR-based).
-- **Position Sizing:** Fixed risk per trade (Default: 2% of Equity).
-- **Max Margin:** Global limit on capital usage.
-
-### 🎮 Operation Modes
-1. **WATCHER:** (Default) Receives alerts only. No execution.
-2. **COPILOT:** Receives proposals with "Approve/Reject" buttons.
-3. **PILOT:** Fully autonomous execution (Buying & Selling).
 
 ## 🛠️ Configuration
 Commands to control the bot via Telegram:
