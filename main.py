@@ -1236,6 +1236,16 @@ def run_trading_loop():
                              action_needed = 'UPDATE_SLTP_LONG'
                              # State stays LONG
                             
+                        elif fut_sig == 'BUY' and curr_state == 'SHORT':
+                             # SIGNAL FLIP: SHORT -> BUY
+                             action_needed = 'FLIP_TO_LONG'
+                             pos_state[asset] = 'LONG'
+
+                        elif fut_sig == 'SHORT' and curr_state == 'LONG':
+                             # SIGNAL FLIP: LONG -> SHORT
+                             action_needed = 'FLIP_TO_SHORT'
+                             pos_state[asset] = 'SHORT'
+                             
                         elif fut_sig == 'SHORT' and curr_state == 'NEUTRAL':
                             action_needed = 'OPEN_SHORT'
                             pos_state[asset] = 'SHORT'
@@ -1292,6 +1302,13 @@ def run_trading_loop():
                             elif 'UPDATE_SLTP' in action_needed:
                                 side_u = 'LONG' if 'LONG' in action_needed else 'SHORT'
                                 msg_text = f"🔄 **UPDATE {side_u}**: {asset}\nPrecio: ${m['close']:,.2f}\nMotivo: Señal Reforzada / Re-entrada."
+                            
+                            elif 'FLIP' in action_needed:
+                                side_f = 'LONG' if 'LONG' in action_needed else 'SHORT'
+                                msg_text = personality_manager.get_message(
+                                    p_key, 'TRADE_LONG' if side_f == 'LONG' else 'TRADE_SHORT', 
+                                    asset=asset, price=m['close'], reason=f"FLIP MODE: Reversión a {side_f}"
+                                )
 
                             try:
                                 if mode == 'PILOT':
@@ -1304,6 +1321,10 @@ def run_trading_loop():
                                         ok, res_msg = session.execute_update_sltp(asset, 'LONG', atr=m['atr'])
                                     elif action_needed == 'UPDATE_SLTP_SHORT':
                                          ok, res_msg = session.execute_update_sltp(asset, 'SHORT', atr=m['atr'])
+                                    elif action_needed == 'FLIP_TO_LONG':
+                                         ok, res_msg = session.execute_flip_position(asset, 'LONG', atr=m['atr'])
+                                    elif action_needed == 'FLIP_TO_SHORT':
+                                         ok, res_msg = session.execute_flip_position(asset, 'SHORT', atr=m['atr'])
                                     else: # CLOSE
                                         ok, res_msg = session.execute_close_position(asset)
                                         # PHANTOM CLOSE CHECK
@@ -1338,6 +1359,16 @@ def run_trading_loop():
                                     elif action_needed == 'UPDATE_SLTP_SHORT':
                                          markup.add(
                                             InlineKeyboardButton("🔄 Actualizar SL/TP", callback_data=f"UPDATE|{asset}|SHORT"),
+                                            InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|SHORT")
+                                        )
+                                    elif action_needed == 'FLIP_TO_LONG':
+                                        markup.add(
+                                            InlineKeyboardButton("🔄 FLIP a LONG", callback_data=f"BUY|{asset}|LONG"), # Re-use Buy for now, manual flip is complex in buttons
+                                            InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|LONG")
+                                        )
+                                    elif action_needed == 'FLIP_TO_SHORT':
+                                        markup.add(
+                                            InlineKeyboardButton("🔄 FLIP a SHORT", callback_data=f"BUY|{asset}|SHORT"),
                                             InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|SHORT")
                                         )
                                     else: # CLOSE

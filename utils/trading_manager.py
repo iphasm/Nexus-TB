@@ -603,6 +603,33 @@ class TradingSession:
             
         return True, "Batch Close:\n" + "\n".join(results)
 
+    def execute_flip_position(self, symbol, new_side, atr=None):
+        """
+        FLIP LOGIC:
+        1. Cancel Open Orders.
+        2. Close Current Position.
+        3. Wait 1s.
+        4. Open New Position (Reverse).
+        """
+        if not self.client: return False, "No valid session."
+        
+        # 1. Close Current
+        success_close, msg_close = self.execute_close_position(symbol)
+        
+        if not success_close and "No open position" not in msg_close:
+            return False, f"Flip Aborted: Failed to close ({msg_close})"
+            
+        # 2. Safety Wait (Binance sequencing)
+        time.sleep(1.0)
+        
+        # 3. Open New
+        if new_side == 'LONG':
+            return self.execute_long_position(symbol, atr)
+        elif new_side == 'SHORT':
+            return self.execute_short_position(symbol, atr)
+        else:
+            return False, f"Invalid Side: {new_side}"
+
     def execute_close_position(self, symbol):
         """Cierra posiciones y órdenes abiertas para un símbolo (Binance o Alpaca)"""
         
