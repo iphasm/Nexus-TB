@@ -454,47 +454,7 @@ def handle_get_mode(message):
 
 
 
-# ... (handle_risk, handle_strategy logic inserted below, handled in previous tool)
-
-
-def handle_risk(message):
-    """Explication detallada de la gestión de riesgo activa"""
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    
-    lev = session.config.get('leverage', 5) if session else 5
-    cap = session.config.get('max_capital_pct', 0.10) * 100 if session else 10
-    sl = session.config.get('stop_loss_pct', 0.02) * 100 if session else 2
-    
-    msg = (
-        "🛡️ **PROTOCOLO DE GESTIÓN DE RIESGO**\n\n"
-        f"• **Capital por Op:** `{cap:.1f}%` de la cuenta total.\n"
-        f"• **Apalancamiento:** `{lev}x` (Isolated).\n"
-        f"• **Stop Loss Base:** `{sl:.1f}%` (Fijo) o `2x ATR` (Dinámico).\n"
-        "• **Circuit Breaker:** 🛑 Se detiene tras 3 pérdidas consecutivas.\n\n"
-        "💡 _El sistema ajusta el tamaño de la posición basado en la volatilidad del activo (ATR) para mantener el riesgo constante._"
-    )
-    bot.reply_to(message, msg, parse_mode='Markdown')
-
-@bot.message_handler(commands=['strategy'])
-def handle_strategy(message):
-    """Explicación de la estrategia según personalidad"""
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
-    
-    msg = personality_manager.get_message(p_key, 'STRATEGY_MSG')
-    bot.reply_to(message, msg, parse_mode='Markdown')
-
-@bot.message_handler(commands=['about', 'info'])
-def handle_about(message):
-    """Resumen del bot según personalidad"""
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
-    
-    msg = personality_manager.get_message(p_key, 'ABOUT_MSG')
-    bot.reply_to(message, msg, parse_mode='Markdown')
+# NOTE: handle_risk, handle_strategy, handle_about are defined later with @threaded_handler decorator
 
 
 
@@ -705,9 +665,6 @@ def handle_set_interval(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-
 @threaded_handler
 @bot.message_handler(commands=['set_keys', 'setkeys'])
 def handle_set_keys(message):
@@ -890,9 +847,6 @@ def handle_manual_buy_spot(message):
             bot.reply_to(message, f"✅ *COMPRA EXITOSA*\n{msg}", parse_mode='Markdown')
         else:
              bot.reply_to(message, f"❌ Falló Compra: {msg}")
-
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")

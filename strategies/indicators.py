@@ -232,13 +232,7 @@ def calculate_keltner_channels(df: pd.DataFrame, period: int = 20, multiplier: f
     # Usar EMA para línea central
     central = calculate_ema(df['close'], period)
     
-    # Calcular ATR
-    atr = calculate_atr(df, period=10) # El periodo de ATR en Keltner suele ser 10, o igual al EMA (20). Usaremos 20 por consistencia si no se especifica.
-    # Ajuste: El usuario pidió Keltner (20, 1.5 ATR). Asumiremos ATR(20) si no se especifica otro, pero el estándar suele ser ATR(10). 
-    # Siguiendo la petición estricta "Canales de Keltner (20, 1.5 ATR)", usaremos ATR(20) para el rango o ATR(10)? 
-    # Usaremos el mismo periodo que el canal (20) para simplificar a menos que se requiera otro.
-    # Corrección: El ATR estándar para Keltner suele ser 10, pero usaremos 'period' para todo para ser "Keltner (20, 1.5)".
-    
+    # Calcular ATR - using same period as Keltner channel
     atr = calculate_atr(df, period=period)
     
     upper = central + (atr * multiplier)
