@@ -1967,21 +1967,7 @@ def handle_personality(message):
 # --- STRATEGY TOGGLE COMMAND ---
 from antigravity_quantum.config import ENABLED_STRATEGIES
 
-@bot.message_handler(commands=['strategies', 'contracts'])
-def handle_strategies(message):
-    cid = message.chat.id
-    
-    markup = InlineKeyboardMarkup()
-    
-    # 1. SCALPING TOGGLE
-    scalp_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
-    markup.add(InlineKeyboardButton(f"⚡ Scalping: {scalp_state}", callback_data="TOGGLE|SCALPING"))
-    
-    # 2. GRID TOGGLE
-    grid_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
-    markup.add(InlineKeyboardButton(f"🕸️ Grid: {grid_state}", callback_data="TOGGLE|GRID"))
-    
-    bot.send_message(cid, info_text, reply_markup=markup, parse_mode='Markdown')
+
 
 # --- AI ANALYST COMMAND ---
 @threaded_handler
