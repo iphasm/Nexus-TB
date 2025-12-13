@@ -2048,7 +2048,8 @@ def handle_query(call):
             try:
                 if sub == "PERS":
                     session.config['personality'] = val
-                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    session_manager.save_sessions() 
+                    # state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # Deprecated for session cfg
                     
                     name = personality_manager.PROFILES.get(val, {}).get('NAME', val)
                     bot.answer_callback_query(call.id, f"🧠 Personalidad: {name}")
@@ -2067,19 +2068,19 @@ def handle_query(call):
                     
                 elif sub == "LEV": # CFG|LEV|10
                     session.config['leverage'] = int(val)
-                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    session_manager.save_sessions()
                     bot.answer_callback_query(call.id, f"⚖️ Lev: {val}x")
                     bot.send_message(chat_id, f"⚖️ **Apalancamiento actualizado:** {val}x", parse_mode='Markdown')
                     
                 elif sub == "MARGIN": # CFG|MARGIN|0.1
                     session.config['max_capital_pct'] = float(val)
-                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    session_manager.save_sessions()
                     bot.answer_callback_query(call.id, f"💰 Margin: {float(val)*100:.0f}%")
                     bot.send_message(chat_id, f"💰 **Margen actualizado:** {float(val)*100:.0f}%", parse_mode='Markdown')
                 
                 elif sub == "SPOT": # CFG|SPOT|0.10
                      session.config['spot_allocation_pct'] = float(val)
-                     state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                     session_manager.save_sessions()
                      bot.answer_callback_query(call.id, f"💎 Spot Alloc: {float(val)*100:.0f}%")
                      bot.send_message(chat_id, f"💎 **Asignación Spot Actualizada:** {float(val)*100:.0f}% de USDT Libre", parse_mode='Markdown')
 
@@ -2260,25 +2261,20 @@ def start_bot():
     session_manager = SessionManager()
     
     # 4. Apply Session Config (Pers, Lev, Margin)
-    # Note: SessionManager defaults new sessions. We need to inject saved config into the default 'session' if created.
-    # For now, we update the manager's default template or apply when session is created.
-    # A simple way for single-user bot:
-    if "session_config" in saved_state:
-        # Pre-load config for known chat IDs or update default template
-        # Assuming single user usage primarily
-        cfg = saved_state["session_config"]
-        # Iterate known chats and update/create
-        for cid in TELEGRAM_CHAT_IDS:
-             sess = session_manager.get_session(cid)
-             if sess:
-                 sess.update_config('leverage', cfg.get('leverage', 5))
-                 sess.update_config('max_capital_pct', cfg.get('max_capital_pct', 0.1))
-                 sess.update_config('personality', cfg.get('personality', 'STANDARD_ES'))
-                 sess.update_config('mode', cfg.get('mode', 'WATCHER'))
-                 # Ensure keys are loaded if not already (safeguard)
-                 # sess.load_keys() # Done inside get_session usually
+    # NOTE: We now rely on SessionManager's 'data/sessions.json' for persistence.
+    # We DO NOT overwrite from state_manager anymore to prevent stale defaults.
+    
+    # if "session_config" in saved_state:
+    #     cfg = saved_state["session_config"]
+    #     for cid in TELEGRAM_CHAT_IDS:
+    #          sess = session_manager.get_session(cid)
+    #          if sess:
+    #              sess.update_config('leverage', cfg.get('leverage', 5))
+    #              sess.update_config('max_capital_pct', cfg.get('max_capital_pct', 0.1))
+    #              sess.update_config('personality', cfg.get('personality', 'STANDARD_ES'))
+    #              sess.update_config('mode', cfg.get('mode', 'WATCHER'))
         
-        print(f"🔧 Session Config Restored: {cfg}")
+    #     print(f"🔧 Session Config Restored: {cfg}")
 
     # Start Quantum Bridge if Enabled
     if USE_QUANTUM_ENGINE:
