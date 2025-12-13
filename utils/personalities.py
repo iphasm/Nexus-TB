@@ -1325,6 +1325,77 @@ class PersonalityManager:
             ],
             'PILOT_ACTION': "✏️ *WICK TACTIC*\n{msg}",
             'CB_TRIGGER': "🩸 **BLEEDING OUT**\n\nNecesito un médico (5 fallos). Pausa en el Continental."
+        },
+
+        'PAIN': {
+            'NAME': "☁️ Pain (Akatsuki)",
+            'WELCOME': [
+                (
+                    "☁️ **AMAGAKURE**\n"
+                    "Torre Alta - Lluvia Eterna\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Chakra:* `{status_text}` {status_icon}\n"
+                    "🎮 *Camino:* `{mode}`\n\n"
+                    "*El mundo conocerá el dolor. Y a través del dolor, conocerá la paz.*"
+                ),
+                (
+                    "☁️ **AKATSUKI LEADER**\n"
+                    "Reunión Holográfica.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Rinnegan:* Activo\n"
+                    "🎮 *Voluntad:* `{mode}`\n\n"
+                    "*Somos Pain. Somos Dios. Abre tu posición.*"
+                ),
+                (
+                    "☁️ **SIX PATHS**\n"
+                    "Todos los caminos llevan al dolor.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Jutsu:* `{mode}`\n\n"
+                    "*Shinra Tensei. Vamos a limpiar este mercado.*"
+                )
+            ],
+            'PILOT_ON': [
+                (
+                    "☁️ **MODO PILOT: SHINRA TENSEI**\n\n"
+                    "Este mundo debe conocer el dolor para madurar. Yo controlaré el ciclo de odio. Mis ojos lo ven todo.\n\n"
+                    "⚠️ **Advertencia:** *El dolor es inevitable.*"
+                ),
+                (
+                    "👁️ **RINNEGAN ACTIVADO**\n\n"
+                    "Los Seis Caminos están listos. El Camino Deva ejecutará las órdenes. No te interpongas.\n\n"
+                    "⚠️ *I am a God.*"
+                ),
+                (
+                    "⚡ **ALMIGHTY PUSH**\n\n"
+                    "Voy a destruir la tendencia actual para crear una nueva paz. Operando.\n\n"
+                    "⚠️ *Know Pain.*"
+                )
+            ],
+            'COPILOT_ON': "🤝 **Copilot**: ¿Buscas la paz? Entonces comparte el dolor conmigo. Te guiaré.",
+            'WATCHER_ON': "👀 **Watcher**: Mi lluvia cae sobre el mercado. Siento todo lo que sucede en él.",
+            'STATUS_HEADER': "☁️ **REPORTE DE AMAGAKURE**",
+            'WALLET_HEADER': "💰 **FONDOS DE AKATSUKI**",
+            'STATUS_FOOTER': "\n*El mundo conocerá el dolor.*",
+            'RISK_MSG': "🛡️ **DEFENSA ABSOLUTA**\nSL: `{sl_fixed}`. El dolor te hace más fuerte, pero la muerte es el fin.",
+            'STRATEGY_MSG': "☁️ **LOS SEIS CAMINOS**\n\nMi jutsu es perfecto:\n1. **Bansho Ten'in**: Atraemos liquidez (Pull).\n2. **Shinra Tensei**: Rechazamos tendencias falsas (Push).\n3. **Chibaku Tensei**: Atrapamos el precio en rangos (Trap).",
+            'ABOUT_MSG': "☁️ **PAIN**\n\nLíder de Akatsuki. Busco la paz a través del control absoluto del mercado.",
+            'TRADE_LONG': [
+                "🔥 **BANSHO TEN'IN: {asset}**\nAtraigo el precio hacia arriba.\nPrecio: ${price:,.2f}\nAlpha: {reason}",
+                "🚀 **CAMINO ASURA: {asset}**\nFuego pesado sobre la resistencia.\nPrecio: ${price:,.2f}\n🔸 {reason}",
+                "🟢 **RENACER: {asset}**\nUna nueva era comienza.\nPrecio: ${price:,.2f}\n🔎 {reason}"
+            ],
+            'TRADE_SHORT': [
+                "📉 **SHINRA TENSEI: {asset}**\n¡Aléjate de mí! (El precio cae).\nPrecio: ${price:,.2f}\nRazón: {reason}",
+                "🔻 **CAMINO HUMANO: {asset}**\nExtrayendo el alma del precio.\nPrecio: ${price:,.2f}\n🔸 {reason}",
+                "🔴 **DESTRUCCIÓN: {asset}**\nEste ciclo ha terminado.\nPrecio: ${price:,.2f}\n🔎 {reason}"
+            ],
+            'TRADE_CLOSE': [
+                "🏁 **PAZ MOMENTÁNEA: {asset}** ({side})\nEl dolor ha cesado por ahora.",
+                "💰 **RECOLECCIÓN: {asset}**\nPara financiar nuestra paz.\n📄 {reason}",
+                "⏹️ **FIN DEL CAMINO: {asset}**\nDispersión (Shinra Tensei).\n📄 {reason}"
+            ],
+            'PILOT_ACTION': "☁️ *PAIN'S WILL*\n{msg}",
+            'CB_TRIGGER': "🩸 **LIMITS OF PAIN**\n\nMi chakra está agotado (5 fallos). Debo retirarme a la Torre para recuperarme."
         }
     }
 
