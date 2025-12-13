@@ -81,7 +81,14 @@ class QuantumAnalyst:
             # 2. Fetch News (Asset + Proxies)
             yf_ticker = yf.Ticker(search_ticker)
             asset_news = yf_ticker.news or []
-            asset_headlines = [n.get('title', '') for n in asset_news[:5]]
+            
+            def get_title(n):
+                # Handle nested structure from some yfinance versions
+                if 'content' in n and isinstance(n['content'], dict):
+                    return n['content'].get('title', '')
+                return n.get('title', '')
+
+            asset_headlines = [get_title(n) for n in asset_news[:5]]
             
             # 3. TRUMP FACTOR & MACRO SHIELD
             # DJT: Political Proxy
@@ -92,11 +99,13 @@ class QuantumAnalyst:
             trump_news = trump_ticker.news or []
             macro_news = sp500_ticker.news or []
             
-            trump_headlines = [n.get('title', '') for n in trump_news[:2]]
-            macro_headlines = [n.get('title', '') for n in macro_news[:3]]
+            trump_headlines = [get_title(n) for n in trump_news[:2]]
+            macro_headlines = [get_title(n) for n in macro_news[:3]]
             
             # Combine Context
-            full_context = "--- ASSET NEWS ---\n" + "\n".join(asset_headlines)
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            full_context = f"Date: {now_str}\n--- ASSET NEWS ---\n" + "\n".join(asset_headlines)
             full_context += "\n\n--- POLITICAL (DJT) ---\n" + "\n".join(trump_headlines)
             full_context += "\n\n--- MACRO (S&P 500) ---\n" + "\n".join(macro_headlines)
 
@@ -166,13 +175,24 @@ class QuantumAnalyst:
             for t in tickers:
                 obj = yf.Ticker(t)
                 news = obj.news or []
-                headlines = [n.get('title', '') for n in news[:3]]
+                headlines = []
+                for n in news[:3]:
+                    # Helper logic inline or reused
+                    if 'content' in n and isinstance(n['content'], dict):
+                        headlines.append(n['content'].get('title', ''))
+                    else:
+                        headlines.append(n.get('title', ''))
+                
                 news_context.extend(headlines)
                 
             full_text = "\n".join(news_context)
             
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
             prompt = f"""
             Act as a {personality} Persona (Crypto/Finance Expert).
+            Current Date: {now_str}
             Analyze the current Federal Reserve (FOMC) stance based on these headlines:
             
             {full_text}
@@ -218,8 +238,13 @@ class QuantumAnalyst:
                 tick = yf.Ticker(t)
                 news = tick.news or []
                 for n in news[:2]: # Top 2 per asset
-                    title = n.get('title', '')
-                    all_headlines.append(f"- [{t}] {title}")
+                    title = ''
+                    if 'content' in n and isinstance(n['content'], dict):
+                        title = n['content'].get('title', '')
+                    else:
+                        title = n.get('title', '')
+                        
+                    if title: all_headlines.append(f"- [{t}] {title}")
             except:
                 continue
                 
