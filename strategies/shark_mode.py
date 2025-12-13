@@ -33,7 +33,7 @@ class SharkSentinel(threading.Thread):
         self.daemon = True # Auto-kill when main dies
 
         # Panic Targets (Configurable)
-        self.sniper_targets = ['ETHUSDT', 'SOLUSDT', 'BNBUSDT']
+        self.sniper_targets = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
 
     def exponential_backoff(self, func, *args, max_retries=3, **kwargs):
         """

@@ -43,7 +43,7 @@ if sys_proxy:
 
 # --- CONFIGURACIÓN DE ACTIVOS Y GRUPOS ---
 ASSET_GROUPS = {
-    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT'],
+    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT', '1000PEPEUSDT', 'WIFUSDT', 'RENDERUSDT'],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
     'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG'] # ETFs for Alpaca (Gold, Oil, Silver, Copper, Nat Gas)
 }
@@ -62,6 +62,9 @@ TICKER_MAP = {
     'AVAXUSDT': 'Avalanche',
     'ZECUSDT': 'Zcash',
     'SUIUSDT': 'Sui',
+    '1000PEPEUSDT': 'Pepe',
+    'WIFUSDT': 'Dogwifhat',
+    'RENDERUSDT': 'Render',
     'TSLA': 'Tesla',
     'NVDA': 'NVIDIA',
     'MSFT': 'Microsoft',
