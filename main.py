@@ -1042,6 +1042,14 @@ def master_listener(message):
             elif cmd_part in ['/personality', '/pers']:
                 handle_personality(message)
             
+            # Info Commands
+            elif cmd_part in ['/about', '/info']:
+                handle_about(message)
+            elif cmd_part == '/strategies':
+                handle_strategies(message)
+            elif cmd_part == '/assets':
+                handle_assets(message)
+            
             # AI & Special Commands
             elif cmd_part in ['/news', '/noti']:
                 handle_news(message)
@@ -1051,6 +1059,10 @@ def master_listener(message):
                 handle_sniper(message)
             elif cmd_part == '/fomc':
                 handle_fomc(message)
+            
+            # Mode Presets
+            elif cmd_part.startswith('/mode'):
+                handle_mode(message)
             else:
                 bot.reply_to(message, f"🤷‍♂️ Comando desconocido: {cmd_part}")
 
