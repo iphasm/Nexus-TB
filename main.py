@@ -1678,6 +1678,37 @@ def handle_fomc(message):
          bot.edit_message_text(f"❌ Error: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
 
 @threaded_handler
+@bot.message_handler(commands=['strategies'])
+def handle_strategies(message):
+    """ /strategies : Toggle Strategy Engines """
+    from antigravity_quantum.config import ENABLED_STRATEGIES
+    
+    markup = InlineKeyboardMarkup()
+    s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SCALPING', False) else "❌ DESACTIVADO"
+    g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('GRID', False) else "❌ DESACTIVADO"
+    m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
+    sh_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SHARK', False) else "❌ DESACTIVADO"
+    bs_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌ DESACTIVADO"
+    
+    markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
+    markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
+    markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
+    markup.add(InlineKeyboardButton(f"🦈 Shark (Attack): {sh_state}", callback_data="TOGGLE|SHARK"))
+    markup.add(InlineKeyboardButton(f"🛡️ Black Swan (Defense): {bs_state}", callback_data="TOGGLE|BLACK_SWAN"))
+    
+    msg = (
+        "⚙️ **MOTORES DE ESTRATEGIA**\n\n"
+        "Activa o desactiva módulos específicos de trading:\n\n"
+        "• **Scalping**: Alta frecuencia, alto riesgo\n"
+        "• **Grid**: Trading lateral\n"
+        "• **Mean Rev**: Reversión a la media\n"
+        "• **Shark (Attack)**: Sniper Shorts en crash\n"
+        "• **Black Swan (Defense)**: Cierre de Longs en crash\n"
+    )
+    
+    bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode='Markdown')
+
+@threaded_handler
 @bot.message_handler(commands=['sniper'])
 def handle_sniper(message):
     """ /sniper : Busca oportunidad instantánea """
