@@ -1746,8 +1746,12 @@ def handle_query(call):
                 elif sub_cmd == '/price': handle_price(call.message)
                 elif sub_cmd == '/strategies': handle_strategies(call.message)
                 elif sub_cmd == '/contracts': handle_strategies(call.message)
-                elif sub_cmd == '/togglegroup': handle_toggle_group(call.message)
-                elif sub_cmd == '/assets': handle_assets(call.message)
+                elif sub_cmd == '/togglegroup': 
+                    call.message.text = '/togglegroup'
+                    handle_toggle_group(call.message)
+                elif sub_cmd == '/assets': 
+                    call.message.text = '/assets'
+                    handle_assets(call.message)
                 # AI Commands
                 elif sub_cmd == '/news': handle_news(call.message)
                 elif sub_cmd == '/sentiment': handle_sentiment(call.message)
