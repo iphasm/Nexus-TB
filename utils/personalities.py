@@ -292,7 +292,7 @@ class PersonalityManager:
             ],
             'PILOT_ON': [
                 (
-                    "🦅 **MODO PILOT ACTIVADO**\n\n"
+                    "🤖 **MODO PILOT ACTIVADO**\n\n"
                     "He tomado el control de la nave. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
                     "⚠️ **Advertencia:** *La vida es riesgo.*"
                 ),

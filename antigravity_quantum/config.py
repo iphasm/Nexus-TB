@@ -5,8 +5,8 @@
 
 # --- STRATEGY CONFIG ---
 ENABLED_STRATEGIES = {
-    'SCALPING': False,      # High Risk, High Reward
-    'GRID': False,          # Grid Trading for sideways
+    'SCALPING': True,      # High Risk, High Reward
+    'GRID': True,          # Grid Trading for sideways
     'MEAN_REVERSION': True  # Default safe strategy
 }
 

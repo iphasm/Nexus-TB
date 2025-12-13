@@ -47,7 +47,7 @@ if sys_proxy:
 ASSET_GROUPS = {
     'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT'],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
-    'COMMODITY': ['GLD', 'USO'] # ETFs for Alpaca (Gold, Oil)
+    'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG'] # ETFs for Alpaca (Gold, Oil, Silver, Copper, Nat Gas)
 }
 
 # Mapping de nombres amigables
@@ -70,7 +70,10 @@ TICKER_MAP = {
     'AAPL': 'Apple',
     'AMD': 'AMD',
     'GLD': 'ORO',
-    'USO': 'PETROLEO'
+    'USO': 'PETROLEO',
+    'SLV': 'PLATA',
+    'CPER': 'COBRE',
+    'UNG': 'GAS NATURAL'
 }
 
 # Estado de los Grupos (Switch ON/OFF)
@@ -1373,7 +1376,7 @@ def dispatch_quantum_signal(signal):
 @bot.message_handler(commands=['help'])
 def send_welcome(message):
     help_text = (
-        "🤖 *ANTIGRAVITY BOT v3.3.1-FIX - QUANTUM*\n"
+        "🤖 *ANTIGRAVITY BOT v3.3.2-HOTFIX (DEFAULTS ON)*\n"
         "〰️〰️〰️〰️〰️〰️\n\n"
         "ℹ️ *INFO & MERCADO*\n"
         "• /price - Panel de Precios y Señales.\n"
@@ -1649,25 +1652,31 @@ def handle_query(call):
             except: pass
 
             # Dispatch
-            if sub_cmd == '/status': handle_status(call.message)
-            elif sub_cmd == '/wallet': handle_wallet(call.message)
-            elif sub_cmd == '/pilot': handle_mode_switch(call.message, 'PILOT')
-            elif sub_cmd == '/copilot': handle_mode_switch(call.message, 'COPILOT')
-            elif sub_cmd == '/watcher': handle_mode_switch(call.message, 'WATCHER')
-            elif sub_cmd == '/personality': handle_personality(call.message)
-            elif sub_cmd == '/config': handle_config(call.message)
-            elif sub_cmd == '/help': send_welcome(call.message)
-            elif sub_cmd == '/about': handle_about(call.message)
-            elif sub_cmd == '/strategy': handle_strategy(call.message)
-            elif sub_cmd == '/price': handle_price(call.message)
-            elif sub_cmd == '/strategies': handle_strategies(call.message)
-            elif sub_cmd == '/contracts': handle_strategies(call.message)
-            elif sub_cmd == '/togglegroup': handle_toggle_group(call.message)
-            elif sub_cmd == '/assets': handle_assets(call.message)
-            # AI Commands
-            elif sub_cmd == '/news': handle_news(call.message)
-            elif sub_cmd == '/sentiment': handle_sentiment(call.message)
-            elif sub_cmd == '/sniper': handle_sniper(call.message)
+            try:
+                if sub_cmd == '/status': handle_status(call.message)
+                elif sub_cmd == '/wallet': handle_wallet(call.message)
+                elif sub_cmd == '/pilot': handle_mode_switch(call.message, 'PILOT')
+                elif sub_cmd == '/copilot': handle_mode_switch(call.message, 'COPILOT')
+                elif sub_cmd == '/watcher': handle_mode_switch(call.message, 'WATCHER')
+                elif sub_cmd == '/personality': handle_personality(call.message)
+                elif sub_cmd == '/config': handle_config(call.message)
+                elif sub_cmd == '/help': send_welcome(call.message)
+                elif sub_cmd == '/about': handle_about(call.message)
+                elif sub_cmd == '/strategy': handle_strategy(call.message)
+                elif sub_cmd == '/price': handle_price(call.message)
+                elif sub_cmd == '/strategies': handle_strategies(call.message)
+                elif sub_cmd == '/contracts': handle_strategies(call.message)
+                elif sub_cmd == '/togglegroup': handle_toggle_group(call.message)
+                elif sub_cmd == '/assets': handle_assets(call.message)
+                # AI Commands
+                elif sub_cmd == '/news': handle_news(call.message)
+                elif sub_cmd == '/sentiment': handle_sentiment(call.message)
+                elif sub_cmd == '/sniper': handle_sniper(call.message)
+                else: 
+                     bot.send_message(chat_id, f"⚠️ Comando desconocido: {sub_cmd}")
+            except Exception as e:
+                print(f"❌ Dispatch Error ({sub_cmd}): {e}")
+                bot.send_message(chat_id, f"❌ Error ejecutando {sub_cmd}: {e}")
             return
         
         # --- REQUIRES SESSION (Write Actions) ---
@@ -2009,12 +2018,14 @@ def start_bot():
     saved_state = state_manager.load_state()
     
     # 1. Update Strategies
-    if "enabled_strategies" in saved_state:
-        ENABLED_STRATEGIES.update(saved_state["enabled_strategies"])
+    # (Disabled by user request: Always start with ALL ON)
+    # if "enabled_strategies" in saved_state:
+    #     ENABLED_STRATEGIES.update(saved_state["enabled_strategies"])
         
     # 2. Update Groups
-    if "group_config" in saved_state:
-        GROUP_CONFIG.update(saved_state["group_config"])
+    # (Disabled by user request: Always start with ALL ON)
+    # if "group_config" in saved_state:
+    #     GROUP_CONFIG.update(saved_state["group_config"])
         
     # 3. Update Disabled Assets
     # 3. Update Disabled Assets
