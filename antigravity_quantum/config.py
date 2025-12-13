@@ -8,9 +8,12 @@ ENABLED_STRATEGIES = {
     'SCALPING': True,      # High Risk, High Reward
     'GRID': True,          # Grid Trading for sideways
     'MEAN_REVERSION': True, # Default safe strategy
-    'BLACK_SWAN': True,     # Defense: Panic Close on Crash
-    'SHARK': False          # Attack: Sniper Shorts on Crash
+    'BLACK_SWAN': True,    # Defense: Cancel longs during crashes
+    'SHARK': False         # Attack: Open shorts during crashes (OFF by default)
 }
+
+# SL/TP Update Flag (When position already exists, update SL/TP instead of error)
+ALLOW_SLTP_UPDATE = True
 
 # Assets specifically allowed for Grid Trading (Whitelisted)
 GRID_WHITELIST = ['ADA', 'ZEC'] 

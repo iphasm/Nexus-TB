@@ -54,7 +54,7 @@ except Exception as e:
 # NOTE:Ideally this should come from config.py to avoid duplication,
 # but for now we inline it to resolve the immediate 'resolve_symbol' dependency.
 ASSET_GROUPS = {
-    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT'],
+    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT', '1000PEPEUSDT', 'WIFUSDT', 'RENDERUSDT'],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
     'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG'] 
 }
@@ -62,6 +62,7 @@ TICKER_MAP = {
     'BTCUSDT': 'Bitcoin', 'ETHUSDT': 'Ethereum', 'SOLUSDT': 'Solana', 'BNBUSDT': 'Binance Coin',
     'XRPUSDT': 'Ripple', 'ADAUSDT': 'Cardano', 'LTCUSDT': 'Litecoin', 'LINKUSDT': 'Chainlink',
     'DOGEUSDT': 'Dogecoin', 'AVAXUSDT': 'Avalanche', 'ZECUSDT': 'Zcash', 'SUIUSDT': 'Sui',
+    '1000PEPEUSDT': 'Pepe', 'WIFUSDT': 'Dogwifhat', 'RENDERUSDT': 'Render',
     'TSLA': 'Tesla', 'NVDA': 'NVIDIA', 'MSFT': 'Microsoft', 'AAPL': 'Apple', 'AMD': 'AMD',
     'GLD': 'ORO', 'USO': 'PETROLEO', 'SLV': 'PLATA', 'CPER': 'COBRE', 'UNG': 'GAS NATURAL'
 }
