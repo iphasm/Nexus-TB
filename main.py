@@ -10,6 +10,17 @@ import requests
 from dotenv import load_dotenv
 
 # Importar módulos internos
+from data.fetcher import get_market_data, resolve_symbol
+from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS
+
+from strategies.engine import StrategyEngine
+from strategies.shark_mode import SharkSentinel
+from utils.trading_manager import SessionManager
+from utils.personalities import PersonalityManager
+from utils.system_state_manager import SystemStateManager 
+from utils.ai_analyst import QuantumAnalyst 
+
+# Personality & State Engine
 personality_manager = PersonalityManager()
 state_manager = SystemStateManager()
 quantum_analyst = QuantumAnalyst() # NEW Init AI
