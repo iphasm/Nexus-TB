@@ -1,7 +1,6 @@
 
 # Dynamic configuration for the Quantum Engine
 # This file is imported by both the Engine (background) and Main (foreground).
-# Simple toggles. In a larger app, use a proper DB or Redis.
 
 # --- STRATEGY CONFIG ---
 ENABLED_STRATEGIES = {
@@ -12,17 +11,25 @@ ENABLED_STRATEGIES = {
     'SHARK': False         # Attack: Open shorts during crashes (OFF by default)
 }
 
-# SL/TP Update Flag (When position already exists, update SL/TP instead of error)
+# SL/TP Update Flag
 ALLOW_SLTP_UPDATE = True
 
-# Assets specifically allowed for Grid Trading (Whitelisted)
-GRID_WHITELIST = ['ADA', 'ZEC'] 
+# --- MODULE-SPECIFIC ASSET LISTS ---
+# These can be toggled via /assets menu
 
-# Assets specifically allowed for Scalping
-# High Volatility assets only
-SCALPING_WHITELIST = ['ZEC', 'SUI', 'SOL'] 
+# Shark Mode: Assets to SHORT during market crashes
+SHARK_TARGETS = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
 
-# Runtime Blacklist (Toggleable via /assets)
+# Scalping: High volatility assets for quick trades
+SCALPING_ASSETS = ['ZECUSDT', 'SUIUSDT', 'SOLUSDT', 'BTCUSDT', 'ETHUSDT']
+
+# Grid Trading: Range-bound assets for grid strategy
+GRID_ASSETS = ['ADAUSDT', 'ZECUSDT']
+
+# Mean Reversion: Empty = use all non-blacklisted assets
+MEAN_REV_ASSETS = []
+
+# Runtime Blacklist (Global - applies to main scanner)
 DISABLED_ASSETS = set()
 
 # Global Settings

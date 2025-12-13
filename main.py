@@ -604,35 +604,21 @@ def handle_toggle_group(message):
         
     bot.reply_to(message, "📡 **CONFIGURACIÓN DE RADARES**\nActiva/Desactiva grupos de mercado:", reply_markup=markup, parse_mode='Markdown')
 
-from antigravity_quantum.config import DISABLED_ASSETS
+from antigravity_quantum.config import DISABLED_ASSETS, SHARK_TARGETS, SCALPING_ASSETS, GRID_ASSETS, MEAN_REV_ASSETS
 
 @bot.message_handler(commands=['assets', 'toggleassets'])
 def handle_assets(message):
-    """Selector de Activos Individuales (Blacklist/Whitelist)"""
-    cid = message.chat.id
-    
-    # Gather all assets from ENABLED groups ONLY
-    active_assets = []
-    for group, enabled in GROUP_CONFIG.items():
-        if enabled:
-            active_assets.extend(ASSET_GROUPS.get(group, []))
-            
-    if not active_assets:
-        bot.reply_to(message, "⚠️ No hay grupos activos. Usa /togglegroup primero.")
-        return
-    
-    markup = InlineKeyboardMarkup(row_width=3)
-    buttons = []
-    
-    # Limit 50 to avoid big payload error
-    for asset in active_assets[:50]: 
-        is_disabled = asset in DISABLED_ASSETS
-        icon = "❌" if is_disabled else "✅"
-        # callback: TOGGLEASSET|BTCUSDT
-        buttons.append(InlineKeyboardButton(f"{icon} {asset}", callback_data=f"TOGGLEASSET|{asset}"))
-        
-    markup.add(*buttons)
-    bot.reply_to(message, "🪙 **CONTROL DE ACTIVOS**\n(✅ = Activo / ❌ = Ignorado)\n_Toque para alternar_", reply_markup=markup, parse_mode='Markdown')
+    """Módulo de Selección de Activos - Menú Jerárquico"""
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🦈 Shark Targets", callback_data="ASSETS|SHARK"),
+        InlineKeyboardButton("⚡ Scalping", callback_data="ASSETS|SCALPING"),
+        InlineKeyboardButton("🕸️ Grid Trading", callback_data="ASSETS|GRID"),
+        InlineKeyboardButton("📉 Mean Reversion", callback_data="ASSETS|MEANREV"),
+        InlineKeyboardButton("📡 Scanner Global", callback_data="ASSETS|GLOBAL")
+    )
+    bot.reply_to(message, "📦 **CONFIGURACIÓN DE ACTIVOS**\n\nSelecciona el módulo a configurar:", reply_markup=markup, parse_mode='Markdown')
+
 
 @bot.message_handler(commands=['resetpilot', 'reset_pilot'])
 def handle_reset_pilot(message):
@@ -2091,6 +2077,135 @@ def handle_query(call):
                 print(f"Error in TOGGLEASSET: {e}")
                 bot.answer_callback_query(call.id, "❌ Error.")
             return
+
+        # --- MODULE ASSET SELECTION ---
+        if cmd == "ASSETS":
+            try:
+                module = parts[1]
+                import antigravity_quantum.config as cfg
+                
+                # Get all crypto assets for selection
+                all_crypto = ASSET_GROUPS.get('CRYPTO', [])
+                
+                # Map module to its config list
+                module_map = {
+                    'SHARK': ('SHARK_TARGETS', '🦈 SHARK MODE TARGETS\nActivos para SHORT en crashes:'),
+                    'SCALPING': ('SCALPING_ASSETS', '⚡ SCALPING ASSETS\nActivos de alta volatilidad:'),
+                    'GRID': ('GRID_ASSETS', '🕸️ GRID TRADING\nActivos para rangos:'),
+                    'MEANREV': ('MEAN_REV_ASSETS', '📉 MEAN REVERSION\nActivos para reversión:'),
+                    'GLOBAL': ('DISABLED_ASSETS', '📡 SCANNER GLOBAL\nBlacklist (❌ = Ignorado):')
+                }
+                
+                if module == 'BACK':
+                    # Return to module selection menu
+                    markup = InlineKeyboardMarkup(row_width=2)
+                    markup.add(
+                        InlineKeyboardButton("🦈 Shark Targets", callback_data="ASSETS|SHARK"),
+                        InlineKeyboardButton("⚡ Scalping", callback_data="ASSETS|SCALPING"),
+                        InlineKeyboardButton("🕸️ Grid Trading", callback_data="ASSETS|GRID"),
+                        InlineKeyboardButton("📉 Mean Reversion", callback_data="ASSETS|MEANREV"),
+                        InlineKeyboardButton("📡 Scanner Global", callback_data="ASSETS|GLOBAL")
+                    )
+                    bot.edit_message_text("📦 **CONFIGURACIÓN DE ACTIVOS**\n\nSelecciona el módulo a configurar:", 
+                                          chat_id, call.message.message_id, reply_markup=markup, parse_mode='Markdown')
+                    bot.answer_callback_query(call.id)
+                    return
+                
+                if module not in module_map:
+                    bot.answer_callback_query(call.id, "🤷 Módulo desconocido")
+                    return
+                
+                config_name, title = module_map[module]
+                current_list = getattr(cfg, config_name, [])
+                if isinstance(current_list, set):
+                    current_list = list(current_list)
+                
+                markup = InlineKeyboardMarkup(row_width=3)
+                buttons = []
+                
+                for asset in all_crypto[:30]:  # Limit for payload
+                    if module == 'GLOBAL':
+                        # For global: ❌ = in blacklist (disabled)
+                        in_list = asset in cfg.DISABLED_ASSETS
+                        icon = "❌" if in_list else "✅"
+                    else:
+                        # For other modules: ✅ = in whitelist (enabled)
+                        in_list = asset in current_list
+                        icon = "✅" if in_list else "❌"
+                    buttons.append(InlineKeyboardButton(f"{icon} {asset}", callback_data=f"ASSETMOD|{module}|{asset}"))
+                
+                buttons.append(InlineKeyboardButton("⬅️ Volver", callback_data="ASSETS|BACK"))
+                markup.add(*buttons)
+                
+                bot.edit_message_text(title, chat_id, call.message.message_id, reply_markup=markup, parse_mode='Markdown')
+                bot.answer_callback_query(call.id)
+            except Exception as e:
+                print(f"Error in ASSETS: {e}")
+                bot.answer_callback_query(call.id, f"❌ Error: {e}")
+            return
+
+        if cmd == "ASSETMOD":
+            try:
+                module = parts[1]
+                asset = parts[2]
+                import antigravity_quantum.config as cfg
+                
+                module_map = {
+                    'SHARK': 'SHARK_TARGETS',
+                    'SCALPING': 'SCALPING_ASSETS',
+                    'GRID': 'GRID_ASSETS',
+                    'MEANREV': 'MEAN_REV_ASSETS',
+                    'GLOBAL': 'DISABLED_ASSETS'
+                }
+                
+                if module not in module_map:
+                    return
+                
+                config_name = module_map[module]
+                current_list = getattr(cfg, config_name)
+                
+                if module == 'GLOBAL':
+                    # Toggle in/out of blacklist
+                    if asset in current_list:
+                        current_list.remove(asset) if isinstance(current_list, set) else current_list.remove(asset)
+                        bot.answer_callback_query(call.id, f"✅ {asset} ACTIVADO")
+                    else:
+                        current_list.add(asset) if isinstance(current_list, set) else current_list.append(asset)
+                        bot.answer_callback_query(call.id, f"❌ {asset} en BLACKLIST")
+                else:
+                    # Toggle in/out of whitelist
+                    if asset in current_list:
+                        current_list.remove(asset)
+                        bot.answer_callback_query(call.id, f"❌ {asset} REMOVIDO de {module}")
+                    else:
+                        current_list.append(asset)
+                        bot.answer_callback_query(call.id, f"✅ {asset} AÑADIDO a {module}")
+                
+                # Save state
+                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                
+                # Refresh button display
+                all_crypto = ASSET_GROUPS.get('CRYPTO', [])
+                markup = InlineKeyboardMarkup(row_width=3)
+                buttons = []
+                
+                for a in all_crypto[:30]:
+                    if module == 'GLOBAL':
+                        in_list = a in cfg.DISABLED_ASSETS
+                        icon = "❌" if in_list else "✅"
+                    else:
+                        in_list = a in current_list
+                        icon = "✅" if in_list else "❌"
+                    buttons.append(InlineKeyboardButton(f"{icon} {a}", callback_data=f"ASSETMOD|{module}|{a}"))
+                
+                buttons.append(InlineKeyboardButton("⬅️ Volver", callback_data="ASSETS|BACK"))
+                markup.add(*buttons)
+                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Error in ASSETMOD: {e}")
+                bot.answer_callback_query(call.id, f"❌ Error")
+            return
+
 
         # --- TRADING COMMANDS ---
         if cmd == "BUY":

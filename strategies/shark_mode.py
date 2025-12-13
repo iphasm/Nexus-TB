@@ -32,8 +32,12 @@ class SharkSentinel(threading.Thread):
         self.triggered = False # Cooldown flag
         self.daemon = True # Auto-kill when main dies
 
-        # Panic Targets (Configurable)
-        self.sniper_targets = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
+        # Panic Targets (Loaded from config)
+        try:
+            from antigravity_quantum.config import SHARK_TARGETS
+            self.sniper_targets = SHARK_TARGETS
+        except:
+            self.sniper_targets = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
 
     def exponential_backoff(self, func, *args, max_retries=3, **kwargs):
         """
