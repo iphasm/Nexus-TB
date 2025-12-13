@@ -757,10 +757,18 @@ def handle_debug(message):
         # Effective IP (Outgoing)
         ip_info = requests.get('http://ip-api.com/json', timeout=5).json()
         eff_ip = ip_info.get('query', 'Unknown')
-        loc = f"{ip_info.get('country', 'Unknown')} ({ip_info.get('regionName', 'Unknown')})"
+        
+        # Calculate Flag Emoji from Country Code
+        cc = ip_info.get('countryCode', '??').upper()
+        if len(cc) == 2:
+            flag_emoji = chr(ord(cc[0]) + 127397) + chr(ord(cc[1]) + 127397)
+        else:
+            flag_emoji = "🏳️"
+            
+        loc = flag_emoji
     except Exception as e:
         eff_ip = f"Error: {str(e)}"
-        loc = "Unknown"
+        loc = "🏳️"
 
     loc_check = "✅" if "US" not in loc else "❌ RESTRICTED (US)"
     
