@@ -522,7 +522,7 @@ def get_fear_and_greed_index():
 
 @threaded_handler
 def handle_status(message):
-    """Muestra estado del sistema (Read Only)"""
+    """Muestra estado del sistema (Diseño: Clean Glass)"""
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     
@@ -535,25 +535,48 @@ def handle_status(message):
         mode = cfg.get('mode', 'WATCHER')
         has_keys = cfg['has_keys']
     
-    fg = get_fear_and_greed_index()
-    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    # Fear & Greed Parse
+    fg_text = get_fear_and_greed_index() # Returns "😱 Extreme Fear (23/100)"
     
-    header = personality_manager.get_message(p_key, 'STATUS_HEADER')
-    footer = personality_manager.get_message(p_key, 'STATUS_FOOTER')
+    # Mode Translation
+    mode_map = {
+        'WATCHER': 'WATCHER (Observador)',
+        'COPILOT': 'COPILOT (Asistido)',
+        'PILOT': 'PILOT (Automático)'
+    }
+    mode_display = mode_map.get(mode, mode)
 
-    status = f"{header}\n"
-    status += f"🛡️ *Modo:* `{mode}`\n"
-    status += f"🧠 *Sentimiento:* {fg}\n"
-    status += f"🔌 *Conexión:* {'✅ OK' if has_keys else '❌ OFF'}\n"
-    
-    status += "\n📡 *Radares Activos:*\n"
+    # Build Asset List
+    active_radars = ""
     for group, enabled in GROUP_CONFIG.items():
-        icon = "🟢" if enabled else "🔴"
-        name = group.replace('_', ' ')
-        count = len(ASSET_GROUPS.get(group, [])) if enabled else 0
-        status += f"{icon} {name} ({count})\n"
+        icon = "🟢" if enabled else "⚪" # White circle for OFF in this theme
+        name_map = {
+            'CRYPTO': 'Criptomonedas',
+            'STOCKS': 'Acciones',
+            'COMMODITY': 'Materias Primas'
+        }
+        name = name_map.get(group, group)
         
-    status += f"\n{footer}"
+        count = len(ASSET_GROUPS.get(group, [])) if enabled else 0
+        count_str = f"({count})" if enabled else ""
+        
+        active_radars += f"{icon} {name} {count_str}\n"
+
+    status = (
+        "🛡️ **Estado de Antigravity**\n\n"
+        
+        "**Modo de Operación**\n"
+        f"👉 `{mode_display}`\n\n"
+        
+        "**Entorno de Mercado**\n"
+        f"🧠 Sentimiento: **{fg_text}**\n"
+        f"🔌 Conexión: **{'Estable' if has_keys else 'Desconectado'}**\n\n"
+        
+        "**Escáneres Activos**\n"
+        f"{active_radars}\n"
+        "*Sistema ejecutándose correctamente.*"
+    )
+    
     bot.reply_to(message, status, parse_mode='Markdown')
 
 @bot.message_handler(commands=['config'])
