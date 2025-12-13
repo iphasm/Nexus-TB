@@ -34,11 +34,11 @@ class TrendFollowingStrategy(IStrategy):
         signal_type = "HOLD"
         confidence = 0.0
         
-        if ema_short > ema_long and adx > 25:
+        if ema_short > ema_long and adx > 20:
             signal_type = "BUY"
             confidence = min(adx / 50, 1.0) # Normalize confidence
             
-        elif ema_short < ema_long and adx > 25:
+        elif ema_short < ema_long and adx > 20:
             signal_type = "SELL"
             confidence = min(adx / 50, 1.0)
             

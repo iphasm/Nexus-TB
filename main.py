@@ -747,8 +747,8 @@ def handle_debug(message):
     os_plat = platform.system()
     
     # 2. Credentials
-    has_key = "✅" if session and session.api_key else "❌"
-    has_sec = "✅" if session and session.api_secret else "❌"
+    has_bin = "✅" if session and session.api_key else "❌"
+    has_alp = "✅" if session and getattr(session, 'alpaca_key', None) else "❌"
     
     # 3. Network / IP
     proxy_conf = "Yes" if os.getenv('PROXY_URL') else "No"
@@ -813,8 +813,7 @@ def handle_debug(message):
             ai_status = "❌ Missing Key"
     except:
         ai_status = "❌ Error"
-            
-    # Report Build
+
     # Report Build
     report = (
         "🕵️ *DIAGNÓSTICO QUANTUM*\n"
@@ -830,7 +829,7 @@ def handle_debug(message):
         f"`IA   :` {ai_status}\n\n"
         
         "🔑 *CREDENCIALES*\n"
-        f"`Api  :` {has_key}  `Sec:` {has_sec}"
+        f"`Binan:` {has_bin}  `Alpaca:` {has_alp}"
     )
     
     bot.edit_message_text(report, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
@@ -2179,7 +2178,19 @@ def start_bot():
     # Start Quantum Bridge if Enabled
     if USE_QUANTUM_ENGINE:
         print("🌌 Initializing Quantum Bridge...")
-        quantum_bridge = QuantumBridge(notification_callback=dispatch_quantum_signal)
+        
+        # Flatten Assets for Engine
+        all_assets = []
+        for grp_assets in ASSET_GROUPS.values():
+            all_assets.extend(grp_assets)
+        all_assets = list(set(all_assets)) # Unique
+        
+        print(f"🌌 Integrating {len(all_assets)} assets into Quantum Engine...")
+        
+        quantum_bridge = QuantumBridge(
+            notification_callback=dispatch_quantum_signal,
+            assets=all_assets
+        )
         quantum_bridge.start()
     
     # Iniciar Trading Thread

@@ -7,12 +7,20 @@ class QuantumEngine:
     """
     Main Orchestrator for Antigravity Quantum.
     """
-    def __init__(self):
+    def __init__(self, assets=None):
         self.risk_guardian = RiskManager()
         self.market_stream = MarketStream('binance')
         self.running = False
-        # Only testing a few assets for prototype to avoid rate limits
-        self.assets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT'] 
+        
+        # Determine Assets
+        if assets:
+            self.assets = list(set(assets)) # Remove duplicates
+            print(f"🌌 QuantumEngine: Loaded {len(self.assets)} assets from Main Configuration.")
+        else:
+            # Fallback for isolated testing
+            self.assets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
+            print("⚠️ QuantumEngine: Using Default Fallback Assets.")
+
         self.signal_callback = None
         
     def set_callback(self, callback):

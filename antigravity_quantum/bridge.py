@@ -8,8 +8,8 @@ class QuantumBridge:
     Bridges the Synchronous Telegram Bot (Main Thread) with the 
     Asynchronous Quantum Engine (Background Thread).
     """
-    def __init__(self, notification_callback):
-        self.engine = QuantumEngine()
+    def __init__(self, notification_callback, assets=None):
+        self.engine = QuantumEngine(assets=assets)
         self.loop = None
         self.thread = None
         self.notification_callback = notification_callback # Sync function to call on signal

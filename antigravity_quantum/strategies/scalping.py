@@ -28,16 +28,16 @@ class ScalpingStrategy(IStrategy):
         confidence = 0.0
         
         # MOMENTUM LONG
-        # RSI crosses above 55, ADX > 25 (Trend Strength) 
+        # RSI crosses above 52 (was 55), ADX > 20 (was 25)
         # FILTER: Price > EMA 200 (Only with trend)
-        if rsi > 55 and last['rsi'] > prev['rsi'] and adx > 25 and close > ema_200:
+        if rsi > 52 and last['rsi'] > prev['rsi'] and adx > 20 and close > ema_200:
             signal_type = "BUY"
             confidence = 0.7 + (min(adx, 50)/200) # Boost conf with ADX
             
         # MOMENTUM SHORT
-        # RSI crosses below 45, ADX > 25
+        # RSI crosses below 48 (was 45), ADX > 20
         # FILTER: Price < EMA 200 (Only with trend)
-        elif rsi < 45 and last['rsi'] < prev['rsi'] and adx > 25 and close < ema_200:
+        elif rsi < 48 and last['rsi'] < prev['rsi'] and adx > 20 and close < ema_200:
             signal_type = "SELL"
             confidence = 0.7 + (min(adx, 50)/200)
             
