@@ -829,7 +829,7 @@ def handle_debug(message):
         f"`IA   :` {ai_status}\n\n"
         
         "🔑 *CREDENCIALES*\n"
-        f"`🔶 Binan:` {has_bin}  `🦙 Alpaca:` {has_alp}"
+        f"`🔶 Binance:` {has_bin}  `🦙 Alpaca:` {has_alp}"
     )
     
     bot.edit_message_text(report, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
