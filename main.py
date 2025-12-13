@@ -772,10 +772,10 @@ def handle_debug(message):
     try:
         t0 = time.time()
         # 1. Fetch Data
-        btc_data = get_market_data('BTCUSDT', limit=50) # Need enough for indicators
+        btc_data = get_market_data('BTCUSDT', limit=210) # Engine requires 200+ for EMA200
         ping_ms = int((time.time() - t0) * 1000)
         
-        if not btc_data.empty: 
+        if not btc_data.empty and len(btc_data) >= 200: 
             pub_status = f"✅ Success ({ping_ms}ms)"
             
             # 2. Test Strategy Engine
