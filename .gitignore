@@ -1,3 +1,30 @@
+# Environment
 .env
 venv/
+.venv/
+
+# Python cache
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data/Logs
+data/sessions.json
+*.log
+backtest_results.txt
+
+# OS
+.DS_Store
+Thumbs.db
