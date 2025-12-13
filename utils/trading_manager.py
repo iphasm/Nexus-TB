@@ -229,6 +229,48 @@ class TradingSession:
         except Exception as e:
             return False, f"Alpaca Error: {e}"
 
+    def get_trade_preview(self, symbol, side, current_price, atr=None):
+        """
+        Calculates TP and SL prices without executing the trade.
+        Returns: (sl_price, tp_price)
+        """
+        try:
+             # Default Precisions (Fallback)
+             price_precision = 2
+             if current_price < 1.0: price_precision = 4
+             if current_price < 0.01: price_precision = 6
+             
+             # Try to get from cached info if possible, or just default
+             # (In a real scenario we'd fetch exchange info, but for preview speed is key)
+             
+             if atr and atr > 0:
+                # Dynamic ATR Logic
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                
+                if side == 'LONG':
+                    sl_price = round(current_price - sl_dist, price_precision)
+                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                else: # SHORT
+                    sl_price = round(current_price + sl_dist, price_precision)
+                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+             else:
+                # Fixed % Logic
+                sl_pct = self.config.get('stop_loss_pct', 0.02)
+                tp_pct = sl_pct * 1.5 # 1.5 R:R default
+                
+                if side == 'LONG':
+                    sl_price = round(current_price * (1 - sl_pct), price_precision)
+                    tp_price = round(current_price * (1 + tp_pct), price_precision)
+                else:
+                    sl_price = round(current_price * (1 + sl_pct), price_precision)
+                    tp_price = round(current_price * (1 - tp_pct), price_precision)
+                    
+             return sl_price, tp_price
+        except Exception as e:
+            print(f"Preview Error: {e}")
+            return 0.0, 0.0
+
     def execute_long_position(self, symbol, atr=None):
         # --- 0. SENTIMENT & MACRO FILTER (AI) ---
         if self.config.get('sentiment_filter', True):
@@ -407,7 +449,15 @@ class TradingSession:
                     success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
-                return True, success_msg
+                
+                # Return DICT for Pilot Alert formatting
+                return True, {
+                    "msg": success_msg,
+                    "price": entry_price,
+                    "sl": sl_price,
+                    "tp": tp1_price,
+                    "qty": quantity
+                }
 
             except Exception as e:
                 # 🚨 CRITICAL: ROLLBACK (Close Position)
@@ -570,7 +620,13 @@ class TradingSession:
                 if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
                     success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
                 
-                return True, success_msg
+                return True, {
+                    "msg": success_msg,
+                    "price": entry_price,
+                    "sl": sl_price,
+                    "tp": tp1_price,
+                    "qty": quantity
+                }
 
             except Exception as e:
                 # 🚨 CRITICAL: ROLLBACK (Close Position)

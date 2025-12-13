@@ -1420,7 +1420,22 @@ def dispatch_quantum_signal(signal):
         action = signal.action # BUY, SELL
         price = signal.price
         conf = signal.confidence
-        reason = f"{signal.metadata} (Conf: {conf:.2f})"
+        
+        # --- REASON CLEANING ---
+        reason_display = "Señal Quantum"
+        if isinstance(signal.metadata, dict):
+             meta = signal.metadata
+             if 'grid_dev' in meta:
+                 reason_display = f"Desviación Grid: {meta['grid_dev']:.2f}%"
+             elif 'reason' in meta:
+                 reason_display = meta['reason']
+             else:
+                 # Clean up dict string
+                 reason_display = str(meta).replace('{','').replace('}','').replace("'", "")
+        else:
+             reason_display = str(signal.metadata)
+             
+        reason = f"{reason_display} (C: {conf:.2f})"
         
         # Log to Console
         print(f"⚡ QUANTUM DISPATCH: {action} on {asset}")
@@ -1455,19 +1470,28 @@ def dispatch_quantum_signal(signal):
                     break
             
             if action_needed == 'CLOSE' and not has_pos:
-                # If WATCHER, we might still want to know, but phrased differently?
-                # User Feedback: "No tenía ninguna posición... favor de revisar."
-                # Decision: SUPPRESS "Closing Position" message if no position exists.
-                # Maybe send a generic "Sell Signal" instead? 
-                # For now, let's suppress to avoid confusion as requested.
                 continue 
+
+            # Calculate TP/SL Preview (For Alerts)
+            sl_prev, tp_prev = session.get_trade_preview(
+                asset, 
+                'LONG' if action_needed == 'OPEN_LONG' else 'SHORT', 
+                price
+            )
 
             # Prepare Message
             msg_text = ""
             if action_needed == 'OPEN_LONG':
                 msg_text = personality_manager.get_message(
                     p_key, 'TRADE_LONG', 
-                    asset=asset, price=price, reason=reason
+                    asset=asset, price=price, reason=reason,
+                    tp=tp_prev, sl=sl_prev
+                )
+            elif action_needed == 'OPEN_SHORT':
+                msg_text = personality_manager.get_message(
+                    p_key, 'TRADE_SHORT', 
+                    asset=asset, price=price, reason=reason,
+                    tp=tp_prev, sl=sl_prev
                 )
             elif action_needed == 'CLOSE':
                 msg_text = personality_manager.get_message(
@@ -1480,22 +1504,57 @@ def dispatch_quantum_signal(signal):
                 if mode == 'PILOT':
                     # AUTO EXECUTE
                     if action_needed == 'OPEN_LONG':
-                        ok, res_msg = session.execute_long_position(asset, atr=0) 
+                        ok, res_data = session.execute_long_position(asset, atr=0) 
+                        if ok:
+                            # Use DICT data
+                            final_msg = personality_manager.get_message(
+                                p_key, 'PILOT_ACTION',
+                                asset=asset,
+                                side_long="COMPRA (LONG)",
+                                price=res_data.get('price', price),
+                                tp=res_data.get('tp', 0.0),
+                                sl=res_data.get('sl', 0.0),
+                                reason=reason
+                            )
+                            bot.send_message(cid, final_msg, parse_mode='Markdown')
+                        else:
+                             # Error Case (res_data is string msg)
+                            bot.send_message(cid, f"⚠️ PILOT Error: {res_data}")
+
+                    elif action_needed == 'OPEN_SHORT':
+                        ok, res_data = session.execute_short_position(asset, atr=0)
+                        if ok:
+                            # Use DICT data
+                            final_msg = personality_manager.get_message(
+                                p_key, 'PILOT_ACTION',
+                                asset=asset,
+                                side_long="VENTA (SHORT)",
+                                price=res_data.get('price', price),
+                                tp=res_data.get('tp', 0.0),
+                                sl=res_data.get('sl', 0.0),
+                                reason=reason
+                            )
+                            bot.send_message(cid, final_msg, parse_mode='Markdown')
+                        else:
+                             # Error Case
+                             bot.send_message(cid, f"⚠️ PILOT Error: {res_data}")
+
                     elif action_needed == 'CLOSE':
                         ok, res_msg = session.execute_close_position(asset)
-                    else:
-                        ok, res_msg = False, "Unknown Action"
-                        
-                    if ok:
-                        final_msg = personality_manager.get_message(p_key, 'PILOT_ACTION', msg=res_msg)
-                        bot.send_message(cid, final_msg, parse_mode='Markdown')
-                        
+                        if ok:
+                             bot.send_message(cid, f"🏁 **PILOT CLOSE:** {res_msg}", parse_mode='Markdown')
+
                 elif mode == 'COPILOT':
                     markup = InlineKeyboardMarkup()
                     if action_needed == 'OPEN_LONG':
                         markup.add(
                             InlineKeyboardButton("✅ Entrar (Quantum)", callback_data=f"BUY|{asset}|LONG"),
                             InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|LONG")
+                        )
+                    elif action_needed == 'OPEN_SHORT':
+                         markup.add(
+                            InlineKeyboardButton("✅ Entrar Short (Quantum)", callback_data=f"BUY|{asset}|SHORT"),
+                            InlineKeyboardButton("❌ Ignorar", callback_data=f"IGNORE|{asset}|SHORT")
                         )
                     elif action_needed == 'CLOSE':
                         markup.add(
@@ -1933,19 +1992,6 @@ def handle_query(call):
                 
                 markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
                 markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
-                markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
-                markup.add(InlineKeyboardButton(f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK"))
-                
-                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
-            except Exception as e:
-                print(f"Error in TOGGLE: {e}")
-                bot.answer_callback_query(call.id, "❌ Error al cambiar.")
-            return
-        # --- GROUP TOGGLES ---
-        if cmd == "TOGGLEGRP":
-            try:
-                group = parts[1]
-                if group in GROUP_CONFIG:
                     GROUP_CONFIG[group] = not GROUP_CONFIG[group]
                     state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
                     bot.answer_callback_query(call.id, f"{group}: {'✅' if GROUP_CONFIG[group] else '❌'}")
@@ -2010,8 +2056,12 @@ def handle_query(call):
                      ok, msg = session.execute_spot_buy(asset)
                 else:
                      msg = f"Tipo de orden desconocido: {side}"
-                    
-                bot.send_message(chat_id, f"RESULTADO: {msg}", parse_mode='Markdown')
+                
+                final_text = msg
+                if isinstance(msg, dict):
+                    final_text = msg.get("msg", str(msg))
+
+                bot.send_message(chat_id, f"RESULTADO: {final_text}", parse_mode='Markdown')
             except Exception as e:
                  bot.send_message(chat_id, f"❌ Error ejecutando orden: {e}")
 
@@ -2170,7 +2220,60 @@ def handle_personality(message):
 # --- STRATEGY TOGGLE COMMAND ---
 from antigravity_quantum.config import ENABLED_STRATEGIES
 
+@threaded_handler
+@bot.message_handler(commands=['about'])
+def handle_about(message):
+    try:
+        chat_id = str(message.chat.id)
+        session = session_manager.get_session(chat_id)
+        p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+        msg = personality_manager.get_message(p_key, 'ABOUT_MSG')
+        bot.reply_to(message, msg, parse_mode='Markdown')
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
+@threaded_handler
+@bot.message_handler(commands=['strategy'])
+def handle_strategy(message):
+    try:
+        chat_id = str(message.chat.id)
+        session = session_manager.get_session(chat_id)
+        p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+        msg = personality_manager.get_message(p_key, 'STRATEGY_MSG')
+        bot.reply_to(message, msg, parse_mode='Markdown')
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@threaded_handler
+@bot.message_handler(commands=['risk'])
+def handle_risk(message):
+    try:
+        chat_id = str(message.chat.id)
+        session = session_manager.get_session(chat_id)
+        p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+        
+        sl_fixed = session.config.get('sl_fixed_pct', 0.05) if session else 0.05
+        margin = session.config.get('max_capital_pct', 0.1) if session else 0.1
+        
+        sl_txt = f"{sl_fixed*100:.1f}%"
+        margin_txt = f"{margin*100:.0f}%"
+
+        msg = personality_manager.get_message(p_key, 'RISK_MSG', sl_fixed=sl_txt, margin=margin_txt)
+        bot.reply_to(message, msg, parse_mode='Markdown')
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@threaded_handler
+@bot.message_handler(commands=['strategies'])
+def handle_strategies(message):
+    try:
+        markup = InlineKeyboardMarkup()
+        for strat, enabled in ENABLED_STRATEGIES.items():
+            state = "✅" if enabled else "❌"
+            markup.add(InlineKeyboardButton(f"{state} {strat}", callback_data=f"TOGGLESTRAT|{strat}"))
+        bot.reply_to(message, "⚙️ **MOTORES DE ESTRATEGIA**\nActiva o desactiva módulos lógicos:", reply_markup=markup, parse_mode='Markdown')
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 # --- AI ANALYST COMMAND ---
 @threaded_handler
