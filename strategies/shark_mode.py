@@ -11,16 +11,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - [SHARK] - %(messag
 logger = logging.getLogger("SharkMode")
 
 class SharkSentinel(threading.Thread):
-    def __init__(self, session_manager, notify_callback, crash_threshold_pct=3.0, window_seconds=60):
+    def __init__(self, session_manager, notify_callback, enabled_check_callback=None, crash_threshold_pct=3.0, window_seconds=60):
         """
         :param session_manager: Instance of SessionManager to access all active sessions.
         :param notify_callback: Function(msg) to send Telegram alerts.
+        :param enabled_check_callback: Function() -> bool. If False, sentinel is dormant.
         :param crash_threshold_pct: Percentage drop (positive float) to trigger Shark Mode (e.g. 3.0 for 3%).
         :param window_seconds: Rolling window size in seconds (O(1) memory check).
         """
         super().__init__()
         self.session_manager = session_manager
         self.notify_callback = notify_callback
+        self.enabled_check_callback = enabled_check_callback
         self.threshold = crash_threshold_pct
         self.window_seconds = window_seconds
         
@@ -131,6 +133,11 @@ class SharkSentinel(threading.Thread):
         
         while self.running:
             try:
+                # 0. Check Toggle
+                if self.enabled_check_callback and not self.enabled_check_callback():
+                    time.sleep(5)
+                    continue
+
                 now = time.time()
                 price = self.fetch_btc_price_raw()
                 
