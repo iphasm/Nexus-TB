@@ -25,6 +25,13 @@ personality_manager = PersonalityManager()
 state_manager = SystemStateManager()
 quantum_analyst = QuantumAnalyst() # NEW Init AI
 
+# Initialize PostgreSQL Database (if available)
+try:
+    from utils.db import init_db
+    init_db()
+except Exception as e:
+    print(f"⚠️ DB Init skipped: {e}")
+
 # Cargar variables de entorno
 load_dotenv()
 

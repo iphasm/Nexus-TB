@@ -13,7 +13,9 @@ class SystemStateManager:
             "enabled_strategies": {
                 "SCALPING": False,
                 "GRID": False,
-                "MEAN_REVERSION": True
+                "MEAN_REVERSION": True,
+                "BLACK_SWAN": True,
+                "SHARK": False
             },
             "group_config": {
                 "CRYPTO": True,
@@ -30,7 +32,23 @@ class SystemStateManager:
         }
 
     def load_state(self) -> Dict[str, Any]:
-        """Loads state from JSON file, returning defaults if file missing or corrupt."""
+        """Loads state from PostgreSQL first, then JSON fallback."""
+        # Try PostgreSQL first
+        try:
+            from utils.db import load_bot_state
+            db_state = load_bot_state()
+            if db_state is not None:
+                merged = self.default_state.copy()
+                for key, val in db_state.items():
+                    if isinstance(val, dict) and key in merged:
+                        merged[key].update(val)
+                    else:
+                        merged[key] = val
+                return merged
+        except Exception as e:
+            print(f"⚠️ PostgreSQL state load failed: {e}")
+        
+        # JSON Fallback
         if not os.path.exists(self.state_file):
             print(f"⚠️ State file '{self.state_file}' not found. Using defaults.")
             return self.default_state.copy()
@@ -38,10 +56,8 @@ class SystemStateManager:
         try:
             with open(self.state_file, 'r', encoding='utf-8') as f:
                 state = json.load(f)
-                # Merge with defaults to ensure all keys exist (migrations)
                 merged_state = self.default_state.copy()
                 
-                # Deep merge for dictionaries
                 for key, val in state.items():
                     if isinstance(val, dict) and key in merged_state:
                          merged_state[key].update(val)
@@ -55,29 +71,33 @@ class SystemStateManager:
             return self.default_state.copy()
 
     def save_state(self, enabled_strategies: Dict, group_config: Dict, disabled_assets: set, session: Any = None):
-        """Saves current runtime state to JSON."""
-        
-        # Extract session config if a session object is provided (assuming single session for now or taking first found)
-        # In a multi-user scenario, this would need to save per-chat-id configs.
-        # For this bot, we often treat the main chat as the primary session.
+        """Saves current runtime state to PostgreSQL first, then JSON fallback."""
         
         session_cfg = self.default_state["session_config"]
         if session and session.config:
             session_cfg = session.config.copy()
-            # Ensure mode is saved if it exists in config, otherwise default to WATCHER
             if 'mode' not in session_cfg:
                 session_cfg['mode'] = 'WATCHER'
 
+        # Try PostgreSQL first
+        try:
+            from utils.db import save_bot_state
+            if save_bot_state(enabled_strategies, group_config, disabled_assets):
+                return  # Success
+        except Exception as e:
+            print(f"⚠️ PostgreSQL state save failed: {e}")
+
+        # JSON Fallback
         state = {
             "enabled_strategies": enabled_strategies,
             "group_config": group_config,
-            "disabled_assets": list(disabled_assets), # Convert set to list for JSON
+            "disabled_assets": list(disabled_assets),
             "session_config": session_cfg
         }
 
         try:
             with open(self.state_file, 'w', encoding='utf-8') as f:
                 json.dump(state, f, indent=4)
-            # print("💾 State saved.") # Optional: Too verbose for every click
         except Exception as e:
             print(f"❌ Error saving state: {e}")
+

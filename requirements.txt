@@ -1,8 +1,6 @@
 ccxt
 yfinance
 pandas
-# pandas_ta # Incompatible with Python 3.14
-python-dotenv
 python-dotenv
 requests
 pycoingecko
@@ -13,3 +11,4 @@ PySocks
 pycares>=4.0.0
 aiodns<3.2.0
 openai
+psycopg2-binary

@@ -1199,8 +1199,24 @@ class SessionManager:
             print("✅ Admin Session Auto-Configured from Environment.")
 
     def _load_sessions(self):
+        # Try PostgreSQL first
+        try:
+            from utils.db import load_all_sessions
+            db_sessions = load_all_sessions()
+            if db_sessions is not None:
+                for chat_id, s_data in db_sessions.items():
+                    self.sessions[chat_id] = TradingSession(
+                        chat_id=chat_id,
+                        api_key=s_data.get('api_key'),
+                        api_secret=s_data.get('api_secret'),
+                        config=s_data.get('config')
+                    )
+                return
+        except Exception as e:
+            print(f"⚠️ PostgreSQL load failed, using JSON: {e}")
+        
+        # JSON Fallback
         if not os.path.exists(self.data_file):
-            # Create data dir if not exists
             os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
             with open(self.data_file, 'w') as f:
                 json.dump({}, f)
@@ -1216,7 +1232,7 @@ class SessionManager:
                         api_secret=s_data.get('api_secret'),
                         config=s_data.get('config')
                     )
-            print(f"📚 Loaded {len(self.sessions)} trading sessions.")
+            print(f"📚 Loaded {len(self.sessions)} sessions from JSON.")
         except Exception as e:
             print(f"❌ Failed to load sessions: {e}")
 
@@ -1229,11 +1245,21 @@ class SessionManager:
                 "config": session.config
             }
         
+        # Try PostgreSQL first
+        try:
+            from utils.db import save_all_sessions
+            if save_all_sessions(data):
+                return  # Success
+        except Exception as e:
+            print(f"⚠️ PostgreSQL save failed, using JSON: {e}")
+        
+        # JSON Fallback
         try:
             with open(self.data_file, 'w') as f:
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"❌ Failed to save sessions: {e}")
+
 
     def get_session(self, chat_id):
         return self.sessions.get(str(chat_id))
