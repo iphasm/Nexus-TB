@@ -612,6 +612,20 @@ def handle_config(message):
     
     bot.reply_to(message, "⚙️ **PANEL DE CONTROL**\nSelecciona qué deseas ajustar:", reply_markup=markup, parse_mode='Markdown')
 
+@bot.message_handler(commands=['strategies'])
+def handle_strategies(message):
+    """Selector Interactivo de Estrategias"""
+    markup = InlineKeyboardMarkup()
+    s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
+    g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
+    m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
+    
+    markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
+    markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
+    markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
+    
+    bot.reply_to(message, "🎛️ **CONFIGURACIÓN DE ESTRATEGIAS**\nActiva/Desactiva módulos de trading:", reply_markup=markup, parse_mode='Markdown')
+
 @bot.message_handler(commands=['togglegroup'])
 def handle_toggle_group(message):
     """Selector Interactivo de Grupos"""
