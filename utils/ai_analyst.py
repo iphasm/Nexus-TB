@@ -23,12 +23,6 @@ class QuantumAnalyst:
     def analyze_signal(self, symbol, timeframe, indicators, personality="Standard"):
         """
         Generates a narrative analysis of the market situation.
-        
-        :param symbol: Ticker (e.g. BTCUSDT)
-        :param timeframe: Timeframe (e.g. 15m)
-        :param indicators: Dictionary of values (RSI, PRICE, BOLLINGER_GAP)
-        :param personality: String name of the persona to adopt
-        :return: String explanation from the AI.
         """
         if not self.client:
             return "⚠️ IA Desconectada. Configura OPENAI_API_KEY."
@@ -61,3 +55,147 @@ class QuantumAnalyst:
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"❌ Error de Análisis: {str(e)}"
+
+    def check_market_sentiment(self, symbol):
+        """
+        Fetches recent news via yfinance and analyzes sentiment (-1 to 1).
+        *Includes 'The Trump Factor': Checks DJT news and specific keywords.*
+        *Includes 'Macro Shield': Checks S&P 500 for FED/CPI events.*
+        
+        :param symbol: Ticker (e.g. 'BTCUSDT' or 'TSLA')
+        :return: dict {'score': float, 'reason': str, 'volatility_risk': str}
+        """
+        if not self.client:
+            return {'score': 0, 'reason': "AI Disconnected", 'volatility_risk': "LOW"}
+
+        import yfinance as yf
+        import json
+
+        # 1. Normalize Symbol for News Check
+        search_ticker = symbol
+        if "USDT" in symbol:
+            coin = symbol.replace("USDT", "")
+            search_ticker = f"{coin}-USD"
+        
+        try:
+            # 2. Fetch News (Asset + Proxies)
+            yf_ticker = yf.Ticker(search_ticker)
+            asset_news = yf_ticker.news or []
+            asset_headlines = [n.get('title', '') for n in asset_news[:5]]
+            
+            # 3. TRUMP FACTOR & MACRO SHIELD
+            # DJT: Political Proxy
+            # ^GSPC (S&P 500): Macro Economic Proxy (FED, Rates, CPI)
+            trump_ticker = yf.Ticker("DJT")
+            sp500_ticker = yf.Ticker("^GSPC")
+            
+            trump_news = trump_ticker.news or []
+            macro_news = sp500_ticker.news or []
+            
+            trump_headlines = [n.get('title', '') for n in trump_news[:2]]
+            macro_headlines = [n.get('title', '') for n in macro_news[:3]]
+            
+            # Combine Context
+            full_context = "--- ASSET NEWS ---\n" + "\n".join(asset_headlines)
+            full_context += "\n\n--- POLITICAL (DJT) ---\n" + "\n".join(trump_headlines)
+            full_context += "\n\n--- MACRO (S&P 500) ---\n" + "\n".join(macro_headlines)
+
+            if not asset_headlines and not trump_headlines and not macro_headlines:
+                return {'score': 0, 'reason': "No recent news found.", 'volatility_risk': "LOW"}
+            
+            # 4. Analyze with GPT (Trump + Fed Aware)
+            prompt = f"""
+            Analyze market sentiment for: {symbol}.
+            
+            Context Data:
+            {full_context}
+            
+            check 1: "THE TRUMP FACTOR"
+            - Keywords: "Trump", "Election", "Regulations", "Tariff", "Trade War".
+            - Tariff/Trade War = Negative for Risk Assets (usually).
+            - Deregulation/Pro-Crypto = Positive.
+            
+            check 2: "MACRO SHIELD" (FED/ECONOMY)
+            - Keywords: "FOMC", "Powell", "Fed", "CPI", "Inflation", "Rate Hike", "Job Data", "NFP".
+            - If these are TODAY or IMMINENT, risk is EXTREME.
+            
+            Task: Return JSON {{ "score": float, "reason": "string", "volatility_risk": "LOW" | "HIGH" | "EXTREME" }}.
+            - "score": -1.0 to 1.0.
+            - "reason": Max 10 words (Spanish). Mention Fed/Trump if relevant.
+            - "volatility_risk": 
+                - "EXTREME" if FOMC/CPI/Powell/War is happening NOW or TODAY.
+                - "HIGH" if Trump Tariffs or uncertain political noise.
+                - "LOW" otherwise.
+            """
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a hedge fund risk manager. Detect Fed Events and Political Volatility. Output JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}, 
+                max_tokens=150
+            )
+            
+            content = response.choices[0].message.content.strip()
+            result = json.loads(content)
+            return result
+            
+        except Exception as e:
+            print(f"Sentiment Error: {e}")
+            return {'score': 0, 'reason': "Error analysis", 'volatility_risk': "LOW"}
+
+    def generate_market_briefing(self):
+        """
+        Fetches headlines for major tickers (Crypto, Macro, Politics)
+        and generates a concise newsletter-style briefing.
+        """
+        if not self.client:
+            return "⚠️ IA Desconectada. No puedo generar noticias."
+
+        import yfinance as yf
+        
+        tickers = ['BTC-USD', 'ETH-USD', '^GSPC', 'DJT']
+        all_headlines = []
+        
+        for t in tickers:
+            try:
+                tick = yf.Ticker(t)
+                news = tick.news or []
+                for n in news[:2]: # Top 2 per asset
+                    title = n.get('title', '')
+                    all_headlines.append(f"- [{t}] {title}")
+            except:
+                continue
+                
+        if not all_headlines:
+            return "❌ No pude obtener noticias recientes."
+            
+        context = "\n".join(all_headlines)
+        
+        prompt = f"""
+        Act as a Crypto News Anchor.
+        Summarize these headlines into a high-impact briefing:
+        
+        {context}
+        
+        Structure:
+        1. 🌍 **Macro/Politica:** (Trump/Fed/Stocks)
+        2. 💎 **Crypto:** (Bitcoin/Ethereum)
+        3. 🎯 **Conclusión:** Bullish or Bearish?
+        
+        Language: Spanish.
+        Tone: Professional but urgent.
+        Max Length: 100 words.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=250
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"❌ Error generando briefing: {e}"

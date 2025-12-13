@@ -1391,6 +1391,11 @@ def send_welcome(message):
         "• /copilot - Asistido.\n"
         "• /watcher - Manual.\n\n"
         
+        "🧠 *AI & SENTIMIENTO*\n"
+        "• /news - Boletín de Mercado (IA).\n"
+        "• /sentiment - Radar de Sentimiento.\n"
+        "• /sniper - Escáner de Oportunidades.\n\n"
+        
         "🔧 *OTROS*\n"
         "• /personality - Cambiar la personalidad.\n"
         "• /togglegroup <GRUPO> - Filtros."
@@ -1399,6 +1404,128 @@ def send_welcome(message):
         bot.reply_to(message, help_text, parse_mode='Markdown')
     except Exception as e:
         bot.reply_to(message, help_text.replace('*', '').replace('`', ''))
+
+# --- SPECIAL COMMANDS ---
+
+@threaded_handler
+@bot.message_handler(commands=['news'])
+def handle_news(message):
+    """ /news : Resumen de noticias (AI) """
+    sent = bot.reply_to(message, "🗞️ *Leyendo las noticias...* (Consultando Bloomberg/Reuters via AI)", parse_mode='Markdown')
+    try:
+        report = quantum_analyst.generate_market_briefing()
+        bot.edit_message_text(f"📰 **BOLETÍN DE MERCADO**\n\n{report}", chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
+    except Exception as e:
+        bot.edit_message_text(f"❌ Error: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
+
+@threaded_handler
+@bot.message_handler(commands=['sentiment'])
+def handle_sentiment(message):
+    """ /sentiment : Análisis de Sentimiento Global """
+    sent = bot.reply_to(message, "🧠 *Escaneando Redes y Noticias...*", parse_mode='Markdown')
+    try:
+        # Check BTC (Crypto Proxy) & SP500 (Macro Proxy)
+        res_btc = quantum_analyst.check_market_sentiment('BTCUSDT')
+        res_macro = quantum_analyst.check_market_sentiment('^GSPC') # S&P 500
+        
+        score_btc = res_btc.get('score', 0)
+        score_macro = res_macro.get('score', 0)
+        
+        # Interpret
+        def interpret(s):
+            if s > 0.3: return "🟢 BULLISH"
+            if s < -0.3: return "🔴 BEARISH"
+            return "⚪ NEUTRAL"
+            
+        msg = (
+            "🧠 **SENTIMIENTO GLOBAL DEL MERCADO**\n"
+            "-----------------------------------\n"
+            f"💎 **Cripto (BTC):** {score_btc:.2f} | {interpret(score_btc)}\n"
+            f"_{res_btc.get('reason', 'N/A')}_\n\n"
+            f"🌍 **Macro (S&P500):** {score_macro:.2f} | {interpret(score_macro)}\n"
+            f"_{res_macro.get('reason', 'N/A')}_\n\n"
+            f"⚠️ **Riesgo Volatilidad:** `{res_macro.get('volatility_risk', 'LOW')}`"
+        )
+        bot.edit_message_text(msg, chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
+        
+    except Exception as e:
+         bot.edit_message_text(f"❌ Error: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
+
+@threaded_handler
+@bot.message_handler(commands=['sniper'])
+def handle_sniper(message):
+    """ /sniper : Busca oportunidad instantánea """
+    sent = bot.reply_to(message, "🎯 **SNIPER MODE ACTIVADO**\n👁️ Escaneando 5 activos principales...", parse_mode='Markdown')
+    
+    targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT']
+    best_candidate = None
+    best_score = -999
+    
+    try:
+        for asset in targets:
+            # 1. Tech Analysis
+            df = get_market_data(asset, timeframe='15m', limit=100)
+            if df.empty: continue
+            
+            engine = StrategyEngine(df)
+            res = engine.analyze()
+            
+            # Score Technicals (Simple weight)
+            tech_score = 0
+            sig = res['signal_futures']
+            if sig == 'BUY': tech_score = 1
+            elif sig == 'SHORT': tech_score = -1
+            else: continue # Skip Neutral
+            
+            # 2. AI Confirmation
+            sentiment = quantum_analyst.check_market_sentiment(asset)
+            sent_score = sentiment.get('score', 0)
+            
+            # Congruence Check
+            total_score = 0
+            if sig == 'BUY' and sent_score > 0.2:
+                total_score = 1 + sent_score
+            elif sig == 'SHORT' and sent_score < -0.2:
+                total_score = 1 + abs(sent_score)
+            
+            if total_score > best_score:
+                best_score = total_score
+                best_candidate = {
+                    'asset': asset,
+                    'signal': sig,
+                    'price': res['metrics']['close'],
+                    'reason_tech': res['reason_futures'],
+                    'reason_ai': sentiment.get('reason', 'N/A'),
+                    'vol_risk': sentiment.get('volatility_risk', 'LOW')
+                }
+        
+        # Report
+        if best_candidate and best_score > 0:
+            c = best_candidate
+            icon = "🚀" if c['signal'] == 'BUY' else "🩸"
+            
+            msg = (
+                f"🎯 **BLANCO ENCONTRADO: {c['asset']}**\n"
+                f"{icon} Señal: **{c['signal']}** @ ${c['price']:,.2f}\n\n"
+                f"📊 **Técnico:** {c['reason_tech']}\n"
+                f"🧠 **AI:** {c['reason_ai']}\n"
+                f"⚠️ Riesgo: {c['vol_risk']}\n\n"
+                f"👇 *Ejecutar Ahora:*"
+            )
+            
+            # Action Button
+            mk = InlineKeyboardMarkup()
+            cmd = "long" if c['signal'] == 'BUY' else "short"
+            mk.add(InlineKeyboardButton(f"⚡ {c['signal']} {c['asset']}", callback_data=f"CMD|/{cmd} {c['asset']}"))
+            
+            bot.delete_message(sent.chat.id, sent.message_id)
+            bot.send_message(sent.chat.id, msg, reply_markup=mk, parse_mode='Markdown')
+            
+        else:
+             bot.edit_message_text("🤷‍♂️ **Sin blancos claros.**\nEl mercado está mixto o sin fuerza. Recomiendo esperar.", chat_id=sent.chat.id, message_id=sent.message_id, parse_mode='Markdown')
+
+    except Exception as e:
+        bot.edit_message_text(f"❌ Error Sniper: {e}", chat_id=sent.chat.id, message_id=sent.message_id)
 
 @threaded_handler
 @bot.message_handler(commands=['start'])
@@ -1460,6 +1587,12 @@ def handle_start(message):
         InlineKeyboardButton("🦅 Pilot", callback_data="CMD|/pilot"),
         InlineKeyboardButton("🤝 Copilot", callback_data="CMD|/copilot"),
         InlineKeyboardButton("👀 Watcher", callback_data="CMD|/watcher")
+    )
+    # Row 2.5: AI Special Commands
+    markup.add(
+        InlineKeyboardButton("📰 News", callback_data="CMD|/news"),
+        InlineKeyboardButton("🧠 Sentiment", callback_data="CMD|/sentiment"),
+        InlineKeyboardButton("🎯 Sniper", callback_data="CMD|/sniper")
     )
     # Row 3: Config / Personality
     markup.add(
@@ -1800,18 +1933,6 @@ def handle_strategies(message):
     # 2. GRID TOGGLE
     grid_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
     markup.add(InlineKeyboardButton(f"🕸️ Grid: {grid_state}", callback_data="TOGGLE|GRID"))
-    
-    # 3. MEAN REVERSION TOGGLE
-    mean_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
-    markup.add(InlineKeyboardButton(f"📉 Mean Rev: {mean_state}", callback_data="TOGGLE|MEAN_REVERSION"))
-    
-    info_text = (
-        "⚙️ **CONFIGURACIÓN DE ESTRATEGIAS (QUANTUM)**\n\n"
-        "Controla qué motores están activos en el análisis de mercado:\n\n"
-        "⚡ **Scalping (High Vol)**: Opera rupturas en ZEC, SOL, SUI. (Alto Riesgo)\n"
-        "🕸️ **Grid (Accumulation)**: Opera rangos en ADA, ZEC. (Medio Riesgo)\n"
-        "📉 **Mean Reversion**: Activo por defecto en el resto. (Bajo Riesgo)"
-    )
     
     bot.send_message(cid, info_text, reply_markup=markup, parse_mode='Markdown')
 

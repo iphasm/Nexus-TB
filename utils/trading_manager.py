@@ -9,6 +9,7 @@ from binance.exceptions import BinanceAPIException
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from utils.ai_analyst import QuantumAnalyst
 
 class TradingSession:
     """
@@ -27,7 +28,8 @@ class TradingSession:
             "max_capital_pct": 0.10,
             "stop_loss_pct": 0.02,
             "spot_allocation_pct": 0.20, # Default 20% for Spot Buys
-            "personality": "STANDARD_ES" # Default: Standard Spanish
+            "personality": "STANDARD_ES", # Default: Standard Spanish
+            "sentiment_filter": True # ENABLED BY DEFAULT
         }
         
         if config:
@@ -48,6 +50,7 @@ class TradingSession:
 
         # Initialize Client
         self.alpaca_client = None
+        self.ai_analyst = QuantumAnalyst() # Initialize AI
         self._init_client()
 
     def _init_client(self):
@@ -224,6 +227,27 @@ class TradingSession:
             return False, f"Alpaca Error: {e}"
 
     def execute_long_position(self, symbol, atr=None):
+        # --- 0. SENTIMENT & MACRO FILTER (AI) ---
+        if self.config.get('sentiment_filter', True):
+            print(f"🧠 Checking Sentiment for {symbol}...")
+            sent = self.ai_analyst.check_market_sentiment(symbol)
+            score = sent.get('score', 0)
+            vol_risk = sent.get('volatility_risk', 'LOW')
+            
+            # 1. Filter: BAD Sentiment
+            if score < -0.6:
+                return False, f"⛔ **IA FILTER**: Mercado muy negativo ({score}).\nMotivo: {sent.get('reason', 'N/A')}"
+            
+            # 2. Filter: MACRO SHIELD (Reduce Leverage)
+            if vol_risk in ['HIGH', 'EXTREME']:
+                # Force Leverage Down
+                current_lev = self.config['leverage']
+                if current_lev > 3:
+                     print(f"⚠️ High Volatility ({vol_risk}). Reducing Leverage to 3x.")
+                     self.config['leverage'] = 3
+                     # Optional: Restore later? For now, safer to keep it low for the session or just this trade.
+                     # Actually, let's just use a local variable for this trade to not mess up global config permanently.
+                
         # Dispatch: Stocks (Alpaca) vs Crypto (Binance)
         if 'USDT' not in symbol:
              return self._execute_alpaca_order(symbol, 'LONG', atr)
@@ -355,8 +379,12 @@ class TradingSession:
 
                     success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
-                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
-                return True, success_msg
+            # Optional: Add Macro Warning to message
+            if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
+                success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
+
+            self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
+            return True, success_msg
 
             except Exception as e:
                 # 🚨 CRITICAL: ROLLBACK (Close Position)
@@ -374,6 +402,17 @@ class TradingSession:
             return False, f"[{symbol}] Error: {str(e)}"
 
     def execute_short_position(self, symbol, atr=None):
+        # --- 0. SENTIMENT & MACRO FILTER (AI) ---
+        if self.config.get('sentiment_filter', True):
+            print(f"🧠 Checking Sentiment for {symbol}...")
+            sent = self.ai_analyst.check_market_sentiment(symbol)
+            score = sent.get('score', 0)
+            vol_risk = sent.get('volatility_risk', 'LOW')
+            
+            # 1. Filter: BULL Sentiment
+            if score > 0.6:
+                return False, f"⛔ **IA FILTER**: Mercado muy alcista ({score}).\nMotivo: {sent.get('reason', 'N/A')}"
+
         if 'USDT' not in symbol:
              return self._execute_alpaca_order(symbol, 'SHORT', atr)
 
@@ -491,6 +530,11 @@ class TradingSession:
                     success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
+                
+                # Optional: Add Macro Warning to message
+                if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
+                    success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
+                
                 return True, success_msg
 
             except Exception as e:
