@@ -805,23 +805,33 @@ class TradingSession:
             
             details['spot_usdt'] = spot_usdt
 
-            # 3. EARN (Flexible + Locked)
+            # 3. EARN (Robust Fetch - Flexible + Locked)
             earn_usdt = 0.0
             try:
-                # Flexible
-                flex_pos = self.client.get_simple_earn_flexible_position()
-                for p in flex_pos:
-                     if 'USDT' in p['asset']: # Matches USDT, LDUSDT etc
-                         earn_usdt += float(p['totalAmount'])
+                # Flexible (Uses 'totalAmount')
+                try:
+                    flex_pos = self.client.get_simple_earn_flexible_position(limit=100)
+                    if flex_pos and isinstance(flex_pos, list):
+                        for p in flex_pos:
+                             asset = p.get('asset', '')
+                             if 'USDT' in asset:
+                                 earn_usdt += float(p.get('totalAmount', 0))
+                except Exception as e_flex:
+                    print(f"Warn: Flex Earn Error: {e_flex}")
                 
-                # Locked
-                locked_pos = self.client.get_simple_earn_locked_position()
-                for p in locked_pos:
-                     if 'USDT' in p['asset']:
-                         earn_usdt += float(p['amount']) # 'amount' usually for locked
+                # Locked (Uses 'amount')
+                try:
+                    locked_pos = self.client.get_simple_earn_locked_position(limit=100)
+                    if locked_pos and isinstance(locked_pos, list):
+                        for p in locked_pos:
+                             asset = p.get('asset', '')
+                             if 'USDT' in asset:
+                                 earn_usdt += float(p.get('amount', 0))
+                except Exception as e_lock:
+                    print(f"Warn: Locked Earn Error: {e_lock}")
                          
             except Exception as e: 
-                print(f"Earn fetch error: {e}")
+                print(f"Earn fetch critical error: {e}")
             
             details['earn_usdt'] = earn_usdt
             
