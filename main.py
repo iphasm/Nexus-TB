@@ -1965,38 +1965,63 @@ def handle_query(call):
         # --- STRATEGY TOGGLES ---
         if cmd == "TOGGLE":
             try:
-                strat = parts[1] # SCALPING, GRID, SHARK
-                
-                # Special Handle for SHARK
+                strat = parts[1]
                 if strat == "SHARK":
                     curr = ENABLED_STRATEGIES.get('SHARK', True)
                     ENABLED_STRATEGIES['SHARK'] = not curr
                     msg_st = "🦈 SHARK MODE ACTIVADO" if ENABLED_STRATEGIES['SHARK'] else "😴 SHARK MODE DORMIDO"
                     bot.answer_callback_query(call.id, msg_st)
                 else: 
-                    # Standard Strategies
                     current = ENABLED_STRATEGIES.get(strat, False)
-                    ENABLED_STRATEGIES[strat] = not current # Flip
-                    
+                    ENABLED_STRATEGIES[strat] = not current
                     new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strat] else "❌ DESACTIVADO"
                     bot.answer_callback_query(call.id, f"{strat} ahora: {new_state}")
                 
-                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
+                state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
                 
-                # Re-render menu
                 markup = InlineKeyboardMarkup()
-                s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['SCALPING'] else "❌ DESACTIVADO"
-                g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES['GRID'] else "❌ DESACTIVADO"
+                s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SCALPING', False) else "❌ DESACTIVADO"
+                g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('GRID', False) else "❌ DESACTIVADO"
                 m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
                 sh_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SHARK', True) else "❌ DESACTIVADO"
                 
                 markup.add(InlineKeyboardButton(f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"))
                 markup.add(InlineKeyboardButton(f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID"))
+                markup.add(InlineKeyboardButton(f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION"))
+                markup.add(InlineKeyboardButton(f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK"))
+                
+                bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Error in TOGGLE: {e}")
+                bot.answer_callback_query(call.id, "❌ Error al cambiar.")
+            return
+
+        if cmd == "TOGGLESTRAT":
+            try:
+                strat = parts[1]
+                if strat in ENABLED_STRATEGIES:
+                    ENABLED_STRATEGIES[strat] = not ENABLED_STRATEGIES[strat]
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
+                    bot.answer_callback_query(call.id, f"{strat}: {'✅' if ENABLED_STRATEGIES[strat] else '❌'}")
+                    
+                    markup = InlineKeyboardMarkup()
+                    for s, enabled in ENABLED_STRATEGIES.items():
+                        state = "✅" if enabled else "❌"
+                        markup.add(InlineKeyboardButton(f"{state} {s}", callback_data=f"TOGGLESTRAT|{s}"))
+                    bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Error in TOGGLESTRAT: {e}")
+                bot.answer_callback_query(call.id, "❌ Error.")
+            return
+
+        if cmd == "TOGGLEGRP":
+            try:
+                group = parts[1]
+                if group in GROUP_CONFIG:
                     GROUP_CONFIG[group] = not GROUP_CONFIG[group]
-                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session) # SAVE
+                    state_manager.save_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, session)
                     bot.answer_callback_query(call.id, f"{group}: {'✅' if GROUP_CONFIG[group] else '❌'}")
                     
-                    # Re-render
                     markup = InlineKeyboardMarkup()
                     for g, enabled in GROUP_CONFIG.items():
                         state = "✅" if enabled else "❌"
