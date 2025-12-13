@@ -112,32 +112,7 @@ def threaded_handler(func):
         thread.start()
     return wrapper
 
-def resolve_symbol(text):
-    """Limpia y estandariza el símbolo (input). Agrega 'USDT' automáticamente."""
-    # FIX: Remove common separators
-    s = text.strip().upper().replace('/', '').replace('-', '').replace('_', '')
-    
-    # 1. Exact Match Check (Groups or Map keys)
-    known_assets = []
-    for g in ASSET_GROUPS.values():
-        known_assets.extend(g)
-    
-    if s in known_assets or s in TICKER_MAP:
-        return s
-        
-    # 2. Reverse Lookup (Name -> Ticker)
-    # Checks if input matches a friendly name in TICKER_MAP (e.g. "TESLA" -> "TSLA")
-    for ticker, name in TICKER_MAP.items():
-        if s == name.upper():
-            return ticker
-            
-    # 3. Try Appending USDT (Common Crypto case)
-    # If user types "BTC", checking "BTCUSDT"
-    s_usdt = s + "USDT"
-    if s_usdt in ASSET_GROUPS.get('CRYPTO', []) or s_usdt in TICKER_MAP:
-        return s_usdt
-        
-    return s
+
 
 def process_asset(asset):
     """
