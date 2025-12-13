@@ -1534,38 +1534,59 @@ def dispatch_quantum_signal(signal):
 @bot.message_handler(commands=['help'])
 def send_welcome(message):
     help_text = (
-        "🤖 *ANTIGRAVITY BOT v3.3.2-HOTFIX (DEFAULTS ON)*\n"
-        "〰️〰️〰️〰️〰️〰️\n\n"
-        "ℹ️ *INFO & MERCADO*\n"
-        "• /price - Panel de Precios y Señales.\n"
-        "• /about - Sobre el sistema.\n"
-        "• /strategy - Lógica de trading.\n"
-        "• /risk - Gestión de riesgo.\n\n"
+        "🤖 *ANTIGRAVITY BOT v3.4*\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
         
-        "⚙️ *SISTEMA*\n"
-        "• /status - Estado y Configuración.\n"
-        "• /strategies - Motores y Estrategias.\n"
-        "• /config - Panel de Ajustes.\n\n"
+        "📊 *INFO & MERCADO*\n"
+        "• /start - Menú principal\n"
+        "• /price - Precios y señales\n"
+        "• /status - Estado del sistema\n"
+        "• /wallet - Ver cartera\n"
+        "• /analyze `<SYM>` - Análisis IA\n\n"
+        
+        "💹 *TRADING MANUAL*\n"
+        "• /long `<SYM>` - Abrir LONG\n"
+        "• /short `<SYM>` - Abrir SHORT\n"
+        "• /buy `<SYM>` - Compra SPOT\n"
+        "• /sell `<SYM>` - Cerrar/Flip\n"
+        "• /close `<SYM>` - Cerrar posición\n"
+        "• /closeall - Cerrar TODO\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
-        "• /pilot - Auto.\n"
-        "• /copilot - Asistido.\n"
-        "• /watcher - Manual.\n\n"
+        "• /pilot - Automático\n"
+        "• /copilot - Asistido\n"
+        "• /watcher - Solo alertas\n"
+        "• /mode `<PRESET>` - Ronin/Guardian/Quantum\n\n"
+        
+        "⚙️ *CONFIGURACIÓN*\n"
+        "• /config - Panel de ajustes\n"
+        "• /strategies - Motores activos\n"
+        "• /set\\_leverage - Apalancamiento\n"
+        "• /set\\_margin - Margen máximo\n"
+        "• /set\\_keys - API Keys\n"
+        "• /togglegroup - Filtrar grupos\n"
+        "• /assets - Blacklist activos\n"
+        "• /personality - Cambiar voz\n\n"
         
         "🧠 *AI & SENTIMIENTO*\n"
-        "• /news - Boletín de Mercado (IA).\n"
-        "• /sentiment - Radar de Sentimiento.\n"
-        "• /sniper - Escáner de Oportunidades.\n"
-        "• /fomc - Análisis de Política Monetaria (FED).\n\n"
+        "• /news - Boletín IA\n"
+        "• /sentiment - Radar global\n"
+        "• /sniper - Oportunidades\n"
+        "• /fomc - Análisis FED\n\n"
         
-        "🔧 *OTROS*\n"
-        "• /personality - Cambiar la personalidad.\n"
-        "• /togglegroup <GRUPO> - Filtros."
+        "🛡️ *SEGURIDAD*\n"
+        "• /risk - Gestión de riesgo\n"
+        "• /resetpilot - Reset breaker\n"
+        "• /debug - Diagnóstico\n\n"
+        
+        "📖 *DOCS*\n"
+        "• /about - Sobre el bot\n"
+        "• /strategy - Lógica de trading"
     )
     try:
         bot.reply_to(message, help_text, parse_mode='Markdown')
     except Exception as e:
-        bot.reply_to(message, help_text.replace('*', '').replace('`', ''))
+        bot.reply_to(message, help_text.replace('*', '').replace('`', '').replace('\\_', '_'))
 
 # --- SPECIAL COMMANDS ---
 
