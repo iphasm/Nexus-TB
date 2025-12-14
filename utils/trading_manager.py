@@ -438,13 +438,7 @@ class TradingSession:
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
                 
-                return True, {
-                    "msg": success_msg,
-                    "price": entry_price,
-                    "sl": sl_price,
-                    "tp": tp1_price,
-                    "qty": quantity
-                }
+                return True, success_msg
 
             except Exception as e:
                 print(f"⚠️ Order Placement Failed: {e}. closing position...")
