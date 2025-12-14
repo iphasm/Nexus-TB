@@ -55,7 +55,7 @@ class QuantumEngine:
                 # In real version, we calculate volatility from market_data to pick strategy
                 # For now using VOL=0.5 default, or based on asset
                 volatility_index = 0.5 
-                strategy = StrategyFactory.get_strategy(asset.replace('USDT',''), volatility_index)
+                strategy = StrategyFactory.get_strategy(asset, volatility_index)
                 
                 # 3. Analyze (Async)
                 signal = await strategy.analyze(market_data)
