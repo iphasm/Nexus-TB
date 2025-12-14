@@ -145,7 +145,7 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         
     elif cmd == "start":
         from handlers.commands import cmd_start
-        await cmd_start(callback.message, session_manager=session_manager)
+        await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
     
     else:
         await callback.message.answer(f"⚠️ Comando no reconocido: {cmd}")

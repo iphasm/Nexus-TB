@@ -44,9 +44,14 @@ def get_fear_and_greed_index() -> str:
 @router.message(CommandStart())
 async def cmd_start(message: Message, **kwargs):
     """Bienvenida Profesional V3.5 (Dynamic)"""
-    # 1. Mensaje de carga
-    msg_load = await message.answer("🔄 _Iniciando protocolos Antigravity..._", parse_mode="Markdown")
-    await asyncio.sleep(0.5)
+    edit_message = kwargs.get('edit_message', False)
+    
+    # 1. Mensaje de carga (or use existing message if editing)
+    if edit_message:
+        msg_load = message  # We'll edit this message directly
+    else:
+        msg_load = await message.answer("🔄 _Iniciando protocolos Antigravity..._", parse_mode="Markdown")
+        await asyncio.sleep(0.5)
     
     # 2. Datos de Sesión y Estado
     bot = message.bot
