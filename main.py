@@ -1369,8 +1369,12 @@ def run_trading_loop():
 
 # --- QUANTUM BRIDGE INTEGRATION ---
 from antigravity_quantum.bridge import QuantumBridge
+from antigravity_quantum.config import SLTP_UPDATE_COOLDOWN
 quantum_bridge = None
 USE_QUANTUM_ENGINE = True # Auto-enable on next restart
+
+# Global tracking for signal cooldowns per asset
+_last_signal_time = {}  # {symbol: timestamp}
 
 def dispatch_quantum_signal(signal):
     """
@@ -1382,6 +1386,20 @@ def dispatch_quantum_signal(signal):
         action = signal.action # BUY, SELL
         price = signal.price
         conf = signal.confidence
+        current_time = time.time()
+        
+        # --- COOLDOWN CHECK ---
+        # Prevent spam signals for same asset within cooldown period
+        last_time = _last_signal_time.get(asset, 0)
+        time_since = current_time - last_time
+        
+        if time_since < SLTP_UPDATE_COOLDOWN:
+            remaining = int(SLTP_UPDATE_COOLDOWN - time_since)
+            print(f"⏳ Cooldown: {asset} (wait {remaining}s)")
+            return
+        
+        # Update tracking
+        _last_signal_time[asset] = current_time
         
         # --- REASON CLEANING ---
         reason_display = "Señal Quantum"

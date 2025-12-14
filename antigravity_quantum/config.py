@@ -14,6 +14,9 @@ ENABLED_STRATEGIES = {
 # SL/TP Update Flag
 ALLOW_SLTP_UPDATE = True
 
+# Cooldown for SLTP updates (seconds) - prevents spam on open positions
+SLTP_UPDATE_COOLDOWN = 900  # 15 minutes minimum between updates per asset
+
 # --- MODULE-SPECIFIC ASSET LISTS ---
 # These can be toggled via /assets menu
 

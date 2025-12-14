@@ -23,6 +23,12 @@ class SystemStateManager:
                 "COMMODITY": False
             },
             "disabled_assets": [],
+            "module_assets": {
+                "SHARK_TARGETS": [],
+                "SCALPING_ASSETS": [],
+                "GRID_ASSETS": [],
+                "MEAN_REV_ASSETS": []
+            },
             "session_config": {
                 "leverage": 5,
                 "max_capital_pct": 0.1,
@@ -65,10 +71,44 @@ class SystemStateManager:
                         merged_state[key] = val
                 
                 print(f"✅ State loaded from '{self.state_file}'")
+                
+                # Apply module assets to config.py
+                self._apply_module_assets(merged_state)
+                
                 return merged_state
         except Exception as e:
             print(f"❌ Error loading state: {e}. Using defaults.")
             return self.default_state.copy()
+    
+    def _apply_module_assets(self, state: Dict):
+        """Applies saved module asset lists back to config.py"""
+        if "module_assets" not in state:
+            return
+            
+        try:
+            import antigravity_quantum.config as cfg
+            ma = state["module_assets"]
+            
+            # Clear and update each list
+            if "SHARK_TARGETS" in ma:
+                cfg.SHARK_TARGETS.clear()
+                cfg.SHARK_TARGETS.extend(ma["SHARK_TARGETS"])
+                
+            if "SCALPING_ASSETS" in ma:
+                cfg.SCALPING_ASSETS.clear()
+                cfg.SCALPING_ASSETS.extend(ma["SCALPING_ASSETS"])
+                
+            if "GRID_ASSETS" in ma:
+                cfg.GRID_ASSETS.clear()
+                cfg.GRID_ASSETS.extend(ma["GRID_ASSETS"])
+                
+            if "MEAN_REV_ASSETS" in ma:
+                cfg.MEAN_REV_ASSETS.clear()
+                cfg.MEAN_REV_ASSETS.extend(ma["MEAN_REV_ASSETS"])
+                
+            print(f"✅ Module assets restored from state")
+        except Exception as e:
+            print(f"⚠️ Failed to apply module assets: {e}")
 
     def save_state(self, enabled_strategies: Dict, group_config: Dict, disabled_assets: set, session: Any = None):
         """Saves current runtime state to PostgreSQL first, then JSON fallback."""
@@ -87,17 +127,32 @@ class SystemStateManager:
         except Exception as e:
             print(f"⚠️ PostgreSQL state save failed: {e}")
 
+        # Collect module assets from config.py
+        module_assets = {}
+        try:
+            import antigravity_quantum.config as cfg
+            module_assets = {
+                "SHARK_TARGETS": list(cfg.SHARK_TARGETS),
+                "SCALPING_ASSETS": list(cfg.SCALPING_ASSETS),
+                "GRID_ASSETS": list(cfg.GRID_ASSETS),
+                "MEAN_REV_ASSETS": list(cfg.MEAN_REV_ASSETS)
+            }
+        except Exception as e:
+            print(f"⚠️ Failed to collect module assets: {e}")
+
         # JSON Fallback
         state = {
             "enabled_strategies": enabled_strategies,
             "group_config": group_config,
             "disabled_assets": list(disabled_assets),
+            "module_assets": module_assets,
             "session_config": session_cfg
         }
 
         try:
             with open(self.state_file, 'w', encoding='utf-8') as f:
                 json.dump(state, f, indent=4)
+            print(f"💾 State saved (incl. module assets)")
         except Exception as e:
             print(f"❌ Error saving state: {e}")
 

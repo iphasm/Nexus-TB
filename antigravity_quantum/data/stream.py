@@ -54,6 +54,19 @@ class MarketStream:
             df['ema_50'] = df['close'].ewm(span=50).mean()
             df['ema_200'] = df['close'].ewm(span=200).mean()
             
+            # RSI (14) - Required for Mean Reversion and Scalping
+            delta = df['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['rsi'] = 100 - (100 / (1 + rs))
+            
+            # Bollinger Bands (20, 2) - Required for Mean Reversion
+            sma_20 = df['close'].rolling(window=20).mean()
+            std_20 = df['close'].rolling(window=20).std()
+            df['upper_bb'] = sma_20 + (std_20 * 2)
+            df['lower_bb'] = sma_20 - (std_20 * 2)
+            
             # ADX placeholder (Requires complex calc, mocking for prototype)
             # In production, use pandas_ta or ta-lib
             df['adx'] = 30.0 # Mock to allow Trend Strategy to trigger
