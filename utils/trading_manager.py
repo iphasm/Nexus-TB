@@ -234,7 +234,7 @@ class AsyncTradingSession:
                 # Filter: BAD Sentiment
                 thresh = self.config.get('sentiment_threshold', -0.6)
                 if score < thresh:
-                    return False, f"⛔ **IA FILTER**: Mercado muy negativo ({score:.2f} < {thresh}).\nMotivo: {sent.get('reason', 'N/A')}"
+                    return False, f"⛔ **IA FILTER [{symbol}]**: Mercado muy negativo ({score:.2f} < {thresh}).\nMotivo: {sent.get('reason', 'N/A')}"
                 
                 # Macro Shield: Reduce Leverage on High Volatility
                 if vol_risk in ['HIGH', 'EXTREME']:
@@ -431,7 +431,7 @@ class AsyncTradingSession:
                 
                 # Filter: BULLISH Sentiment (bad for shorts)
                 if score > 0.6:
-                    return False, f"⛔ **IA FILTER**: Mercado muy alcista ({score:.2f}).\nMotivo: {sent.get('reason', 'N/A')}"
+                    return False, f"⛔ **IA FILTER [{symbol}]**: Mercado muy alcista ({score:.2f}).\nMotivo: {sent.get('reason', 'N/A')}"
             except Exception as e:
                 print(f"⚠️ AI Filter Error (continuing): {e}")
         
