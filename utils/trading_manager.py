@@ -806,7 +806,7 @@ class AsyncSessionManager:
         """Create admin session from env vars if not exists."""
         admin_id = os.getenv('TELEGRAM_ADMIN_ID')
         api_key = os.getenv('BINANCE_API_KEY')
-        api_secret = os.getenv('BINANCE_API_SECRET')
+        api_secret = os.getenv('BINANCE_SECRET')
         
         if admin_id and api_key and api_secret:
             if admin_id not in self.sessions:
