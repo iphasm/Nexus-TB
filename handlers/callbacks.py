@@ -1,6 +1,7 @@
 """
 Antigravity Bot - Callback Query Handlers
 Handles all inline keyboard button presses
+EXACT REPLICA of main.py interface
 """
 
 from aiogram import Router, F
@@ -11,21 +12,124 @@ router = Router(name="callbacks")
 
 @router.callback_query(F.data.startswith("CMD|"))
 async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
-    """Handle command shortcuts from buttons"""
+    """Handle command shortcuts from buttons - dispatches to actual handlers"""
     cmd = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
     
-    # Acknowledge the callback
     await callback.answer()
     
-    # Dispatch to appropriate handler
-    if cmd == "strategies":
-        await callback.message.answer("🎛️ Usa el comando `/strategies` directamente.", parse_mode="Markdown")
-    elif cmd == "togglegroup":
-        await callback.message.answer("📡 Usa el comando `/togglegroup` directamente.", parse_mode="Markdown")
-    elif cmd == "assets":
-        await callback.message.answer("🪙 Usa el comando `/assets` directamente.", parse_mode="Markdown")
+    # Status
+    if cmd == "status":
+        from handlers.commands import cmd_status
+        # Create a fake message-like call
+        await cmd_status(callback.message, session_manager=session_manager)
+    
+    # Wallet
+    elif cmd == "wallet":
+        from handlers.commands import cmd_wallet
+        await cmd_wallet(callback.message, session_manager=session_manager)
+    
+    # Mode switches
+    elif cmd == "watcher":
+        session = session_manager.get_session(str(callback.message.chat.id)) if session_manager else None
+        if session:
+            session.set_mode('WATCHER')
+            await session_manager.save_sessions()
+            await callback.message.answer("👁️ *Modo WATCHER Activado*", parse_mode="Markdown")
+        else:
+            await callback.message.answer("⚠️ Sin sesión activa.")
+    
+    elif cmd == "copilot":
+        session = session_manager.get_session(str(callback.message.chat.id)) if session_manager else None
+        if session:
+            session.set_mode('COPILOT')
+            await session_manager.save_sessions()
+            await callback.message.answer("🦾 *Modo COPILOT Activado*", parse_mode="Markdown")
+        else:
+            await callback.message.answer("⚠️ Sin sesión activa.")
+    
+    elif cmd == "pilot":
+        session = session_manager.get_session(str(callback.message.chat.id)) if session_manager else None
+        if session:
+            session.set_mode('PILOT')
+            await session_manager.save_sessions()
+            await callback.message.answer("🤖 *Modo PILOT Activado*\n⚠️ _Trading automático habilitado._", parse_mode="Markdown")
+        else:
+            await callback.message.answer("⚠️ Sin sesión activa.")
+    
+    # Help
+    elif cmd == "help":
+        from handlers.commands import cmd_help
+        await cmd_help(callback.message)
+    
+    # Config
+    elif cmd == "config":
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager)
+    
+    # Personality
     elif cmd == "personality":
-        await callback.message.answer("🧠 Usa el comando `/personality` directamente.", parse_mode="Markdown")
+        from handlers.config import cmd_personality
+        await cmd_personality(callback.message, session_manager=session_manager)
+    
+    # Strategies
+    elif cmd == "strategies":
+        from handlers.config import cmd_strategies
+        await cmd_strategies(callback.message, session_manager=session_manager)
+    
+    # Toggle Group
+    elif cmd == "togglegroup":
+        from handlers.config import cmd_togglegroup
+        await cmd_togglegroup(callback.message, session_manager=session_manager)
+    
+    # Assets
+    elif cmd == "assets":
+        from handlers.config import cmd_assets
+        await cmd_assets(callback.message, session_manager=session_manager)
+    
+    # Mode presets (Ronin/Guardian/Quantum)
+    elif cmd.startswith("mode_"):
+        preset = cmd.split("_")[1]
+        session = session_manager.get_session(str(callback.message.chat.id)) if session_manager else None
+        
+        if not session:
+            await callback.message.answer("⚠️ Sin sesión activa.")
+            return
+        
+        # Apply preset configurations
+        if preset == "RONIN":
+            await session.update_config('leverage', 10)
+            await session.update_config('max_capital_pct', 0.15)
+            await session.update_config('atr_multiplier', 1.5)
+            msg = "⚔️ *Modo RONIN Activado*\n\n• Leverage: 10x\n• Margen: 15%\n• SL Ajustado: 1.5x ATR\n\n_Perfil agresivo para traders experimentados._"
+        elif preset == "GUARDIAN":
+            await session.update_config('leverage', 3)
+            await session.update_config('max_capital_pct', 0.05)
+            await session.update_config('atr_multiplier', 3.0)
+            msg = "🛡️ *Modo GUARDIAN Activado*\n\n• Leverage: 3x\n• Margen: 5%\n• SL Amplio: 3x ATR\n\n_Perfil conservador para proteger capital._"
+        elif preset == "QUANTUM":
+            await session.update_config('leverage', 5)
+            await session.update_config('max_capital_pct', 0.10)
+            await session.update_config('atr_multiplier', 2.0)
+            msg = "🌌 *Modo QUANTUM Activado*\n\n• Leverage: 5x\n• Margen: 10%\n• SL Balanceado: 2x ATR\n\n_Perfil equilibrado recomendado._"
+        else:
+            msg = f"❓ Preset desconocido: {preset}"
+        
+        await session_manager.save_sessions()
+        await callback.message.answer(msg, parse_mode="Markdown")
+    
+    # AI Commands (placeholders - need implementation)
+    elif cmd == "news":
+        await callback.message.answer("📰 *Función News*\n\nUsa el comando `/news` directamente.", parse_mode="Markdown")
+    
+    elif cmd == "sentiment":
+        await callback.message.answer("🧠 *Función Sentiment*\n\nUsa el comando `/sentiment` directamente.", parse_mode="Markdown")
+    
+    elif cmd == "sniper":
+        await callback.message.answer("🎯 *Función Sniper*\n\nUsa el comando `/sniper` directamente.", parse_mode="Markdown")
+    
+    else:
+        await callback.message.answer(f"⚠️ Comando no reconocido: {cmd}")
 
 
 @router.callback_query(F.data.startswith("CFG|"))
@@ -39,7 +143,6 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
     await callback.answer()
     
     if action == "LEV_MENU":
-        # Show leverage selection
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="3x", callback_data="CFG|LEV|3"),
@@ -59,7 +162,6 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
         )
         
     elif action == "MARGIN_MENU":
-        # Show margin selection
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="5%", callback_data="CFG|MARGIN|5"),
@@ -79,7 +181,6 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
         )
         
     elif action == "LEV" and len(parts) >= 3:
-        # Set leverage value
         value = int(parts[2])
         
         if session_manager:
@@ -91,10 +192,9 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
             else:
                 await callback.message.edit_text("⚠️ No tienes sesión activa.")
         else:
-            await callback.message.edit_text(f"✅ Apalancamiento: *{value}x* (sesión temporal)", parse_mode="Markdown")
+            await callback.message.edit_text(f"✅ Apalancamiento: *{value}x*", parse_mode="Markdown")
             
     elif action == "MARGIN" and len(parts) >= 3:
-        # Set margin percentage
         value = int(parts[2])
         
         if session_manager:
@@ -106,7 +206,7 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
             else:
                 await callback.message.edit_text("⚠️ No tienes sesión activa.")
         else:
-            await callback.message.edit_text(f"✅ Margen: *{value}%* (sesión temporal)", parse_mode="Markdown")
+            await callback.message.edit_text(f"✅ Margen: *{value}%*", parse_mode="Markdown")
 
 
 @router.callback_query(F.data.startswith("TOGGLE|"))
@@ -117,14 +217,13 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
     try:
         from antigravity_quantum.config import ENABLED_STRATEGIES
         
-        # Toggle
         current = ENABLED_STRATEGIES.get(strategy, True)
         ENABLED_STRATEGIES[strategy] = not current
         
         new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strategy] else "❌ DESACTIVADO"
         await callback.answer(f"{strategy}: {new_state}")
         
-        # Rebuild keyboard with updated states
+        # Rebuild keyboard
         s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
         g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
         m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
@@ -148,17 +247,14 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
     """Toggle asset group on/off"""
     group = callback.data.split("|")[1]
     
-    # Import mutable config
     from handlers.commands import GROUP_CONFIG
     
-    # Toggle
     current = GROUP_CONFIG.get(group, True)
     GROUP_CONFIG[group] = not current
     
     new_state = "✅ ACTIVADO" if GROUP_CONFIG[group] else "❌ DESACTIVADO"
     await callback.answer(f"{group}: {new_state}")
     
-    # Rebuild keyboard
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text=f"{'✅' if enabled else '❌'} {grp}",
@@ -193,16 +289,14 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     session_manager = kwargs.get('session_manager')
     
     parts = callback.data.split("|")
-    # Format: TRADE|ACTION|SYMBOL|SIDE
-    # e.g., TRADE|ACCEPT|BTCUSDT|LONG or TRADE|REJECT|ETHUSDT|SHORT
     
     if len(parts) < 4:
         await callback.answer("❌ Datos inválidos", show_alert=True)
         return
     
-    action = parts[1]  # ACCEPT or REJECT
+    action = parts[1]
     symbol = parts[2]
-    side = parts[3]    # LONG or SHORT
+    side = parts[3]
     
     await callback.answer()
     
@@ -214,14 +308,14 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
         )
         return
     
-    # ACCEPT - Execute trade
+    # ACCEPT
     if not session_manager:
         await callback.message.edit_text("⚠️ Error: SessionManager no disponible.")
         return
     
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.message.edit_text("⚠️ No tienes sesión activa. Usa /set\\_keys.")
+        await callback.message.edit_text("⚠️ No tienes sesión activa.")
         return
     
     await callback.message.edit_text(f"⏳ Ejecutando {side} en {symbol}...")
@@ -251,11 +345,75 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
     
     await callback.answer()
     
-    # TODO: Implement asset list per module
-    # For now, show placeholder
-    await callback.message.edit_text(
-        f"📦 *Módulo: {module}*\n\n"
-        "Funcionalidad en desarrollo...\n"
-        "Usa `/config` para volver al menú principal.",
-        parse_mode="Markdown"
-    )
+    # Build asset list for selected module
+    try:
+        from antigravity_quantum.config import SHARK_TARGETS, SCALPING_ASSETS, GRID_ASSETS, MEAN_REV_ASSETS, DISABLED_ASSETS
+        
+        if module == "SHARK":
+            assets = SHARK_TARGETS
+            title = "🦈 SHARK TARGETS"
+        elif module == "SCALPING":
+            assets = SCALPING_ASSETS
+            title = "⚡ SCALPING ASSETS"
+        elif module == "GRID":
+            assets = GRID_ASSETS
+            title = "🕸️ GRID ASSETS"
+        elif module == "MEANREV":
+            assets = MEAN_REV_ASSETS
+            title = "📉 MEAN REVERSION"
+        else:
+            # Global scanner
+            from handlers.commands import ASSET_GROUPS
+            assets = []
+            for group in ASSET_GROUPS.values():
+                assets.extend(group)
+            title = "📡 SCANNER GLOBAL"
+        
+        # Build keyboard with toggle buttons
+        buttons = []
+        for asset in assets[:20]:  # Limit to 20
+            is_disabled = asset in DISABLED_ASSETS
+            icon = "❌" if is_disabled else "✅"
+            buttons.append([InlineKeyboardButton(
+                text=f"{icon} {asset}",
+                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
+            )])
+        
+        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|assets")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        
+        await callback.message.edit_text(
+            f"📦 *{title}*\n\n"
+            f"Activos: {len(assets)}\n"
+            "Toca para activar/desactivar:",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Error: {e}")
+
+
+@router.callback_query(F.data.startswith("ASSET_TOGGLE|"))
+async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
+    """Toggle individual asset"""
+    parts = callback.data.split("|")
+    module = parts[1]
+    asset = parts[2]
+    
+    try:
+        from antigravity_quantum.config import DISABLED_ASSETS
+        
+        if asset in DISABLED_ASSETS:
+            DISABLED_ASSETS.remove(asset)
+            await callback.answer(f"✅ {asset} activado")
+        else:
+            DISABLED_ASSETS.add(asset)
+            await callback.answer(f"❌ {asset} desactivado")
+        
+        # Refresh menu
+        await handle_assets_menu(callback, **kwargs)
+        
+    except Exception as e:
+        await callback.answer(f"Error: {e}", show_alert=True)
