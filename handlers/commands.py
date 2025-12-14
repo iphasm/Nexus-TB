@@ -1102,7 +1102,10 @@ async def cmd_price(message: Message, **kwargs):
         targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
         
         try:
-            url = f"https://api.binance.com/api/v3/ticker/price?symbols={str(targets).replace(' ', '').replace('\'', '%22')}"
+            # Prepare symbols string outside f-string to avoid backslash issues
+            targets_formatted = str(targets).replace(" ", "").replace("'", "%22")
+            url = f"https://api.binance.com/api/v3/ticker/price?symbols={targets_formatted}"
+            
             data = requests.get(url, timeout=5).json()
             
             for item in data:
