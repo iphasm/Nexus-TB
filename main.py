@@ -1663,9 +1663,11 @@ def send_welcome(message):
         "• /strategies - Motores activos\n"
         "• /set\\_leverage - Apalancamiento\n"
         "• /set\\_margin - Margen máximo\n"
-        "• /set\\_keys - API Keys\n"
+        "• /set\\_keys - API Keys Binance\n"
+        "• /set\\_alpaca - API Keys Alpaca\n"
+        "• /delete\\_keys - Borrar sesión\n"
         "• /togglegroup - Filtrar grupos\n"
-        "• /assets - Blacklist activos\n"
+        "• /assets - Config activos\n"
         "• /personality - Cambiar voz\n\n"
         
         "🧠 *AI & SENTIMIENTO*\n"
