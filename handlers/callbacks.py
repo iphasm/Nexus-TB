@@ -299,7 +299,7 @@ async def handle_personality_select(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TRADE|"))
 async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
-    """Handle Copilot trade proposals (Accept/Reject)"""
+    """Handle Copilot trade proposals (Accept/Reject) - Auto-delete proposal"""
     session_manager = kwargs.get('session_manager')
     
     parts = callback.data.split("|")
@@ -314,8 +314,14 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     
     await callback.answer()
     
+    # Delete the proposal message
+    try:
+        await callback.message.delete()
+    except:
+        pass  # Ignore if already deleted
+    
     if action == "REJECT":
-        await callback.message.edit_text(
+        await callback.message.answer(
             f"❌ *Propuesta Rechazada*\n"
             f"Operación {side} en {symbol} cancelada.",
             parse_mode="Markdown"
@@ -324,15 +330,15 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     
     # ACCEPT
     if not session_manager:
-        await callback.message.edit_text("⚠️ Error: SessionManager no disponible.")
+        await callback.message.answer("⚠️ Error: SessionManager no disponible.")
         return
     
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.message.edit_text("⚠️ No tienes sesión activa.")
+        await callback.message.answer("⚠️ No tienes sesión activa.")
         return
     
-    await callback.message.edit_text(f"⏳ Ejecutando {side} en {symbol}...")
+    status_msg = await callback.message.answer(f"⏳ Ejecutando {side} en {symbol}...")
     
     try:
         if side == "LONG":
@@ -341,15 +347,15 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
             success, msg = await session.execute_short_position(symbol)
         
         if success:
-            await callback.message.edit_text(
+            await status_msg.edit_text(
                 f"✅ *{side} EJECUTADO*\n{msg}",
                 parse_mode="Markdown"
             )
         else:
-            await callback.message.edit_text(f"❌ Error: {msg}")
+            await status_msg.edit_text(f"❌ Error: {msg}")
             
     except Exception as e:
-        await callback.message.edit_text(f"❌ Error crítico: {e}")
+        await status_msg.edit_text(f"❌ Error crítico: {e}")
 
 
 @router.callback_query(F.data.startswith("ASSETS|"))

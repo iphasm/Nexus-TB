@@ -74,7 +74,8 @@ async def cmd_strategies(message: Message, **kwargs):
             InlineKeyboardButton(text=f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"),
             InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
         ],
-        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
+        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")],
+        [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
     ])
     
     await message.answer(
@@ -101,12 +102,15 @@ async def cmd_togglegroup(message: Message, **kwargs):
         'COMMODITY': True
     }
     
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(
             text=f"{'✅' if enabled else '❌'} {group}",
             callback_data=f"TOGGLEGRP|{group}"
         )] for group, enabled in GROUP_CONFIG.items()
-    ])
+    ]
+    buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     
     await message.answer(
         "📡 *CONFIGURACIÓN DE RADARES*\n"
@@ -130,7 +134,8 @@ async def cmd_assets(message: Message, **kwargs):
         ],
         [
             InlineKeyboardButton(text="📡 Scanner Global", callback_data="ASSETS|GLOBAL")
-        ]
+        ],
+        [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
     ])
     
     await message.answer(
