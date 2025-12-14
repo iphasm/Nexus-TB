@@ -206,7 +206,14 @@ async def main():
     # 2. Create Dispatcher
     dp = Dispatcher()
     
-    # 3. Initialize Session Manager
+    # 3. Initialize Database (PostgreSQL)
+    try:
+        from utils.db import init_db
+        init_db()
+    except Exception as e:
+        logger.warning(f"DB Init skipped: {e}")
+    
+    # 4. Initialize Session Manager
     from utils.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()

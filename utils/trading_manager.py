@@ -1100,10 +1100,32 @@ class AsyncSessionManager:
         self._lock = asyncio.Lock()
     
     async def load_sessions(self):
-        """Load sessions from JSON file."""
+        """Load sessions from PostgreSQL (with JSON fallback)."""
         async with self._lock:
+            # Try PostgreSQL first
+            try:
+                from utils.db import load_all_sessions
+                db_sessions = load_all_sessions()
+                
+                if db_sessions is not None:
+                    for chat_id, info in db_sessions.items():
+                        session = AsyncTradingSession(
+                            chat_id=chat_id,
+                            api_key=info.get('api_key', ''),
+                            api_secret=info.get('api_secret', ''),
+                            config=info.get('config')
+                        )
+                        await session.initialize()
+                        self.sessions[chat_id] = session
+                    
+                    print(f"🐘 Loaded {len(self.sessions)} sessions from PostgreSQL")
+                    await self._ensure_admin_session()
+                    return
+            except Exception as e:
+                print(f"⚠️ PostgreSQL load failed, using JSON fallback: {e}")
+            
+            # Fallback to JSON
             if not os.path.exists(self.data_file):
-                # Check for admin keys in env
                 await self._ensure_admin_session()
                 return
             
@@ -1160,7 +1182,7 @@ class AsyncSessionManager:
                     print(f"🔄 Admin session updated for {admin_id} from Env Vars")
     
     async def save_sessions(self):
-        """Persist sessions to JSON file."""
+        """Persist sessions to PostgreSQL and JSON (redundancy)."""
         async with self._lock:
             data = {}
             for chat_id, session in self.sessions.items():
@@ -1170,6 +1192,15 @@ class AsyncSessionManager:
                     'config': session.config
                 }
             
+            # 1. Save to PostgreSQL
+            try:
+                from utils.db import save_all_sessions
+                if save_all_sessions(data):
+                    print(f"🐘 Saved {len(data)} sessions to PostgreSQL")
+            except Exception as e:
+                print(f"⚠️ PostgreSQL save failed: {e}")
+            
+            # 2. Save to JSON (backup)
             os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
             with open(self.data_file, 'w') as f:
                 json.dump(data, f, indent=2)
