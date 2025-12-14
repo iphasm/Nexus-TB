@@ -43,91 +43,123 @@ def get_fear_and_greed_index() -> str:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, **kwargs):
-    """Bienvenida Profesional con Efecto de Carga - EXACT REPLICA"""
-    # 1. Mensaje de carga inicial
-    msg_load = await message.answer("🔄 _Despertando funciones cognitivas..._", parse_mode="Markdown")
-    
-    # Simular micro-check
+    """Bienvenida Profesional V3.5 (Dynamic)"""
+    # 1. Mensaje de carga
+    msg_load = await message.answer("🔄 _Iniciando protocolos Antigravity..._", parse_mode="Markdown")
     await asyncio.sleep(0.5)
     
-    # 2. Verificar estado
+    # 2. Datos de Sesión y Estado
     bot = message.bot
     me = await bot.get_me()
-    status_icon = "🟢" if me else "🔴"
-    status_text = "SISTEMA ONLINE" if me else "ERROR DE CONEXIÓN"
     
     chat_id = str(message.chat.id)
     session_manager = kwargs.get('session_manager')
     session = session_manager.get_session(chat_id) if session_manager else None
     
-    # 3. Datos de Sesión
-    mode = "WATCHER"
-    auth = "🔒 Sin Credenciales"
-    
+    # A. Exchanges
+    exchanges = ["🔑 Binance"]
     if session:
-        cfg = session.get_configuration()
-        mode = cfg.get('mode', 'WATCHER')
-        
-        # Build Auth String
-        auth_list = []
-        if session.client:
-            auth_list.append("Binance")
         if session.alpaca_client:
-            auth_list.append("🦙 Alpaca")
-            
-        if auth_list:
-            auth = "🔑 " + " + ".join(auth_list)
+            exchanges.append("🦙 Alpaca")
+        elif session.config.get('alpaca_key'):
+            exchanges.append("🦙 Alpaca (Cfg)")
+    exchange_str = " + ".join(exchanges)
     
-    # Get Personality
+    # B. Mode
+    mode_raw = session.config.get('mode', 'WATCHER') if session else 'WATCHER'
+    mode_map = {
+        'PILOT': '🤖 Pilot (Auto)',
+        'COPILOT': '👨‍✈️ Copilot (Asistido)',
+        'WATCHER': '🔍 Watcher (Observador)'
+    }
+    mode_str = mode_map.get(mode_raw, mode_raw)
+    
+    # C. Personality + Greeting
     p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    p_name = p_key
+    greeting = "Sistemas operativos y listos para operar."
+    
+    try:
+        from utils.personalities import PersonalityManager
+        pm = PersonalityManager()
+        profile = pm.PROFILES.get(p_key, {})
+        p_name = profile.get('NAME', p_key)
+        
+        # Try to extract a simple greeting or use generic
+        if 'GREETING' in profile:
+            greeting = profile['GREETING']
+        elif 'WELCOME' in profile and isinstance(profile['WELCOME'], list):
+            # Fallback: Use a generic safe greeting if specific one not found
+            # (We avoid parsing the complex WELCOME block)
+            pass 
+    except:
+        pass
 
-    # 4. Mensaje Final (Styled like original)
+    # D. Risk
+    risk_str = "🛠️ Personalizado"
+    if session:
+        lev = session.config.get('leverage', 5)
+        sl = session.config.get('stop_loss_pct', 0.02)
+        ia = session.config.get('sentiment_threshold', -0.6)
+        
+        if lev == 5 and sl == 0.015 and ia == -0.8: risk_str = "⚔️ Ronin"
+        elif lev == 3 and sl == 0.03 and ia == -0.3: risk_str = "🛡️ Guardian"
+        elif lev == 5 and sl == 0.02 and ia == -0.6: risk_str = "🌌 Quantum"
+    
+    # E. Strategies
+    from antigravity_quantum.config import ENABLED_STRATEGIES
+    active_strats = []
+    strat_icons = {
+        'TREND': '📈 BTC Trend',
+        'BLACK_SWAN': '🦢 Black Swan',
+        'SHARK': '🦈 Shark',
+        'SCALPING': '🥷 Scalping',
+        'GRID': '🕸️ Grid',
+        'MEAN_REVERSION': '📉 MR'
+    }
+    for k, v in ENABLED_STRATEGIES.items():
+        if v:
+            active_strats.append(strat_icons.get(k, k))
+    
+    strategies_str = " | ".join(active_strats) if active_strats else "⚠️ Ninguna (Manual)"
+    
+    # --- FINAL MESSAGE ---
     welcome = (
-        f"{status_icon} *{status_text}*\n\n"
-        "🤖 *ANTIGRAVITY BOT v3.5 (Async)*\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        f"🎮 Modo: `{mode}`\n"
-        f"{auth}\n\n"
-        "_Usa los botones o escribe /help_"
+        f"🤖 *ANTIGRAVITY BOT v3.5 (Async)* 🟢\n\n"
+        f"🔗 *Exchanges:* {exchange_str}\n"
+        f"🎮 *Modo:* `{mode_str}`\n"
+        f"🎭 *Personalidad:* [{p_name}]\n"
+        f"_{greeting}_\n\n"
+        f"⚙️ *Gestión de Riesgo:* [{risk_str}]\n"
+        f"🧠 *Estrategias:* [{strategies_str}]"
     )
     
-    # Interactive Menu (Buttons) - EXACT REPLICA
+    # Interactive Menu
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        # Row 1: Status | Wallet
+        # Row 1: Dashboard
+        [InlineKeyboardButton(text="📈 DASHBOARD (Estado + Cartera)", callback_data="CMD|dashboard")],
+        # Row 2: Modes
         [
-            InlineKeyboardButton(text="📊 Estado", callback_data="CMD|status"),
-            InlineKeyboardButton(text="💰 Cartera", callback_data="CMD|wallet")
+            InlineKeyboardButton(text="👨‍✈️ Copilot", callback_data="CMD|copilot"),
+            InlineKeyboardButton(text="🔍 Watcher", callback_data="CMD|watcher")
         ],
-        # Row 2: Watcher | Copilot
-        [
-            InlineKeyboardButton(text="🔎 Watcher", callback_data="CMD|watcher"),
-            InlineKeyboardButton(text="🦾 Copilot", callback_data="CMD|copilot")
-        ],
-        # Row 3: Pilot (Big)
-        [
-            InlineKeyboardButton(text="🤖 Pilot Mode", callback_data="CMD|pilot")
-        ],
-        # Row 4: AI Commands
-        [
-            InlineKeyboardButton(text="📰 News", callback_data="CMD|news"),
-            InlineKeyboardButton(text="🧠 Sentiment", callback_data="CMD|sentiment"),
-            InlineKeyboardButton(text="🎯 Sniper", callback_data="CMD|sniper")
-        ],
-        # Row 5: Presets
+        # Row 3: Pilot
+        [InlineKeyboardButton(text="🤖 Pilot (Auto)", callback_data="CMD|pilot")],
+        # Row 4: Risk
         [
             InlineKeyboardButton(text="⚔️ Ronin", callback_data="CMD|mode_RONIN"),
-            InlineKeyboardButton(text="🛡️ Guardian", callback_data="CMD|mode_GUARDIAN"),
-            InlineKeyboardButton(text="🌌 Quantum", callback_data="CMD|mode_QUANTUM")
+            InlineKeyboardButton(text="🌌 Quantum", callback_data="CMD|mode_QUANTUM"),
+            InlineKeyboardButton(text="🛡️ Guardian", callback_data="CMD|mode_GUARDIAN")
         ],
-        # Row 6: Config / Personality / Help
-        [
-            InlineKeyboardButton(text="🧠 Persona", callback_data="CMD|personality"),
-            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
-            InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
-        ]
+        # Row 5: INTEL
+        [InlineKeyboardButton(text="📡 INTEL (Datos de Mercado)", callback_data="MENU|INTEL")],
+        # Row 6: CORE
+        [InlineKeyboardButton(text="⚙️ CORE (Configuración)", callback_data="CMD|config")],
+        # Row 7: Help
+        [InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")]
     ])
     
-    await msg_load.edit_text(welcome, parse_mode="Markdown", reply_markup=keyboard)
+    await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(Command("help"))
@@ -1048,3 +1080,49 @@ async def cmd_strategy(message: Message, **kwargs):
     
     await message.answer(msg, parse_mode="Markdown", reply_markup=keyboard)
 
+
+@router.message(Command("dashboard"))
+async def cmd_dashboard(message: Message, **kwargs):
+    """Combined Status + Wallet"""
+    await cmd_status(message, **kwargs)
+    await cmd_wallet(message, **kwargs)
+
+
+@router.message(Command("price"))
+async def cmd_price(message: Message, **kwargs):
+    """Market Scan (Top Assets + F&G)"""
+    try:
+        loading = await message.answer("🔍 _Escaneando mercado..._", parse_mode="Markdown")
+        
+        # 1. Fear & Greed
+        fng = get_fear_and_greed_index()
+        
+        # 2. Prices (Fetch via requests for speed/safety if no session)
+        prices_str = ""
+        targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
+        
+        try:
+            url = f"https://api.binance.com/api/v3/ticker/price?symbols={str(targets).replace(' ', '').replace('\'', '%22')}"
+            data = requests.get(url, timeout=5).json()
+            
+            for item in data:
+                sym = item['symbol'].replace('USDT', '')
+                price = float(item['price'])
+                prices_str += f"• *{sym}:* `${price:,.2f}`\n"
+        except:
+            prices_str = "⚠️ Error obteniendo precios."
+            
+        msg = (
+            "📡 **MARKET INTEL**\n"
+            "━━━━━━━━━━━━━━━━\n"
+            f"🧠 **Sentimiento:** {fng}\n\n"
+            "💎 **Precios Spot:**\n"
+            f"{prices_str}\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "_Usa /sniper para buscar oportunidades._"
+        )
+        
+        await loading.edit_text(msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await message.answer(f"❌ Error: {e}")

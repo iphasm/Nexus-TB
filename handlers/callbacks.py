@@ -452,3 +452,30 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         
     except Exception as e:
         await callback.answer(f"Error: {e}", show_alert=True)
+
+
+@router.callback_query(F.data == "MENU|INTEL")
+async def handle_intel_menu(callback: CallbackQuery, **kwargs):
+    """Intel / Data Menu"""
+    
+    msg = (
+        "📡 **INTEL CENTER**\n"
+        "━━━━━━━━━━━━━━\n"
+        "Acceso a datos de mercado y análisis cuántico.\n"
+        "Seleccione un módulo:"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💎 Precios Spot", callback_data="CMD|price"),
+            InlineKeyboardButton(text="📰 Noticias AI", callback_data="CMD|news")
+        ],
+        [
+            InlineKeyboardButton(text="🧠 Sentimiento", callback_data="CMD|sentiment"),
+            InlineKeyboardButton(text="🏦 FOMC / FED", callback_data="CMD|fomc")
+        ],
+        [InlineKeyboardButton(text="🎯 Sniper Scan", callback_data="CMD|sniper")],
+        [InlineKeyboardButton(text="🔙 Menú Principal", callback_data="CMD|start")]
+    ])
+    
+    await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
