@@ -1125,11 +1125,10 @@ async def cmd_price(message: Message, **kwargs):
         if targets:
             try:
                 import json
-                from urllib.parse import quote
                 
-                # Binance expects: symbols=["BTCUSDT","ETHUSDT"]
-                symbols_json = json.dumps(targets)
-                url = f"https://api.binance.com/api/v3/ticker/price?symbols={quote(symbols_json)}"
+                # Binance expects raw JSON array: symbols=["BTCUSDT","ETHUSDT"]
+                symbols_param = json.dumps(targets)
+                url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_param}"
                 
                 data = requests.get(url, timeout=5).json()
                 
