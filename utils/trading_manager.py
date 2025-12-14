@@ -259,11 +259,21 @@ class AsyncTradingSession:
             # 2. Set Leverage
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
             
-            # 3. Cancel Existing Orders
+            # 3. Cancel Existing Orders (Robust with Retry)
             try:
-                await self.client.futures_cancel_all_open_orders(symbol=symbol)
-            except:
-                pass
+                # Retry cancellation up to 3 times
+                for _ in range(3):
+                    try:
+                        await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                        break
+                    except Exception as e:
+                        if "Unknown order" in str(e): break # Already clear
+                        await asyncio.sleep(0.5)
+                
+                # Wait for propagation
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                print(f"⚠️ Cancel Order Warning: {e}")
             
             # 4. Get Account & Price Info
             acc_info = await self.client.futures_account()
@@ -420,9 +430,18 @@ class AsyncTradingSession:
             # 2. Set Leverage & Cancel Orders
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
             try:
-                await self.client.futures_cancel_all_open_orders(symbol=symbol)
-            except:
-                pass
+                # Retry cancellation up to 3 times
+                for _ in range(3):
+                    try:
+                        await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                        break
+                    except Exception as e:
+                        if "Unknown order" in str(e): break
+                        await asyncio.sleep(0.5)
+                
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                print(f"⚠️ Cancel Order Warning: {e}")
             
             # 3. Get Info
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
