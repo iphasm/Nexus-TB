@@ -130,6 +130,22 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     elif cmd == "sniper":
         from handlers.commands import cmd_sniper
         await cmd_sniper(callback.message, session_manager=session_manager)
+        
+    elif cmd == "dashboard":
+        from handlers.commands import cmd_dashboard
+        await cmd_dashboard(callback.message, session_manager=session_manager)
+        
+    elif cmd == "price":
+        from handlers.commands import cmd_price
+        await cmd_price(callback.message, session_manager=session_manager)
+        
+    elif cmd == "fomc":
+        from handlers.commands import cmd_fomc
+        await cmd_fomc(callback.message, session_manager=session_manager)
+        
+    elif cmd == "start":
+        from handlers.commands import cmd_start
+        await cmd_start(callback.message, session_manager=session_manager)
     
     else:
         await callback.message.answer(f"⚠️ Comando no reconocido: {cmd}")
