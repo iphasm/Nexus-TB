@@ -722,7 +722,7 @@ class TradingSession:
             if side == 'LONG':
                 # SL
                 self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
+                    symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
                 )
                 
                 # TP
@@ -731,7 +731,7 @@ class TradingSession:
                 
                 if tp_notional < 5.5:
                      self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
+                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=abs_qty, reduceOnly=True
                     )
                      success_msg = f"🔄 Updated LONG {symbol}\nSL: {sl_price}\nTP: {tp1_price} (100%)"
                 else:
@@ -751,7 +751,7 @@ class TradingSession:
             else: # SHORT
                 # SL
                 self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
+                    symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
                 )
                 
                 # TP
@@ -760,7 +760,7 @@ class TradingSession:
                 
                 if tp_notional < 5.5:
                      self.client.futures_create_order(
-                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
+                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=abs_qty, reduceOnly=True
                     )
                      success_msg = f"🔄 Updated SHORT {symbol}\nSL: {sl_price}\nTP: {tp1_price} (100%)"
                 else:
