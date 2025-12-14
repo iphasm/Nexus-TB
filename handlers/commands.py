@@ -1093,36 +1093,51 @@ async def cmd_dashboard(message: Message, **kwargs):
 
 @router.message(Command("price"))
 async def cmd_price(message: Message, **kwargs):
-    """Market Scan (Top Assets + F&G)"""
+    """Market Scan (Active Assets + F&G)"""
     try:
         loading = await message.answer("🔍 _Escaneando mercado..._", parse_mode="Markdown")
         
         # 1. Fear & Greed
         fng = get_fear_and_greed_index()
         
-        # 2. Prices (Fetch via requests for speed/safety if no session)
-        prices_str = ""
-        targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
+        # 2. Build dynamic target list from Scanner Global
+        from config import ASSET_GROUPS, GROUP_CONFIG
+        from antigravity_quantum.config import DISABLED_ASSETS
         
-        try:
-            # Prepare symbols string outside f-string to avoid backslash issues
-            targets_formatted = str(targets).replace(" ", "").replace("'", "%22")
-            url = f"https://api.binance.com/api/v3/ticker/price?symbols={targets_formatted}"
-            
-            data = requests.get(url, timeout=5).json()
-            
-            for item in data:
-                sym = item['symbol'].replace('USDT', '')
-                price = float(item['price'])
-                prices_str += f"• *{sym}:* `${price:,.2f}`\n"
-        except:
-            prices_str = "⚠️ Error obteniendo precios."
+        targets = []
+        for group_name, assets in ASSET_GROUPS.items():
+            if GROUP_CONFIG.get(group_name, False):
+                for asset in assets:
+                    # Only include crypto (Binance API) and not disabled
+                    if 'USDT' in asset and asset not in DISABLED_ASSETS:
+                        targets.append(asset)
+        
+        # Limit to first 10 for display
+        targets = targets[:10]
+        
+        # 3. Fetch Prices
+        prices_str = ""
+        if targets:
+            try:
+                targets_formatted = str(targets).replace(" ", "").replace("'", "%22")
+                url = f"https://api.binance.com/api/v3/ticker/price?symbols={targets_formatted}"
+                
+                data = requests.get(url, timeout=5).json()
+                
+                for item in data:
+                    sym = item['symbol'].replace('USDT', '').replace('1000', '')
+                    price = float(item['price'])
+                    prices_str += f"• *{sym}:* `${price:,.2f}`\n"
+            except:
+                prices_str = "⚠️ Error obteniendo precios."
+        else:
+            prices_str = "📭 No hay activos crypto activos."
             
         msg = (
             "📡 **MARKET INTEL**\n"
             "━━━━━━━━━━━━━━━━\n"
             f"🧠 **Sentimiento:** {fng}\n\n"
-            "💎 **Precios Spot:**\n"
+            f"💎 **Precios Spot** ({len(targets)} activos):\n"
             f"{prices_str}\n"
             "━━━━━━━━━━━━━━━━\n"
             "_Usa /sniper para buscar oportunidades._"
@@ -1132,3 +1147,4 @@ async def cmd_price(message: Message, **kwargs):
         
     except Exception as e:
         await message.answer(f"❌ Error: {e}")
+
