@@ -820,7 +820,7 @@ async def cmd_cooldown(message: Message, **kwargs):
 
 @router.message(Command("long", "buy"))
 async def cmd_long(message: Message, **kwargs):
-    """Manually trigger a LONG position."""
+    """Manually trigger a LONG position with Dynamic ATR."""
     session_manager = kwargs.get('session_manager')
     if not session_manager: return
     
@@ -839,16 +839,34 @@ async def cmd_long(message: Message, **kwargs):
     raw_symbol = args[1]
     symbol = resolve_symbol(raw_symbol)
     
-    await message.reply(f"🚀 Iniciando **LONG** en `{symbol}`...", parse_mode="Markdown")
+    # Calculate ATR
+    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
     
-    # Execute
-    success, msg = await session.execute_long_position(symbol)
-    await message.reply(msg, parse_mode="Markdown")
+    try:
+        from data.fetcher import get_market_data, calculate_atr
+        
+        # Determine asset type for proper fetching
+        is_crypto = 'USDT' in symbol
+        
+        # Fetch 1h candles
+        df = get_market_data(symbol, timeframe='1h', limit=50)
+        atr_value = calculate_atr(df, period=14)
+        
+        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A, usando default)"
+        
+        await msg_wait.edit_text(f"🚀 Iniciando **LONG** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
+        
+        # Execute with ATR
+        success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
+        await message.reply(res_msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
 
 
 @router.message(Command("short", "sell"))
 async def cmd_short(message: Message, **kwargs):
-    """Manually trigger a SHORT position."""
+    """Manually trigger a SHORT position with Dynamic ATR."""
     session_manager = kwargs.get('session_manager')
     if not session_manager: return
     
@@ -867,9 +885,24 @@ async def cmd_short(message: Message, **kwargs):
     raw_symbol = args[1]
     symbol = resolve_symbol(raw_symbol)
     
-    await message.reply(f"🐻 Iniciando **SHORT** en `{symbol}`...", parse_mode="Markdown")
+    # Calculate ATR
+    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
     
-    # Execute
-    success, msg = await session.execute_short_position(symbol)
-    await message.reply(msg, parse_mode="Markdown")
+    try:
+        from data.fetcher import get_market_data, calculate_atr
+        
+        # Fetch 1h candles
+        df = get_market_data(symbol, timeframe='1h', limit=50)
+        atr_value = calculate_atr(df, period=14)
+        
+        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A, usando default)"
+        
+        await msg_wait.edit_text(f"🐻 Iniciando **SHORT** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
+        
+        # Execute with ATR
+        success, res_msg = await session.execute_short_position(symbol, atr=atr_value)
+        await message.reply(res_msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
 

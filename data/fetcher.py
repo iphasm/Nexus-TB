@@ -171,3 +171,33 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
     except Exception as e:
         print(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame(columns=expected_cols)
+
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
+    """
+    Calculate the Average True Range (ATR) from a DataFrame.
+    Expected columns: 'high', 'low', 'close'
+     Returns the last ATR value.
+    """
+    try:
+        if df.empty or len(df) < period + 1:
+            return 0.0
+            
+        high = df['high']
+        low = df['low']
+        close = df['close']
+        
+        # 1. TR (True Range)
+        prev_close = close.shift(1)
+        tr1 = high - low
+        tr2 = (high - prev_close).abs()
+        tr3 = (low - prev_close).abs()
+        
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        # 2. ATR (Wilder's Smoothing)
+        atr = tr.ewm(alpha=1/period, adjust=False).mean()
+        
+        return float(atr.iloc[-1])
+    except Exception as e:
+        print(f"ATR Calculation Error: {e}")
+        return 0.0
