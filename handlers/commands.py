@@ -1124,17 +1124,24 @@ async def cmd_price(message: Message, **kwargs):
         prices_str = ""
         if targets:
             try:
-                targets_formatted = str(targets).replace(" ", "").replace("'", "%22")
-                url = f"https://api.binance.com/api/v3/ticker/price?symbols={targets_formatted}"
+                import json
+                from urllib.parse import quote
+                
+                # Binance expects: symbols=["BTCUSDT","ETHUSDT"]
+                symbols_json = json.dumps(targets)
+                url = f"https://api.binance.com/api/v3/ticker/price?symbols={quote(symbols_json)}"
                 
                 data = requests.get(url, timeout=5).json()
                 
-                for item in data:
-                    sym = item['symbol'].replace('USDT', '').replace('1000', '')
-                    price = float(item['price'])
-                    prices_str += f"• *{sym}:* `${price:,.2f}`\n"
-            except:
-                prices_str = "⚠️ Error obteniendo precios."
+                if isinstance(data, list):
+                    for item in data:
+                        sym = item['symbol'].replace('USDT', '').replace('1000', '')
+                        price = float(item['price'])
+                        prices_str += f"• *{sym}:* `${price:,.2f}`\n"
+                else:
+                    prices_str = f"⚠️ API Error: {data.get('msg', 'Unknown')}"
+            except Exception as e:
+                prices_str = f"⚠️ Error: {str(e)[:50]}"
         else:
             prices_str = "📭 No hay activos crypto activos."
             
