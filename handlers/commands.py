@@ -813,3 +813,63 @@ async def cmd_cooldown(message: Message, **kwargs):
     except ValueError:
         await message.reply("❌ Valor inválido. Usa: `/cooldown 10`", parse_mode="Markdown")
 
+
+# =================================================================
+# MANUAL TRADING COMMANDS
+# =================================================================
+
+@router.message(Command("long", "buy"))
+async def cmd_long(message: Message, **kwargs):
+    """Manually trigger a LONG position."""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager: return
+    
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.reply("⚠️ Sin sesión activa.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply("⚠️ Uso: `/long <SYMBOL>` (ej: `/long BTC`)", parse_mode="Markdown")
+        return
+    
+    # Smart Symbol Resolution
+    from config import resolve_symbol
+    raw_symbol = args[1]
+    symbol = resolve_symbol(raw_symbol)
+    
+    await message.reply(f"🚀 Iniciando **LONG** en `{symbol}`...", parse_mode="Markdown")
+    
+    # Execute
+    success, msg = await session.execute_long_position(symbol)
+    await message.reply(msg, parse_mode="Markdown")
+
+
+@router.message(Command("short", "sell"))
+async def cmd_short(message: Message, **kwargs):
+    """Manually trigger a SHORT position."""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager: return
+    
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.reply("⚠️ Sin sesión activa.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply("⚠️ Uso: `/short <SYMBOL>` (ej: `/short ETH`)", parse_mode="Markdown")
+        return
+    
+    # Smart Symbol Resolution
+    from config import resolve_symbol
+    raw_symbol = args[1]
+    symbol = resolve_symbol(raw_symbol)
+    
+    await message.reply(f"🐻 Iniciando **SHORT** en `{symbol}`...", parse_mode="Markdown")
+    
+    # Execute
+    success, msg = await session.execute_short_position(symbol)
+    await message.reply(msg, parse_mode="Markdown")
+
