@@ -86,7 +86,10 @@ class AsyncTradingSession:
                     os.environ['HTTP_PROXY'] = self._proxy
                     
                     # 4. Create NEW session with trust_env=True AND preserved headers
+                    # Increase timeout to 45s for slow proxies
+                    timeout = aiohttp.ClientTimeout(total=45)
                     self.client.session = aiohttp.ClientSession(
+                        timeout=timeout,
                         headers=headers,
                         trust_env=True
                     )
