@@ -12,6 +12,14 @@ ENABLED_STRATEGIES = {
     'TREND': True          # Trend Following (BTC)
 }
 
+# --- GROUP CONFIG ---
+# Controls which market sectors are scanned
+GROUP_CONFIG = {
+    'CRYPTO': True,
+    'STOCKS': True,
+    'COMMODITY': True
+}
+
 # SL/TP Update Flag
 ALLOW_SLTP_UPDATE = True
 

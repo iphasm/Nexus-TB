@@ -272,11 +272,27 @@ async def main():
         
         # Load persisted strategies from DB
         bot_state = load_bot_state()
-        if bot_state and bot_state.get('enabled_strategies'):
-            from antigravity_quantum.config import ENABLED_STRATEGIES
-            db_strategies = bot_state['enabled_strategies']
-            ENABLED_STRATEGIES.update(db_strategies)
-            logger.info(f"✅ Loaded strategies from DB: {db_strategies}")
+        if bot_state:
+            from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
+            
+            # 1. Strategies
+            if bot_state.get('enabled_strategies'):
+                ENABLED_STRATEGIES.update(bot_state['enabled_strategies'])
+            
+            # 2. Group Config
+            if bot_state.get('group_config'):
+                GROUP_CONFIG.update(bot_state['group_config'])
+                
+            # 3. Disabled Assets
+            if bot_state.get('disabled_assets'):
+                DISABLED_ASSETS.clear()
+                # Ensure it's a list/iterable
+                assets = bot_state['disabled_assets']
+                if isinstance(assets, list):
+                    for asset in assets:
+                         DISABLED_ASSETS.add(asset)
+            
+            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, {len(GROUP_CONFIG)} groups")
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")

@@ -107,11 +107,10 @@ async def cmd_togglegroup(message: Message, **kwargs):
     edit_message = kwargs.get('edit_message', False)
     
     # Import group config
-    GROUP_CONFIG = {
-        'CRYPTO': True,
-        'STOCKS': True,
-        'COMMODITY': True
-    }
+    try:
+        from antigravity_quantum.config import GROUP_CONFIG
+    except ImportError:
+        GROUP_CONFIG = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
     
     buttons = [
         [InlineKeyboardButton(

@@ -218,9 +218,8 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
     strategy = callback.data.split("|")[1]
     
     try:
-        from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS
+        from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS, GROUP_CONFIG
         from utils.db import save_bot_state
-        from config import GROUP_CONFIG
         
         current = ENABLED_STRATEGIES.get(strategy, True)
         ENABLED_STRATEGIES[strategy] = not current
@@ -261,22 +260,34 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
     """Toggle asset group on/off"""
     group = callback.data.split("|")[1]
     
-    from handlers.commands import GROUP_CONFIG
-    
-    current = GROUP_CONFIG.get(group, True)
-    GROUP_CONFIG[group] = not current
-    
-    new_state = "✅ ACTIVADO" if GROUP_CONFIG[group] else "❌ DESACTIVADO"
-    await callback.answer(f"{group}: {new_state}")
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=f"{'✅' if enabled else '❌'} {grp}",
-            callback_data=f"TOGGLEGRP|{grp}"
-        )] for grp, enabled in GROUP_CONFIG.items()
-    ])
-    
-    await callback.message.edit_reply_markup(reply_markup=keyboard)
+    try:
+        from antigravity_quantum.config import GROUP_CONFIG, ENABLED_STRATEGIES, DISABLED_ASSETS
+        from utils.db import save_bot_state
+        
+        current = GROUP_CONFIG.get(group, True)
+        GROUP_CONFIG[group] = not current
+        
+        # Save to DB
+        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
+        
+        new_state = "✅ ACTIVADO" if GROUP_CONFIG[group] else "❌ DESACTIVADO"
+        await callback.answer(f"{group}: {new_state}")
+        
+        # Rebuild buttons + Volver
+        buttons = [
+            [InlineKeyboardButton(
+                text=f"{'✅' if enabled else '❌'} {grp}",
+                callback_data=f"TOGGLEGRP|{grp}"
+            )] for grp, enabled in GROUP_CONFIG.items()
+        ]
+        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        
+        await callback.message.edit_reply_markup(reply_markup=keyboard)
+        
+    except Exception as e:
+        await callback.answer(f"Error: {e}", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("PERSONALITY|"))
@@ -423,7 +434,8 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
     asset = parts[2]
     
     try:
-        from antigravity_quantum.config import DISABLED_ASSETS
+        from antigravity_quantum.config import DISABLED_ASSETS, ENABLED_STRATEGIES, GROUP_CONFIG
+        from utils.db import save_bot_state
         
         if asset in DISABLED_ASSETS:
             DISABLED_ASSETS.remove(asset)
@@ -431,6 +443,9 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         else:
             DISABLED_ASSETS.add(asset)
             await callback.answer(f"❌ {asset} desactivado")
+        
+        # Save state to DB
+        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
         
         # Refresh menu
         await handle_assets_menu(callback, **kwargs)
