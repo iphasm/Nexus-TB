@@ -68,22 +68,30 @@ class AsyncTradingSession:
                     self.api_secret
                 )
                 
-                # --- PROXY FORCE VIA SESSION REPLACEMENT ---
-                # aiohttp requires 'trust_env=True' in Constructor to honor env vars
+                # Direct proxy assignment to avoid kwargs conflict
+                # This ensures python-binance uses the proxy param internally
                 if self._proxy:
                     print(f"🔄 [Chat {self.chat_id}] Configuring Proxy Session...")
-                    # Close default session
+                    
+                    # 1. Preserve Defaults (User-Agent, potentially others)
+                    headers = self.client.session._default_headers
+                    if not headers:
+                        headers = {"User-Agent": "binance-connector-python/1.0.0"} # Fallback
+
+                    # 2. Close default session
                     await self.client.close_connection()
                     
-                    # Set Env Vars
+                    # 3. Set Env Vars
                     os.environ['HTTPS_PROXY'] = self._proxy
                     os.environ['HTTP_PROXY'] = self._proxy
                     
-                    # Create NEW session with trust_env=True
-                    # This forces aiohttp to use the Env Vars we just set
-                    self.client.session = aiohttp.ClientSession(trust_env=True)
+                    # 4. Create NEW session with trust_env=True AND preserved headers
+                    self.client.session = aiohttp.ClientSession(
+                        headers=headers,
+                        trust_env=True
+                    )
                 
-                print(f"✅ [Chat {self.chat_id}] Binance Async Client Initialized (Proxy Forced).")
+                print(f"✅ [Chat {self.chat_id}] Binance Client Init (Proxy: Forced, Key: ...{self.api_key[-4:]})")
             except Exception as e:
                 self._init_error = str(e)
                 print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
