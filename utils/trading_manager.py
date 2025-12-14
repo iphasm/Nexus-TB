@@ -293,10 +293,10 @@ class AsyncTradingSession:
                 risk_amount = total_equity * 0.02
                 raw_quantity = risk_amount / sl_dist
                 
-                # Min notional check
+                # Min notional check (increased buffer to 1.15x to prevent rounding issues)
                 notional = raw_quantity * current_price
                 if notional < min_notional:
-                    raw_quantity = (min_notional * 1.05) / current_price
+                    raw_quantity = (min_notional * 1.15) / current_price
                 
                 # Max allocation check
                 if (raw_quantity * current_price / leverage) > (total_equity * max_capital_pct):
@@ -319,11 +319,28 @@ class AsyncTradingSession:
             if quantity <= 0:
                 return False, "Position size too small."
             
-            # 6. Execute Market Buy
+            # 6. Execute Market Buy (Retry Logic for Timeouts)
             try:
-                order = await self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
-                )
+                order = None
+                for attempt in range(1, 4):  # 3 Attempts
+                    try:
+                        order = await self.client.futures_create_order(
+                            symbol=symbol, side='BUY', type='MARKET', quantity=quantity
+                        )
+                        break
+                    except Exception as e:
+                        # Retry only on timeouts or network errors
+                        if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
+                            if attempt < 3:
+                                wait_time = 2 * (2 ** (attempt - 1))  # 2s, 4s
+                                print(f"⚠️ Timeout opening {symbol} (Attempt {attempt}/3). Retrying in {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                                continue
+                        raise e
+                
+                if not order:
+                    raise Exception("Max retries exceeded for order placement")
+                    
                 entry_price = float(order.get('avgPrice', current_price)) or current_price
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
@@ -465,6 +482,11 @@ class AsyncTradingSession:
             risk_amount = equity * 0.02
             raw_quantity = risk_amount / dist_to_stop
             
+            # Min notional check (increased buffer to 1.15x to prevent rounding issues)
+            notional = raw_quantity * current_price
+            if notional < min_notional:
+                raw_quantity = (min_notional * 1.15) / current_price
+            
             max_alloc = equity * max_capital_pct
             if (raw_quantity * current_price) > max_alloc:
                 raw_quantity = max_alloc / current_price
@@ -477,11 +499,27 @@ class AsyncTradingSession:
             if quantity <= 0:
                 return False, "Position size too small."
             
-            # 5. Execute Market Sell
+            # 5. Execute Market Sell (Retry Logic)
             try:
-                order = await self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
-                )
+                order = None
+                for attempt in range(1, 4):  # 3 Attempts
+                    try:
+                        order = await self.client.futures_create_order(
+                            symbol=symbol, side='SELL', type='MARKET', quantity=quantity
+                        )
+                        break
+                    except Exception as e:
+                        if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
+                            if attempt < 3:
+                                wait_time = 2 * (2 ** (attempt - 1))
+                                print(f"⚠️ Timeout opening {symbol} (Attempt {attempt}/3). Retrying in {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                                continue
+                        raise e
+                
+                if not order:
+                    raise Exception("Max retries exceeded")
+                
                 entry_price = float(order.get('avgPrice', current_price)) or current_price
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
@@ -557,8 +595,14 @@ class AsyncTradingSession:
             return False, "No valid session."
         
         try:
-            # Cancel orders
-            await self.client.futures_cancel_all_open_orders(symbol=symbol)
+            # Cancel orders (Retry Logic)
+            for _ in range(3):
+                try:
+                    await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                    break
+                except Exception as e:
+                    if "Unknown order" in str(e): break
+                    await asyncio.sleep(0.5)
             
             # Get position
             positions = await self.client.futures_position_information(symbol=symbol)
@@ -571,12 +615,22 @@ class AsyncTradingSession:
             if qty == 0:
                 return True, f"⚠️ No position found for {symbol}, orders canceled."
             
-            # Close
+            # Close (Retry Logic)
             side = 'SELL' if qty > 0 else 'BUY'
-            await self.client.futures_create_order(
-                symbol=symbol, side=side, type='MARKET',
-                reduceOnly=True, quantity=abs(qty)
-            )
+            
+            for attempt in range(1, 4):
+                try:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side=side, type='MARKET',
+                        reduceOnly=True, quantity=abs(qty)
+                    )
+                    break
+                except Exception as e:
+                    if "timeout" in str(e).lower() or "-1007" in str(e):
+                        if attempt < 3:
+                            await asyncio.sleep(1.0)
+                            continue
+                    raise e
             
             return True, f"✅ Closed {symbol} ({qty})."
             
