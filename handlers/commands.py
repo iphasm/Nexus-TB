@@ -784,14 +784,14 @@ async def cmd_analyze(message: Message, **kwargs):
 # =================================================================
 @router.message(Command("cooldown"))
 async def cmd_cooldown(message: Message, **kwargs):
-    """Configure or view signal alert cooldown."""
-    import bot_async
+    """Configure or view signal alert cooldown using DynamicCooldownManager."""
+    from bot_async import cooldown_manager
     
     args = message.text.split()
     
     if len(args) < 2:
         # Show current default cooldown
-        current = bot_async.cooldown_manager.default_cooldown // 60
+        current = cooldown_manager.default_cooldown // 60
         await message.reply(
             f"⏱️ **COOLDOWN ACTUAL**\n\n"
             f"Intervalo anti-spam: `{current}` minutos\n\n"
@@ -807,17 +807,17 @@ async def cmd_cooldown(message: Message, **kwargs):
             await message.reply("❌ El valor debe estar entre 1 y 60 minutos.")
             return
         
-        # Update global
-        bot_async.SIGNAL_COOLDOWN_SECONDS = minutes * 60
+        # Update DynamicCooldownManager
+        cooldown_manager.default_cooldown = minutes * 60
         
-        # Clear existing cooldowns
-        bot_async._signal_cooldowns.clear()
+        # Clear existing cooldowns to apply immediately
+        cooldown_manager.cooldowns.clear()
+        cooldown_manager.frequency_tracker.clear()
         
         await message.reply(
             f"✅ **COOLDOWN ACTUALIZADO**\n\n"
-            f"Nuevo intervalo: `{minutes}` minutos\n\n"
-            f"Las alertas de señales ahora esperarán al menos "
-            f"{minutes} minutos antes de repetir el mismo activo.",
+            f"Nuevo intervalo base: `{minutes}` minutos\n\n"
+            f"_Nota: El sistema ajusta dinámicamente según frecuencia y volatilidad._",
             parse_mode="Markdown"
         )
     except ValueError:
