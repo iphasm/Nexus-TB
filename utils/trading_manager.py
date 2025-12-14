@@ -63,6 +63,10 @@ class AsyncTradingSession:
         # AI Analyst
         self.ai_analyst = QuantumAnalyst()
         
+        # Operation Lock: Prevent concurrent/spam operations per symbol
+        self._operation_locks = {}  # {symbol: timestamp}
+        self._lock_duration = 30  # seconds
+        
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
     
@@ -347,13 +351,13 @@ class AsyncTradingSession:
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
             
-            # 7. Place SL/TP Orders
+            # 7. Place SL/TP Orders (Using reduceOnly to avoid -4130)
             try:
-                # Stop Loss
+                # Stop Loss with explicit quantity
                 if sl_price > 0:
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='STOP_MARKET',
-                        stopPrice=sl_price, closePosition=True
+                        stopPrice=sl_price, reduceOnly=True, quantity=quantity
                     )
                 
                 # Logic: TP1 (50%) + Trailing Stop (50%)
@@ -528,12 +532,12 @@ class AsyncTradingSession:
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
             
-            # 6. Place SL/TP
+            # 6. Place SL/TP (Using reduceOnly to avoid -4130)
             try:
                 if sl_price > 0:
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='STOP_MARKET',
-                        stopPrice=sl_price, closePosition=True
+                        stopPrice=sl_price, reduceOnly=True, quantity=quantity
                     )
                 
                 # Logic: TP1 (50%) + Trailing Stop (50%)
@@ -659,9 +663,20 @@ class AsyncTradingSession:
         return True, "Batch Close:\n" + "\n".join(results)
     
     async def execute_update_sltp(self, symbol: str, side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
-        """Update SL/TP for existing position."""
+        """Update SL/TP for existing position. Includes spam protection."""
         if not self.client:
             return False, "No session."
+        
+        # SPAM PROTECTION: Check if this symbol is locked
+        now = time.time()
+        if symbol in self._operation_locks:
+            elapsed = now - self._operation_locks[symbol]
+            if elapsed < self._lock_duration:
+                remaining = int(self._lock_duration - elapsed)
+                return False, f"⏳ {symbol} update in progress. Wait {remaining}s."
+        
+        # Lock this symbol
+        self._operation_locks[symbol] = now
         
         try:
             # Get position
@@ -816,6 +831,9 @@ class AsyncTradingSession:
             
         except Exception as e:
             return False, f"Update Error: {e}"
+        finally:
+            # Release lock (allow next update after success or failure)
+            self._operation_locks.pop(symbol, None)
     
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
         """Cancel orders for symbols without positions."""
