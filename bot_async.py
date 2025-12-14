@@ -336,7 +336,7 @@ async def main():
 
     # 7. Start Shark Sentinel (Black Swan Defense)
     try:
-        from antigravity_quantum.strategies.shark_mode import SharkSentinel
+        from strategies.shark_mode import SharkSentinel
         
         def notify_send(msg):
              # Broadcast alert to all active sessions
