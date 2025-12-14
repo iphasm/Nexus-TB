@@ -121,15 +121,22 @@ class TradingSession:
         }
 
     def get_symbol_precision(self, symbol):
-        if not self.client: return 2, 2
+        """Returns (quantityPrecision, pricePrecision, minNotional)"""
+        if not self.client: return 2, 2, 5.0
         try:
             info = self.client.futures_exchange_info()
             for s in info['symbols']:
                 if s['symbol'] == symbol:
-                    return s['quantityPrecision'], s['pricePrecision']
+                    # Default
+                    min_notional = 5.0
+                    for f in s['filters']:
+                        if f['filterType'] == 'MIN_NOTIONAL':
+                            min_notional = float(f.get('notional', 5.0))
+                            break
+                    return s['quantityPrecision'], s['pricePrecision'], min_notional
         except Exception as e:
             print(f"Error getting precision for {symbol}: {e}")
-        return 2, 2
+        return 2, 2, 5.0
 
     def _execute_alpaca_order(self, symbol, side, atr=None):
         if not self.alpaca_client:
@@ -328,105 +335,6 @@ class TradingSession:
                             net_qty = float(p['positionAmt'])
                             print(f"⚠️ [Safety] Position found via Account Fallback for {symbol}: {net_qty}")
                             break
-
-            except Exception as e:
-                return False, f"⚠️ Error checking positions ({e}). Aborted."
-
-            if net_qty != 0:
-                return False, f"⚠️ Position already open ({net_qty} {symbol})."
-
-            # 1. Update Leverage
-            self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-            
-            # Pre-flight Clean (Just in case)
-            try:
-                 self.client.futures_cancel_all_open_orders(symbol=symbol)
-            except: pass
-
-            # 2. Calculate Position Size
-            # Use futures_account for unified balance view
-            acc_info = self.client.futures_account()
-            
-            # AVAILABLE BALANCE (For Check)
-            available_balance = float(acc_info.get('availableBalance', 0))
-            
-            # TOTAL EQUITY (For Sizing) - Use this so position size doesn't shrink with open trades
-            total_equity = float(acc_info.get('totalMarginBalance', 0))
-            
-            ticker = self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
-            qty_precision, price_precision = self.get_symbol_precision(symbol)
-
-            # --- DYNAMIC CALCULATION ---
-            if atr and atr > 0:
-                # Rule: SL = Mult * ATR
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                sl_price = round(current_price - sl_dist, price_precision)
-                
-                # Rule: Risk Amount = 2% of Equity
-                risk_amount = total_equity * 0.02 
-                
-                raw_quantity = risk_amount / sl_dist
-                
-                # Check Min Notional (Binance requires > 5 USDT)
-                notional = raw_quantity * current_price
-                if notional < 5.5:
-                    raw_quantity = 5.5 / current_price # Bump to min
-                
-                # Check absolute margin limit
-                notional = raw_quantity * current_price
-                margin_req = notional / leverage
-                
-                if margin_req > (total_equity * max_capital_pct):
-                     raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
-                
-                tp1_price = round(current_price + (1.5 * sl_dist), price_precision)
-                
-            else:
-                # --- FALLBACK (FIXED %) ---
-                margin_assignment = total_equity * max_capital_pct
-                raw_quantity = (margin_assignment * leverage) / current_price
-                sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                tp1_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision) 
-
-            quantity = float(round(raw_quantity, qty_precision))
-            
-            # --- PRE-FLIGHT CHECK ---
-            final_notional = quantity * current_price
-            if final_notional < 5.0:
-                 return False, f"❌ {symbol}: Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
-
-            if quantity <= 0: return False, "Position too small."
-
-            # 3. Execute Market Buy
-            try:
-                order = self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
-                )
-                entry_price = float(order.get('avgPrice', current_price))
-                if entry_price == 0: entry_price = current_price
-            except Exception as e:
-                return False, f"❌ Failed to Open Position: {e}"
-
-            # 4. Post-Entry Orders (SL / TP) - ATOMIC SAFETY BLOCK
-            try:
-                # SL (Full Size)
-                if sl_price > 0:
-                    self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                    )
-                
-                # --- SPLIT ORDER LOGIC ---
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                if tp_notional < 5.5:
-                    # 🚫 Small Position: NO SPLIT (100% TP1)
-                    self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
-                    )
-                    success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
                 else:
                     # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
                     if qty_tp1 > 0:
@@ -517,7 +425,11 @@ class TradingSession:
                 return False, f"Check Error: {e}"
 
             if net_qty != 0:
-                return False, f"⚠️ Position already open ({net_qty} {symbol})."
+                if net_qty < 0:
+                     print(f"🔄 Auto-Update Short for {symbol}")
+                     return self.execute_update_sltp(symbol, 'SHORT', atr)
+                else:
+                     return False, f"⚠️ Position Mismatch ({symbol} Long is open). Flip manually."
 
             # 1. Update Leverage
             self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
@@ -533,7 +445,7 @@ class TradingSession:
             
             ticker = self.client.futures_symbol_ticker(symbol=symbol)
             current_price = float(ticker['price'])
-            qty_precision, price_precision = self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
 
             # --- DYNAMIC CALCULATION ---
             if atr and atr > 0:
@@ -545,13 +457,15 @@ class TradingSession:
                 
                 # Check Min Notional
                 notional = raw_quantity * current_price
-                if notional < 5.5:
-                    raw_quantity = 5.5 / current_price
+                if notional < min_notional:
+                     # Bump to Minimum (Short)
+                    raw_quantity = (min_notional * 1.1) / current_price
 
                 notional = raw_quantity * current_price
                 margin_req = notional / leverage
                 
                 if margin_req > (total_equity * max_capital_pct):
+                     # Cap at Max Capital
                      raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
                 
                 tp1_price = round(current_price - (1.5 * sl_dist), price_precision) # Short TP is below
@@ -566,8 +480,8 @@ class TradingSession:
             
             # --- PRE-FLIGHT CHECK ---
             final_notional = quantity * current_price
-            if final_notional < 5.0:
-                 return False, f"❌ {symbol}: Capital Insufficient for Valid Entry.\nRequired: >5.0 USDT Notional.\nCalculated: {final_notional:.2f} USDT.\nAction: Increase Capital or Risk %."
+            if final_notional < min_notional:
+                 return False, f"❌ {symbol}: Insufficient Capital for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
 
             if quantity <= 0: return False, "Position too small."
 
@@ -593,7 +507,7 @@ class TradingSession:
                 qty_tp1 = float(round(quantity / 2, qty_precision))
                 tp_notional = qty_tp1 * entry_price
                 
-                if tp_notional < 5.5:
+                if tp_notional < min_notional:
                     # 🚫 Small Position: NO SPLIT (100% TP1)
                     self.client.futures_create_order(
                        symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
@@ -616,7 +530,8 @@ class TradingSession:
                             quantity=qty_tp2,
                             reduceOnly=True
                         )
-                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
+
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
                 
