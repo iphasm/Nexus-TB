@@ -277,6 +277,40 @@ async def main():
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
             
+    # 4. Register Middleware
+    dp.message.middleware(SessionMiddleware(session_manager))
+    dp.callback_query.middleware(SessionMiddleware(session_manager))
+    
+    # 5. Register Routers
+    from handlers.commands import router as commands_router
+    from handlers.trading import router as trading_router
+    from handlers.config import router as config_router
+    from handlers.callbacks import router as callbacks_router
+    from handlers.admin import router as admin_router
+    
+    dp.include_router(admin_router)
+    dp.include_router(commands_router)
+    dp.include_router(config_router)
+    dp.include_router(trading_router)
+    dp.include_router(callbacks_router)
+    
+    # 5. Register Middleware
+    # Session middleware for all handlers
+    dp.update.middleware(SessionMiddleware(session_manager))
+    dp.update.middleware(GatekeeperMiddleware())
+    
+    logger.info("✅ Routers and Middleware registered.")
+
+    # 6. Initialize Quantum Engine (Optional)
+    engine_task = None
+    USE_QUANTUM_ENGINE = os.getenv('USE_QUANTUM_ENGINE', 'true').lower() == 'true'
+    
+    if USE_QUANTUM_ENGINE:
+        try:
+            from antigravity_quantum.core.engine import QuantumEngine
+            
+            engine = QuantumEngine(assets=get_all_assets())
+            
             # Set callback for signal dispatch
             async def on_signal(signal):
                 await dispatch_quantum_signal(bot, signal, session_manager)
