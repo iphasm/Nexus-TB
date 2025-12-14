@@ -20,17 +20,33 @@ SLTP_UPDATE_COOLDOWN = 900  # 15 minutes minimum between updates per asset
 # --- MODULE-SPECIFIC ASSET LISTS ---
 # These can be toggled via /assets menu
 
-# Shark Mode: Assets to SHORT during market crashes
-SHARK_TARGETS = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
+# 1. SHARK MODE (Crash/Sniper Targets)
+# High beta assets that crash hard when market dumps
+SHARK_TARGETS = [
+    '1000PEPEUSDT', 'WIFUSDT', 'SOLUSDT', 'SUIUSDT', 
+    'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'DOGEUSDT'
+]
 
-# Scalping: High volatility assets for quick trades
-SCALPING_ASSETS = ['ZECUSDT', 'SUIUSDT', 'SOLUSDT', 'BTCUSDT', 'ETHUSDT']
+# 2. SCALPING (High Volatility & Momentum)
+# Assets with clean impulse moves
+SCALPING_ASSETS = [
+    'SOLUSDT', 'WIFUSDT', '1000PEPEUSDT', 'SUIUSDT', 'AVAXUSDT',
+    'DOGEUSDT', 'RENDERUSDT', 'NEARUSDT', 'FTMUSDT', 'INJUSDT', 'SEIUSDT'
+]
 
-# Grid Trading: Range-bound assets for grid strategy
-GRID_ASSETS = ['ADAUSDT', 'ZECUSDT']
+# 3. GRID TRADING (Sideways/Range)
+# Stable assets that respect support/resistance
+GRID_ASSETS = [
+    'ADAUSDT', 'XRPUSDT', 'LTCUSDT', 'LINKUSDT', 
+    'DOTUSDT', 'MATICUSDT', 'XLMUSDT', 'EOSUSDT'
+]
 
-# Mean Reversion: Empty = use all non-blacklisted assets
-MEAN_REV_ASSETS = []
+# 4. MEAN REVERSION (Solid/Bluechip)
+# Assets that reliably return to EMA
+MEAN_REV_ASSETS = [
+    'BNBUSDT', 'ETHUSDT', 'ZECUSDT', 
+    'UNIUSDT', 'AAVEUSDT', 'ATOMUSDT'
+]
 
 # Runtime Blacklist (Global - applies to main scanner)
 DISABLED_ASSETS = set()

@@ -50,7 +50,20 @@ if sys_proxy:
 
 # --- CONFIGURACIÓN DE ACTIVOS Y GRUPOS ---
 ASSET_GROUPS = {
-    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT', '1000PEPEUSDT', 'WIFUSDT', 'RENDERUSDT'],
+    'CRYPTO': [
+        # Majors & L1s
+        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 
+        'AVAXUSDT', 'LTCUSDT', 'DOTUSDT', 'MATICUSDT', 'LINKUSDT', 
+        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
+        
+        # Volatility & Momentum
+        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', 'SHIBUSDT', 'SUIUSDT', 
+        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
+        
+        # Emerging / Degen / Crash Targets
+        'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'ZECUSDT', 'EOSUSDT',
+        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT'
+    ],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
     'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG'] # ETFs for Alpaca (Gold, Oil, Silver, Copper, Nat Gas)
 }
