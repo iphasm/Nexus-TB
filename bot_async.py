@@ -37,7 +37,7 @@ TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
 # --- DIAGNOSTICS: LOG ENV VARS (Masked) ---
 # Debugging Railway Env Var Issues
-_vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL']
+_vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY']
 logger.info("🔧 ENVIRONMENT VARIABLE CHECK:")
 for v in _vars_to_log:
     val = os.getenv(v, '').strip("'\" ")

@@ -86,9 +86,9 @@ class AsyncTradingSession:
     
     async def initialize_alpaca(self):
         """Initialize Alpaca client from config or env."""
-        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID')
-        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY')
-        base_url = os.getenv('APCA_API_BASE_URL')
+        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
+        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
+        base_url = os.getenv('APCA_API_BASE_URL', '').strip("'\" ")
         
         if ak and ask:
             try:
