@@ -560,12 +560,51 @@ async def cmd_resetpilot(message: Message, **kwargs):
     )
 
 
+@router.message(Command("risk"))
+async def cmd_risk(message: Message, **kwargs):
+    """Display current risk management settings"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await message.answer("⚠️ Sin sesión activa. Configura primero con `/set_keys`.", parse_mode="Markdown")
+        return
+    
+    # Extract risk parameters from session config
+    leverage = session.config.get('leverage', 5)
+    margin_pct = session.config.get('max_capital_pct', 0.10) * 100
+    sl_pct = session.config.get('stop_loss_pct', 0.02) * 100
+    atr_mult = session.config.get('atr_multiplier', 2.0)
+    
+    # Calculate losses and breaker status
+    losses = getattr(session, 'consecutive_losses', 0)
+    max_losses = getattr(session, 'max_consecutive_losses', 3)
+    breaker_status = "🔴 ACTIVADO" if losses >= max_losses else f"🟢 OK ({losses}/{max_losses})"
+    
+    await message.answer(
+        "🛡️ **GESTIÓN DE RIESGO**\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"⚖️ Apalancamiento: `{leverage}x`\n"
+        f"💰 Margen por Op: `{margin_pct:.0f}%`\n"
+        f"📉 Stop Loss Base: `{sl_pct:.1f}%`\n"
+        f"📏 Multiplicador ATR: `{atr_mult}x`\n\n"
+        f"🔌 Circuit Breaker: {breaker_status}\n\n"
+        "_Usa /config para modificar estos valores._",
+        parse_mode='Markdown'
+    )
+
+
 @router.message(Command("sniper"))
 async def cmd_sniper(message: Message, **kwargs):
     """Scan for instant trading opportunities"""
     from utils.ai_analyst import QuantumAnalyst
     from data.fetcher import get_market_data
-    from strategies.strategy_engine import StrategyEngine
+    from strategies.engine import StrategyEngine
     
     session_manager = kwargs.get('session_manager')
     if not session_manager:
