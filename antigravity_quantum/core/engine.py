@@ -69,6 +69,8 @@ class QuantumEngine:
                 signal = await strategy.analyze(market_data)
                 
                 if signal:
+                    # Inject strategy name
+                    signal.strategy = strategy.name
                     print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
                     
                     if self.signal_callback:

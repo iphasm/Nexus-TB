@@ -9,6 +9,7 @@ class Signal:
     confidence: float  # 0.0 to 1.0
     price: float
     metadata: Dict[str, Any]
+    strategy: Optional[str] = None
 
 class IStrategy(abc.ABC):
     """
