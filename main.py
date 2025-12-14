@@ -228,6 +228,10 @@ def handle_price(message):
             report += f"*{display_name}*\n"
             
             for asset in assets:
+                # SKIP DISABLED ASSETS (Silent)
+                if asset in DISABLED_ASSETS:
+                    continue
+
                 try:
                     success, res = process_asset(asset)
                     

@@ -297,13 +297,10 @@ class TradingSession:
             
             # 2. Filter: MACRO SHIELD (Reduce Leverage)
             if vol_risk in ['HIGH', 'EXTREME']:
-                # Force Leverage Down
                 current_lev = self.config['leverage']
                 if current_lev > 3:
                      print(f"⚠️ High Volatility ({vol_risk}). Reducing Leverage to 3x.")
                      self.config['leverage'] = 3
-                     # Optional: Restore later? For now, safer to keep it low for the session or just this trade.
-                     # Actually, let's just use a local variable for this trade to not mess up global config permanently.
                 
         # Dispatch: Stocks (Alpaca) vs Crypto (Binance)
         if 'USDT' not in symbol:
@@ -317,52 +314,130 @@ class TradingSession:
             max_capital_pct = self.config['max_capital_pct']
             stop_loss_pct = self.config['stop_loss_pct']
 
-            # 0. Safety Check: Existing Position (ROBUST)
-            has_position = False
+            # 0. Safety Check: Existing Position
             net_qty = 0.0
-
             try:
-                # Check 1: Specific Symbol
                 positions = self.client.futures_position_information(symbol=symbol)
                 for p in positions:
                     net_qty += float(p['positionAmt'])
                 
-                # Check 2: Fallback to Account Snapshot if Check 1 says 0 but we want to be SURE
                 if net_qty == 0:
                     acc_pos = self.client.futures_account()['positions']
                     for p in acc_pos:
                         if p['symbol'] == symbol and float(p['positionAmt']) != 0:
                             net_qty = float(p['positionAmt'])
-                            print(f"⚠️ [Safety] Position found via Account Fallback for {symbol}: {net_qty}")
                             break
+            except Exception as e:
+                return False, f"⚠️ Error checking positions ({e}). Aborted."
+
+            # AUTO-UPDATE LOGIC
+            if net_qty != 0:
+                if net_qty > 0:
+                    print(f"🔄 Auto-Update Long for {symbol}")
+                    return self.execute_update_sltp(symbol, 'LONG', atr)
                 else:
-                    # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
+                    return False, f"⚠️ Position Mismatch ({symbol} Short is open). Close it first."
+
+            # 1. Update Leverage
+            self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
+            
+            try:
+                 self.client.futures_cancel_all_open_orders(symbol=symbol)
+            except: pass
+
+            # 2. Calculate Position Size
+            acc_info = self.client.futures_account()
+            total_equity = float(acc_info.get('totalMarginBalance', 0))
+            
+            ticker = self.client.futures_symbol_ticker(symbol=symbol)
+            current_price = float(ticker['price'])
+            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
+
+            # --- DYNAMIC CALCULATION ---
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                sl_price = round(current_price - sl_dist, price_precision)
+                
+                risk_amount = total_equity * 0.02 
+                raw_quantity = risk_amount / sl_dist
+                
+                # Check Min Notional
+                notional = raw_quantity * current_price
+                if notional < min_notional:
+                    raw_quantity = (min_notional * 1.05) / current_price # 5% buffer
+                
+                # Check Max Allocation
+                if (raw_quantity * current_price / leverage) > (total_equity * max_capital_pct):
+                     raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
+                
+                tp1_price = round(current_price + (1.5 * sl_dist), price_precision)
+            else:
+                margin_assignment = total_equity * max_capital_pct
+                raw_quantity = (margin_assignment * leverage) / current_price
+                sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
+                tp1_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision) 
+
+            quantity = float(round(raw_quantity, qty_precision))
+            
+            # --- MIN NOTIONAL CHECK ---
+            final_notional = quantity * current_price
+            if final_notional < min_notional:
+                 return False, f"❌ {symbol}: Capital Insufficient for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
+
+            if quantity <= 0: return False, "Position too small."
+
+            # 3. Execute Market Buy
+            try:
+                order = self.client.futures_create_order(
+                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price))
+                if entry_price == 0: entry_price = current_price
+            except Exception as e:
+                return False, f"❌ Failed to Open Position: {e}"
+
+            # 4. Post-Entry Orders (SL / TP)
+            try:
+                # SL
+                if sl_price > 0:
+                    self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
+                    )
+                
+                # Setup TP Vars
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                tp_notional = qty_tp1 * entry_price
+                
+                # Initialize success_msg before conditional blocks
+                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}"
+
+                if tp_notional < min_notional:
+                    # NO SPLIT
+                    self.client.futures_create_order(
+                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
+                    )
+                    success_msg += f"\nTP: {tp1_price} (100% - Small Pos)"
+                else:
+                    # SPLIT
                     if qty_tp1 > 0:
                         self.client.futures_create_order(
                            symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
                         )
-                        
-                    # TP2 (Trailing - Remainder)
+                    
                     qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
                     if qty_tp2 > 0:
                          self.client.futures_create_order(
-                            symbol=symbol, 
-                            side='SELL', 
-                            type='TRAILING_STOP_MARKET', 
-                            callbackRate=1.5, 
-                            quantity=qty_tp2,
-                            reduceOnly=True
+                            symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
                         )
+                    success_msg += f"\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
 
-                    success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
-
-                # Optional: Add Macro Warning to message
+                # Macro Warning
                 if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
                     success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
 
                 self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
                 
-                # Return DICT for Pilot Alert formatting
                 return True, {
                     "msg": success_msg,
                     "price": entry_price,
@@ -372,19 +447,17 @@ class TradingSession:
                 }
 
             except Exception as e:
-                # 🚨 CRITICAL: ROLLBACK (Close Position)
                 print(f"⚠️ Order Placement Failed: {e}. closing position...")
                 try:
-                     self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='MARKET', quantity=quantity, reduceOnly=True
-                    )
-                except: pass # Best effort
+                     self.client.futures_create_order(symbol=symbol, side='SELL', type='MARKET', quantity=quantity, reduceOnly=True)
+                except: pass
                 return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
 
         except BinanceAPIException as e:
             return False, f"[{symbol}] Binance Error: {e.message}"
         except Exception as e:
             return False, f"[{symbol}] Error: {str(e)}"
+
 
     def execute_short_position(self, symbol, atr=None):
         # --- 0. SENTIMENT & MACRO FILTER (AI) ---
@@ -431,134 +504,6 @@ class TradingSession:
                 else:
                      return False, f"⚠️ Position Mismatch ({symbol} Long is open). Flip manually."
 
-            # 1. Update Leverage
-            self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-
-            # 2. Calculate Size & Params
-            acc_info = self.client.futures_account()
-            
-            # AVAILABLE BALANCE (For Check)
-            available_balance = float(acc_info.get('availableBalance', 0))
-            
-            # TOTAL EQUITY (For Sizing)
-            total_equity = float(acc_info.get('totalMarginBalance', 0))
-            
-            ticker = self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
-            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
-
-            # --- DYNAMIC CALCULATION ---
-            if atr and atr > 0:
-                sl_dist = 2.0 * atr
-                sl_price = round(current_price + sl_dist, price_precision) # Short SL is above
-                
-                risk_amount = total_equity * 0.02
-                raw_quantity = risk_amount / sl_dist
-                
-                # Check Min Notional
-                notional = raw_quantity * current_price
-                if notional < min_notional:
-                     # Bump to Minimum (Short)
-                    raw_quantity = (min_notional * 1.1) / current_price
-
-                notional = raw_quantity * current_price
-                margin_req = notional / leverage
-                
-                if margin_req > (total_equity * max_capital_pct):
-                     # Cap at Max Capital
-                     raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
-                
-                tp1_price = round(current_price - (1.5 * sl_dist), price_precision) # Short TP is below
-                
-            else:
-                margin_assignment = total_equity * max_capital_pct
-                raw_quantity = (margin_assignment * leverage) / current_price
-                sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                tp1_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
-
-            quantity = float(round(raw_quantity, qty_precision))
-            
-            # --- PRE-FLIGHT CHECK ---
-            final_notional = quantity * current_price
-            if final_notional < min_notional:
-                 return False, f"❌ {symbol}: Insufficient Capital for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
-
-            if quantity <= 0: return False, "Position too small."
-
-            # 3. Execute Market SELL
-            try:
-                order = self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
-                )
-                entry_price = float(order.get('avgPrice', current_price))
-                if entry_price == 0: entry_price = current_price
-            except Exception as e:
-                return False, f"❌ Failed to Open Position: {e}"
-
-            # 4. Post-Entry Orders (SL / TP) - ATOMIC SAFETY BLOCK
-            try:
-                # SL (Full Size)
-                if sl_price > 0:
-                     self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                    )
-                
-                # --- SPLIT ORDER LOGIC ---
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                if tp_notional < min_notional:
-                    # 🚫 Small Position: NO SPLIT (100% TP1)
-                    self.client.futures_create_order(
-                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
-                    )
-                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
-                else:
-                     # ✅ Sufficient Size: SPLIT (50% TP1 + 50% Trailing)
-                    if qty_tp1 > 0:
-                        self.client.futures_create_order(
-                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
-                        )
-                    
-                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-                    if qty_tp2 > 0:
-                         self.client.futures_create_order(
-                            symbol=symbol, 
-                            side='BUY', 
-                            type='TRAILING_STOP_MARKET', 
-                            callbackRate=1.5, 
-                            quantity=qty_tp2,
-                            reduceOnly=True
-                        )
-                    success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}\nTP: {tp1_price} (100% - Small Pos)"
-
-
-                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
-                
-                # Optional: Add Macro Warning to message
-                if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
-                    success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
-                
-                return True, {
-                    "msg": success_msg,
-                    "price": entry_price,
-                    "sl": sl_price,
-                    "tp": tp1_price,
-                    "qty": quantity
-                }
-
-            except Exception as e:
-                # 🚨 CRITICAL: ROLLBACK (Close Position)
-                print(f"⚠️ Order Placement Failed: {e}. closing position...")
-                try:
-                     self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='MARKET', quantity=quantity, reduceOnly=True
-                    )
-                except: pass 
-                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
-
-        except BinanceAPIException as e:
-            return False, f"[{symbol}] Binance Error: {e.message}"
         except Exception as e:
             return False, f"[{symbol}] Error: {e}"
 
