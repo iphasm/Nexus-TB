@@ -20,6 +20,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- CONFIGURATION ---
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Suppress noisy loggers
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('aiogram').setLevel(logging.INFO)
+
+# --- CONFIGURATION ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
@@ -34,17 +46,6 @@ for v in _vars_to_log:
     if v == 'PROXY_URL' and val: masked = "CONFIGURED"
     logger.info(f"   - {v}: {status} [{masked}]")
 # ------------------------------------------
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Suppress noisy loggers
-logging.getLogger('httpx').setLevel(logging.WARNING)
-logging.getLogger('aiogram').setLevel(logging.INFO)
 
 
 # --- ASSET CONFIGURATION ---
