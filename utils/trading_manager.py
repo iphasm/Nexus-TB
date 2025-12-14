@@ -204,11 +204,101 @@ class AsyncTradingSession:
         # Try to re-initialize lazy
         print(f"🔄 [Chat {self.chat_id}] Attempting lazy re-initialization...")
         await self.initialize()
-        if self.client:
-            return True, ""
-        
         err = getattr(self, '_init_error', 'Unknown Error')
         return False, f"Client Connection Failed: {err}"
+
+    async def _place_order_with_retry(self, func, **kwargs):
+        """Helper: Place order with retries for -1007/Timeout"""
+        for attempt in range(1, 4):
+            try:
+                return await func(**kwargs)
+            except Exception as e:
+                if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
+                    if attempt < 3:
+                        await asyncio.sleep(attempt)
+                        continue
+                raise e
+        raise Exception("Max retries exceeded")
+
+    async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int) -> Tuple[bool, str]:
+        """
+        Surgical SL/TP Synchronization (Refactored):
+        1. Fetch all open orders.
+        2. Cancel ONLY STOP_MARKET / TAKE_PROFIT_MARKET / TRAILING_STOP_MARKET.
+           (Preserves LIMIT orders for Grid/Scalping).
+        3. Place SL using closePosition=True (Safety Kill Switch).
+        4. Place TP using reduceOnly=True (Allows Split TPs).
+        """
+        try:
+            # 1. Fetch Orders
+            orders = await self.client.futures_get_open_orders(symbol=symbol)
+            
+            # 2. Surgical Filter
+            to_cancel = []
+            for o in orders:
+                if o['type'] in ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET']:
+                    to_cancel.append(o['orderId'])
+            
+            # Batch Cancel or Individual
+            if to_cancel:
+                # Try batch if possible, else distinct
+                for oid in to_cancel:
+                    try:
+                        await self.client.futures_cancel_order(symbol=symbol, orderId=oid)
+                    except:
+                        pass
+                await asyncio.sleep(0.5)
+            
+            # 3. Place SL (Safety: closePosition=True)
+            sl_msg = ""
+            if sl_price > 0:
+                sl_side = 'SELL' if side == 'LONG' else 'BUY'
+                await self._place_order_with_retry(
+                    self.client.futures_create_order,
+                    symbol=symbol, side=sl_side, type='STOP_MARKET',
+                    stopPrice=sl_price, closePosition=True
+                )
+                sl_msg = f"SL: {sl_price} (Shielded)"
+                
+            # 4. Place TP (Flexibility: Split TPs with reduceOnly)
+            tp_msg = ""
+            abs_qty = abs(quantity)
+            sl_side = 'SELL' if side == 'LONG' else 'BUY' # Same side for closing
+            
+            qty_tp1 = float(round(abs_qty / 2, qty_precision))
+            qty_trail = float(round(abs_qty - qty_tp1, qty_precision))
+            
+            # Check split feasibility
+            current_price = sl_price # Approx, not critical for check
+            is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
+            
+            if is_split:
+                 # TP1
+                await self._place_order_with_retry(
+                    self.client.futures_create_order,
+                    symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
+                    stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                )
+                # Trailing
+                await self._place_order_with_retry(
+                    self.client.futures_create_order,
+                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
+                    quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                )
+                tp_msg = f"TP1: {tp_price} | Trail: 2.0%"
+            else:
+                 # Full Trailing
+                await self._place_order_with_retry(
+                    self.client.futures_create_order,
+                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
+                    quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                )
+                tp_msg = f"Trailing: {tp_price} (2.0%)"
+            
+            return True, f"{sl_msg}\n{tp_msg}"
+            
+        except Exception as e:
+            return False, f"Sync Error: {e}"
 
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously."""
@@ -695,64 +785,17 @@ class AsyncTradingSession:
             if curr_side != side:
                 return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
             
-            # Cancel old orders (Retry Logic) + Verification
-            for attempt in range(3):
-                try:
-                    await self.client.futures_cancel_all_open_orders(symbol=symbol)
-                except Exception as e:
-                    if "Unknown order" not in str(e):
-                        await asyncio.sleep(0.5)
-                        continue
-                break
-            
-            await asyncio.sleep(1.5) # Increased propagation wait
-            
-            # VERIFICATION: Ensure no closePosition orders remain (prevents -4130)
-            for check in range(5):
-                open_orders = await self.client.futures_get_open_orders(symbol=symbol)
-                
-                # Check for ANY order with closePosition=True (handle bool or string)
-                close_orders = []
-                for o in open_orders:
-                    cp = o.get('closePosition', False)
-                    # Handle boolean True, string "true"/"True", etc.
-                    if str(cp).lower() == 'true':
-                        close_orders.append(o)
-                
-                if not close_orders:
-                    break
-                
-                # Still has orders - retry explicit cancel by ID if 'cancel_all' is flaky
-                print(f"⚠️ Found {len(close_orders)} closePosition orders for {symbol}. Retrying cancel...")
-                
-                # Try cancelling specifically by ID first (more reliable)
-                for order in close_orders:
-                    try:
-                        await self.client.futures_cancel_order(symbol=symbol, orderId=order['orderId'])
-                    except:
-                        pass
-                
-                # Fallback to cancel all
-                await self.client.futures_cancel_all_open_orders(symbol=symbol)
-                await asyncio.sleep(1.0)
-            
-            # Final Safety Check
-            if len(close_orders) > 0:
-                 return False, f"Failed to clear existing SL orders for {symbol}. Manual intervention required."
-            
             # Get new price info
             ticker = await self.client.futures_symbol_ticker(symbol=symbol)
             current_price = float(ticker['price'])
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
             
-            abs_qty = abs(qty)
             stop_loss_pct = self.config['stop_loss_pct']
             
-            # Calculate new SL/TP
+            # Calculate updated SL/TP
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
-                
                 if side == 'LONG':
                     sl_price = round(current_price - sl_dist, price_precision)
                     tp_price = round(current_price + (1.5 * sl_dist), price_precision)
@@ -762,77 +805,27 @@ class AsyncTradingSession:
             else:
                 if side == 'LONG':
                     sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 + (stop_loss_pct * 1.5)), price_precision)
+                    tp_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision)
                 else:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 - (stop_loss_pct * 1.5)), price_precision)
+                    tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
             
-            # Place new orders (Split TP Logic)
-            sl_side = 'SELL' if side == 'LONG' else 'BUY'
-            
-            # Helper for retries
-            async def place_order_with_retry(func, **kwargs):
-                for attempt in range(1, 4):
-                    try:
-                        await func(**kwargs)
-                        return
-                    except Exception as e:
-                        if "timeout" in str(e).lower() or "-1007" in str(e):
-                            if attempt < 3:
-                                wait = 2 * (2 ** (attempt - 1))
-                                print(f"⚠️ Retry Update Order ({attempt}/3): {e}. Wait {wait}s.")
-                                await asyncio.sleep(wait)
-                                continue
-                        raise e
-
-            # 1. Stop Loss (Use reduceOnly + quantity to AVOID -4130)
-            if sl_price > 0:
-                await place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='STOP_MARKET',
-                    stopPrice=sl_price, reduceOnly=True, quantity=abs_qty
-                )
-            
-            # 2. Split TP (TP1 + Trailing)
-            qty_tp1 = float(round(abs_qty / 2, qty_precision))
-            qty_trail = float(round(abs_qty - qty_tp1, qty_precision))
-            
-            is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
-            
-            tp_msg = ""
-            if is_split:
-                # TP1
-                await place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
-                    stopPrice=tp_price, reduceOnly=True, quantity=qty_tp1
-                )
-                # Trailing
-                await place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
-                )
-                tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
-            else:
-                # Capital too small: Full Trailing Stop
-                await place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
-                )
-                tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
-            
-            return True, (
-                f"🔄 SL/TP Updated for {symbol}\n"
-                f"New SL: {sl_price}\n"
-                f"Target: {tp_msg}"
+            # Delegate to Surgical Sync
+            success, sync_msg = await self.synchronize_sl_tp_safe(
+                symbol, qty, sl_price, tp_price, side, min_notional, qty_precision
             )
+            
+            if success:
+                return True, (
+                    f"🔄 SL/TP Updated (Surgical) for {symbol}\n"
+                    f"{sync_msg}"
+                )
+            else:
+                return False, sync_msg
             
         except Exception as e:
             return False, f"Update Error: {e}"
         finally:
-            # Release lock (allow next update after success or failure)
             self._operation_locks.pop(symbol, None)
     
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
