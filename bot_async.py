@@ -94,6 +94,11 @@ class SessionMiddleware(BaseMiddleware):
 
 
 # --- SIGNAL DISPATCH ---
+
+# Global Personality Manager instance
+from utils.personalities import PersonalityManager
+personality_manager = PersonalityManager()
+
 async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     """
     Dispatch trading signals from QuantumEngine to all active sessions.
@@ -105,6 +110,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     action = signal.action.upper()  # BUY, SELL, HOLD
     confidence = getattr(signal, 'confidence', 0.5)
     strategy = getattr(signal, 'strategy', 'UNKNOWN')
+    price = getattr(signal, 'price', 0)
     
     # Skip non-actionable signals
     if action in ['HOLD', 'WAIT', 'EXIT_ALL']:
@@ -112,6 +118,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
+    reason = f"{strategy} (C: {confidence:.0%})"
     
     logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy})")
     
@@ -119,16 +126,25 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     for session in session_manager.get_all_sessions():
         try:
             mode = session.mode
+            p_key = session.config.get('personality', 'NEXUS')
+            
+            # Calculate SL/TP preview
+            sl_prev, tp_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0)
             
             if mode == 'WATCHER':
-                # Just send alert
-                msg = (
-                    f"📡 *SEÑAL DETECTADA*\n\n"
-                    f"Activo: `{symbol}`\n"
-                    f"Acción: *{action}*\n"
-                    f"Confianza: {confidence:.0%}\n"
-                    f"Estrategia: {strategy}"
-                )
+                # Use personality message
+                if side == 'LONG':
+                    msg = personality_manager.get_message(
+                        p_key, 'TRADE_LONG',
+                        asset=symbol, price=price, reason=reason,
+                        tp=tp_prev, sl=sl_prev
+                    )
+                else:
+                    msg = personality_manager.get_message(
+                        p_key, 'TRADE_SHORT',
+                        asset=symbol, price=price, reason=reason,
+                        tp=tp_prev, sl=sl_prev
+                    )
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
             elif mode == 'COPILOT':
@@ -146,14 +162,18 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     ]
                 ])
                 
-                msg = (
-                    f"🤝 *PROPUESTA DE TRADING*\n\n"
-                    f"Activo: `{symbol}`\n"
-                    f"Operación: *{side}*\n"
-                    f"Confianza: {confidence:.0%}\n"
-                    f"Estrategia: {strategy}\n\n"
-                    f"¿Deseas ejecutar esta operación?"
-                )
+                if side == 'LONG':
+                    msg = personality_manager.get_message(
+                        p_key, 'TRADE_LONG',
+                        asset=symbol, price=price, reason=reason,
+                        tp=tp_prev, sl=sl_prev
+                    )
+                else:
+                    msg = personality_manager.get_message(
+                        p_key, 'TRADE_SHORT',
+                        asset=symbol, price=price, reason=reason,
+                        tp=tp_prev, sl=sl_prev
+                    )
                 await bot.send_message(
                     session.chat_id, msg, 
                     reply_markup=keyboard, 
@@ -161,13 +181,11 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                 )
                 
             elif mode == 'PILOT':
-                # Auto-execute
-                await bot.send_message(
-                    session.chat_id,
-                    f"🚀 *EJECUTANDO {side}* en `{symbol}`...",
-                    parse_mode="Markdown"
-                )
+                # Personality-aware notification
+                pilot_msg = personality_manager.get_message(p_key, 'PILOT_ON')
+                await bot.send_message(session.chat_id, pilot_msg, parse_mode="Markdown")
                 
+                # Auto-execute
                 if side == 'LONG':
                     success, result = await session.execute_long_position(symbol)
                 else:
@@ -179,10 +197,17 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         f"✅ *{side} EJECUTADO*\n{result}",
                         parse_mode="Markdown"
                     )
+                    
+                    # Check circuit breaker after trade
+                    cb_triggered, cb_msg = await session.check_circuit_breaker()
+                    if cb_triggered:
+                        cb_alert = personality_manager.get_message(p_key, 'CB_TRIGGER')
+                        await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
                     await bot.send_message(
                         session.chat_id,
-                        f"❌ Error: {result}"
+                        f"❌ Error: {result}",
+                        parse_mode="Markdown"
                     )
                     
         except Exception as e:
