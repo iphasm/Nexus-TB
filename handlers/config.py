@@ -247,17 +247,19 @@ async def cmd_delete_keys(message: Message, **kwargs):
 
 @router.message(Command("personality"))
 async def cmd_personality(message: Message, **kwargs):
-    """Personality selector menu"""
-    personalities = [
-        ("🔮 NEXUS", "NEXUS"),
-        ("🗡️ RONIN", "RONIN"),
-        ("🛡️ GUARDIAN", "GUARDIAN"),
-        ("🌌 QUANTUM", "QUANTUM"),
-        ("🔥 PHOENIX", "PHOENIX"),
-        ("❄️ FROST", "FROST"),
-        ("⚡ VOLT", "VOLT"),
-        ("🌊 WAVE", "WAVE")
-    ]
+    """Personality selector menu - DYNAMICALLY loaded from PersonalityManager"""
+    from utils.personalities import PersonalityManager
+    
+    pm = PersonalityManager()
+    
+    # Build list from PROFILES: [(display_name, code), ...]
+    personalities = []
+    for code, profile in pm.PROFILES.items():
+        name = profile.get('NAME', code)
+        personalities.append((name, code))
+    
+    # Sort by name for consistency
+    personalities.sort(key=lambda x: x[0])
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=name, callback_data=f"PERSONALITY|{code}")]
