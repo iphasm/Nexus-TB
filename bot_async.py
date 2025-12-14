@@ -40,7 +40,7 @@ TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 _vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
 logger.info("🔧 ENVIRONMENT VARIABLE CHECK:")
 for v in _vars_to_log:
-    val = os.getenv(v, '').strip("'\" ")
+    val = os.getenv(v, '').strip().strip("'\"")
     status = "✅ FOUND" if val else "❌ MISSING"
     masked = f"{val[:4]}...{val[-4:]}" if val and len(val) > 8 else "N/A"
     if v == 'PROXY_URL' and val: masked = "CONFIGURED"

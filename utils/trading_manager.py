@@ -97,9 +97,9 @@ class AsyncTradingSession:
     
     async def initialize_alpaca(self):
         """Initialize Alpaca client from config or env."""
-        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
-        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
-        base_url = os.getenv('APCA_API_BASE_URL', '').strip("'\" ")
+        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
+        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY', '').strip().strip("'\"")
+        base_url = os.getenv('APCA_API_BASE_URL', '').strip().strip("'\"")
         
         if ak and ask:
             try:
@@ -839,9 +839,9 @@ class AsyncSessionManager:
     async def _ensure_admin_session(self):
         """Create or update admin sessions from env vars (supports comma-separated IDs)."""
         # Sanitize inputs
-        raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
-        api_key = os.getenv('BINANCE_API_KEY', '').strip("'\" ")
-        api_secret = os.getenv('BINANCE_SECRET', '').strip("'\" ")
+        raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip().strip("'\"")
+        api_key = os.getenv('BINANCE_API_KEY', '').strip().strip("'\"")
+        api_secret = os.getenv('BINANCE_SECRET', '').strip().strip("'\"")
         
         if not raw_admin_ids or not api_key or not api_secret:
             return
