@@ -62,9 +62,16 @@ class AsyncTradingSession:
         # 1. Initialize Binance Async Client
         if self.api_key and self.api_secret:
             try:
+                # Prepare proxy params for aiohttp (python-binance async uses aiohttp)
+                # aiohttp expects 'proxy' key, not 'proxies' dict
+                args = {}
+                if self._proxy:
+                    args['requests_params'] = {'proxy': self._proxy}
+
                 self.client = await AsyncClient.create(
                     self.api_key, 
-                    self.api_secret
+                    self.api_secret,
+                    **args
                 )
                 print(f"✅ [Chat {self.chat_id}] Binance Async Client Initialized.")
             except Exception as e:
