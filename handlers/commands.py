@@ -1105,20 +1105,23 @@ async def cmd_price(message: Message, **kwargs):
         # 1. Fear & Greed
         fng = get_fear_and_greed_index()
         
-        # 2. Build dynamic target list from Scanner Global
+        # 2. Build dynamic target list - ONLY from CRYPTO group (Binance compatible)
         from config import ASSET_GROUPS, GROUP_CONFIG
         from antigravity_quantum.config import DISABLED_ASSETS
         
         targets = []
-        for group_name, assets in ASSET_GROUPS.items():
-            if GROUP_CONFIG.get(group_name, False):
-                for asset in assets:
-                    # Only include crypto (Binance API) and not disabled
-                    if 'USDT' in asset and asset not in DISABLED_ASSETS:
-                        targets.append(asset)
+        # Only use CRYPTO group for Binance API
+        if GROUP_CONFIG.get('CRYPTO', False):
+            for asset in ASSET_GROUPS.get('CRYPTO', []):
+                # Ensure it's valid Binance symbol (ends with USDT, alphanumeric)
+                if asset.endswith('USDT') and asset not in DISABLED_ASSETS:
+                    # Clean the symbol (remove any whitespace/special chars)
+                    clean_asset = ''.join(c for c in asset if c.isalnum())
+                    if clean_asset:
+                        targets.append(clean_asset)
         
         # Limit to first 10 for display
-        targets = targets[:10]
+        targets = list(set(targets))[:10]  # Dedupe and limit
         
         # 3. Fetch Prices
         prices_str = ""
@@ -1138,11 +1141,12 @@ async def cmd_price(message: Message, **kwargs):
                         price = float(item['price'])
                         prices_str += f"• *{sym}:* `${price:,.2f}`\n"
                 else:
-                    prices_str = f"⚠️ API Error: {data.get('msg', 'Unknown')}"
+                    # Show debug info
+                    prices_str = f"⚠️ API: {data.get('msg', 'Unknown')[:80]}\nTargets: {targets[:3]}..."
             except Exception as e:
                 prices_str = f"⚠️ Error: {str(e)[:50]}"
         else:
-            prices_str = "📭 No hay activos crypto activos."
+            prices_str = "📭 No hay activos crypto activos en CRYPTO group."
             
         msg = (
             "📡 **MARKET INTEL**\n"
