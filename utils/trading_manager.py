@@ -810,17 +810,28 @@ class AsyncSessionManager:
         await self._ensure_admin_session()
     
     async def _ensure_admin_session(self):
-        """Create admin session from env vars if not exists."""
+        """Create or update admin session from env vars."""
         admin_id = os.getenv('TELEGRAM_ADMIN_ID')
         api_key = os.getenv('BINANCE_API_KEY')
         api_secret = os.getenv('BINANCE_SECRET')
         
         if admin_id and api_key and api_secret:
+            # Case 1: Session does not exist -> Create it
             if admin_id not in self.sessions:
                 session = AsyncTradingSession(admin_id, api_key, api_secret)
                 await session.initialize()
                 self.sessions[admin_id] = session
-                print(f"🔑 Admin session created for {admin_id}")
+                print(f"🔑 Admin session created for {admin_id} (Env Vars)")
+            
+            # Case 2: Session exists but Keys mismatch -> Update it
+            else:
+                session = self.sessions[admin_id]
+                if session.api_key != api_key or session.api_secret != api_secret:
+                    session.api_key = api_key
+                    session.api_secret = api_secret
+                    # Re-init client with new keys
+                    await session.initialize()
+                    print(f"🔄 Admin session updated from Env Vars")
     
     async def save_sessions(self):
         """Persist sessions to JSON file."""
