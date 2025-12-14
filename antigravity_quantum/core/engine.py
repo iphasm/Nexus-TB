@@ -2,6 +2,7 @@ import asyncio
 from ..strategies.factory import StrategyFactory
 from ..risk.manager import RiskManager
 from ..data.stream import MarketStream
+from ..config import DISABLED_ASSETS
 
 class QuantumEngine:
     """
@@ -43,7 +44,14 @@ class QuantumEngine:
         """Main Decision Loop"""
         print("🚀 Quantum Core Loop Started.")
         while self.running:
-            for asset in self.assets:
+            # DYNAMIC FILTER: Remove disabled assets each cycle
+            active_assets = [a for a in self.assets if a not in DISABLED_ASSETS]
+            
+            if not active_assets:
+                await asyncio.sleep(60)
+                continue
+                
+            for asset in active_assets:
                 # print(f"🔍 Scanning {asset}...") # Reduced Noise
                 
                 # 1. Fetch Data (Real)
