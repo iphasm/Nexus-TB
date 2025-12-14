@@ -6,8 +6,8 @@ from binance.client import Client
 # Initialize Binance Client
 # Use environment variables if present, otherwise default to public mode
 # --- BINANCE SETUP ---
-api_key = os.getenv('BINANCE_API_KEY')
-api_secret = os.getenv('BINANCE_SECRET')
+api_key = os.getenv('BINANCE_API_KEY', '').strip("'\" ")
+api_secret = os.getenv('BINANCE_SECRET', '').strip("'\" ")
 
 # --- ALPACA SETUP ---
 from alpaca.data.historical import StockHistoricalDataClient
@@ -15,8 +15,8 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from datetime import datetime, timedelta
 
-alpaca_api_key = os.getenv('APCA_API_KEY_ID')
-alpaca_secret_key = os.getenv('APCA_API_SECRET_KEY')
+alpaca_api_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
+alpaca_secret_key = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
 alpaca_data_client = None
 
 try:

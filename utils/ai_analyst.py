@@ -8,7 +8,7 @@ load_dotenv()
 class QuantumAnalyst:
     def __init__(self):
         """Initializes the Quantum Analyst with OpenAI API."""
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")
         self.client = None
         
         if self.api_key:

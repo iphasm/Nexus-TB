@@ -811,9 +811,10 @@ class AsyncSessionManager:
     
     async def _ensure_admin_session(self):
         """Create or update admin session from env vars."""
-        admin_id = os.getenv('TELEGRAM_ADMIN_ID')
-        api_key = os.getenv('BINANCE_API_KEY')
-        api_secret = os.getenv('BINANCE_SECRET')
+        # Sanitize inputs (remove quotes/spaces often added by mistake)
+        admin_id = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
+        api_key = os.getenv('BINANCE_API_KEY', '').strip("'\" ")
+        api_secret = os.getenv('BINANCE_SECRET', '').strip("'\" ")
         
         if admin_id and api_key and api_secret:
             # Case 1: Session does not exist -> Create it

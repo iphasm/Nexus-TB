@@ -23,6 +23,18 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
+# --- DIAGNOSTICS: LOG ENV VARS (Masked) ---
+# Debugging Railway Env Var Issues
+_vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL']
+logger.info("🔧 ENVIRONMENT VARIABLE CHECK:")
+for v in _vars_to_log:
+    val = os.getenv(v, '').strip("'\" ")
+    status = "✅ FOUND" if val else "❌ MISSING"
+    masked = f"{val[:4]}...{val[-4:]}" if val and len(val) > 8 else "N/A"
+    if v == 'PROXY_URL' and val: masked = "CONFIGURED"
+    logger.info(f"   - {v}: {status} [{masked}]")
+# ------------------------------------------
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
