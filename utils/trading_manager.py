@@ -1,133 +1,145 @@
+"""
+Antigravity Bot - Async Trading Manager
+Async version of TradingSession using python-binance AsyncClient
+
+NOTE: This is a wrapper that provides async interfaces while maintaining 
+backward compatibility with the sync TradingSession for gradual migration.
+"""
+
 import os
 import json
-import time
-import threading
-from binance.client import Client
-from binance.enums import *
-from binance.exceptions import BinanceAPIException
-# --- ALPACA IMPORTS ---
-from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
-from utils.ai_analyst import QuantumAnalyst
+import asyncio
+from typing import Optional, Dict, Any, Tuple, List
 
-class TradingSession:
+# Binance Async Client
+from binance import AsyncClient
+
+# Alpaca (still sync, but wrapped)
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest, TakeProfitRequest, StopLossRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+
+
+class AsyncTradingSession:
     """
-    Represents a single trading session for a specific chat_id.
-    Holds its own API keys and risk configuration.
+    Async Trading Session using python-binance AsyncClient.
+    Designed for native async/await operations in aiogram.
     """
-    def __init__(self, chat_id, api_key, api_secret, config=None):
+    
+    def __init__(self, chat_id: str, api_key: str, api_secret: str, config: Optional[Dict] = None):
         self.chat_id = chat_id
         self.api_key = api_key
         self.api_secret = api_secret
-        self.cb_ignore_until = 0 # Timestamp (ms) to ignore previous losses
+        self.client: Optional[AsyncClient] = None
+        self.alpaca_client: Optional[TradingClient] = None
         
         # Default Config
         self.config = {
+            "mode": "WATCHER",
             "leverage": 5,
             "max_capital_pct": 0.10,
             "stop_loss_pct": 0.02,
-            "spot_allocation_pct": 0.20, # Default 20% for Spot Buys
-            "personality": "STANDARD_ES", # Default: Standard Spanish
-            "sentiment_filter": True, # ENABLED BY DEFAULT
-            "sentiment_threshold": -0.6, # Default Quantum
-            "atr_multiplier": 2.0, # Default Standard SL
-            # Per-user Alpaca keys (optional, falls back to ENV)
+            "spot_allocation_pct": 0.20,
+            "personality": "NEXUS",
+            "sentiment_filter": True,
+            "atr_multiplier": 2.0,
             "alpaca_key": None,
             "alpaca_secret": None
         }
         
         if config:
             self.config.update(config)
-
-        # Automation Mode: WATCHER (Default), COPILOT, PILOT
-        self.mode = self.config.get('mode', 'WATCHER')
-
-        # Proxy Setup: GLOBAL ONLY (Railway / Env)
-        # We ignore session-specific proxy_url and enforce system proxy.
-        self.request_params = None
-        sys_proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
         
-        if sys_proxy:
-             self.request_params = {'proxies': {'https': sys_proxy}}
-             # Optional: Log only once or verbose
-             # print(f"🌍 Using Global Proxy for Chat {self.chat_id}")
-
-        # Initialize Client
-        self.alpaca_client = None
-        self.ai_analyst = QuantumAnalyst() # Initialize AI
-        self._init_client()
-
-    def _init_client(self):
-        # 1. BINANCE
+        self.mode = self.config.get('mode', 'WATCHER')
+        
+        # Proxy Setup
+        self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
+    
+    async def initialize(self) -> bool:
+        """Async initialization of exchange clients."""
+        success = True
+        
+        # 1. Initialize Binance Async Client
         if self.api_key and self.api_secret:
             try:
-                self.client = Client(self.api_key, self.api_secret, tld='com', requests_params=self.request_params)
-                print(f"✅ [Chat {self.chat_id}] Binance Client Initialized.")
+                self.client = await AsyncClient.create(
+                    self.api_key, 
+                    self.api_secret
+                )
+                print(f"✅ [Chat {self.chat_id}] Binance Async Client Initialized.")
             except Exception as e:
-                print(f"❌ [Chat {self.chat_id}] Failed to init Client: {e}")
+                print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
                 self.client = None
-        else:
-            print(f"⚠️ [Chat {self.chat_id}] Missing API Keys.")
-            
-        # 2. ALPACA (Per-user keys first, then Env Vars fallback)
+                success = False
+        
+        # 2. Initialize Alpaca (still sync but wrapped)
+        await self.initialize_alpaca()
+        
+        return success
+    
+    async def initialize_alpaca(self):
+        """Initialize Alpaca client from config or env."""
         ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID')
         ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY')
-        base_url = os.getenv('APCA_API_BASE_URL') 
-        
-        # Determine paper mode default
-        paper = True 
-        if base_url:
-            # Sanitize URL: alpaca-py appends /v2 automatically for many calls. 
-            # If user provides .../v2, strip it to avoid .../v2/v2/orders (404 Not Found)
-            if base_url.endswith('/v2'):
-                base_url = base_url[:-3]
-            elif base_url.endswith('/v2/'):
-                base_url = base_url[:-4]
-            
-            # Simple check for paper/live
-            if 'paper' not in base_url and 'api.alpaca' in base_url:
-                paper = False
+        base_url = os.getenv('APCA_API_BASE_URL')
         
         if ak and ask:
             try:
-                # Pass url_override if set, otherwise rely on paper=True/False defaults
+                # Determine paper mode
+                paper = True
+                if base_url:
+                    if base_url.endswith('/v2'):
+                        base_url = base_url[:-3]
+                    if 'paper' not in base_url and 'api.alpaca' in base_url:
+                        paper = False
+                
                 self.alpaca_client = TradingClient(ak, ask, paper=paper, url_override=base_url)
                 print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
             except Exception as e:
-                print(f"❌ [Chat {self.chat_id}] Failed to init Alpaca: {e}")
-
-    # --- CONFIGURATION METHODS ---
-    def set_mode(self, mode):
+                print(f"❌ [Chat {self.chat_id}] Alpaca Init Error: {e}")
+    
+    async def close(self):
+        """Cleanup resources."""
+        if self.client:
+            await self.client.close_connection()
+            self.client = None
+    
+    # --- CONFIG METHODS ---
+    
+    def set_mode(self, mode: str) -> bool:
+        """Set operation mode."""
         if mode in ['WATCHER', 'COPILOT', 'PILOT']:
             self.mode = mode
             self.config['mode'] = mode
             return True
         return False
-
-    def update_config(self, key, value):
-        """Updates a config key. Returns True to signal caller to persist."""
+    
+    async def update_config(self, key: str, value: Any) -> bool:
+        """Update a config value."""
         self.config[key] = value
-        return True  # Signal that save_sessions() should be called
-
-    def get_configuration(self):
+        return True
+    
+    def get_configuration(self) -> Dict:
+        """Get current configuration."""
         return {
             "mode": self.mode,
             "leverage": self.config['leverage'],
             "max_capital_pct": self.config['max_capital_pct'],
             "stop_loss_pct": self.config['stop_loss_pct'],
-            "spot_allocation_pct": self.config.get('spot_allocation_pct', 0.20),
-            "has_keys": bool(self.client) # Status check
+            "has_keys": bool(self.client)
         }
-
-    def get_symbol_precision(self, symbol):
+    
+    # --- HELPER METHODS ---
+    
+    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
         """Returns (quantityPrecision, pricePrecision, minNotional)"""
-        if not self.client: return 2, 2, 5.0
+        if not self.client:
+            return 2, 2, 5.0
+        
         try:
-            info = self.client.futures_exchange_info()
+            info = await self.client.futures_exchange_info()
             for s in info['symbols']:
                 if s['symbol'] == symbol:
-                    # Default
                     min_notional = 5.0
                     for f in s['filters']:
                         if f['filterType'] == 'MIN_NOTIONAL':
@@ -135,56 +147,569 @@ class TradingSession:
                             break
                     return s['quantityPrecision'], s['pricePrecision'], min_notional
         except Exception as e:
-            print(f"Error getting precision for {symbol}: {e}")
+            print(f"Precision Error for {symbol}: {e}")
+        
         return 2, 2, 5.0
-
-    def _execute_alpaca_order(self, symbol, side, atr=None):
-        if not self.alpaca_client:
-            return False, "⚠️ Alpaca Client not initialized (Check env vars)."
-
+    
+    # --- TRADING METHODS ---
+    
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+        """Execute a LONG position asynchronously."""
+        
+        # Route non-crypto to Alpaca
+        if 'USDT' not in symbol:
+            return await self._execute_alpaca_order(symbol, 'LONG', atr)
+        
+        if not self.client:
+            return False, "No valid API Keys provided."
+        
         try:
-            # 1. Check existing position
+            leverage = self.config['leverage']
+            max_capital_pct = self.config['max_capital_pct']
+            stop_loss_pct = self.config['stop_loss_pct']
+            
+            # 1. Check Existing Position
+            positions = await self.client.futures_position_information(symbol=symbol)
+            net_qty = sum(float(p['positionAmt']) for p in positions)
+            
+            if net_qty != 0:
+                if net_qty > 0:
+                    return await self.execute_update_sltp(symbol, 'LONG', atr)
+                else:
+                    return False, f"⚠️ {symbol} has an open SHORT. Close it first."
+            
+            # 2. Set Leverage
+            await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
+            
+            # 3. Cancel Existing Orders
+            try:
+                await self.client.futures_cancel_all_open_orders(symbol=symbol)
+            except:
+                pass
+            
+            # 4. Get Account & Price Info
+            acc_info = await self.client.futures_account()
+            total_equity = float(acc_info.get('totalMarginBalance', 0))
+            
+            ticker = await self.client.futures_symbol_ticker(symbol=symbol)
+            current_price = float(ticker['price'])
+            
+            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            
+            # 5. Calculate Position Size
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                sl_price = round(current_price - sl_dist, price_precision)
+                
+                risk_amount = total_equity * 0.02
+                raw_quantity = risk_amount / sl_dist
+                
+                # Min notional check
+                notional = raw_quantity * current_price
+                if notional < min_notional:
+                    raw_quantity = (min_notional * 1.05) / current_price
+                
+                # Max allocation check
+                if (raw_quantity * current_price / leverage) > (total_equity * max_capital_pct):
+                    raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
+                
+                tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+            else:
+                margin_assignment = total_equity * max_capital_pct
+                raw_quantity = (margin_assignment * leverage) / current_price
+                sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
+                tp_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision)
+            
+            quantity = float(round(raw_quantity, qty_precision))
+            
+            # Final notional check
+            final_notional = quantity * current_price
+            if final_notional < min_notional:
+                return False, f"❌ {symbol}: Insufficient capital for min notional ({min_notional} USDT)."
+            
+            if quantity <= 0:
+                return False, "Position size too small."
+            
+            # 6. Execute Market Buy
+            try:
+                order = await self.client.futures_create_order(
+                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price)) or current_price
+            except Exception as e:
+                return False, f"❌ Failed to open position: {e}"
+            
+            # 7. Place SL/TP Orders
+            try:
+                # Stop Loss
+                if sl_price > 0:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='STOP_MARKET',
+                        stopPrice=sl_price, closePosition=True
+                    )
+                
+                # Take Profit
+                await self.client.futures_create_order(
+                    symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
+                    stopPrice=tp_price, quantity=quantity, reduceOnly=True
+                )
+                
+                success_msg = (
+                    f"Long {symbol} (x{leverage})\n"
+                    f"Entry: {entry_price}\n"
+                    f"Qty: {quantity}\n"
+                    f"SL: {sl_price}\n"
+                    f"TP: {tp_price}"
+                )
+                
+                return True, success_msg
+                
+            except Exception as e:
+                # Rollback: Close position if SL/TP fails
+                print(f"⚠️ SL/TP Failed: {e}. Closing position...")
+                try:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='MARKET',
+                        quantity=quantity, reduceOnly=True
+                    )
+                except:
+                    pass
+                return False, f"⚠️ SL/TP placement failed ({e}). Position closed for safety."
+        
+        except Exception as e:
+            return False, f"[{symbol}] Error: {str(e)}"
+    
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+        """Execute a SHORT position asynchronously."""
+        
+        # Route non-crypto to Alpaca
+        if 'USDT' not in symbol:
+            return await self._execute_alpaca_order(symbol, 'SHORT', atr)
+        
+        if not self.client:
+            return False, "No valid API Keys provided."
+        
+        try:
+            leverage = self.config['leverage']
+            max_capital_pct = self.config['max_capital_pct']
+            stop_loss_pct = self.config['stop_loss_pct']
+            
+            # 1. Check Existing Position
+            positions = await self.client.futures_position_information(symbol=symbol)
+            net_qty = sum(float(p['positionAmt']) for p in positions)
+            
+            if net_qty != 0:
+                if net_qty < 0:
+                    return await self.execute_update_sltp(symbol, 'SHORT', atr)
+                else:
+                    return False, f"⚠️ {symbol} has an open LONG. Close it first."
+            
+            # 2. Set Leverage & Cancel Orders
+            await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
+            try:
+                await self.client.futures_cancel_all_open_orders(symbol=symbol)
+            except:
+                pass
+            
+            # 3. Get Info
+            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            ticker = await self.client.futures_ticker(symbol=symbol)
+            current_price = float(ticker['lastPrice'])
+            
+            acc = await self.client.futures_account()
+            equity = float(acc['totalWalletBalance'])
+            
+            # 4. Calculate Size
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                sl_price = round(current_price + sl_dist, price_precision)
+                tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+            else:
+                sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
+                tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
+            
+            dist_to_stop = abs(sl_price - current_price) or (current_price * 0.01)
+            risk_amount = equity * 0.02
+            raw_quantity = risk_amount / dist_to_stop
+            
+            max_alloc = equity * max_capital_pct
+            if (raw_quantity * current_price) > max_alloc:
+                raw_quantity = max_alloc / current_price
+            
+            quantity = float(round(raw_quantity, qty_precision))
+            
+            if (quantity * current_price) < min_notional:
+                return False, f"❌ {symbol}: Insufficient capital for min notional."
+            
+            if quantity <= 0:
+                return False, "Position size too small."
+            
+            # 5. Execute Market Sell
+            try:
+                order = await self.client.futures_create_order(
+                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price)) or current_price
+            except Exception as e:
+                return False, f"❌ Failed to open position: {e}"
+            
+            # 6. Place SL/TP
+            try:
+                if sl_price > 0:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='STOP_MARKET',
+                        stopPrice=sl_price, closePosition=True
+                    )
+                
+                await self.client.futures_create_order(
+                    symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET',
+                    stopPrice=tp_price, quantity=quantity, reduceOnly=True
+                )
+                
+                return True, (
+                    f"Short {symbol} (x{leverage})\n"
+                    f"Entry: {entry_price}\n"
+                    f"Qty: {quantity}\n"
+                    f"SL: {sl_price}\n"
+                    f"TP: {tp_price}"
+                )
+                
+            except Exception as e:
+                print(f"⚠️ SL/TP Failed: {e}. Closing position...")
+                try:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='MARKET',
+                        quantity=quantity, reduceOnly=True
+                    )
+                except:
+                    pass
+                return False, f"⚠️ SL/TP failed ({e}). Position closed for safety."
+        
+        except Exception as e:
+            return False, f"[{symbol}] Error: {str(e)}"
+    
+    async def execute_close_position(self, symbol: str) -> Tuple[bool, str]:
+        """Close position for a symbol."""
+        
+        # Route non-crypto to Alpaca
+        if 'USDT' not in symbol and self.alpaca_client:
+            try:
+                self.alpaca_client.cancel_orders()
+                self.alpaca_client.close_position(symbol)
+                return True, f"✅ (Alpaca) Closed {symbol}."
+            except Exception as e:
+                return False, f"Alpaca Error: {e}"
+        
+        if not self.client:
+            return False, "No valid session."
+        
+        try:
+            # Cancel orders
+            await self.client.futures_cancel_all_open_orders(symbol=symbol)
+            
+            # Get position
+            positions = await self.client.futures_position_information(symbol=symbol)
+            qty = 0.0
+            for p in positions:
+                if p['symbol'] == symbol:
+                    qty = float(p['positionAmt'])
+                    break
+            
+            if qty == 0:
+                return True, f"⚠️ No position found for {symbol}, orders canceled."
+            
+            # Close
+            side = 'SELL' if qty > 0 else 'BUY'
+            await self.client.futures_create_order(
+                symbol=symbol, side=side, type='MARKET',
+                reduceOnly=True, quantity=abs(qty)
+            )
+            
+            return True, f"✅ Closed {symbol} ({qty})."
+            
+        except Exception as e:
+            return False, f"Error: {e}"
+    
+    async def execute_close_all(self) -> Tuple[bool, str]:
+        """Close all open positions."""
+        if not self.client:
+            return False, "No valid session."
+        
+        active = await self.get_active_positions()
+        if not active:
+            return False, "No active positions."
+        
+        results = []
+        for p in active:
+            sym = p['symbol']
+            success, msg = await self.execute_close_position(sym)
+            results.append(f"{sym}: {'✅' if success else '❌'}")
+        
+        return True, "Batch Close:\n" + "\n".join(results)
+    
+    async def execute_update_sltp(self, symbol: str, side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+        """Update SL/TP for existing position."""
+        if not self.client:
+            return False, "No session."
+        
+        try:
+            # Get position
+            positions = await self.client.futures_position_information(symbol=symbol)
+            qty = 0.0
+            for p in positions:
+                amt = float(p['positionAmt'])
+                if amt != 0:
+                    qty = amt
+                    break
+            
+            if qty == 0:
+                return False, "No position found to update."
+            
+            curr_side = 'LONG' if qty > 0 else 'SHORT'
+            if curr_side != side:
+                return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
+            
+            # Cancel old orders
+            await self.client.futures_cancel_all_open_orders(symbol=symbol)
+            await asyncio.sleep(0.5)
+            
+            # Get new price info
+            ticker = await self.client.futures_symbol_ticker(symbol=symbol)
+            current_price = float(ticker['price'])
+            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            
+            abs_qty = abs(qty)
+            stop_loss_pct = self.config['stop_loss_pct']
+            
+            # Calculate new SL/TP
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                
+                if side == 'LONG':
+                    sl_price = round(current_price - sl_dist, price_precision)
+                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                else:
+                    sl_price = round(current_price + sl_dist, price_precision)
+                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+            else:
+                if side == 'LONG':
+                    sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
+                    tp_price = round(current_price * (1 + (stop_loss_pct * 1.5)), price_precision)
+                else:
+                    sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
+                    tp_price = round(current_price * (1 - (stop_loss_pct * 1.5)), price_precision)
+            
+            # Place new orders
+            sl_side = 'SELL' if side == 'LONG' else 'BUY'
+            
+            await self.client.futures_create_order(
+                symbol=symbol, side=sl_side, type='STOP_MARKET',
+                stopPrice=sl_price, reduceOnly=True, quantity=abs_qty
+            )
+            
+            await self.client.futures_create_order(
+                symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
+                stopPrice=tp_price, reduceOnly=True, quantity=abs_qty
+            )
+            
+            return True, (
+                f"🔄 SL/TP Updated for {symbol}\n"
+                f"New SL: {sl_price}\n"
+                f"New TP: {tp_price}"
+            )
+            
+        except Exception as e:
+            return False, f"Update Error: {e}"
+    
+    async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
+        """Cancel orders for symbols without positions."""
+        if not self.client:
+            return False, "No valid session."
+        
+        try:
+            all_orders = await self.client.futures_get_open_orders()
+            active_pos = await self.get_active_positions()
+            active_symbols = set(p['symbol'] for p in active_pos)
+            
+            orphaned = set()
+            for order in all_orders:
+                sym = order['symbol']
+                if sym not in active_symbols:
+                    orphaned.add(sym)
+            
+            if not orphaned:
+                return True, f"✅ No orphaned orders found. ({len(all_orders)} orders, {len(active_symbols)} positions)"
+            
+            canceled = 0
+            for sym in orphaned:
+                try:
+                    await self.client.futures_cancel_all_open_orders(symbol=sym)
+                    canceled += 1
+                except Exception as e:
+                    print(f"Error canceling {sym}: {e}")
+            
+            return True, f"🧹 Cleaned {canceled} symbols: {', '.join(orphaned)}"
+            
+        except Exception as e:
+            return False, f"Cleanup Error: {e}"
+    
+    async def execute_spot_buy(self, symbol: str) -> Tuple[bool, str]:
+        """Execute SPOT market buy."""
+        if not self.client:
+            return False, "No valid session."
+        
+        try:
+            # Get account
+            acc = await self.client.get_account()
+            usdt_balance = 0.0
+            for asset in acc['balances']:
+                if asset['asset'] == 'USDT':
+                    usdt_balance = float(asset['free'])
+                    break
+            
+            alloc_pct = self.config.get('spot_allocation_pct', 0.20)
+            buy_amount = usdt_balance * alloc_pct
+            
+            if buy_amount < 10:
+                return False, f"❌ Insufficient USDT ({usdt_balance:.2f} * {alloc_pct*100}% = {buy_amount:.2f})"
+            
+            # Get price
+            ticker = await self.client.get_symbol_ticker(symbol=symbol)
+            price = float(ticker['price'])
+            
+            # Calculate quantity
+            raw_qty = buy_amount / price
+            info = await self.client.get_symbol_info(symbol)
+            step_size = 0.001
+            for f in info['filters']:
+                if f['filterType'] == 'LOT_SIZE':
+                    step_size = float(f['stepSize'])
+                    break
+            
+            precision = len(str(step_size).rstrip('0').split('.')[-1])
+            quantity = round(raw_qty - (raw_qty % step_size), precision)
+            
+            if quantity <= 0:
+                return False, "Quantity too small."
+            
+            # Execute
+            order = await self.client.order_market_buy(symbol=symbol, quantity=quantity)
+            
+            fill_price = float(order.get('fills', [{}])[0].get('price', price))
+            return True, f"Bought {quantity} {symbol} @ {fill_price}"
+            
+        except Exception as e:
+            return False, f"Spot Buy Error: {e}"
+    
+    async def get_active_positions(self) -> List[Dict]:
+        """Get list of active futures positions."""
+        if not self.client:
+            return []
+        
+        try:
+            positions = await self.client.futures_position_information()
+            active = []
+            for p in positions:
+                amt = float(p['positionAmt'])
+                if abs(amt) > 0.0001:  # Filter dust
+                    active.append({
+                        'symbol': p['symbol'],
+                        'amt': amt,
+                        'entry': float(p['entryPrice']),
+                        'pnl': float(p.get('unrealizedProfit', 0))
+                    })
+            return active
+        except Exception as e:
+            print(f"Position fetch error: {e}")
+            return []
+    
+    async def get_wallet_details(self) -> Dict:
+        """Get wallet balances."""
+        if not self.client:
+            return {"error": "No session"}
+        
+        try:
+            # Futures
+            futures_acc = await self.client.futures_account()
+            futures_balance = float(futures_acc.get('totalWalletBalance', 0))
+            futures_pnl = float(futures_acc.get('totalUnrealizedProfit', 0))
+            
+            # Spot
+            spot_acc = await self.client.get_account()
+            spot_usdt = 0.0
+            for asset in spot_acc['balances']:
+                if asset['asset'] == 'USDT':
+                    spot_usdt = float(asset['free']) + float(asset['locked'])
+                    break
+            
+            return {
+                "spot_usdt": spot_usdt,
+                "futures_balance": futures_balance,
+                "futures_pnl": futures_pnl,
+                "total": spot_usdt + futures_balance
+            }
+            
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def _execute_alpaca_order(self, symbol: str, side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+        """Execute order via Alpaca (runs sync code in executor)."""
+        if not self.alpaca_client:
+            return False, "⚠️ Alpaca Client not initialized."
+        
+        # Run sync Alpaca code in thread pool
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, 
+            self._alpaca_order_sync, 
+            symbol, side, atr
+        )
+    
+    def _alpaca_order_sync(self, symbol: str, side: str, atr: Optional[float]) -> Tuple[bool, str]:
+        """Sync Alpaca order execution (called via run_in_executor)."""
+        try:
+            import yfinance as yf
+            
+            # Check existing position
             try:
                 pos = self.alpaca_client.get_open_position(symbol)
                 if pos:
-                    return False, f"⚠️ Position already open for {symbol} ({pos.qty})."
+                    return False, f"⚠️ Position already open for {symbol}."
             except:
-                pass # No position found
-
-            # 2. Get Account Info
+                pass
+            
+            # Get account
             acct = self.alpaca_client.get_account()
-            equity = float(acct.equity) if hasattr(acct, 'equity') else 100000.0
-
-            # 3. Get Price (Quick Snapshot via YF)
-            import yfinance as yf
+            equity = float(acct.equity)
+            
+            # Get price
             ticker = yf.Ticker(symbol)
-            # Use fast_info for speed, fallback to history
             try:
                 current_price = ticker.fast_info['last_price']
             except:
                 hist = ticker.history(period="1d")
                 if not hist.empty:
-                     current_price = hist['Close'].iloc[-1]
-                else: 
-                     return False, f"❌ Failed to fetch price for {symbol}"
-
-            if not current_price: return False, "❌ Price is zero/null."
-
-            # 4. Calculate Sizing
-            risk_pct = 0.02 # 2% risk
+                    current_price = hist['Close'].iloc[-1]
+                else:
+                    return False, f"❌ Failed to fetch price for {symbol}"
             
-            # SL / TP
+            if not current_price:
+                return False, "❌ Price is zero/null."
+            
+            # Calculate SL/TP
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 if side == 'LONG':
                     sl_price = current_price - sl_dist
                     tp_price = current_price + (1.5 * sl_dist)
-                else: 
+                else:
                     sl_price = current_price + sl_dist
                     tp_price = current_price - (1.5 * sl_dist)
             else:
-                # Fallback 2% SL
                 sl_pct = 0.02
                 if side == 'LONG':
                     sl_price = current_price * (1 - sl_pct)
@@ -192,28 +717,24 @@ class TradingSession:
                 else:
                     sl_price = current_price * (1 + sl_pct)
                     tp_price = current_price * (1 - (sl_pct * 3))
-
-            dist_to_stop = abs(current_price - sl_price)
-            if dist_to_stop == 0: dist_to_stop = 0.01
-
-            # Units = (Equity * Risk) / Distance
-            risk_amt = equity * risk_pct
+            
+            # Size calculation
+            dist_to_stop = abs(current_price - sl_price) or 0.01
+            risk_amt = equity * 0.02
             qty = risk_amt / dist_to_stop
             
-            # Check Max Allocation (20% max per stock)
             max_alloc = equity * 0.20
             if (qty * current_price) > max_alloc:
                 qty = max_alloc / current_price
-
+            
             qty = round(qty, 2)
-            # FIX: Alpaca Short requires Integer Quantity
             if side == 'SHORT':
                 qty = int(qty)
-
-            if qty < 0.01 and side == 'LONG': return False, f"Calculated qty too small ({qty})."
-            if qty < 1 and side == 'SHORT': return False, f"Calculated qty too small ({qty})."
-
-            # 5. Order Request (Bracket)
+            
+            if qty < 0.01:
+                return False, f"Quantity too small ({qty})."
+            
+            # Submit order
             side_enum = OrderSide.BUY if side == 'LONG' else OrderSide.SELL
             
             req = MarketOrderRequest(
@@ -224,1089 +745,126 @@ class TradingSession:
                 take_profit=TakeProfitRequest(limit_price=round(tp_price, 2)),
                 stop_loss=StopLossRequest(stop_price=round(sl_price, 2))
             )
-
+            
             res = self.alpaca_client.submit_order(req)
             
+            status_str = str(res.status).replace('OrderStatus.', '').replace('_', ' ').title()
             
-            # Escape underscores in status (e.g. partially_filled -> partially\_filled)
-            # FIX: Clean Status Message (Remove OrderStatus. prefix if present)
-            status_str = str(res.status)
-            if 'OrderStatus.' in status_str:
-                status_str = status_str.replace('OrderStatus.', '')
-            status_str = status_str.replace('_', ' ').title()
+            return True, (
+                f"✅ Alpaca {side} {symbol}\n"
+                f"Qty: {qty}\n"
+                f"SL: {sl_price:.2f}\n"
+                f"TP: {tp_price:.2f}\n"
+                f"Status: {status_str}"
+            )
             
-            return True, f"✅ Alpaca {side} {symbol}\nQty: {qty}\nSL: {sl_price:.2f}\nTP: {tp_price:.2f}\nStatus: {status_str}"
-
         except Exception as e:
             return False, f"Alpaca Error: {e}"
 
-    def get_trade_preview(self, symbol, side, current_price, atr=None):
-        """
-        Calculates TP and SL prices without executing the trade.
-        Returns: (sl_price, tp_price)
-        """
-        try:
-             # Default Precisions (Fallback)
-             price_precision = 2
-             if current_price < 1.0: price_precision = 4
-             if current_price < 0.01: price_precision = 6
-             
-             # Try to get from cached info if possible, or just default
-             # (In a real scenario we'd fetch exchange info, but for preview speed is key)
-             
-             if atr and atr > 0:
-                # Dynamic ATR Logic
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                
-                if side == 'LONG':
-                    sl_price = round(current_price - sl_dist, price_precision)
-                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
-                else: # SHORT
-                    sl_price = round(current_price + sl_dist, price_precision)
-                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
-             else:
-                # Fixed % Logic
-                sl_pct = self.config.get('stop_loss_pct', 0.02)
-                tp_pct = sl_pct * 1.5 # 1.5 R:R default
-                
-                if side == 'LONG':
-                    sl_price = round(current_price * (1 - sl_pct), price_precision)
-                    tp_price = round(current_price * (1 + tp_pct), price_precision)
-                else:
-                    sl_price = round(current_price * (1 + sl_pct), price_precision)
-                    tp_price = round(current_price * (1 - tp_pct), price_precision)
-                    
-             return sl_price, tp_price
-        except Exception as e:
-            print(f"Preview Error: {e}")
-            return 0.0, 0.0
 
-    def execute_long_position(self, symbol, atr=None):
-        # --- 0. SENTIMENT & MACRO FILTER (AI) ---
-        if self.config.get('sentiment_filter', True):
-            print(f"🧠 Checking Sentiment for {symbol}...")
-            sent = self.ai_analyst.check_market_sentiment(symbol)
-            score = sent.get('score', 0)
-            vol_risk = sent.get('volatility_risk', 'LOW')
-            
-            # 1. Filter: BAD Sentiment
-            thresh = self.config.get('sentiment_threshold', -0.6)
-            if score < thresh:
-                return False, f"⛔ **IA FILTER**: Mercado muy negativo ({score} < {thresh}).\nMotivo: {sent.get('reason', 'N/A')}"
-            
-            # 2. Filter: MACRO SHIELD (Reduce Leverage)
-            if vol_risk in ['HIGH', 'EXTREME']:
-                current_lev = self.config['leverage']
-                if current_lev > 3:
-                     print(f"⚠️ High Volatility ({vol_risk}). Reducing Leverage to 3x.")
-                     self.config['leverage'] = 3
-                
-        # Dispatch: Stocks (Alpaca) vs Crypto (Binance)
-        if 'USDT' not in symbol:
-             return self._execute_alpaca_order(symbol, 'LONG', atr)
-
-        if not self.client:
-            return False, "No valid API Keys provided for this chat."
-            
-        try:
-            leverage = self.config['leverage']
-            max_capital_pct = self.config['max_capital_pct']
-            stop_loss_pct = self.config['stop_loss_pct']
-
-            # 0. Safety Check: Existing Position
-            net_qty = 0.0
-            try:
-                positions = self.client.futures_position_information(symbol=symbol)
-                for p in positions:
-                    net_qty += float(p['positionAmt'])
-                
-                if net_qty == 0:
-                    acc_pos = self.client.futures_account()['positions']
-                    for p in acc_pos:
-                        if p['symbol'] == symbol and float(p['positionAmt']) != 0:
-                            net_qty = float(p['positionAmt'])
-                            break
-            except Exception as e:
-                return False, f"⚠️ Error checking positions ({e}). Aborted."
-
-            # AUTO-UPDATE LOGIC
-            if net_qty != 0:
-                if net_qty > 0:
-                    print(f"🔄 Auto-Update Long for {symbol}")
-                    return self.execute_update_sltp(symbol, 'LONG', atr)
-                else:
-                    return False, f"⚠️ Position Mismatch ({symbol} Short is open). Close it first."
-
-            # 1. Update Leverage
-            self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-            
-            try:
-                 self.client.futures_cancel_all_open_orders(symbol=symbol)
-            except: pass
-
-            # 2. Calculate Position Size
-            acc_info = self.client.futures_account()
-            total_equity = float(acc_info.get('totalMarginBalance', 0))
-            
-            ticker = self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
-            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
-
-            # --- DYNAMIC CALCULATION ---
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                sl_price = round(current_price - sl_dist, price_precision)
-                
-                risk_amount = total_equity * 0.02 
-                raw_quantity = risk_amount / sl_dist
-                
-                # Check Min Notional
-                notional = raw_quantity * current_price
-                if notional < min_notional:
-                    raw_quantity = (min_notional * 1.05) / current_price # 5% buffer
-                
-                # Check Max Allocation
-                if (raw_quantity * current_price / leverage) > (total_equity * max_capital_pct):
-                     raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
-                
-                tp1_price = round(current_price + (1.5 * sl_dist), price_precision)
-            else:
-                margin_assignment = total_equity * max_capital_pct
-                raw_quantity = (margin_assignment * leverage) / current_price
-                sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                tp1_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision) 
-
-            quantity = float(round(raw_quantity, qty_precision))
-            
-            # --- MIN NOTIONAL CHECK ---
-            final_notional = quantity * current_price
-            if final_notional < min_notional:
-                 return False, f"❌ {symbol}: Capital Insufficient for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
-
-            if quantity <= 0: return False, "Position too small."
-
-            # 3. Execute Market Buy
-            try:
-                order = self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='MARKET', quantity=quantity
-                )
-                entry_price = float(order.get('avgPrice', current_price))
-                if entry_price == 0: entry_price = current_price
-            except Exception as e:
-                return False, f"❌ Failed to Open Position: {e}"
-
-            # 4. Post-Entry Orders (SL / TP)
-            try:
-                # SL
-                if sl_price > 0:
-                    self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                    )
-                
-                # Setup TP Vars
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                # Initialize success_msg before conditional blocks
-                success_msg = f"Long {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}"
-
-                if tp_notional < min_notional:
-                    # NO SPLIT
-                    self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=quantity, reduceOnly=True
-                    )
-                    success_msg += f"\nTP: {tp1_price} (100% - Small Pos)"
-                else:
-                    # SPLIT
-                    if qty_tp1 > 0:
-                        self.client.futures_create_order(
-                           symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
-                        )
-                    
-                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-                    if qty_tp2 > 0:
-                         self.client.futures_create_order(
-                            symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
-                        )
-                    success_msg += f"\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
-
-                # Macro Warning
-                if 'vol_risk' in locals() and vol_risk in ['HIGH', 'EXTREME']:
-                    success_msg += f"\n⚠️ **MACRO SHIELD**: Apalancamiento limitado a 3x por Volatilidad ({vol_risk})."
-
-                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price)
-                
-                return True, success_msg
-
-            except Exception as e:
-                print(f"⚠️ Order Placement Failed: {e}. closing position...")
-                try:
-                     self.client.futures_create_order(symbol=symbol, side='SELL', type='MARKET', quantity=quantity, reduceOnly=True)
-                except: pass
-                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
-
-        except BinanceAPIException as e:
-            return False, f"[{symbol}] Binance Error: {e.message}"
-        except Exception as e:
-            return False, f"[{symbol}] Error: {str(e)}"
-
-
-    def execute_short_position(self, symbol, atr=None):
-        # --- 0. SENTIMENT & MACRO FILTER (AI) ---
-        if self.config.get('sentiment_filter', True):
-            print(f"🧠 Checking Sentiment for {symbol}...")
-            sent = self.ai_analyst.check_market_sentiment(symbol)
-            score = sent.get('score', 0)
-            
-            # 1. Filter: BULL Sentiment
-            if score > 0.6:
-                return False, f"⛔ **IA FILTER**: Mercado muy alcista ({score}).\nMotivo: {sent.get('reason', 'N/A')}"
-
-        if 'USDT' not in symbol:
-             return self._execute_alpaca_order(symbol, 'SHORT', atr)
-
-        if not self.client:
-            return False, "No valid API Keys provided for this chat."
-            
-        try:
-            leverage = self.config['leverage']
-            max_capital_pct = self.config['max_capital_pct']
-            stop_loss_pct = self.config['stop_loss_pct']
-
-            # 0. Safety Check
-            net_qty = 0.0
-            try:
-                positions = self.client.futures_position_information(symbol=symbol)
-                net_qty = sum(float(p['positionAmt']) for p in positions)
-                
-                if net_qty == 0:
-                     acc_pos = self.client.futures_account()['positions']
-                     for p in acc_pos:
-                        if p['symbol'] == symbol and float(p['positionAmt']) != 0:
-                            net_qty = float(p['positionAmt'])
-                            break
-            except Exception as e:
-                return False, f"Check Error: {e}"
-
-            if net_qty != 0:
-                if net_qty < 0:
-                     print(f"🔄 Auto-Update Short for {symbol}")
-                     return self.execute_update_sltp(symbol, 'SHORT', atr)
-                else:
-                     return False, f"⚠️ Position Mismatch ({symbol} Long is open). Flip manually."
-
-            # 1. Calc Params
-            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
-            ticker = self.client.futures_ticker(symbol=symbol)
-            current_price = float(ticker['lastPrice'])
-            
-            # 2. Risk Calc
-            equity = float(self.client.futures_account()['totalWalletBalance'])
-            
-            # SL Calc
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                sl_price = round(current_price + sl_dist, price_precision)
-                tp1_price = round(current_price - (1.5 * sl_dist), price_precision)
-            else:
-                sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                tp1_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
-                
-            dist_to_stop = abs(sl_price - current_price)
-            if dist_to_stop == 0: dist_to_stop = current_price * 0.01
-
-            risk_amount = equity * 0.02 # 2% Risk
-            raw_quantity = risk_amount / dist_to_stop
-            
-            # Max Cap Check
-            max_alloc = equity * max_capital_pct
-            if (raw_quantity * current_price) > max_alloc:
-                raw_quantity = max_alloc / current_price
-                
-            quantity = float(round(raw_quantity, qty_precision))
-            
-            # --- MIN NOTIONAL CHECK ---
-            final_notional = quantity * current_price
-            if final_notional < min_notional:
-                 return False, f"❌ {symbol}: Capital Insufficient for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
-
-            if quantity <= 0: return False, "Position too small."
-
-            # 3. Execute Market Sell
-            try:
-                order = self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
-                )
-                entry_price = float(order.get('avgPrice', current_price))
-                if entry_price == 0: entry_price = current_price
-            except Exception as e:
-                return False, f"❌ Failed to Open Position: {e}"
-
-            # 4. Post-Entry Orders (SL / TP)
-            try:
-                # SL (Close Position = True is OK here as per user screenshot logic)
-                if sl_price > 0:
-                    self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
-                    )
-                
-                # Setup TP Vars
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                # Initialize success_msg
-                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}"
-
-                if tp_notional < min_notional:
-                    # NO SPLIT - Definitve Fix: Use ReduceOnly instead of ClosePosition
-                    self.client.futures_create_order(
-                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=quantity, reduceOnly=True
-                    )
-                    success_msg += f"\nTP: {tp1_price} (100% - Small Pos)"
-                else:
-                    # SPLIT
-                    if qty_tp1 > 0:
-                        self.client.futures_create_order(
-                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
-                        )
-                    
-                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
-                    if qty_tp2 > 0:
-                         self.client.futures_create_order(
-                            symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
-                        )
-                    success_msg += f"\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
-                
-                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
-                
-                return True, success_msg
-
-            except Exception as e:
-                print(f"⚠️ Order Placement Failed: {e}. closing position...")
-                try:
-                     self.client.futures_create_order(symbol=symbol, side='BUY', type='MARKET', quantity=quantity, reduceOnly=True)
-                except: pass
-                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
-
-        except BinanceAPIException as e:
-            return False, f"[{symbol}] Binance Error: {e.message}"
-        except Exception as e:
-            return False, f"[{symbol}] Error: {str(e)}"
-
-    def execute_close_all(self):
-        """Cierra TODAS las posiciones activas"""
-        if not self.client: return False, "No valid session."
-        
-        active_pos = self.get_active_positions()
-        if not active_pos:
-            return False, "No active positions to close."
-            
-        results = []
-        for p in active_pos:
-            sym = p['symbol']
-            success, msg = self.execute_close_position(sym)
-            results.append(f"{sym}: {'✅' if success else '❌'}")
-            
-        return True, "Batch Close:\n" + "\n".join(results)
-
-    def execute_flip_position(self, symbol, new_side, atr=None):
-        """
-        FLIP LOGIC:
-        1. Cancel Open Orders.
-        2. Close Current Position.
-        3. Wait 1s.
-        4. Open New Position (Reverse).
-        """
-        if not self.client: return False, "No valid session."
-        
-        # 1. Close Current
-        success_close, msg_close = self.execute_close_position(symbol)
-        
-        if not success_close and "No open position" not in msg_close:
-            return False, f"Flip Aborted: Failed to close ({msg_close})"
-            
-        # 2. Safety Wait (Binance sequencing)
-        time.sleep(1.0)
-        
-        # 3. Open New
-        if new_side == 'LONG':
-            return self.execute_long_position(symbol, atr)
-        elif new_side == 'SHORT':
-            return self.execute_short_position(symbol, atr)
-        else:
-            return False, f"Invalid Side: {new_side}"
-
-    def execute_close_position(self, symbol):
-        """Cierra posiciones y órdenes abiertas para un símbolo (Binance o Alpaca)"""
-        
-        # 1. ALPACA ROUTING (Stocks/ETFs or non-USDT symbols)
-        if "USDT" not in symbol and self.alpaca_client:
-            try:
-                # Cancel Open Orders
-                self.alpaca_client.cancel_orders(symbols=[symbol])
-                
-                # Close Position
-                self.alpaca_client.close_position(symbol)
-                return True, f"✅ (Alpaca) Closed position for {symbol}."
-            except Exception as e:
-                return False, f"Alpaca Error closing {symbol}: {str(e)}"
-        
-        # 2. BINANCE ROUTING
-        if not self.client: return False, "No valid session."
-        
-        try:
-            # 1. Cancel Open Orders (SL/TP)
-            self.client.futures_cancel_all_open_orders(symbol=symbol)
-            
-            # 2. Get Position Info
-            try:
-                positions = self.client.futures_position_information(symbol=symbol)
-            except:
-                positions = self.client.futures_position_information()
-                
-            qty = 0.0
-            for p in positions:
-                if p['symbol'] == symbol:
-                    qty = float(p['positionAmt'])
-                    break
-            
-            if qty == 0:
-                # No position, but still clean orphaned orders
-                return True, f"⚠️ No position found for {symbol}, but orders were canceled."
-            
-            # 3. Close Position
-            side = 'SELL' if qty > 0 else 'BUY'
-            
-            self.client.futures_create_order(
-                symbol=symbol, 
-                side=side, 
-                type='MARKET', 
-                reduceOnly=True,
-                quantity=abs(qty)
-            )
-            
-            return True, f"✅ Closed {symbol} ({qty}). PnL pending update."
-            
-        except Exception as e:
-            return False, f"Error: {str(e)}"
-
-    def cleanup_orphaned_orders(self):
-        """
-        Cancels ALL open orders for symbols that have NO active position.
-        Useful for cleaning up stuck SL/TP orders after manual closes.
-        """
-        if not self.client: return False, "No valid session."
-        
-        try:
-            # 1. Get list of all open orders
-            all_orders = self.client.futures_get_open_orders()
-            
-            # 2. Get symbols with active positions
-            active_pos = self.get_active_positions()
-            active_symbols = set(p['symbol'] for p in active_pos)
-            
-            # 3. Find orphaned symbols (orders but no position)
-            orphaned_symbols = set()
-            for order in all_orders:
-                sym = order['symbol']
-                if sym not in active_symbols:
-                    orphaned_symbols.add(sym)
-            
-            # DEBUG INFO
-            debug_info = f"\n(Debug: Found {len(all_orders)} pending orders, {len(active_symbols)} active symbols)"
-            
-            if not orphaned_symbols:
-                return True, f"✅ No orphaned orders found. All clean!{debug_info}"
-            
-            # 4. Cancel all orders for orphaned symbols
-            canceled_count = 0
-            for sym in orphaned_symbols:
-                try:
-                    self.client.futures_cancel_all_open_orders(symbol=sym)
-                    canceled_count += 1
-                except Exception as e:
-                    print(f"Error canceling orders for {sym}: {e}")
-            
-            symbols_list = ', '.join(orphaned_symbols)
-            return True, f"🧹 Cleanup Complete!\nCanceled orders for {canceled_count} symbols:\n{symbols_list}"
-            
-        except Exception as e:
-            return False, f"Cleanup Error: {e}"
-
-
-    def execute_update_sltp(self, symbol, side, atr=None):
-        """
-        Updates SL/TP for an EXISTING position.
-        1. Cancels old orders.
-        2. Recalculates based on CURRENT price/ATR.
-        3. Places new orders.
-        """
-        if not self.client: return False, "No session."
-        
-        try:
-            # 1. Verify Position & Get Size
-            positions = self.client.futures_position_information(symbol=symbol)
-            qty = 0.0
-            entry_price = 0.0
-            for p in positions:
-                amt = float(p['positionAmt'])
-                if amt != 0:
-                    qty = amt
-                    entry_price = float(p['entryPrice'])
-                    break
-            
-            if qty == 0: return False, "No position found to update."
-            
-            # Verify Side Match
-            curr_side = 'LONG' if qty > 0 else 'SHORT'
-            if curr_side != side:
-                return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
-
-            # 2. Cancel Old Orders with VERIFICATION
-            # Error -4130 happens when closePosition orders still exist
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    self.client.futures_cancel_all_open_orders(symbol=symbol)
-                    time.sleep(0.5)
-                    
-                    # Verify cancellation by checking if any closePosition orders still exist
-                    open_orders = self.client.futures_get_open_orders(symbol=symbol)
-                    close_position_orders = [o for o in open_orders if o.get('closePosition', False)]
-                    
-                    if not close_position_orders:
-                        break  # Orders successfully canceled
-                    
-                    print(f"⚠️ SLTP Update: {len(close_position_orders)} closePosition orders still exist, retry {attempt+1}/{max_retries}")
-                    time.sleep(1.0)  # Extra wait before retry
-                except Exception as cancel_err:
-                    print(f"Cancel attempt {attempt+1} error: {cancel_err}")
-                    time.sleep(0.5)
-            
-            # 3. New Params
-            ticker = self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
-            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
-            
-            abs_qty = abs(qty)
-            stop_loss_pct = self.config['stop_loss_pct']
-            
-            # Calculate SL/TP prices
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                
-                if side == 'LONG':
-                    sl_price = round(current_price - sl_dist, price_precision)
-                    tp1_price = round(current_price + (1.5 * sl_dist), price_precision)
-                else:
-                    sl_price = round(current_price + sl_dist, price_precision)
-                    tp1_price = round(current_price - (1.5 * sl_dist), price_precision)
-            else:
-                # Fallback
-                if side == 'LONG':
-                    sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp1_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision)
-                else: 
-                    sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp1_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
-                    
-            # 4. Place Orders
-            success_msg = ""
-            
-            if side == 'LONG':
-                # SL
-                self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='STOP_MARKET', stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
-                )
-                
-                # TP
-                qty_tp1 = float(round(abs_qty / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                if tp_notional < 5.5:
-                     self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=abs_qty, reduceOnly=True
-                    )
-                     success_msg = f"🔄 Updated LONG {symbol}\nSL: {sl_price}\nTP: {tp1_price} (100%)"
-                else:
-                    # Split
-                    if qty_tp1 > 0:
-                        self.client.futures_create_order(
-                           symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
-                        )
-                    
-                    qty_tp2 = float(round(abs_qty - qty_tp1, qty_precision))
-                    if qty_tp2 > 0:
-                         self.client.futures_create_order(
-                            symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
-                        )
-                    success_msg = f"🔄 Updated LONG {symbol}\nSL: {sl_price}\nTP1: {tp1_price}\nTP2: Trailing 1.5%"
-                    
-            else: # SHORT
-                # SL
-                self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
-                )
-                
-                # TP
-                qty_tp1 = float(round(abs_qty / 2, qty_precision))
-                tp_notional = qty_tp1 * entry_price
-                
-                if tp_notional < 5.5:
-                     self.client.futures_create_order(
-                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=abs_qty, reduceOnly=True
-                    )
-                     success_msg = f"🔄 Updated SHORT {symbol}\nSL: {sl_price}\nTP: {tp1_price} (100%)"
-                else:
-                    # Split
-                    if qty_tp1 > 0:
-                        self.client.futures_create_order(
-                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
-                        )
-                    
-                    qty_tp2 = float(round(abs_qty - qty_tp1, qty_precision))
-                    if qty_tp2 > 0:
-                         self.client.futures_create_order(
-                            symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
-                        )
-                    success_msg = f"🔄 Updated SHORT {symbol}\nSL: {sl_price}\nTP1: {tp1_price}\nTP2: Trailing 1.5%"
-            
-            return True, success_msg
-            
-        except Exception as e:
-            return False, f"Update Error: {str(e)}"
-
-
-    def execute_spot_buy(self, symbol):
-        """Ejecuta compra de mercado SPOT (Binance)"""
-        if not self.client: return False, "No valid keys."
-        
-        try:
-            # 1. Check Balance
-            # For Spot, we need 'FREE' USDT
-            acc = self.client.get_account()
-            usdt_bal = 0.0
-            for b in acc['balances']:
-                if b['asset'] == 'USDT':
-                    usdt_bal = float(b['free'])
-                    break
-            
-            # 2. Allocation Logic (Dynamic)
-            alloc_pct = self.config.get('spot_allocation_pct', 0.20)
-            amount_to_spend = usdt_bal * alloc_pct
-            
-            if amount_to_spend < 6.0:
-                 return False, f"❌ Insufficient Spot USDT (${usdt_bal:.2f}). Need >$6 to trade."
-            
-            # 3. Execute
-            order = self.client.create_order(
-                symbol=symbol,
-                side='BUY',
-                type='MARKET',
-                quoteOrderQty=round(amount_to_spend, 2)
-            )
-            
-            # 4. Result
-            executed_qty = float(order.get('executedQty', 0))
-            cummulative_quote_qty = float(order.get('cummulativeQuoteQty', 0))
-            avg_price = cummulative_quote_qty / executed_qty if executed_qty else 0
-            
-            self._log_trade(symbol, avg_price, executed_qty, 0, 0, side='SPOT_BUY')
-            return True, f"✅ SPOT BUY: {symbol}\nSpent: ${cummulative_quote_qty:.2f}\nQty: {executed_qty}\nAvg: {avg_price:.4f}"
-
-        except BinanceAPIException as e:
-            return False, f"Binance Spot Error: {e.message}"
-        except Exception as e:
-            return False, f"Error: {e}"
-
-    def reset_circuit_breaker(self):
-        """
-        Resets the circuit breaker logic by updating the 'ignore_until' timestamp.
-        Any losses recorded before this timestamp will not count towards the streak.
-        """
-        self.cb_ignore_until = int(time.time() * 1000)
-        # Also optional: Restore mode to PILOT automatically?
-        # No, better let user do it explicitly via /pilot command as safety.
-        print(f"✅ [Chat {self.chat_id}] Circuit Breaker Reset. Ignoring history before {self.cb_ignore_until}")
-
-    def check_circuit_breaker(self):
-        """
-        Circuit Breaker / Switch de Seguridad
-        Si detecta 5 pérdidas CONSECUTIVAS (Realized PnL < 0) en modo PILOT,
-        baja automáticamente a COPILOT para detener la hemorragia.
-        Returns: (Triggered: bool, Message: str)
-        """
-        if self.mode != 'PILOT':
-             return False, ""
-             
-        if not self.client:
-             return False, ""
-             
-        try:
-            # Fetch last 20 Income entries (REALIZED_PNL only)
-            income = self.client.futures_income_history(incomeType='REALIZED_PNL', limit=20)
-            
-            # Sort descending by time (Newest first)
-            income.sort(key=lambda x: x['time'], reverse=True)
-            
-            consecutive_losses = 0
-            for trade in income:
-                pnl = float(trade['income'])
-                if pnl < 0:
-                    # CHECK: Ignore if before reset time
-                    if trade['time'] < self.cb_ignore_until:
-                        break
-                    consecutive_losses += 1
-                else:
-                    # Found a win or zero, break the streak
-                    break
-            
-            # Threshold Check
-            if consecutive_losses >= 5:
-                # Trigger Circuit Breaker
-                old_mode = self.mode
-                self.set_mode('COPILOT')
-                
-                msg = (
-                    f"⚠️ **CIRCUIT BREAKER ACTIVADO** ⚠️\n"
-                    f"Se han detectado {consecutive_losses} pérdidas consecutivas en modo PILOT.\n"
-                    f"🛡️ El sistema ha cambiado automáticamente a **COPILOT** para proteger tu capital.\n"
-                    f"Revisa el mercado manualmente antes de reactivar."
-                )
-                return True, msg
-                
-        except Exception as e:
-            print(f"Error checking circuit breaker: {e}")
-            
-        return False, ""
-
-    def get_pnl_history(self, days=1):
-        """Fetches Realized PnL from Binance for the last N days"""
-        if not self.client: return 0.0, []
-        
-        try:
-            start_time = int((time.time() - (days * 86400)) * 1000)
-            
-            # Fetch Realized PnL
-            income = self.client.futures_income_history(
-                incomeType='REALIZED_PNL', 
-                startTime=start_time,
-                limit=100
-            )
-            # Fetch Commission (to subtract for Net PnL)
-            commission = self.client.futures_income_history(
-                incomeType='COMMISSION', 
-                startTime=start_time,
-                limit=100
-            )
-            
-            total_pnl = 0.0
-            details = []
-            
-            # Process PnL
-            for item in income:
-                amt = float(item['income'])
-                total_pnl += amt
-                details.append({'symbol': item['symbol'], 'amount': amt, 'time': item['time'], 'type': 'PNL'})
-            
-            # Process Commission
-            for item in commission:
-                amt = float(item['income'])
-                total_pnl += amt # Commission is negative, so adding subtracts it
-                # details.append({'symbol': item['symbol'], 'amount': amt, 'time': item['time'], 'type': 'COMM'})
-
-            return total_pnl, details
-            
-        except Exception as e:
-            print(f"Error fetching PnL: {e}")
-            return 0.0, []
-
-    def get_wallet_details(self):
-        """
-        Returns full wallet details:
-        - Spot Balance (Total USDT estimate if possible, or just USDT free)
-        - Futures Balance (Margin Balance)
-        - Futures PnL (Unrealized)
-        """
-        if not self.client: return {}
-        
-        details = {
-            "spot_usdt": 0.0,
-            "futures_balance": 0.0,
-            "futures_pnl": 0.0,
-            "futures_total": 0.0
-        }
-        
-        try:
-            # 1. FUTURES
-            acc_fut = self.client.futures_account()
-            details['futures_balance'] = float(acc_fut.get('availableBalance', 0)) # Available for Trade
-            details['futures_total'] = float(acc_fut.get('totalMarginBalance', 0)) # Equity (Bal + PnL)
-            details['futures_pnl'] = float(acc_fut.get('totalUnrealizedProfit', 0))
-            
-            # 1b. ALPACA
-            details['alpaca_equity'] = 0.0
-            if self.alpaca_client:
-                try:
-                    acct = self.alpaca_client.get_account()
-                    details['alpaca_equity'] = float(acct.equity)
-                except Exception as e:
-                    print(f"Alpaca Wallet Error: {e}")
-
-            # 2. SPOT
-            # We want at least USDT. 
-            # Ideally we want Total Net Asset Value but that requires ticker prices for all assets.
-            # Let's start with USDT Free + Locked
-            acc_spot = self.client.get_account()
-            spot_usdt = 0.0
-            
-            for bal in acc_spot['balances']:
-                if bal['asset'] == 'USDT':
-                    spot_usdt = float(bal['free']) + float(bal['locked'])
-                    break
-            
-            details['spot_usdt'] = spot_usdt
-
-            # 3. EARN (Robust Fetch - Flexible + Locked)
-            earn_usdt = 0.0
-            try:
-                # Flexible (Uses 'totalAmount')
-                try:
-                    flex_pos = self.client.get_simple_earn_flexible_position(limit=100)
-                    if flex_pos and isinstance(flex_pos, list):
-                        for p in flex_pos:
-                             asset = p.get('asset', '')
-                             if 'USDT' in asset:
-                                 earn_usdt += float(p.get('totalAmount', 0))
-                except Exception as e_flex:
-                    print(f"Warn: Flex Earn Error: {e_flex}")
-                
-                # Locked (Uses 'amount')
-                try:
-                    locked_pos = self.client.get_simple_earn_locked_position(limit=100)
-                    if locked_pos and isinstance(locked_pos, list):
-                        for p in locked_pos:
-                             asset = p.get('asset', '')
-                             if 'USDT' in asset:
-                                 earn_usdt += float(p.get('amount', 0))
-                except Exception as e_lock:
-                    print(f"Warn: Locked Earn Error: {e_lock}")
-                         
-            except Exception as e: 
-                print(f"Earn fetch critical error: {e}")
-            
-            details['earn_usdt'] = earn_usdt
-            
-            return details
-            
-        except Exception as e:
-            print(f"Error fetching wallet: {e}")
-            return details
-
-
-    def _log_trade(self, symbol, entry, qty, sl, tp, side='LONG'):
-        """Registra la operación en un JSON local para historial"""
-        try:
-            log_file = 'data/trades.json'
-            entry_data = {
-                "timestamp": time.time(),
-                "date": time.strftime('%Y-%m-%d %H:%M:%S'),
-                "chat_id": self.chat_id,
-                "symbol": symbol,
-                "side": side,
-                "entry_price": entry,
-                "quantity": qty,
-                "sl": sl,
-                "tp": tp
-            }
-            
-            data = []
-            if os.path.exists(log_file):
-                with open(log_file, 'r') as f:
-                    try:
-                        data = json.load(f)
-                    except: pass # Handle corrupt file
-            
-            data.append(entry_data)
-            
-            with open(log_file, 'w') as f:
-                json.dump(data, f, indent=4)
-                
-        except Exception as e:
-            print(f"⚠️ Failed to log trade: {e}")
-
-    def get_active_positions(self):
-        """Devuelve lista de símbolos con posiciones activas"""
-        if not self.client: return []
-        try:
-            positions = self.client.futures_position_information()
-            active = []
-            for p in positions:
-                amt = float(p['positionAmt'])
-                price = float(p.get('entryPrice', 0)) or float(p.get('markPrice', 0))
-                
-                # Dust Filter: Ignore positions with < $1 value
-                if abs(amt * price) > 1.0:
-                    active.append({
-                        "symbol": p['symbol'],
-                        "amt": amt,
-                        "entry": p['entryPrice'],
-                        "pnl": p['unRealizedProfit']
-                    })
-            
-            # 2. ALPACA
-            if self.alpaca_client:
-                try:
-                    apos = self.alpaca_client.get_all_positions()
-                    for p in apos:
-                        active.append({
-                            "symbol": p.symbol,
-                            "amt": p.qty,
-                            "entry": p.avg_entry_price,
-                            "pnl": p.unrealized_pl
-                        })
-                except Exception as e:
-                    print(f"Alpaca Positions Error: {e}")
-
-            return active
-        except Exception as e:
-            print(f"Error fetching positions: {e}")
-            return []
-
-
-class SessionManager:
+class AsyncSessionManager:
     """
-    Manages multiple TradingSessions backed by a JSON file.
+    Manages multiple AsyncTradingSessions.
+    Provides persistence and lookup by chat_id.
     """
-    def __init__(self, data_file='data/sessions.json'):
+    
+    def __init__(self, data_file: str = 'data/sessions.json'):
         self.data_file = data_file
-        self.sessions = {} # chat_id -> TradingSession
-        self._load_sessions()
-        self._ensure_admin_session_from_env()
-
-    def _ensure_admin_session_from_env(self):
-        """
-        Auto-loads admin session if environment variables are present.
-        Prioritizes environment variables for the Admin ID.
-        """
-        admin_id = os.getenv('TELEGRAM_ADMIN_ID')
+        self.sessions: Dict[str, AsyncTradingSession] = {}
+        self._lock = asyncio.Lock()
+    
+    async def load_sessions(self):
+        """Load sessions from JSON file."""
+        async with self._lock:
+            if not os.path.exists(self.data_file):
+                # Check for admin keys in env
+                await self._ensure_admin_session()
+                return
+            
+            try:
+                with open(self.data_file, 'r') as f:
+                    data = json.load(f)
+                
+                for chat_id, info in data.items():
+                    session = AsyncTradingSession(
+                        chat_id=chat_id,
+                        api_key=info.get('api_key', ''),
+                        api_secret=info.get('api_secret', ''),
+                        config=info.get('config')
+                    )
+                    await session.initialize()
+                    self.sessions[chat_id] = session
+                
+                print(f"📁 Loaded {len(self.sessions)} sessions from {self.data_file}")
+                
+            except Exception as e:
+                print(f"❌ Session Load Error: {e}")
         
-        # Support multiple naming conventions
-        api_key = os.getenv('BINANCE_API_KEY') or os.getenv('BINANCE_KEY') or os.getenv('API_KEY')
-        api_secret = os.getenv('BINANCE_SECRET') or os.getenv('BINANCE_API_SECRET') or os.getenv('SECRET_KEY')
+        await self._ensure_admin_session()
+    
+    async def _ensure_admin_session(self):
+        """Create admin session from env vars if not exists."""
+        admin_id = os.getenv('TELEGRAM_ADMIN_ID')
+        api_key = os.getenv('BINANCE_API_KEY')
+        api_secret = os.getenv('BINANCE_API_SECRET')
         
         if admin_id and api_key and api_secret:
-            print(f"👑 Admin ID {admin_id} detected in Env. Auto-configuring session...")
-            # We create or update, but we DO NOT save to disk to avoid leaking Env keys into JSON
-            # This session will exist in memory.
+            if admin_id not in self.sessions:
+                session = AsyncTradingSession(admin_id, api_key, api_secret)
+                await session.initialize()
+                self.sessions[admin_id] = session
+                print(f"🔑 Admin session created for {admin_id}")
+    
+    async def save_sessions(self):
+        """Persist sessions to JSON file."""
+        async with self._lock:
+            data = {}
+            for chat_id, session in self.sessions.items():
+                data[chat_id] = {
+                    'api_key': session.api_key,
+                    'api_secret': session.api_secret,
+                    'config': session.config
+                }
             
-            # Check if session exists
-            if str(admin_id) in self.sessions:
-                # Update existing session in memory with env keys (overrides file)
-                self.sessions[str(admin_id)].api_key = api_key
-                self.sessions[str(admin_id)].api_secret = api_secret
-                self.sessions[str(admin_id)]._init_client()
-            else:
-                # Create new in-memory session
-                self.sessions[str(admin_id)] = TradingSession(
-                    chat_id=str(admin_id),
-                    api_key=api_key,
-                    api_secret=api_secret
-                )
-            print("✅ Admin Session Auto-Configured from Environment.")
-
-    def _load_sessions(self):
-        # Try PostgreSQL first
-        try:
-            from utils.db import load_all_sessions
-            db_sessions = load_all_sessions()
-            if db_sessions is not None:
-                for chat_id, s_data in db_sessions.items():
-                    self.sessions[chat_id] = TradingSession(
-                        chat_id=chat_id,
-                        api_key=s_data.get('api_key'),
-                        api_secret=s_data.get('api_secret'),
-                        config=s_data.get('config')
-                    )
-                return
-        except Exception as e:
-            print(f"⚠️ PostgreSQL load failed, using JSON: {e}")
-        
-        # JSON Fallback
-        if not os.path.exists(self.data_file):
             os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
             with open(self.data_file, 'w') as f:
-                json.dump({}, f)
-            return
-
-        try:
-            with open(self.data_file, 'r') as f:
-                data = json.load(f)
-                for chat_id, s_data in data.items():
-                    self.sessions[chat_id] = TradingSession(
-                        chat_id=chat_id,
-                        api_key=s_data.get('api_key'),
-                        api_secret=s_data.get('api_secret'),
-                        config=s_data.get('config')
-                    )
-            print(f"📚 Loaded {len(self.sessions)} sessions from JSON.")
-        except Exception as e:
-            print(f"❌ Failed to load sessions: {e}")
-
-    def save_sessions(self):
-        data = {}
-        for chat_id, session in self.sessions.items():
-            data[chat_id] = {
-                "api_key": session.api_key,
-                "api_secret": session.api_secret,
-                "config": session.config
-            }
-        
-        # Try PostgreSQL first
-        try:
-            from utils.db import save_all_sessions
-            if save_all_sessions(data):
-                return  # Success
-        except Exception as e:
-            print(f"⚠️ PostgreSQL save failed, using JSON: {e}")
-        
-        # JSON Fallback
-        try:
-            with open(self.data_file, 'w') as f:
-                json.dump(data, f, indent=4)
-        except Exception as e:
-            print(f"❌ Failed to save sessions: {e}")
-
-
-    def get_session(self, chat_id):
-        return self.sessions.get(str(chat_id))
-
-    def create_or_update_session(self, chat_id, api_key, api_secret):
-        chat_id = str(chat_id)
-        if chat_id in self.sessions:
-            # Update Keys
-            self.sessions[chat_id].api_key = api_key
-            self.sessions[chat_id].api_secret = api_secret
-            self.sessions[chat_id]._init_client() # Re-init client
-        else:
-            # Create New
-            self.sessions[chat_id] = TradingSession(chat_id, api_key, api_secret)
-        
-        self.save_sessions()
-        return self.sessions[chat_id]
+                json.dump(data, f, indent=2)
     
-    def delete_session(self, chat_id):
-        chat_id = str(chat_id)
+    def get_session(self, chat_id: str) -> Optional[AsyncTradingSession]:
+        """Get session by chat_id."""
+        return self.sessions.get(chat_id)
+    
+    async def create_or_update_session(
+        self, chat_id: str, api_key: str, api_secret: str
+    ) -> AsyncTradingSession:
+        """Create or update a session."""
+        
+        existing = self.sessions.get(chat_id)
+        config = existing.config if existing else None
+        
+        session = AsyncTradingSession(chat_id, api_key, api_secret, config)
+        await session.initialize()
+        
+        self.sessions[chat_id] = session
+        await self.save_sessions()
+        
+        return session
+    
+    async def delete_session(self, chat_id: str) -> bool:
+        """Delete a session."""
         if chat_id in self.sessions:
-            del self.sessions[chat_id]
-            self.save_sessions()
+            session = self.sessions.pop(chat_id)
+            await session.close()
+            await self.save_sessions()
             return True
         return False
     
-    def get_all_sessions(self):
+    def get_all_sessions(self) -> List[AsyncTradingSession]:
+        """Get all active sessions."""
         return list(self.sessions.values())
-
+    
+    async def close_all(self):
+        """Cleanup all sessions."""
+        for session in self.sessions.values():
+            await session.close()
+        self.sessions.clear()

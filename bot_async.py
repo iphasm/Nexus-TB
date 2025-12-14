@@ -194,7 +194,7 @@ async def main():
     dp = Dispatcher()
     
     # 3. Initialize Session Manager
-    from utils.trading_manager_async import AsyncSessionManager
+    from utils.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
     
