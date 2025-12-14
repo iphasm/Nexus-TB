@@ -630,21 +630,6 @@ class TradingSession:
             curr_side = 'LONG' if qty > 0 else 'SHORT'
             if curr_side != side:
                 return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
-
-            # 2. Cancel Old Orders
-            self.client.futures_cancel_all_open_orders(symbol=symbol)
-            
-            # 3. New Params
-            ticker = self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
-            qty_precision, price_precision = self.get_symbol_precision(symbol)
-            
-            abs_qty = abs(qty)
-            
-            stop_loss_pct = self.config['stop_loss_pct']
-            
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 
                 if side == 'LONG':
