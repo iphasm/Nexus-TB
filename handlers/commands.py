@@ -474,3 +474,321 @@ async def cmd_debug(message: Message, **kwargs):
             
     except Exception as e:
         await msg.edit_text(f"❌ Error en diagnóstico: {e}")
+
+
+# ============================================
+# --- RESTORED COMMANDS FROM SYNC VERSION ---
+# ============================================
+
+@router.message(Command("mode"))
+async def cmd_mode(message: Message, **kwargs):
+    """Risk presets: /mode RONIN|GUARDIAN|QUANTUM"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await message.answer("⚠️ Sin sesión activa. Usa /set_keys.")
+        return
+    
+    args = message.text.upper().split()
+    if len(args) < 2:
+        await message.answer("⚠️ Uso: `/mode <RONIN | GUARDIAN | QUANTUM>`", parse_mode='Markdown')
+        return
+    
+    profile = args[1]
+    
+    if profile == 'RONIN':
+        # Aggressive
+        session.update_config('leverage', 20)
+        session.update_config('stop_loss_pct', 0.015)
+        session.update_config('atr_multiplier', 1.5)
+        session.update_config('sentiment_threshold', -0.8)
+        session_manager.save_sessions()
+        await message.answer(
+            "⚔️ **MODO RONIN ACTIVADO**\n"
+            "- Apalancamiento: 20x\n"
+            "- Stop Loss: Apretado (1.5 ATR)\n"
+            "- Filtro IA: Laxo (-0.8)\n"
+            "_Ojo: Alto Riesgo._",
+            parse_mode='Markdown'
+        )
+    elif profile == 'GUARDIAN':
+        # Conservative
+        session.update_config('leverage', 3)
+        session.update_config('stop_loss_pct', 0.03)
+        session.update_config('atr_multiplier', 3.0)
+        session.update_config('sentiment_threshold', -0.3)
+        session_manager.save_sessions()
+        await message.answer(
+            "🛡️ **MODO GUARDIAN ACTIVADO**\n"
+            "- Apalancamiento: 3x\n"
+            "- Stop Loss: Amplio (3.0 ATR)\n"
+            "- Filtro IA: Estricto (-0.3)\n"
+            "_Prioridad: Protección de Capital._",
+            parse_mode='Markdown'
+        )
+    elif profile == 'QUANTUM':
+        # Balanced
+        session.update_config('leverage', 5)
+        session.update_config('stop_loss_pct', 0.02)
+        session.update_config('atr_multiplier', 2.0)
+        session.update_config('sentiment_threshold', -0.6)
+        session_manager.save_sessions()
+        await message.answer(
+            "🌌 **MODO QUANTUM ACTIVADO**\n"
+            "- Apalancamiento: 5x\n"
+            "- Stop Loss: Estándar (2.0 ATR)\n"
+            "- Filtro IA: Balanceado (-0.6)\n"
+            "_Equilibrio Matemático._",
+            parse_mode='Markdown'
+        )
+    else:
+        await message.answer("⚠️ Perfil desconocido. Usa: RONIN, GUARDIAN, QUANTUM.")
+
+
+@router.message(Command("resetpilot"))
+async def cmd_resetpilot(message: Message, **kwargs):
+    """Reset circuit breaker"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await message.answer("⚠️ Sin sesión activa.")
+        return
+    
+    session.reset_circuit_breaker()
+    await message.answer(
+        "🔄 **Circuit Breaker Reseteado**\n"
+        "El contador de pérdidas consecutivas se ha reiniciado.\n"
+        "Ahora puedes volver a activar modo PILOT con `/pilot`.",
+        parse_mode='Markdown'
+    )
+
+
+@router.message(Command("sniper"))
+async def cmd_sniper(message: Message, **kwargs):
+    """Scan for instant trading opportunities"""
+    from utils.ai_analyst import QuantumAnalyst
+    from data.fetcher import get_market_data
+    from strategies.strategy_engine import StrategyEngine
+    
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    msg = await message.answer("🎯 **SNIPER MODE ACTIVADO**\n👁️ Escaneando 5 activos principales...")
+    
+    targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT']
+    best_candidate = None
+    best_score = -999
+    
+    try:
+        analyst = QuantumAnalyst()
+        
+        for asset in targets:
+            # 1. Tech Analysis
+            df = get_market_data(asset, timeframe='15m', limit=100)
+            if df.empty:
+                continue
+            
+            engine = StrategyEngine(df)
+            res = engine.analyze()
+            
+            # Score Technicals
+            tech_score = 0
+            sig = res.get('signal_futures', 'NEUTRAL')
+            if sig == 'BUY':
+                tech_score = 1
+            elif sig == 'SHORT':
+                tech_score = -1
+            else:
+                continue
+            
+            # 2. AI Confirmation
+            if analyst.client:
+                sentiment = analyst.check_market_sentiment(asset)
+                sent_score = sentiment.get('score', 0)
+                
+                # Congruence Check
+                total_score = 0
+                if sig == 'BUY' and sent_score > 0.2:
+                    total_score = 1 + sent_score
+                elif sig == 'SHORT' and sent_score < -0.2:
+                    total_score = 1 + abs(sent_score)
+                
+                if total_score > best_score:
+                    best_score = total_score
+                    best_candidate = {
+                        'asset': asset,
+                        'signal': sig,
+                        'price': res.get('metrics', {}).get('close', 0),
+                        'reason_tech': res.get('reason_futures', 'N/A'),
+                        'reason_ai': sentiment.get('reason', 'N/A'),
+                        'vol_risk': sentiment.get('volatility_risk', 'LOW')
+                    }
+        
+        if best_candidate and best_score > 0:
+            c = best_candidate
+            icon = "🚀" if c['signal'] == 'BUY' else "🩸"
+            
+            result = (
+                f"🎯 **BLANCO ENCONTRADO: {c['asset']}**\n"
+                f"{icon} Señal: **{c['signal']}** @ ${c['price']:,.2f}\n\n"
+                f"📊 **Técnico:** {c['reason_tech']}\n"
+                f"🧠 **AI:** {c['reason_ai']}\n"
+                f"⚠️ Riesgo: {c['vol_risk']}\n\n"
+                f"👇 Ejecutar con: `/{c['signal'].lower()} {c['asset']}`"
+            )
+            await msg.edit_text(result, parse_mode='Markdown')
+        else:
+            await msg.edit_text("🤷‍♂️ **Sin blancos claros.**\nEl mercado está mixto. Recomiendo esperar.")
+    
+    except Exception as e:
+        await msg.edit_text(f"❌ Error Sniper: {e}")
+
+
+@router.message(Command("news"))
+async def cmd_news(message: Message, **kwargs):
+    """AI market briefing"""
+    from utils.ai_analyst import QuantumAnalyst
+    
+    msg = await message.answer("🗞️ *Leyendo las noticias...* (Consultando via AI)", parse_mode='Markdown')
+    
+    try:
+        analyst = QuantumAnalyst()
+        if not analyst.client:
+            await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
+            return
+        
+        report = analyst.generate_market_briefing()
+        await msg.edit_text(f"📰 **BOLETÍN DE MERCADO**\n\n{report}", parse_mode='Markdown')
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}")
+
+
+@router.message(Command("sentiment"))
+async def cmd_sentiment(message: Message, **kwargs):
+    """Global sentiment analysis"""
+    from utils.ai_analyst import QuantumAnalyst
+    
+    msg = await message.answer("🧠 *Escaneando Redes y Noticias...*", parse_mode='Markdown')
+    
+    try:
+        analyst = QuantumAnalyst()
+        if not analyst.client:
+            await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
+            return
+        
+        res_btc = analyst.check_market_sentiment('BTCUSDT')
+        res_macro = analyst.check_market_sentiment('^GSPC')  # S&P 500
+        
+        score_btc = res_btc.get('score', 0)
+        score_macro = res_macro.get('score', 0)
+        
+        def interpret(s):
+            if s > 0.3: return "🟢 BULLISH"
+            if s < -0.3: return "🔴 BEARISH"
+            return "⚪ NEUTRAL"
+        
+        result = (
+            "🧠 **SENTIMIENTO GLOBAL DEL MERCADO**\n"
+            "-----------------------------------\n"
+            f"💎 **Cripto (BTC):** {score_btc:.2f} | {interpret(score_btc)}\n"
+            f"_{res_btc.get('reason', 'N/A')}_\n\n"
+            f"🌍 **Macro (S&P500):** {score_macro:.2f} | {interpret(score_macro)}\n"
+            f"_{res_macro.get('reason', 'N/A')}_\n\n"
+            f"⚠️ **Riesgo Volatilidad:** `{res_macro.get('volatility_risk', 'LOW')}`"
+        )
+        await msg.edit_text(result, parse_mode='Markdown')
+    
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}")
+
+
+@router.message(Command("fomc"))
+async def cmd_fomc(message: Message, **kwargs):
+    """Federal Reserve (FED) analysis"""
+    from utils.ai_analyst import QuantumAnalyst
+    
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+    
+    p_key = session.config.get('personality', 'Standard') if session else 'Standard'
+    
+    msg = await message.answer("🏦 *Analizando situación de la FED...* (Tasas, Bonos, Powell)", parse_mode='Markdown')
+    
+    try:
+        analyst = QuantumAnalyst()
+        if not analyst.client:
+            await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
+            return
+        
+        report = analyst.analyze_fomc(personality=p_key)
+        await msg.edit_text(f"🏦 **ANÁLISIS FOMC (FED)**\n\n{report}", parse_mode='Markdown')
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}")
+
+
+@router.message(Command("analyze"))
+async def cmd_analyze(message: Message, **kwargs):
+    """Per-asset AI analysis: /analyze BTC"""
+    from utils.ai_analyst import QuantumAnalyst
+    from data.fetcher import get_market_data
+    
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Uso: `/analyze <SYMBOL>`\nEjemplo: `/analyze BTC`", parse_mode='Markdown')
+        return
+    
+    symbol = args[1].upper()
+    if 'USDT' not in symbol:
+        symbol = f"{symbol}USDT"
+    
+    msg = await message.answer(f"🔍 Analizando {symbol}...")
+    
+    try:
+        # Get data
+        df = get_market_data(symbol, timeframe='1h', limit=50)
+        if df.empty:
+            await msg.edit_text(f"❌ No data for {symbol}")
+            return
+        
+        current_price = float(df['close'].iloc[-1])
+        rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df.columns else 50
+        
+        analyst = QuantumAnalyst()
+        if not analyst.client:
+            await msg.edit_text("⚠️ IA no disponible.")
+            return
+        
+        indicators = {
+            'price': current_price,
+            'rsi': rsi,
+            'gap': 0
+        }
+        analysis = analyst.analyze_signal(symbol, '1h', indicators)
+        
+        await msg.edit_text(
+            f"🔬 **ANÁLISIS: {symbol}**\n\n"
+            f"💵 Precio: ${current_price:,.2f}\n"
+            f"📊 RSI: {rsi:.1f}\n\n"
+            f"🧠 **IA:**\n{analysis}",
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}")

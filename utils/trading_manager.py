@@ -8,12 +8,16 @@ backward compatibility with the sync TradingSession for gradual migration.
 
 import os
 import json
+import time
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any, Tuple, List
 
 # Binance Async Client
 from binance import AsyncClient
+
+# AI Analyst
+from utils.ai_analyst import QuantumAnalyst
 
 # Alpaca (still sync, but wrapped)
 from alpaca.trading.client import TradingClient
@@ -52,6 +56,12 @@ class AsyncTradingSession:
             self.config.update(config)
         
         self.mode = self.config.get('mode', 'WATCHER')
+        
+        # Circuit Breaker State
+        self.cb_ignore_until = 0  # Timestamp (ms) to ignore previous losses
+        
+        # AI Analyst
+        self.ai_analyst = QuantumAnalyst()
         
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
@@ -208,6 +218,29 @@ class AsyncTradingSession:
         if not ok:
             return False, err
         
+        # --- AI SENTIMENT & MACRO FILTER ---
+        vol_risk = 'LOW'  # Default for later use
+        if self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
+            try:
+                print(f"🧠 Checking Sentiment for {symbol}...")
+                sent = self.ai_analyst.check_market_sentiment(symbol)
+                score = sent.get('score', 0)
+                vol_risk = sent.get('volatility_risk', 'LOW')
+                
+                # Filter: BAD Sentiment
+                thresh = self.config.get('sentiment_threshold', -0.6)
+                if score < thresh:
+                    return False, f"⛔ **IA FILTER**: Mercado muy negativo ({score:.2f} < {thresh}).\nMotivo: {sent.get('reason', 'N/A')}"
+                
+                # Macro Shield: Reduce Leverage on High Volatility
+                if vol_risk in ['HIGH', 'EXTREME']:
+                    current_lev = self.config['leverage']
+                    if current_lev > 3:
+                        print(f"⚠️ High Volatility ({vol_risk}). Reducing Leverage to 3x.")
+                        self.config['leverage'] = 3
+            except Exception as e:
+                print(f"⚠️ AI Filter Error (continuing): {e}")
+        
         try:
             leverage = self.config['leverage']
             max_capital_pct = self.config['max_capital_pct']
@@ -355,6 +388,19 @@ class AsyncTradingSession:
         
         if not self.client:
             return False, "No valid API Keys provided."
+        
+        # --- AI SENTIMENT FILTER (Inverse for Shorts) ---
+        if self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
+            try:
+                print(f"🧠 Checking Sentiment for {symbol} (SHORT)...")
+                sent = self.ai_analyst.check_market_sentiment(symbol)
+                score = sent.get('score', 0)
+                
+                # Filter: BULLISH Sentiment (bad for shorts)
+                if score > 0.6:
+                    return False, f"⛔ **IA FILTER**: Mercado muy alcista ({score:.2f}).\nMotivo: {sent.get('reason', 'N/A')}"
+            except Exception as e:
+                print(f"⚠️ AI Filter Error (continuing): {e}")
         
         try:
             leverage = self.config['leverage']
@@ -846,6 +892,200 @@ class AsyncTradingSession:
             
         except Exception as e:
             return False, f"Alpaca Error: {e}"
+
+    # --- RESTORED METHODS FROM SYNC ---
+    
+    def get_trade_preview(self, symbol: str, side: str, current_price: float, atr: Optional[float] = None) -> Tuple[float, float]:
+        """
+        Calculates TP and SL prices without executing the trade.
+        Returns: (sl_price, tp_price)
+        """
+        try:
+            price_precision = 2
+            if current_price < 1.0: price_precision = 4
+            if current_price < 0.01: price_precision = 6
+            
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                
+                if side == 'LONG':
+                    sl_price = round(current_price - sl_dist, price_precision)
+                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                else:
+                    sl_price = round(current_price + sl_dist, price_precision)
+                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+            else:
+                sl_pct = self.config.get('stop_loss_pct', 0.02)
+                tp_pct = sl_pct * 1.5
+                
+                if side == 'LONG':
+                    sl_price = round(current_price * (1 - sl_pct), price_precision)
+                    tp_price = round(current_price * (1 + tp_pct), price_precision)
+                else:
+                    sl_price = round(current_price * (1 + sl_pct), price_precision)
+                    tp_price = round(current_price * (1 - tp_pct), price_precision)
+            
+            return sl_price, tp_price
+        except Exception as e:
+            print(f"Preview Error: {e}")
+            return 0.0, 0.0
+
+    async def execute_flip_position(self, symbol: str, new_side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+        """
+        FLIP LOGIC:
+        1. Cancel Open Orders.
+        2. Close Current Position.
+        3. Wait 1s.
+        4. Open New Position (Reverse).
+        """
+        if not self.client:
+            return False, "No valid session."
+        
+        # 1. Close Current
+        success_close, msg_close = await self.execute_close_position(symbol)
+        
+        if not success_close and "No open position" not in msg_close:
+            return False, f"Flip Aborted: Failed to close ({msg_close})"
+        
+        # 2. Safety Wait (Binance sequencing)
+        await asyncio.sleep(1.0)
+        
+        # 3. Open New
+        if new_side == 'LONG':
+            return await self.execute_long_position(symbol, atr)
+        elif new_side == 'SHORT':
+            return await self.execute_short_position(symbol, atr)
+        else:
+            return False, f"Invalid Side: {new_side}"
+
+    def reset_circuit_breaker(self) -> None:
+        """
+        Resets the circuit breaker logic by updating the 'ignore_until' timestamp.
+        Any losses recorded before this timestamp will not count towards the streak.
+        """
+        self.cb_ignore_until = int(time.time() * 1000)
+        print(f"✅ [Chat {self.chat_id}] Circuit Breaker Reset. Ignoring history before {self.cb_ignore_until}")
+
+    async def check_circuit_breaker(self) -> Tuple[bool, str]:
+        """
+        Circuit Breaker / Safety Switch
+        If detects 5 consecutive losses (Realized PnL < 0) in PILOT mode,
+        automatically downgrades to COPILOT to stop the bleeding.
+        Returns: (Triggered: bool, Message: str)
+        """
+        if self.mode != 'PILOT':
+            return False, ""
+        
+        if not self.client:
+            return False, ""
+        
+        try:
+            # Fetch last 20 Income entries (REALIZED_PNL only)
+            income = await self.client.futures_income_history(incomeType='REALIZED_PNL', limit=20)
+            
+            # Sort descending by time (Newest first)
+            income.sort(key=lambda x: x['time'], reverse=True)
+            
+            consecutive_losses = 0
+            for trade in income:
+                pnl = float(trade['income'])
+                if pnl < 0:
+                    # CHECK: Ignore if before reset time
+                    if trade['time'] < self.cb_ignore_until:
+                        break
+                    consecutive_losses += 1
+                else:
+                    break
+            
+            # Threshold Check
+            if consecutive_losses >= 5:
+                old_mode = self.mode
+                self.set_mode('COPILOT')
+                
+                msg = (
+                    f"⚠️ **CIRCUIT BREAKER ACTIVADO** ⚠️\n"
+                    f"Se han detectado {consecutive_losses} pérdidas consecutivas en modo PILOT.\n"
+                    f"🛡️ El sistema ha cambiado automáticamente a **COPILOT** para proteger tu capital.\n"
+                    f"Revisa el mercado manualmente antes de reactivar."
+                )
+                return True, msg
+        
+        except Exception as e:
+            print(f"Error checking circuit breaker: {e}")
+        
+        return False, ""
+
+    async def get_pnl_history(self, days: int = 1) -> Tuple[float, List[Dict]]:
+        """Fetches Realized PnL from Binance for the last N days"""
+        if not self.client:
+            return 0.0, []
+        
+        try:
+            start_time = int((time.time() - (days * 86400)) * 1000)
+            
+            # Fetch Realized PnL
+            income = await self.client.futures_income_history(
+                incomeType='REALIZED_PNL',
+                startTime=start_time,
+                limit=100
+            )
+            # Fetch Commission (to subtract for Net PnL)
+            commission = await self.client.futures_income_history(
+                incomeType='COMMISSION',
+                startTime=start_time,
+                limit=100
+            )
+            
+            total_pnl = 0.0
+            details = []
+            
+            for item in income:
+                amt = float(item['income'])
+                total_pnl += amt
+                details.append({'symbol': item['symbol'], 'amount': amt, 'time': item['time'], 'type': 'PNL'})
+            
+            for item in commission:
+                amt = float(item['income'])
+                total_pnl += amt  # Commission is negative
+            
+            return total_pnl, details
+        
+        except Exception as e:
+            print(f"Error fetching PnL: {e}")
+            return 0.0, []
+
+    def _log_trade(self, symbol: str, entry: float, qty: float, sl: float, tp: float, side: str = 'LONG') -> None:
+        """Logs trade to local JSON file for history"""
+        try:
+            log_file = 'data/trades.json'
+            entry_data = {
+                "timestamp": time.time(),
+                "date": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "chat_id": self.chat_id,
+                "symbol": symbol,
+                "side": side,
+                "entry_price": entry,
+                "quantity": qty,
+                "sl": sl,
+                "tp": tp
+            }
+            
+            data = []
+            if os.path.exists(log_file):
+                with open(log_file, 'r') as f:
+                    try:
+                        data = json.load(f)
+                    except:
+                        pass
+            
+            data.append(entry_data)
+            
+            with open(log_file, 'w') as f:
+                json.dump(data, f, indent=4)
+        
+        except Exception as e:
+            print(f"⚠️ Failed to log trade: {e}")
 
 
 class AsyncSessionManager:
