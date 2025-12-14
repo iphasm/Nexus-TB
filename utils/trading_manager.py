@@ -680,16 +680,28 @@ class AsyncTradingSession:
             if curr_side != side:
                 return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
             
-            # Cancel old orders (Retry Logic)
-            for _ in range(3):
+            # Cancel old orders (Retry Logic) + Verification
+            for attempt in range(3):
                 try:
                     await self.client.futures_cancel_all_open_orders(symbol=symbol)
-                    break
                 except Exception as e:
-                    if "Unknown order" in str(e): break
-                    await asyncio.sleep(0.5)
+                    if "Unknown order" not in str(e):
+                        await asyncio.sleep(0.5)
+                        continue
+                break
             
-            await asyncio.sleep(1.0) # Propagation wait
+            await asyncio.sleep(1.5) # Increased propagation wait
+            
+            # VERIFICATION: Ensure no closePosition orders remain (prevents -4130)
+            for check in range(3):
+                open_orders = await self.client.futures_get_open_orders(symbol=symbol)
+                close_orders = [o for o in open_orders if o.get('closePosition') == 'true']
+                if not close_orders:
+                    break
+                # Still has orders - retry cancel
+                print(f"⚠️ Still {len(close_orders)} closePosition orders for {symbol}. Retrying cancel...")
+                await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                await asyncio.sleep(1.0)
             
             # Get new price info
             ticker = await self.client.futures_symbol_ticker(symbol=symbol)
