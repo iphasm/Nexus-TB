@@ -62,6 +62,7 @@ class AsyncTradingSession:
         
         # 1. Initialize Binance Async Client
         if self.api_key and self.api_secret:
+            try:
                 self.client = await AsyncClient.create(
                     self.api_key, 
                     self.api_secret
