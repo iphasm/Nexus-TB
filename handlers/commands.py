@@ -1129,8 +1129,8 @@ async def cmd_price(message: Message, **kwargs):
             try:
                 import json
                 
-                # Binance expects raw JSON array: symbols=["BTCUSDT","ETHUSDT"]
-                symbols_param = json.dumps(targets)
+                # Binance expects NO spaces: symbols=["BTCUSDT","ETHUSDT"]
+                symbols_param = json.dumps(targets, separators=(',', ':'))
                 url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_param}"
                 
                 data = requests.get(url, timeout=5).json()
