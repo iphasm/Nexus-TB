@@ -1051,10 +1051,14 @@ class TradingSession:
             positions = self.client.futures_position_information()
             active = []
             for p in positions:
-                if float(p['positionAmt']) != 0:
+                amt = float(p['positionAmt'])
+                price = float(p.get('entryPrice', 0)) or float(p.get('markPrice', 0))
+                
+                # Dust Filter: Ignore positions with < $1 value
+                if abs(amt * price) > 1.0:
                     active.append({
                         "symbol": p['symbol'],
-                        "amt": p['positionAmt'],
+                        "amt": amt,
                         "entry": p['entryPrice'],
                         "pnl": p['unRealizedProfit']
                     })
