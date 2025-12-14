@@ -198,7 +198,7 @@ def send_alert(message):
 @threaded_handler
 def handle_price(message):
     try:
-        sent = bot.reply_to(message, "⏳ *Escaneando mercado...* (Esto no bloquea el bot)", parse_mode='Markdown')
+        sent = bot.reply_to(message, "⏳ *Escaneando precios actuales del mercado...*", parse_mode='Markdown')
         
         report = "📡 *RADAR DE MERCADO (SPOT + FUTUROS)*\n\n"
         
