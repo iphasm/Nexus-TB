@@ -678,7 +678,7 @@ class TradingSession:
             
             # CRITICAL: Wait for Binance to process cancellations (API Race Condition Fix)
             # Error -4130: "An open stop or take profit order with GTE and closePosition in the direction is existing."
-            time.sleep(0.5)  # 500ms delay
+            time.sleep(1.0)  # 1 second delay (increased from 0.5)
             
             # 3. New Params
             ticker = self.client.futures_symbol_ticker(symbol=symbol)
