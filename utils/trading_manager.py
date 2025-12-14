@@ -770,12 +770,12 @@ class AsyncTradingSession:
                                 continue
                         raise e
 
-            # 1. Stop Loss
+            # 1. Stop Loss (Use reduceOnly + quantity to AVOID -4130)
             if sl_price > 0:
                 await place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='STOP_MARKET',
-                    stopPrice=sl_price, closePosition=True
+                    stopPrice=sl_price, reduceOnly=True, quantity=abs_qty
                 )
             
             # 2. Split TP (TP1 + Trailing)
