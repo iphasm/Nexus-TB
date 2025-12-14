@@ -39,6 +39,9 @@ async def cmd_config(message: Message, **kwargs):
         ],
         [
             InlineKeyboardButton(text="🧠 Personalidad", callback_data="CMD|personality")
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Volver", callback_data="CMD|start")
         ]
     ])
     
