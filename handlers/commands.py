@@ -1105,54 +1105,95 @@ async def cmd_price(message: Message, **kwargs):
         # 1. Fear & Greed
         fng = get_fear_and_greed_index()
         
-        # 2. Build dynamic target list - ONLY from CRYPTO group (Binance compatible)
-        from config import ASSET_GROUPS, GROUP_CONFIG
+        # 2. Build dynamic target lists from Scanner Global
+        from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
         from antigravity_quantum.config import DISABLED_ASSETS
         
-        targets = []
-        # Only use CRYPTO group for Binance API
+        crypto_targets = []
+        stock_targets = []
+        commodity_targets = []
+        
+        # Crypto (Binance)
         if GROUP_CONFIG.get('CRYPTO', False):
             for asset in ASSET_GROUPS.get('CRYPTO', []):
-                # Ensure it's valid Binance symbol (ends with USDT, alphanumeric)
                 if asset.endswith('USDT') and asset not in DISABLED_ASSETS:
-                    # Clean the symbol (remove any whitespace/special chars)
                     clean_asset = ''.join(c for c in asset if c.isalnum())
                     if clean_asset:
-                        targets.append(clean_asset)
+                        crypto_targets.append(clean_asset)
         
-        # Limit to first 10 for display
-        targets = list(set(targets))[:10]  # Dedupe and limit
+        # Stocks (Yahoo Finance)
+        if GROUP_CONFIG.get('STOCKS', False):
+            for asset in ASSET_GROUPS.get('STOCKS', []):
+                if asset not in DISABLED_ASSETS:
+                    stock_targets.append(asset)
         
-        # 3. Fetch Prices (use Futures API - more symbols available)
-        prices_str = ""
-        if targets:
+        # Commodities (Yahoo Finance)
+        if GROUP_CONFIG.get('COMMODITY', False):
+            for asset in ASSET_GROUPS.get('COMMODITY', []):
+                if asset not in DISABLED_ASSETS:
+                    commodity_targets.append(asset)
+        
+        # 3. Fetch Crypto Prices (Binance Futures)
+        crypto_str = ""
+        crypto_count = 0
+        for symbol in crypto_targets[:6]:  # Limit to 6
             try:
-                fetched = 0
-                for symbol in targets[:10]:  # Limit to 10
-                    try:
-                        url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
-                        resp = requests.get(url, timeout=3).json()
-                        if 'price' in resp:
-                            sym = symbol.replace('USDT', '').replace('1000', '')
-                            price = float(resp['price'])
-                            prices_str += f"• *{sym}:* `${price:,.2f}`\n"
-                            fetched += 1
-                    except:
-                        continue  # Skip invalid symbols
+                url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
+                resp = requests.get(url, timeout=3).json()
+                if 'price' in resp:
+                    sym = symbol.replace('USDT', '').replace('1000', '')
+                    price = float(resp['price'])
+                    crypto_str += f"• *{sym}:* `${price:,.2f}`\n"
+                    crypto_count += 1
+            except:
+                continue
+        
+        # 4. Fetch Stock/Commodity Prices (Yahoo Finance)
+        stocks_str = ""
+        commodities_str = ""
+        
+        yf_symbols = stock_targets[:4] + commodity_targets[:3]  # Limit
+        if yf_symbols:
+            try:
+                # Yahoo Finance query API (public)
+                symbols_str = ','.join(yf_symbols)
+                url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbols_str}"
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                resp = requests.get(url, headers=headers, timeout=5).json()
                 
-                if fetched == 0:
-                    prices_str = "⚠️ No se pudieron obtener precios."
-            except Exception as e:
-                prices_str = f"⚠️ Error: {str(e)[:50]}"
-        else:
-            prices_str = "📭 No hay activos crypto activos."
-            
+                quotes = resp.get('quoteResponse', {}).get('result', [])
+                for q in quotes:
+                    sym = q.get('symbol', '')
+                    price = q.get('regularMarketPrice', 0)
+                    name = TICKER_MAP.get(sym, sym)
+                    
+                    if sym in stock_targets:
+                        stocks_str += f"• *{name}:* `${price:,.2f}`\n"
+                    elif sym in commodity_targets:
+                        commodities_str += f"• *{name}:* `${price:,.2f}`\n"
+            except:
+                pass
+        
+        # Build final message
+        total = crypto_count + len(stocks_str.split('\n')) - 1 + len(commodities_str.split('\n')) - 1
+        
         msg = (
             "📡 **MARKET INTEL**\n"
             "━━━━━━━━━━━━━━━━\n"
             f"🧠 **Sentimiento:** {fng}\n\n"
-            f"💎 **Precios Spot** ({len(targets)} activos):\n"
-            f"{prices_str}\n"
+        )
+        
+        if crypto_str:
+            msg += f"💎 **Crypto:**\n{crypto_str}\n"
+        if stocks_str:
+            msg += f"📈 **Stocks:**\n{stocks_str}\n"
+        if commodities_str:
+            msg += f"🏆 **Commodities:**\n{commodities_str}\n"
+        
+        if not (crypto_str or stocks_str or commodities_str):
+            msg += "📭 No hay activos activos.\n"
+        
+        msg += (
             "━━━━━━━━━━━━━━━━\n"
             "_Usa /sniper para buscar oportunidades._"
         )
