@@ -3,7 +3,11 @@ from .trend import TrendFollowingStrategy
 from .grid import GridTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .scalping import ScalpingStrategy
-from ..config import ENABLED_STRATEGIES, GRID_WHITELIST, SCALPING_WHITELIST
+
+# --- CORRECCIÓN AQUÍ ---
+# Antes: from ..config import ENABLED_STRATEGIES, GRID_WHITELIST, SCALPING_WHITELIST
+# Ahora (Nombres correctos según tu config.py):
+from ..config import ENABLED_STRATEGIES, GRID_ASSETS, SCALPING_ASSETS 
 
 class StrategyFactory:
     """
@@ -17,16 +21,18 @@ class StrategyFactory:
         """
         # 1. GRID STRATEGY (Sideways/Accumulation)
         if ENABLED_STRATEGIES.get('GRID', False):
-            if symbol in GRID_WHITELIST:
+            # CORRECCIÓN: Usar GRID_ASSETS
+            if symbol in GRID_ASSETS:
                 return GridTradingStrategy()
         
         # 2. SCALPING STRATEGY (High Volatility)
         if ENABLED_STRATEGIES.get('SCALPING', False):
-            if symbol in SCALPING_WHITELIST and volatility_index > 0.6:
+            # CORRECCIÓN: Usar SCALPING_ASSETS
+            if symbol in SCALPING_ASSETS and volatility_index > 0.6:
                 return ScalpingStrategy()
         
         # 3. TREND FOLLOWING (Only BTC/Major dominance)
-        if symbol == 'BTC':
+        if symbol == 'BTC' or symbol == 'BTCUSDT': # Aseguramos compatibilidad con ambos formatos
             return TrendFollowingStrategy()
             
         # 4. DEFAULT: Mean Reversion (Safest)
