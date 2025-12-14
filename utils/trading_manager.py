@@ -673,12 +673,26 @@ class TradingSession:
             if curr_side != side:
                 return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
 
-            # 2. Cancel Old Orders
-            self.client.futures_cancel_all_open_orders(symbol=symbol)
-            
-            # CRITICAL: Wait for Binance to process cancellations (API Race Condition Fix)
-            # Error -4130: "An open stop or take profit order with GTE and closePosition in the direction is existing."
-            time.sleep(1.0)  # 1 second delay (increased from 0.5)
+            # 2. Cancel Old Orders with VERIFICATION
+            # Error -4130 happens when closePosition orders still exist
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    self.client.futures_cancel_all_open_orders(symbol=symbol)
+                    time.sleep(0.5)
+                    
+                    # Verify cancellation by checking if any closePosition orders still exist
+                    open_orders = self.client.futures_get_open_orders(symbol=symbol)
+                    close_position_orders = [o for o in open_orders if o.get('closePosition', False)]
+                    
+                    if not close_position_orders:
+                        break  # Orders successfully canceled
+                    
+                    print(f"⚠️ SLTP Update: {len(close_position_orders)} closePosition orders still exist, retry {attempt+1}/{max_retries}")
+                    time.sleep(1.0)  # Extra wait before retry
+                except Exception as cancel_err:
+                    print(f"Cancel attempt {attempt+1} error: {cancel_err}")
+                    time.sleep(0.5)
             
             # 3. New Params
             ticker = self.client.futures_symbol_ticker(symbol=symbol)
