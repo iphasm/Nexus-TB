@@ -693,15 +693,37 @@ class AsyncTradingSession:
             await asyncio.sleep(1.5) # Increased propagation wait
             
             # VERIFICATION: Ensure no closePosition orders remain (prevents -4130)
-            for check in range(3):
+            for check in range(5):
                 open_orders = await self.client.futures_get_open_orders(symbol=symbol)
-                close_orders = [o for o in open_orders if o.get('closePosition') == 'true']
+                
+                # Check for ANY order with closePosition=True (handle bool or string)
+                close_orders = []
+                for o in open_orders:
+                    cp = o.get('closePosition', False)
+                    # Handle boolean True, string "true"/"True", etc.
+                    if str(cp).lower() == 'true':
+                        close_orders.append(o)
+                
                 if not close_orders:
                     break
-                # Still has orders - retry cancel
-                print(f"⚠️ Still {len(close_orders)} closePosition orders for {symbol}. Retrying cancel...")
+                
+                # Still has orders - retry explicit cancel by ID if 'cancel_all' is flaky
+                print(f"⚠️ Found {len(close_orders)} closePosition orders for {symbol}. Retrying cancel...")
+                
+                # Try cancelling specifically by ID first (more reliable)
+                for order in close_orders:
+                    try:
+                        await self.client.futures_cancel_order(symbol=symbol, orderId=order['orderId'])
+                    except:
+                        pass
+                
+                # Fallback to cancel all
                 await self.client.futures_cancel_all_open_orders(symbol=symbol)
                 await asyncio.sleep(1.0)
+            
+            # Final Safety Check
+            if len(close_orders) > 0:
+                 return False, f"Failed to clear existing SL orders for {symbol}. Manual intervention required."
             
             # Get new price info
             ticker = await self.client.futures_symbol_ticker(symbol=symbol)
