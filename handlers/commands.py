@@ -454,27 +454,23 @@ async def cmd_pnl(message: Message, **kwargs):
 
 @router.message(Command("debug"))
 async def cmd_debug(message: Message, **kwargs):
-    """System diagnostics"""
-    import platform
+    """System diagnostics - Full Network Report"""
+    # Import locally to avoid circular deps if any
+    from utils.diagnostics import run_diagnostics
     
-    session_manager = kwargs.get('session_manager')
-    session = session_manager.get_session(str(message.chat.id)) if session_manager else None
+    msg = await message.answer("⏳ Ejecutando diagnóstico de red y sistema...")
     
-    py_ver = platform.python_version()
-    os_plat = platform.system()
-    
-    has_bin = "✅" if session and session.client else "❌"
-    has_alp = "✅" if session and session.alpaca_client else "❌"
-    
-    debug_msg = (
-        "🔧 *DIAGNÓSTICO DEL SISTEMA*\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        f"🐍 Python: `{py_ver}`\n"
-        f"💻 OS: `{os_plat}`\n"
-        f"🏗️ Arch: `Async (aiogram 3.x)`\n\n"
-        f"🔌 Binance: {has_bin}\n"
-        f"🦙 Alpaca: {has_alp}\n\n"
-        f"📡 Sessions: `{len(session_manager.sessions) if session_manager else 0}`\n"
-    )
-    
-    await message.answer(debug_msg, parse_mode="Markdown")
+    try:
+        # Run blocking diagnostics in thread pool
+        loop = asyncio.get_running_loop()
+        report = await loop.run_in_executor(None, run_diagnostics)
+        
+        # Split report if too long (Telegram limit 4096)
+        if len(report) > 4000:
+            for i in range(0, len(report), 4000):
+                await message.answer(report[i:i+4000], parse_mode="Markdown")
+        else:
+            await msg.edit_text(report, parse_mode="Markdown")
+            
+    except Exception as e:
+        await msg.edit_text(f"❌ Error en diagnóstico: {e}")
