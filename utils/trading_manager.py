@@ -75,6 +75,7 @@ class AsyncTradingSession:
                 )
                 print(f"✅ [Chat {self.chat_id}] Binance Async Client Initialized.")
             except Exception as e:
+                self._init_error = str(e)
                 print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
                 self.client = None
                 success = False
@@ -160,6 +161,20 @@ class AsyncTradingSession:
     
     # --- TRADING METHODS ---
     
+    async def _ensure_client(self) -> Tuple[bool, str]:
+        """Ensure Binance client is initialized."""
+        if self.client:
+            return True, ""
+        
+        # Try to re-initialize lazy
+        print(f"🔄 [Chat {self.chat_id}] Attempting lazy re-initialization...")
+        await self.initialize()
+        if self.client:
+            return True, ""
+        
+        err = getattr(self, '_init_error', 'Unknown Error')
+        return False, f"Client Connection Failed: {err}"
+
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously."""
         
@@ -167,8 +182,10 @@ class AsyncTradingSession:
         if 'USDT' not in symbol:
             return await self._execute_alpaca_order(symbol, 'LONG', atr)
         
-        if not self.client:
-            return False, "No valid API Keys provided."
+        # Ensure Client with retry
+        ok, err = await self._ensure_client()
+        if not ok:
+            return False, err
         
         try:
             leverage = self.config['leverage']
