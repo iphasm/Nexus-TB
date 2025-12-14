@@ -226,7 +226,7 @@ class AsyncTradingSession:
         1. Fetch all open orders.
         2. Cancel ONLY STOP_MARKET / TAKE_PROFIT_MARKET / TRAILING_STOP_MARKET.
            (Preserves LIMIT orders for Grid/Scalping).
-        3. Place SL using closePosition=True (Safety Kill Switch).
+        3. Place SL using reduceOnly=True (Avoids -4130 conflict).
         4. Place TP using reduceOnly=True (Allows Split TPs).
         """
         try:
@@ -249,20 +249,20 @@ class AsyncTradingSession:
                         pass
                 await asyncio.sleep(0.5)
             
-            # 3. Place SL (Safety: closePosition=True)
+            # 3. Place SL (Using reduceOnly to avoid closePosition conflict)
             sl_msg = ""
+            abs_qty = abs(quantity)
             if sl_price > 0:
                 sl_side = 'SELL' if side == 'LONG' else 'BUY'
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='STOP_MARKET',
-                    stopPrice=sl_price, closePosition=True
+                    stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
                 )
-                sl_msg = f"SL: {sl_price} (Shielded)"
+                sl_msg = f"SL: {sl_price} (Protected)"
                 
             # 4. Place TP (Flexibility: Split TPs with reduceOnly)
             tp_msg = ""
-            abs_qty = abs(quantity)
             sl_side = 'SELL' if side == 'LONG' else 'BUY' # Same side for closing
             
             qty_tp1 = float(round(abs_qty / 2, qty_precision))
