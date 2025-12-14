@@ -1123,30 +1123,29 @@ async def cmd_price(message: Message, **kwargs):
         # Limit to first 10 for display
         targets = list(set(targets))[:10]  # Dedupe and limit
         
-        # 3. Fetch Prices
+        # 3. Fetch Prices (use Futures API - more symbols available)
         prices_str = ""
         if targets:
             try:
-                import json
+                fetched = 0
+                for symbol in targets[:10]:  # Limit to 10
+                    try:
+                        url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
+                        resp = requests.get(url, timeout=3).json()
+                        if 'price' in resp:
+                            sym = symbol.replace('USDT', '').replace('1000', '')
+                            price = float(resp['price'])
+                            prices_str += f"• *{sym}:* `${price:,.2f}`\n"
+                            fetched += 1
+                    except:
+                        continue  # Skip invalid symbols
                 
-                # Binance expects NO spaces: symbols=["BTCUSDT","ETHUSDT"]
-                symbols_param = json.dumps(targets, separators=(',', ':'))
-                url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_param}"
-                
-                data = requests.get(url, timeout=5).json()
-                
-                if isinstance(data, list):
-                    for item in data:
-                        sym = item['symbol'].replace('USDT', '').replace('1000', '')
-                        price = float(item['price'])
-                        prices_str += f"• *{sym}:* `${price:,.2f}`\n"
-                else:
-                    # Show debug info
-                    prices_str = f"⚠️ API: {data.get('msg', 'Unknown')[:80]}\nTargets: {targets[:3]}..."
+                if fetched == 0:
+                    prices_str = "⚠️ No se pudieron obtener precios."
             except Exception as e:
                 prices_str = f"⚠️ Error: {str(e)[:50]}"
         else:
-            prices_str = "📭 No hay activos crypto activos en CRYPTO group."
+            prices_str = "📭 No hay activos crypto activos."
             
         msg = (
             "📡 **MARKET INTEL**\n"
