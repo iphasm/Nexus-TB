@@ -51,30 +51,41 @@ async def cmd_config(message: Message, **kwargs):
 
 @router.message(Command("strategies", "strategy"))
 async def cmd_strategies(message: Message, **kwargs):
-    """Interactive strategy selector"""
+    """Interactive strategy selector - ALL 6 STRATEGIES"""
     # Import strategy config
     try:
         from antigravity_quantum.config import ENABLED_STRATEGIES
     except ImportError:
-        ENABLED_STRATEGIES = {'SCALPING': True, 'GRID': True, 'MEAN_REVERSION': True, 'SHARK': True}
+        ENABLED_STRATEGIES = {'TREND': True, 'SCALPING': True, 'GRID': True, 'MEAN_REVERSION': True, 'BLACK_SWAN': True, 'SHARK': False}
     
-    # Build state strings
-    s_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌ DESACTIVADO"
-    g_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('GRID', True) else "❌ DESACTIVADO"
-    m_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌ DESACTIVADO"
-    sh_state = "✅ ACTIVADO" if ENABLED_STRATEGIES.get('SHARK', True) else "❌ DESACTIVADO"
+    # Build state strings for all 6 strategies
+    t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
+    s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
+    g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
+    m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
+    bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
+    sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', False) else "❌"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING")],
-        [InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")],
-        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")],
-        [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")]
+        [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
+        [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
+        [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
+        [
+            InlineKeyboardButton(text=f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"),
+            InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
+        ],
+        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
     ])
     
     await message.answer(
         "🎛️ *CONFIGURACIÓN DE ESTRATEGIAS*\n"
         "Activa/Desactiva módulos de trading:\n\n"
-        "_Nota: Shark Mode corre en segundo plano para protección._",
+        "• 📈 *Trend* - Seguimiento de tendencia en BTC\n"
+        "• 🦢 *Black Swan* - Defensa: Cierra longs en crashs\n"
+        "• 🦈 *Shark* - Ataque: Abre shorts en crashs\n"
+        "• ⚡ *Scalping* - Operaciones rápidas\n"
+        "• 🕸️ *Grid* - Trading en rangos\n"
+        "• 📉 *Mean Rev* - Reversión a la media",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
