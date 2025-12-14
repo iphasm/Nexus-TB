@@ -25,5 +25,5 @@ COPY . .
 # Set environment variables if needed (or rely on .env pass-through)
 # ENV PYTHONUNBUFFERED=1
 
-# Command to run the bot
-CMD ["python", "main.py"]
+# Command to run the bot (Async version)
+CMD ["python", "bot_async.py"]

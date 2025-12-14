@@ -1,14 +1,24 @@
+# Async Framework
+aiogram>=3.4.0
+aiohttp>=3.9.0
+
+# Exchange APIs
 ccxt
+python-binance
+alpaca-py
+
+# Data
 yfinance
 pandas
+
+# Utilities
 python-dotenv
 requests
 pycoingecko
-pyTelegramBotAPI
-python-binance
-alpaca-py
 PySocks
-pycares>=4.0.0
-aiodns<3.2.0
+
+# AI/Analysis
 openai
+
+# Database
 psycopg2-binary
