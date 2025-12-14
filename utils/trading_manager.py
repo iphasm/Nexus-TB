@@ -415,7 +415,7 @@ class TradingSession:
                 if tp_notional < min_notional:
                     # NO SPLIT
                     self.client.futures_create_order(
-                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, closePosition=True
+                       symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=quantity, reduceOnly=True
                     )
                     success_msg += f"\nTP: {tp1_price} (100% - Small Pos)"
                 else:
@@ -459,7 +459,6 @@ class TradingSession:
             print(f"🧠 Checking Sentiment for {symbol}...")
             sent = self.ai_analyst.check_market_sentiment(symbol)
             score = sent.get('score', 0)
-            vol_risk = sent.get('volatility_risk', 'LOW')
             
             # 1. Filter: BULL Sentiment
             if score > 0.6:
@@ -498,8 +497,104 @@ class TradingSession:
                 else:
                      return False, f"⚠️ Position Mismatch ({symbol} Long is open). Flip manually."
 
+            # 1. Calc Params
+            qty_precision, price_precision, min_notional = self.get_symbol_precision(symbol)
+            ticker = self.client.futures_ticker(symbol=symbol)
+            current_price = float(ticker['lastPrice'])
+            
+            # 2. Risk Calc
+            equity = float(self.client.futures_account()['totalWalletBalance'])
+            
+            # SL Calc
+            if atr and atr > 0:
+                mult = self.config.get('atr_multiplier', 2.0)
+                sl_dist = mult * atr
+                sl_price = round(current_price + sl_dist, price_precision)
+                tp1_price = round(current_price - (1.5 * sl_dist), price_precision)
+            else:
+                sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
+                tp1_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
+                
+            dist_to_stop = abs(sl_price - current_price)
+            if dist_to_stop == 0: dist_to_stop = current_price * 0.01
+
+            risk_amount = equity * 0.02 # 2% Risk
+            raw_quantity = risk_amount / dist_to_stop
+            
+            # Max Cap Check
+            max_alloc = equity * max_capital_pct
+            if (raw_quantity * current_price) > max_alloc:
+                raw_quantity = max_alloc / current_price
+                
+            quantity = float(round(raw_quantity, qty_precision))
+            
+            # --- MIN NOTIONAL CHECK ---
+            final_notional = quantity * current_price
+            if final_notional < min_notional:
+                 return False, f"❌ {symbol}: Capital Insufficient for Min Notional.\nReq: {min_notional} USDT | Calc: {final_notional:.2f} USDT"
+
+            if quantity <= 0: return False, "Position too small."
+
+            # 3. Execute Market Sell
+            try:
+                order = self.client.futures_create_order(
+                    symbol=symbol, side='SELL', type='MARKET', quantity=quantity
+                )
+                entry_price = float(order.get('avgPrice', current_price))
+                if entry_price == 0: entry_price = current_price
+            except Exception as e:
+                return False, f"❌ Failed to Open Position: {e}"
+
+            # 4. Post-Entry Orders (SL / TP)
+            try:
+                # SL (Close Position = True is OK here as per user screenshot logic)
+                if sl_price > 0:
+                    self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='STOP_MARKET', stopPrice=sl_price, closePosition=True
+                    )
+                
+                # Setup TP Vars
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                tp_notional = qty_tp1 * entry_price
+                
+                # Initialize success_msg
+                success_msg = f"Short {symbol} (x{leverage})\nEntry: {entry_price}\nQty: {quantity}\nSL: {sl_price}"
+
+                if tp_notional < min_notional:
+                    # NO SPLIT - Definitve Fix: Use ReduceOnly instead of ClosePosition
+                    self.client.futures_create_order(
+                       symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=quantity, reduceOnly=True
+                    )
+                    success_msg += f"\nTP: {tp1_price} (100% - Small Pos)"
+                else:
+                    # SPLIT
+                    if qty_tp1 > 0:
+                        self.client.futures_create_order(
+                           symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tp1_price, quantity=qty_tp1, reduceOnly=True
+                        )
+                    
+                    qty_tp2 = float(round(quantity - qty_tp1, qty_precision))
+                    if qty_tp2 > 0:
+                         self.client.futures_create_order(
+                            symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET', callbackRate=1.5, quantity=qty_tp2, reduceOnly=True
+                        )
+                    success_msg += f"\nTP1: {tp1_price} (50%)\nTP2: Trailing 1.5%"
+                
+                self._log_trade(symbol, entry_price, quantity, sl_price, tp1_price, side='SHORT')
+                
+                return True, success_msg
+
+            except Exception as e:
+                print(f"⚠️ Order Placement Failed: {e}. closing position...")
+                try:
+                     self.client.futures_create_order(symbol=symbol, side='BUY', type='MARKET', quantity=quantity, reduceOnly=True)
+                except: pass
+                return False, f"⚠️ [{symbol}] Error placing SL/TP ({e}). Position CLOSED for safety."
+
+        except BinanceAPIException as e:
+            return False, f"[{symbol}] Binance Error: {e.message}"
         except Exception as e:
-            return False, f"[{symbol}] Error: {e}"
+            return False, f"[{symbol}] Error: {str(e)}"
 
     def execute_close_all(self):
         """Cierra TODAS las posiciones activas"""
