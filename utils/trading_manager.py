@@ -291,18 +291,39 @@ class AsyncTradingSession:
                         stopPrice=sl_price, closePosition=True
                     )
                 
-                # Take Profit
-                await self.client.futures_create_order(
-                    symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
-                    stopPrice=tp_price, quantity=quantity, reduceOnly=True
-                )
+                # Logic: TP1 (50%) + Trailing Stop (50%)
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                qty_trail = float(round(quantity - qty_tp1, qty_precision))
+                
+                # Check Min Notional for split (must be > 5 USDT each approx)
+                is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
+                
+                if is_split:
+                    # TP1: Take 50% Prophet
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
+                        stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                    )
+                    # Trailing: Let the rest run (Activate at TP1, Callback 2.0%)
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    )
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
+                else:
+                    # Capital too small: Full Trailing Stop
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
+                        quantity=quantity, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    )
+                    tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
                 
                 success_msg = (
                     f"Long {symbol} (x{leverage})\n"
                     f"Entry: {entry_price}\n"
                     f"Qty: {quantity}\n"
                     f"SL: {sl_price}\n"
-                    f"TP: {tp_price}"
+                    f"TP: {tp_msg}"
                 )
                 
                 return True, success_msg
@@ -405,17 +426,37 @@ class AsyncTradingSession:
                         stopPrice=sl_price, closePosition=True
                     )
                 
-                await self.client.futures_create_order(
-                    symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET',
-                    stopPrice=tp_price, quantity=quantity, reduceOnly=True
-                )
+                # Logic: TP1 (50%) + Trailing Stop (50%)
+                qty_tp1 = float(round(quantity / 2, qty_precision))
+                qty_trail = float(round(quantity - qty_tp1, qty_precision))
+                
+                is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
+                
+                if is_split:
+                    # TP1 (50%)
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET',
+                        stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                    )
+                    # Trailing Stop (50%)
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    )
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
+                else:
+                    await self.client.futures_create_order(
+                        symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
+                        quantity=quantity, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    )
+                    tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
                 
                 return True, (
                     f"Short {symbol} (x{leverage})\n"
                     f"Entry: {entry_price}\n"
                     f"Qty: {quantity}\n"
                     f"SL: {sl_price}\n"
-                    f"TP: {tp_price}"
+                    f"TP: {tp_msg}"
                 )
                 
             except Exception as e:
