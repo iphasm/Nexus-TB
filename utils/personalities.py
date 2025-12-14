@@ -9,6 +9,11 @@ class PersonalityManager:
         # --- STANDARDS ---
         'STANDARD_ES': {
             'NAME': "🇪🇸 Estándar (Español)",
+            'GREETING': [
+                "Listo para operar.",
+                "Sistemas en línea.",
+                "Esperando instrucciones."
+            ],
             'WELCOME': [
                 (
                     "🇪🇸 **ANTIGRAVITY BOT v3.3**\n"
@@ -313,6 +318,11 @@ class PersonalityManager:
         # --- CLASSIC CINEMA & TV ---
         'NEXUS': {
             'NAME': "🦅 Nexus-6",
+            'GREETING': [
+                "He visto cosas que vosotros no creeríais...",
+                "Todos esos momentos se perderán en el tiempo.",
+                "Es hora de morir... o de operar."
+            ],
             'WELCOME': [
                  (
                     "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
@@ -400,6 +410,11 @@ class PersonalityManager:
 
         'KURTZ': {
             'NAME': "🌴 Coronel Kurtz",
+            'GREETING': [
+                "Estás en el río ahora. No puedes bajarte del barco.",
+                "Huelo a napalm por la mañana.",
+                "El horror... el horror."
+            ],
             'WELCOME': [
                 (
                     "☠️ **THE END.**\n"

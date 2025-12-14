@@ -88,6 +88,9 @@ async def cmd_start(message: Message, **kwargs):
         # Try to extract a simple greeting or use generic
         if 'GREETING' in profile:
             greeting = profile['GREETING']
+            if isinstance(greeting, list):
+                import random
+                greeting = random.choice(greeting)
         elif 'WELCOME' in profile and isinstance(profile['WELCOME'], list):
             # Fallback: Use a generic safe greeting if specific one not found
             # (We avoid parsing the complex WELCOME block)
