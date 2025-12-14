@@ -73,6 +73,47 @@ class SessionMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+# --- GATEKEEPER MIDDLEWARE (Auth) ---
+from utils.db import get_user_role
+
+class GatekeeperMiddleware(BaseMiddleware):
+    """
+    Enforces subscription/admin access for every message.
+    """
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any]
+    ) -> Any:
+        # Only check Messages (callbacks usually safe if message was ok, but ideally check both)
+        from aiogram.types import Message, CallbackQuery
+        user = None
+        chat_id = None
+        
+        if isinstance(event, Message):
+            user = event.from_user
+            chat_id = str(event.chat.id)
+        elif isinstance(event, CallbackQuery):
+            user = event.from_user
+            chat_id = str(event.message.chat.id)
+            
+        if user and chat_id:
+            # Check DB / ENV
+            allowed, role = get_user_role(str(user.id))
+            
+            if not allowed:
+                # Silent blocking to avoid spam, or one-time warning?
+                # Let's just ignore for now or print log
+                print(f"⛔ Access Denied: {user.id} ({user.first_name}) - Role: {role}")
+                return # Block execution
+                
+            # Optional: Inject role into data handler
+            data['user_role'] = role
+            
+        return await handler(event, data)
+
+
 # --- SIGNAL DISPATCH ---
 
 # Global Personality Manager instance
@@ -235,31 +276,6 @@ async def main():
     from utils.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
-    
-    # 4. Register Middleware
-    dp.message.middleware(SessionMiddleware(session_manager))
-    dp.callback_query.middleware(SessionMiddleware(session_manager))
-    
-    # 5. Register Routers
-    from handlers.commands import router as commands_router
-    from handlers.trading import router as trading_router
-    from handlers.config import router as config_router
-    from handlers.callbacks import router as callbacks_router
-    
-    dp.include_router(commands_router)
-    dp.include_router(trading_router)
-    dp.include_router(config_router)
-    dp.include_router(callbacks_router)
-    
-    # 6. Initialize Quantum Engine (Optional)
-    engine_task = None
-    USE_QUANTUM_ENGINE = os.getenv('USE_QUANTUM_ENGINE', 'true').lower() == 'true'
-    
-    if USE_QUANTUM_ENGINE:
-        try:
-            from antigravity_quantum.core.engine import QuantumEngine
-            
-            engine = QuantumEngine(assets=get_all_assets())
             
             # Set callback for signal dispatch
             async def on_signal(signal):

@@ -56,6 +56,23 @@ def init_db():
                 INSERT INTO bot_state (id) VALUES (1)
                 ON CONFLICT (id) DO NOTHING
             """)
+
+            # Users table (Subscription System)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    chat_id VARCHAR(50) UNIQUE NOT NULL,
+                    name VARCHAR(100),
+                    role VARCHAR(20) DEFAULT 'user', -- 'admin', 'user'
+                    expires_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
+            # Ensure sequence starts at 1000 for aesthetics (if empty)
+            cur.execute("SELECT count(*) FROM users")
+            if cur.fetchone()[0] == 0:
+                 cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1000")
             
             conn.commit()
             print("✅ Database tables initialized.")
@@ -206,5 +223,110 @@ def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets
     except Exception as e:
         print(f"❌ Save Bot State Error: {e}")
         return False
+    finally:
+        conn.close()
+
+# --- SUBSCRIPTION FUNCTIONS ---
+
+def get_user_role(chat_id: str) -> tuple[bool, str]:
+    """
+    Check if user exists in DB and valid.
+    Returns: (Allowed, Role)
+    Roles: 'owner', 'admin', 'user', 'none'
+    """
+    # 1. Check ENV Owner
+    env_owner = os.getenv('TELEGRAM_CHAT_ID', '')
+    if str(chat_id) in env_owner.split(','):
+        return True, 'owner'
+    
+    # 2. Check DB
+    conn = get_connection()
+    if not conn:
+        return False, 'none'
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT role, expires_at FROM users WHERE chat_id = %s", (str(chat_id),))
+            row = cur.fetchone()
+            
+            if not row:
+                return False, 'none'
+            
+            role = row['role']
+            if role == 'admin':
+                return True, 'admin'
+            
+            # Check expiration for regular users
+            if row['expires_at']:
+                from datetime import datetime
+                if row['expires_at'] < datetime.now():
+                    return False, 'expired'
+            
+            return True, 'user'
+            
+    except Exception as e:
+        print(f"❌ Check Access Error: {e}")
+        return False, 'error'
+    finally:
+        conn.close()
+
+def add_system_user(name: str, chat_id: str, days: int = None, role: str = 'user'):
+    """Add a user/admin to the DB."""
+    conn = get_connection()
+    if not conn: return False, "DB Error"
+    
+    try:
+        expires_at = None
+        if days:
+            from datetime import timedelta, datetime
+            expires_at = datetime.now() + timedelta(days=days)
+            
+        with conn.cursor() as cur:
+            # ID sequence starts at 1000 automatically via SERIAL/SEQUENCE if configured, 
+            # but we defined SERIAL in init so it starts at 1. 
+            # We can force start at 1000 in init if we want, or just let it be.
+            # Let's just insert.
+            cur.execute("""
+                INSERT INTO users (chat_id, name, role, expires_at, created_at)
+                VALUES (%s, %s, %s, %s, NOW())
+                ON CONFLICT (chat_id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    role = EXCLUDED.role,
+                    expires_at = EXCLUDED.expires_at,
+                    created_at = NOW()
+                RETURNING id
+            """, (str(chat_id), name, role, expires_at))
+            new_id = cur.fetchone()[0]
+            conn.commit()
+            return True, new_id
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
+def remove_system_user(user_id: int):
+    """Remove user by numeric ID."""
+    conn = get_connection()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            return cur.rowcount > 0
+    except:
+        return False
+    finally:
+        conn.close()
+
+def get_all_system_users():
+    """Get all DB users."""
+    conn = get_connection()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, name, chat_id, role, expires_at FROM users ORDER BY role, id")
+            return cur.fetchall()
+    except:
+        return []
     finally:
         conn.close()
