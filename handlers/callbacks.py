@@ -214,14 +214,19 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TOGGLE|"))
 async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle strategy on/off"""
+    """Toggle strategy on/off and persist to DB"""
     strategy = callback.data.split("|")[1]
     
     try:
-        from antigravity_quantum.config import ENABLED_STRATEGIES
+        from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS
+        from utils.db import save_bot_state
+        from config import GROUP_CONFIG
         
         current = ENABLED_STRATEGIES.get(strategy, True)
         ENABLED_STRATEGIES[strategy] = not current
+        
+        # PERSIST TO DB
+        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
         
         new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strategy] else "❌ DESACTIVADO"
         await callback.answer(f"{strategy}: {new_state}")

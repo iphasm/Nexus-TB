@@ -267,8 +267,17 @@ async def main():
     
     # 3. Initialize Database (PostgreSQL)
     try:
-        from utils.db import init_db
+        from utils.db import init_db, load_bot_state
         init_db()
+        
+        # Load persisted strategies from DB
+        bot_state = load_bot_state()
+        if bot_state and bot_state.get('enabled_strategies'):
+            from antigravity_quantum.config import ENABLED_STRATEGIES
+            db_strategies = bot_state['enabled_strategies']
+            ENABLED_STRATEGIES.update(db_strategies)
+            logger.info(f"✅ Loaded strategies from DB: {db_strategies}")
+            
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")
     
