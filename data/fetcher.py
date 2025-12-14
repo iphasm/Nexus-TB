@@ -99,14 +99,17 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
     
     try:
         # --- ROUTING LOGIC ---
-        is_crypto = 'USDT' in symbol.upper() or 'BUSD' in symbol.upper()
-        # Explicit check for Stocks/Commodities to be safe
-        if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
-            is_crypto = False
+        # Robust check: If it ends in USDT, BUSD, USDC, or is BTC/ETH -> Crypto (Binance).
+        # Everything else -> Stock (Alpaca/YF)
+        s = symbol.upper()
+        is_crypto = s.endswith('USDT') or s.endswith('BUSD') or s.endswith('USDC') or s in ['BTC', 'ETH']
+        
+        # Explicit override if needed (optional, but suffix is usually enough)
+        # if symbol in ASSET_GROUPS.get('STOCKS', []): is_crypto = False
 
         # --- CRYPTO (Binance) ---
         if is_crypto:
-            # print(f"DEBUG: Fetching crypto for {symbol}...") # Reduced noise
+            # print(f"DEBUG: Fetching crypto for {symbol}...")
             if not client:
                 return pd.DataFrame(columns=expected_cols)
                 
