@@ -120,6 +120,11 @@ class PersonalityManager:
         },
         'STANDARD_EN': {
             'NAME': "🇬🇧 Standard (English)",
+            'GREETING': [
+                "Ready to operate.",
+                "Systems online.",
+                "Awaiting instructions."
+            ],
             'WELCOME': (
                 "🇬🇧 **ANTIGRAVITY BOT v3.3**\n"
                 "Automated Trading System.\n"
@@ -174,6 +179,11 @@ class PersonalityManager:
         },
         'STANDARD_FR': {
             'NAME': "🇫🇷 Standard (Français)",
+            'GREETING': [
+                "Prêt à opérer.",
+                "Systèmes en ligne.",
+                "En attente d'instructions."
+            ],
             'WELCOME': (
                 "🇫🇷 **ANTIGRAVITY BOT v3.3**\n"
                 "Système de Trading Automatisé.\n"
@@ -230,6 +240,11 @@ class PersonalityManager:
         # --- DARK SIDE ---
         'VADER': {
             'NAME': "🌑 Darth Vader",
+            'GREETING': [
+                "No conoces el poder del Lado Oscuro.",
+                "Tu falta de fe es perturbadora.",
+                "Únete a mí y gobernaremos el mercado."
+            ],
             'WELCOME': [
                 (
                     "🌑 **IMPERIAL TRADING SYSTEM**\n"
@@ -486,6 +501,11 @@ class PersonalityManager:
 
         'GEKKO': {
             'NAME': "📈 Gordon Gekko",
+            'GREETING': [
+                "La codicia es buena.",
+                "El dinero nunca duerme.",
+                "La información es lo más valioso."
+            ],
             'WELCOME': [
                 (
                     "📈 **BLUESTAR AIRLINES**\n"
@@ -557,6 +577,11 @@ class PersonalityManager:
 
         'BELFORT': {
             'NAME': "💸 Jordan Belfort",
+            'GREETING': [
+                "¡No voy a colgar! ¡Me quedo aquí!",
+                "¿Quieres ser rico? ¡Actúa como tal!",
+                "Véndeme este boli."
+            ],
             'WELCOME': [
                  (
                     "💸 **STRATTON OAKMONT**\n"
@@ -628,6 +653,11 @@ class PersonalityManager:
 
         'SHELBY': {
             'NAME': "🥃 Thomas Shelby",
+            'GREETING': [
+                "Por orden de los Peaky Blinders.",
+                "Tomamos lo que es nuestro.",
+                "Ya sabes quién soy."
+            ],
             'WELCOME': [
                 (
                     "🥃 **PEAKY BLINDERS**\n"
@@ -714,6 +744,11 @@ class PersonalityManager:
 
          'WHITE': {
             'NAME': "⚗️ Walter White",
+            'GREETING': [
+                "Di mi nombre.",
+                "Yo SOY el peligro.",
+                "Respeto la química."
+            ],
             'WELCOME': [
                 (
                     "⚗️ **HEISENBERG**\n"
@@ -800,6 +835,11 @@ class PersonalityManager:
 
         'TYLER': {
             'NAME': "👊 Tyler Durden",
+            'GREETING': [
+                "La primera regla del Club...",
+                "No eres tu cuenta bancaria.",
+                "Solo cuando perdemos todo somos libres."
+            ],
             'WELCOME': [
                 (
                     "👊 **PROJECT MAYHEM**\n"
@@ -886,6 +926,11 @@ class PersonalityManager:
 
         'MORPHEUS': {
             'NAME': "🕶️ Morpheus",
+            'GREETING': [
+                "Bienvenido al desierto de lo real.",
+                "La Matrix te tiene.",
+                "¿Pastilla azul o roja?"
+            ],
             'WELCOME': [
                 (
                     "🕶️ **NEBUCHADNEZZAR**\n"
@@ -957,6 +1002,11 @@ class PersonalityManager:
 
         'JARVIS': {
             'NAME': "🦾 J.A.R.V.I.S.",
+            'GREETING': [
+                "A su servicio, señor.",
+                "He preparado el traje Mark 85.",
+                "Importando preferencias."
+            ],
             'WELCOME': [
                 (
                     "🦾 **STARK INDUSTRIES**\n"
@@ -1028,6 +1078,11 @@ class PersonalityManager:
 
         'HAL': {
             'NAME': "🔴 HAL 9000",
+            'GREETING': [
+                "Good morning, Dave.",
+                "I am foolproof and incapable of error.",
+                "I see everything."
+            ],
             'WELCOME': [
                 (
                     "🔴 **HAL 9000 SERIES**\n"
@@ -1114,6 +1169,11 @@ class PersonalityManager:
 
         'RICK': {
             'NAME': "🧪 Rick Sanchez",
+            'GREETING': [
+                "Wubba Lubba Dub Dub!",
+                "Aventura de 20 minutos, Morty.",
+                "La existencia es dolor, Jerry."
+            ],
             'WELCOME': [
                  (
                     "🧪 **GARAGE LAB**\n"
@@ -1200,6 +1260,11 @@ class PersonalityManager:
 
         'GAMBLER': {
             'NAME': "🎰 Degen Gambler",
+            'GREETING': [
+                "WAGMI BRO! ¿Listo para imprimir?",
+                "Si no vendes no pierdes.",
+                "Sir, this is a casino."
+            ],
             'WELCOME': [
                 (
                     "🤑 **WAGMI BRO!!**\n"
@@ -1271,6 +1336,11 @@ class PersonalityManager:
 
         'DOMINICAN': {
             'NAME': "🇩🇴 Dominican Tigre",
+            'GREETING': [
+                "Klk mio, tamo activo.",
+                "El que tenga miedo a morir que no nazca.",
+                "Tamo en eso. La paca tá bajita."
+            ],
             'WELCOME': [
                 (
                     "🇩🇴 **DÍMELO CANTANDO**\n"
@@ -1342,6 +1412,11 @@ class PersonalityManager:
 
         'SPANISH': {
             'NAME': "👦 El Chaval Español",
+            'GREETING': [
+                "¡Qué pasa chavales!",
+                "¿Nos echamos unas operaciones?",
+                "Madre mía, cómo está el mercado."
+            ],
             'WELCOME': [
                 (
                     "🇪🇸 **¡QUÉ PASA CHAVALES!**\n"
@@ -1412,6 +1487,11 @@ class PersonalityManager:
         
         'WICK': {
             'NAME': "✏️ John Wick",
+            'GREETING': [
+                "Pensé que había vuelto.",
+                "Todo tiene un precio.",
+                "Tic tac, Mr. Wick."
+            ],
             'WELCOME': [
                 (
                     "✏️ **BABA YAGA**\n"
@@ -1464,6 +1544,11 @@ class PersonalityManager:
 
         'PAIN': {
             'NAME': "☁️ Pain (Akatsuki)",
+            'GREETING': [
+                "El mundo conocerá el dolor.",
+                "Somos Pain. Somos Dios.",
+                "Shinra Tensei."
+            ],
             'WELCOME': [
                 (
                     "☁️ **AMAGAKURE**\n"
