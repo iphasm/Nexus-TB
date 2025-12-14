@@ -620,8 +620,11 @@ class TradingSession:
                 if sym not in active_symbols:
                     orphaned_symbols.add(sym)
             
+            # DEBUG INFO
+            debug_info = f"\n(Debug: Found {len(all_orders)} pending orders, {len(active_symbols)} active symbols)"
+            
             if not orphaned_symbols:
-                return True, "✅ No orphaned orders found. All clean!"
+                return True, f"✅ No orphaned orders found. All clean!{debug_info}"
             
             # 4. Cancel all orders for orphaned symbols
             canceled_count = 0
