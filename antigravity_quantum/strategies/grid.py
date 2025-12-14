@@ -14,7 +14,7 @@ class GridTradingStrategy(IStrategy):
 
     @property
     def name(self) -> str:
-        return "GridMaster (ADA)"
+        return "Grid Trading"
 
     async def analyze(self, market_data: Dict[str, Any]) -> Signal:
         """
