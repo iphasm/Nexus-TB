@@ -17,7 +17,7 @@ class StrategyFactory:
     def get_strategy(symbol: str, volatility_index: float) -> IStrategy:
         """
         Assigns the optimal strategy based on flags and whitelist.
-        Priority: Grid > Scalping > Trend > Mean Reversion
+        Priority: Grid > Scalping > Trend > Mean Reversion (Fallback for ALL)
         
         NOTE: All config reads happen HERE (runtime) not at import time.
         """
@@ -35,12 +35,11 @@ class StrategyFactory:
         if symbol == 'BTC' or symbol == 'BTCUSDT':
             return TrendFollowingStrategy()
         
-        # 4. MEAN REVERSION (Default if enabled)
+        # 4. MEAN REVERSION (Enabled by default, applies to ALL non-matched assets)
+        # CHANGED: Now applies to ALL assets NOT in Grid or Scalping lists
+        # This ensures EVERY asset gets a strategy
         if qconfig.ENABLED_STRATEGIES.get('MEAN_REVERSION', True):
-            # If MEAN_REV_ASSETS is empty, apply to all non-matched assets
-            # If it has content, only apply to those specific assets
-            if len(qconfig.MEAN_REV_ASSETS) == 0 or symbol in qconfig.MEAN_REV_ASSETS:
-                return MeanReversionStrategy()
+            return MeanReversionStrategy()
             
-        # 5. FALLBACK: Mean Reversion (always available)
+        # 5. ABSOLUTE FALLBACK (if mean reversion disabled): Still use it as safety
         return MeanReversionStrategy()
