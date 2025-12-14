@@ -778,7 +778,7 @@ class AsyncTradingSession:
             return []
     
     async def get_wallet_details(self) -> Dict:
-        """Get wallet balances."""
+        """Get wallet balances including Alpaca and Earn products."""
         if not self.client:
             return {"error": "No session"}
         
@@ -796,11 +796,37 @@ class AsyncTradingSession:
                     spot_usdt = float(asset['free']) + float(asset['locked'])
                     break
             
+            # Earn (Flexible Savings)
+            earn_usdt = 0.0
+            try:
+                # Fetch Simple Earn Flexible positions
+                earn_data = await self.client.get_simple_earn_flexible_position()
+                if earn_data and 'rows' in earn_data:
+                    for row in earn_data['rows']:
+                        if row.get('asset') == 'USDT':
+                            earn_usdt += float(row.get('totalAmount', 0))
+            except Exception as e:
+                print(f"⚠️ Earn fetch warning: {e}")
+            
+            # Alpaca Equity
+            alpaca_equity = 0.0
+            if self.alpaca_client:
+                try:
+                    loop = asyncio.get_event_loop()
+                    acct = await loop.run_in_executor(None, self.alpaca_client.get_account)
+                    alpaca_equity = float(acct.equity) if acct else 0.0
+                except Exception as e:
+                    print(f"⚠️ Alpaca equity warning: {e}")
+            
+            total = spot_usdt + futures_balance + earn_usdt + alpaca_equity
+            
             return {
                 "spot_usdt": spot_usdt,
+                "earn_usdt": earn_usdt,
                 "futures_balance": futures_balance,
                 "futures_pnl": futures_pnl,
-                "total": spot_usdt + futures_balance
+                "alpaca_equity": alpaca_equity,
+                "total": total
             }
             
         except Exception as e:
