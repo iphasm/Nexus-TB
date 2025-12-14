@@ -132,25 +132,25 @@ async def cmd_start(message: Message, **kwargs):
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
-    """Command reference - EXACT REPLICA"""
+    """Command reference - COMPREHENSIVE UPDATE"""
     help_text = (
         "🤖 *ANTIGRAVITY BOT v3.5*\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         
         "📊 *INFO & MERCADO*\n"
         "• /start - Menú principal\n"
-        "• /price - Precios y señales\n"
         "• /status - Estado del sistema\n"
         "• /wallet - Ver cartera\n"
-        "• /analyze `<SYM>` - Análisis IA\n\n"
+        "• /analyze `<SYM>` - Análisis IA\n"
+        "• /cooldown - Ver/Setear cooldown\n\n"
         
         "💹 *TRADING MANUAL*\n"
         "• /long `<SYM>` - Abrir LONG\n"
         "• /short `<SYM>` - Abrir SHORT\n"
         "• /buy `<SYM>` - Compra SPOT\n"
-        "• /sell `<SYM>` - Cerrar/Flip\n"
         "• /close `<SYM>` - Cerrar posición\n"
-        "• /closeall - Cerrar TODO\n\n"
+        "• /closeall - Cerrar TODO\n"
+        "• /cleanup - Limpiar órdenes huérfanas\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
         "• /pilot - Automático\n"
@@ -161,11 +161,11 @@ async def cmd_help(message: Message):
         "⚙️ *CONFIGURACIÓN*\n"
         "• /config - Panel de ajustes\n"
         "• /strategies - Motores activos\n"
-        "• /set\\_leverage - Apalancamiento\n"
-        "• /set\\_margin - Margen máximo\n"
-        "• /set\\_keys - API Keys Binance\n"
-        "• /set\\_alpaca - API Keys Alpaca\n"
-        "• /delete\\_keys - Borrar sesión\n"
+        "• /set_leverage - Apalancamiento\n"
+        "• /set_margin - Margen máximo\n"
+        "• /set_keys - API Keys Binance\n"
+        "• /set_alpaca - API Keys Alpaca\n"
+        "• /delete_keys - Borrar sesión\n"
         "• /togglegroup - Filtrar grupos\n"
         "• /assets - Config activos\n"
         "• /personality - Cambiar voz\n\n"
@@ -181,6 +181,12 @@ async def cmd_help(message: Message):
         "• /resetpilot - Reset breaker\n"
         "• /debug - Diagnóstico\n\n"
         
+        "👑 *ADMINISTRACIÓN*\n"
+        "• /subs - Listar usuarios\n"
+        "• /addsub - Agregar suscriptor\n"
+        "• /addadmin - Agregar admin\n"
+        "• /remsub - Eliminar usuario\n\n"
+
         "📖 *DOCS*\n"
         "• /about - Sobre el bot\n"
         "• /strategy - Lógica de trading"
