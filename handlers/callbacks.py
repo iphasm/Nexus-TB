@@ -227,16 +227,22 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await callback.answer(f"{strategy}: {new_state}")
         
         # Rebuild keyboard
+        t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
         s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
         g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
         m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
+        bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
         sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', True) else "❌"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING")],
-            [InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")],
-            [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")],
-            [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")]
+            [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
+            [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
+            [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
+            [
+                InlineKeyboardButton(text=f"⚡ Scalp: {s_state}", callback_data="TOGGLE|SCALPING"),
+                InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
+            ],
+            [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
         ])
         
         await callback.message.edit_reply_markup(reply_markup=keyboard)

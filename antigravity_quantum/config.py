@@ -8,7 +8,8 @@ ENABLED_STRATEGIES = {
     'GRID': True,          # Grid Trading for sideways
     'MEAN_REVERSION': True, # Default safe strategy
     'BLACK_SWAN': True,    # Defense: Cancel longs during crashes
-    'SHARK': False         # Attack: Open shorts during crashes (OFF by default)
+    'SHARK': False,        # Attack: Open shorts during crashes (OFF by default)
+    'TREND': True          # Trend Following (BTC)
 }
 
 # SL/TP Update Flag

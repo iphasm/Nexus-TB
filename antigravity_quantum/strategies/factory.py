@@ -33,7 +33,8 @@ class StrategyFactory:
         
         # 3. TREND FOLLOWING (Only BTC/Major dominance)
         if symbol == 'BTC' or symbol == 'BTCUSDT':
-            return TrendFollowingStrategy()
+            if qconfig.ENABLED_STRATEGIES.get('TREND', True):
+                return TrendFollowingStrategy()
         
         # 4. MEAN REVERSION (Enabled by default, applies to ALL non-matched assets)
         # CHANGED: Now applies to ALL assets NOT in Grid or Scalping lists

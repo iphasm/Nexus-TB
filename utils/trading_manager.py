@@ -254,7 +254,9 @@ class AsyncTradingSession:
                 if net_qty > 0:
                     return await self.execute_update_sltp(symbol, 'LONG', atr)
                 else:
-                    return False, f"⚠️ {symbol} has an open SHORT. Close it first."
+                    # Auto-Flip: Long requested but Short exists
+                    print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
+                    return await self.execute_flip_position(symbol, 'LONG', atr)
             
             # 2. Set Leverage
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
@@ -442,7 +444,9 @@ class AsyncTradingSession:
                 if net_qty < 0:
                     return await self.execute_update_sltp(symbol, 'SHORT', atr)
                 else:
-                    return False, f"⚠️ {symbol} has an open LONG. Close it first."
+                    # Auto-Flip: Short requested but Long exists
+                    print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
+                    return await self.execute_flip_position(symbol, 'SHORT', atr)
             
             # 2. Set Leverage & Cancel Orders
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
@@ -676,9 +680,16 @@ class AsyncTradingSession:
             if curr_side != side:
                 return False, f"Side mismatch (Req: {side}, Has: {curr_side})."
             
-            # Cancel old orders
-            await self.client.futures_cancel_all_open_orders(symbol=symbol)
-            await asyncio.sleep(1.5)
+            # Cancel old orders (Retry Logic)
+            for _ in range(3):
+                try:
+                    await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                    break
+                except Exception as e:
+                    if "Unknown order" in str(e): break
+                    await asyncio.sleep(0.5)
+            
+            await asyncio.sleep(1.0) # Propagation wait
             
             # Get new price info
             ticker = await self.client.futures_symbol_ticker(symbol=symbol)
@@ -707,23 +718,47 @@ class AsyncTradingSession:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
                     tp_price = round(current_price * (1 - (stop_loss_pct * 1.5)), price_precision)
             
-            # Place new orders
+            # Place new orders (Split TP Logic)
             sl_side = 'SELL' if side == 'LONG' else 'BUY'
             
-            await self.client.futures_create_order(
-                symbol=symbol, side=sl_side, type='STOP_MARKET',
-                stopPrice=sl_price, reduceOnly=True, quantity=abs_qty
-            )
+            # 1. Stop Loss
+            if sl_price > 0:
+                await self.client.futures_create_order(
+                    symbol=symbol, side=sl_side, type='STOP_MARKET',
+                    stopPrice=sl_price, closePosition=True
+                )
             
-            await self.client.futures_create_order(
-                symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
-                stopPrice=tp_price, reduceOnly=True, quantity=abs_qty
-            )
+            # 2. Split TP (TP1 + Trailing)
+            qty_tp1 = float(round(abs_qty / 2, qty_precision))
+            qty_trail = float(round(abs_qty - qty_tp1, qty_precision))
+            
+            is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
+            
+            tp_msg = ""
+            if is_split:
+                # TP1
+                await self.client.futures_create_order(
+                    symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
+                    stopPrice=tp_price, reduceOnly=True, quantity=qty_tp1
+                )
+                # Trailing
+                await self.client.futures_create_order(
+                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
+                    quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                )
+                tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
+            else:
+                # Capital too small: Full Trailing Stop
+                await self.client.futures_create_order(
+                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
+                    quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                )
+                tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
             
             return True, (
                 f"🔄 SL/TP Updated for {symbol}\n"
                 f"New SL: {sl_price}\n"
-                f"New TP: {tp_price}"
+                f"Target: {tp_msg}"
             )
             
         except Exception as e:

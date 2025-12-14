@@ -973,9 +973,33 @@ async def cmd_strategy(message: Message, **kwargs):
     
     p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
     
+    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    
     # Import personality manager from bot_async
     from bot_async import personality_manager
     msg = personality_manager.get_message(p_key, 'STRATEGY_MSG')
     
-    await message.answer(msg, parse_mode="Markdown")
+    # Build Strategy Dashboard
+    from antigravity_quantum.config import ENABLED_STRATEGIES
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
+    s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
+    g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
+    m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
+    bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
+    sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', True) else "❌"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
+        [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
+        [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
+        [
+            InlineKeyboardButton(text=f"⚡ Scalp: {s_state}", callback_data="TOGGLE|SCALPING"),
+            InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
+        ],
+        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
+    ])
+    
+    await message.answer(msg, parse_mode="Markdown", reply_markup=keyboard)
 

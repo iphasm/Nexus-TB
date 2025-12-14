@@ -274,8 +274,33 @@ async def main():
             
         except Exception as e:
             logger.warning(f"⚠️ Quantum Engine init failed: {e}")
-    
-    # 7. Startup Message
+
+    # 7. Start Shark Sentinel (Black Swan Defense)
+    try:
+        from antigravity_quantum.strategies.shark_mode import SharkSentinel
+        
+        def notify_send(msg):
+             # Broadcast alert to all active sessions
+             for chat_id in session_manager.get_active_chat_ids():
+                 asyncio.create_task(bot.send_message(chat_id, msg, parse_mode='Markdown'))
+
+        # Check function for Sentinel
+        def is_shark_enabled():
+             from antigravity_quantum.config import ENABLED_STRATEGIES
+             return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
+
+        sentinel = SharkSentinel(
+            session_manager=session_manager,
+            notify_callback=notify_send,
+            enabled_check_callback=is_shark_enabled
+        )
+        sentinel.start()
+        logger.info("🦈 Shark Sentinel (Black Swan Defense) STARTED.")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start Shark Sentinel: {e}")
+
+    # 8. Startup Message
     logger.info("🚀 Antigravity Bot (Async) starting...")
     
     raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
