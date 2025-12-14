@@ -14,6 +14,7 @@ router = Router(name="config")
 async def cmd_config(message: Message, **kwargs):
     """Interactive configuration panel"""
     session_manager = kwargs.get('session_manager')
+    edit_message = kwargs.get('edit_message', False)
     session = None
     
     if session_manager:
@@ -41,17 +42,22 @@ async def cmd_config(message: Message, **kwargs):
         ]
     ])
     
-    await message.answer(
+    msg_text = (
         "⚙️ *PANEL DE CONTROL*\n"
-        "Selecciona qué deseas ajustar:",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
+        "Selecciona qué deseas ajustar:"
     )
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(Command("strategies", "strategy"))
 async def cmd_strategies(message: Message, **kwargs):
     """Interactive strategy selector - ALL 6 STRATEGIES"""
+    edit_message = kwargs.get('edit_message', False)
+    
     # Import strategy config
     try:
         from antigravity_quantum.config import ENABLED_STRATEGIES
@@ -78,7 +84,7 @@ async def cmd_strategies(message: Message, **kwargs):
         [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
     ])
     
-    await message.answer(
+    msg_text = (
         "🎛️ *CONFIGURACIÓN DE ESTRATEGIAS*\n"
         "Activa/Desactiva módulos de trading:\n\n"
         "• 📈 *Trend* - Seguimiento de tendencia en BTC\n"
@@ -86,15 +92,20 @@ async def cmd_strategies(message: Message, **kwargs):
         "• 🦈 *Shark* - Ataque: Abre shorts en crashs\n"
         "• ⚡ *Scalping* - Operaciones rápidas\n"
         "• 🕸️ *Grid* - Trading en rangos\n"
-        "• 📉 *Mean Rev* - Reversión a la media",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
+        "• 📉 *Mean Rev* - Reversión a la media"
     )
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(Command("togglegroup"))
 async def cmd_togglegroup(message: Message, **kwargs):
     """Interactive group selector"""
+    edit_message = kwargs.get('edit_message', False)
+    
     # Import group config
     GROUP_CONFIG = {
         'CRYPTO': True,
@@ -112,17 +123,22 @@ async def cmd_togglegroup(message: Message, **kwargs):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    await message.answer(
+    msg_text = (
         "📡 *CONFIGURACIÓN DE RADARES*\n"
-        "Activa/Desactiva grupos de mercado:",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
+        "Activa/Desactiva grupos de mercado:"
     )
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(Command("assets"))
 async def cmd_assets(message: Message, **kwargs):
     """Hierarchical asset selection menu"""
+    edit_message = kwargs.get('edit_message', False)
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK"),
@@ -138,12 +154,15 @@ async def cmd_assets(message: Message, **kwargs):
         [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
     ])
     
-    await message.answer(
+    msg_text = (
         "📦 *CONFIGURACIÓN DE ACTIVOS*\n\n"
-        "Selecciona el módulo a configurar:",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
+        "Selecciona el módulo a configurar:"
     )
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 @router.message(Command("set_keys", "setkeys"))

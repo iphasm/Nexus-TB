@@ -65,7 +65,7 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     # Config
     elif cmd == "config":
         from handlers.config import cmd_config
-        await cmd_config(callback.message, session_manager=session_manager)
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
     
     # Personality
     elif cmd == "personality":
@@ -75,17 +75,17 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     # Strategies
     elif cmd == "strategies":
         from handlers.config import cmd_strategies
-        await cmd_strategies(callback.message, session_manager=session_manager)
+        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
     
     # Toggle Group
     elif cmd == "togglegroup":
         from handlers.config import cmd_togglegroup
-        await cmd_togglegroup(callback.message, session_manager=session_manager)
+        await cmd_togglegroup(callback.message, session_manager=session_manager, edit_message=True)
     
     # Assets
     elif cmd == "assets":
         from handlers.config import cmd_assets
-        await cmd_assets(callback.message, session_manager=session_manager)
+        await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
     
     # Mode presets (Ronin/Guardian/Quantum)
     elif cmd.startswith("mode_"):
@@ -382,8 +382,8 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
             assets = MEAN_REV_ASSETS
             title = "📉 MEAN REVERSION"
         else:
-            # Global scanner
-            from handlers.commands import ASSET_GROUPS
+            # Global scanner - Import from root config to ensure all groups are present
+            from config import ASSET_GROUPS
             assets = []
             for group in ASSET_GROUPS.values():
                 assets.extend(group)
@@ -391,7 +391,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
         # Build keyboard with toggle buttons
         buttons = []
-        for asset in assets[:20]:  # Limit to 20
+        for asset in assets[:80]:  # Limit increased to 80 (covers Crypto + Stocks + Commodities)
             is_disabled = asset in DISABLED_ASSETS
             icon = "❌" if is_disabled else "✅"
             buttons.append([InlineKeyboardButton(
