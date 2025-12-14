@@ -49,7 +49,7 @@ async def cmd_config(message: Message, **kwargs):
     )
 
 
-@router.message(Command("strategies"))
+@router.message(Command("strategies", "strategy"))
 async def cmd_strategies(message: Message, **kwargs):
     """Interactive strategy selector"""
     # Import strategy config

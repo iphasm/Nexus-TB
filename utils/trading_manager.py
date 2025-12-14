@@ -270,8 +270,8 @@ class AsyncTradingSession:
                         if "Unknown order" in str(e): break # Already clear
                         await asyncio.sleep(0.5)
                 
-                # Wait for propagation
-                await asyncio.sleep(0.2)
+                # Wait for propagation (increased to prevent timeout)
+                await asyncio.sleep(0.6)
             except Exception as e:
                 print(f"⚠️ Cancel Order Warning: {e}")
             
@@ -439,7 +439,7 @@ class AsyncTradingSession:
                         if "Unknown order" in str(e): break
                         await asyncio.sleep(0.5)
                 
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.6)
             except Exception as e:
                 print(f"⚠️ Cancel Order Warning: {e}")
             
@@ -624,7 +624,7 @@ class AsyncTradingSession:
             
             # Cancel old orders
             await self.client.futures_cancel_all_open_orders(symbol=symbol)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.5)
             
             # Get new price info
             ticker = await self.client.futures_symbol_ticker(symbol=symbol)
@@ -981,8 +981,9 @@ class AsyncTradingSession:
         FLIP LOGIC:
         1. Cancel Open Orders.
         2. Close Current Position.
-        3. Wait 1s.
-        4. Open New Position (Reverse).
+        3. Wait 3s for stability.
+        4. Verify position is closed
+        5. Open New Position (Reverse).
         """
         if not self.client:
             return False, "No valid session."
@@ -993,10 +994,19 @@ class AsyncTradingSession:
         if not success_close and "No open position" not in msg_close:
             return False, f"Flip Aborted: Failed to close ({msg_close})"
         
-        # 2. Safety Wait (Binance sequencing)
-        await asyncio.sleep(1.0)
+        # 2. Safety Wait (Binance sequencing - tripled for stability)
+        await asyncio.sleep(3.0)
         
-        # 3. Open New
+        # 3. Verify position is actually closed before opening new
+        try:
+            positions = await self.client.futures_position_information(symbol=symbol)
+            for pos in positions:
+                if float(pos.get('positionAmt', 0)) != 0:
+                    return False, f"Flip Aborted: Position still open ({pos.get('positionAmt')} contracts)"
+        except Exception as e:
+            print(f"⚠️ Warning: Could not verify position closure: {e}")
+        
+        # 4. Open New
         if new_side == 'LONG':
             return await self.execute_long_position(symbol, atr)
         elif new_side == 'SHORT':

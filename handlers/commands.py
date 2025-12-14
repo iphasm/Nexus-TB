@@ -277,36 +277,40 @@ async def cmd_wallet(message: Message, **kwargs):
         # Unpack
         spot_bal = details.get('spot_usdt', 0.0)
         earn_bal = details.get('earn_usdt', 0.0)
-        spot_total = spot_bal + earn_bal
         
-        fut_bal = details.get('futures_balance', 0.0)
-        fut_pnl = details.get('futures_pnl', 0.0)
-        fut_total = details.get('total', fut_bal)
-        alpaca_native = details.get('alpaca_equity', 0.0)
+        # Binance Section
+        binance_spot = spot_bal + earn_bal  # Include earn in spot internally
+        binance_futures = details.get('futures_balance', 0.0)
+        futures_pnl = details.get('futures_pnl', 0.0)
+        binance_total = binance_spot + binance_futures
         
-        net_worth = spot_total + fut_total + alpaca_native
+        # Alpaca Section  
+        alpaca_futures = details.get('alpaca_equity', 0.0)
         
-        pnl_icon = "🟢" if fut_pnl >= 0 else "🔴"
+        # Net Worth
+        net_worth = binance_total + alpaca_futures
+        
+        pnl_icon = "🟢" if futures_pnl >= 0 else "🔴"
         
         msg = (
             "💼 *CARTERA ANTIGRAVITY*\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🏦 *SPOT (USDT):* `${spot_bal:,.2f}`\n"
-            f"🐷 *EARN (Ahorros):* `${earn_bal:,.2f}`\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🚀 *FUTUROS Balance:* `${fut_bal:,.2f}`\n"
-            f"📊 *FUTUROS PnL:* {pnl_icon} `${fut_pnl:,.2f}`\n"
-            f"💰 *FUTUROS Total:* `${fut_total:,.2f}`\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🦙 *ALPACA (Stocks):* `${alpaca_native:,.2f}`\n"
-            "〰️〰️〰️〰️〰️〰️\n"
-            f"🏆 *NET WORTH TOTAL:* `${net_worth:,.2f}`"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "💰 **Binance:**\n"
+            f"   • Spot: `${binance_spot:,.2f}`\n"
+            f"   • Futuros: `${binance_futures:,.2f}`\n"
+            f"   └─ **Total Binance:** `${binance_total:,.2f}`\n\n"
+            f"   📊 *PnL No Realizado:* {pnl_icon} `${futures_pnl:,.2f}`\n\n"
+            "🦙 **Alpaca:**\n"
+            f"   • Futuros: `${alpaca_futures:,.2f}`\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💎 **NET WORTH TOTAL:** `${net_worth:,.2f}`"
         )
         
         await loading.edit_text(msg, parse_mode="Markdown")
         
     except Exception as e:
         await loading.edit_text(f"❌ Error: {e}")
+
 
 
 @router.message(Command("watcher"))
@@ -780,8 +784,8 @@ async def cmd_cooldown(message: Message, **kwargs):
     args = message.text.split()
     
     if len(args) < 2:
-        # Show current value
-        current = bot_async.SIGNAL_COOLDOWN_SECONDS // 60
+        # Show current default cooldown
+        current = bot_async.cooldown_manager.default_cooldown // 60
         await message.reply(
             f"⏱️ **COOLDOWN ACTUAL**\n\n"
             f"Intervalo anti-spam: `{current}` minutos\n\n"
@@ -818,9 +822,9 @@ async def cmd_cooldown(message: Message, **kwargs):
 # MANUAL TRADING COMMANDS
 # =================================================================
 
-@router.message(Command("long", "buy"))
+@router.message(Command("long"))
 async def cmd_long(message: Message, **kwargs):
-    """Manually trigger a LONG position with Dynamic ATR."""
+    """Manually trigger a LONG position (Futures) with Dynamic ATR."""
     session_manager = kwargs.get('session_manager')
     if not session_manager: return
     
@@ -845,16 +849,13 @@ async def cmd_long(message: Message, **kwargs):
     try:
         from data.fetcher import get_market_data, calculate_atr
         
-        # Determine asset type for proper fetching
-        is_crypto = 'USDT' in symbol
-        
         # Fetch 1h candles
         df = get_market_data(symbol, timeframe='1h', limit=50)
         atr_value = calculate_atr(df, period=14)
         
         atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A, usando default)"
         
-        await msg_wait.edit_text(f"🚀 Iniciando **LONG** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
+        await msg_wait.edit_text(f"🚀 Iniciando **LONG FUTURES** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
         
         # Execute with ATR
         success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
@@ -862,6 +863,46 @@ async def cmd_long(message: Message, **kwargs):
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
+
+
+@router.message(Command("buy"))
+async def cmd_buy_spot(message: Message, **kwargs):
+    """Manually trigger a SPOT BUY."""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager: return
+    
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.reply("⚠️ Sin sesión activa.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply("⚠️ Uso: `/buy <SYMBOL>` (ej: `/buy XRP`)", parse_mode="Markdown")
+        return
+    
+    # Smart Symbol Resolution
+    from config import resolve_symbol
+    raw_symbol = args[1]
+    symbol = resolve_symbol(raw_symbol)
+    
+    msg_wait = await message.reply(f"⏳ Ejecutando Compra SPOT en `{symbol}`...", parse_mode="Markdown")
+    
+    try:
+        # Verify execute_spot_buy exists
+        if not hasattr(session, 'execute_spot_buy'):
+             await msg_wait.edit_text("❌ Error: Función Spot no implementada en Session.")
+             return
+
+        success, res_msg = await session.execute_spot_buy(symbol)
+        
+        if success:
+             await msg_wait.edit_text(f"✅ *COMPRA SPOT EXITOSA*\n{res_msg}", parse_mode="Markdown")
+        else:
+             await msg_wait.edit_text(f"❌ Falló Compra: {res_msg}")
+             
+    except Exception as e:
+        await msg_wait.edit_text(f"❌ Error crítico: {e}")
 
 
 @router.message(Command("short", "sell"))
@@ -905,4 +946,36 @@ async def cmd_short(message: Message, **kwargs):
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
+
+
+@router.message(Command("about"))
+async def cmd_about(message: Message, **kwargs):
+    """Show bot information with personality-aware message."""
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+    
+    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    
+    # Import personality manager from bot_async
+    from bot_async import personality_manager
+    msg = personality_manager.get_message(p_key, 'ABOUT_MSG')
+    
+    await message.answer(msg, parse_mode="Markdown")
+
+
+@router.message(Command("strategy"))
+async def cmd_strategy(message: Message, **kwargs):
+    """Show trading strategy with personality-aware message."""
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+    
+    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    
+    # Import personality manager from bot_async
+    from bot_async import personality_manager
+    msg = personality_manager.get_message(p_key, 'STRATEGY_MSG')
+    
+    await message.answer(msg, parse_mode="Markdown")
 

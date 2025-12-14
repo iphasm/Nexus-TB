@@ -118,15 +118,18 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         await callback.message.answer(msg, parse_mode="Markdown")
     
-    # AI Commands (placeholders - need implementation)
+    # AI Commands - Execute actual handlers
     elif cmd == "news":
-        await callback.message.answer("📰 *Función News*\n\nUsa el comando `/news` directamente.", parse_mode="Markdown")
+        from handlers.commands import cmd_news
+        await cmd_news(callback.message, session_manager=session_manager)
     
     elif cmd == "sentiment":
-        await callback.message.answer("🧠 *Función Sentiment*\n\nUsa el comando `/sentiment` directamente.", parse_mode="Markdown")
+        from handlers.commands import cmd_sentiment
+        await cmd_sentiment(callback.message, session_manager=session_manager)
     
     elif cmd == "sniper":
-        await callback.message.answer("🎯 *Función Sniper*\n\nUsa el comando `/sniper` directamente.", parse_mode="Markdown")
+        from handlers.commands import cmd_sniper
+        await cmd_sniper(callback.message, session_manager=session_manager)
     
     else:
         await callback.message.answer(f"⚠️ Comando no reconocido: {cmd}")
