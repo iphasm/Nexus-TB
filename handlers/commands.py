@@ -792,3 +792,49 @@ async def cmd_analyze(message: Message, **kwargs):
         )
     except Exception as e:
         await msg.edit_text(f"❌ Error: {e}")
+
+
+# =================================================================
+# /cooldown - Configure Signal Alert Cooldown
+# =================================================================
+@router.message(Command("cooldown"))
+async def cmd_cooldown(message: Message, **kwargs):
+    """Configure or view signal alert cooldown."""
+    import bot_async
+    
+    args = message.text.split()
+    
+    if len(args) < 2:
+        # Show current value
+        current = bot_async.SIGNAL_COOLDOWN_SECONDS // 60
+        await message.reply(
+            f"⏱️ **COOLDOWN ACTUAL**\n\n"
+            f"Intervalo anti-spam: `{current}` minutos\n\n"
+            f"Uso: `/cooldown <minutos>`\n"
+            f"Ejemplo: `/cooldown 10`",
+            parse_mode="Markdown"
+        )
+        return
+    
+    try:
+        minutes = int(args[1])
+        if minutes < 1 or minutes > 60:
+            await message.reply("❌ El valor debe estar entre 1 y 60 minutos.")
+            return
+        
+        # Update global
+        bot_async.SIGNAL_COOLDOWN_SECONDS = minutes * 60
+        
+        # Clear existing cooldowns
+        bot_async._signal_cooldowns.clear()
+        
+        await message.reply(
+            f"✅ **COOLDOWN ACTUALIZADO**\n\n"
+            f"Nuevo intervalo: `{minutes}` minutos\n\n"
+            f"Las alertas de señales ahora esperarán al menos "
+            f"{minutes} minutos antes de repetir el mismo activo.",
+            parse_mode="Markdown"
+        )
+    except ValueError:
+        await message.reply("❌ Valor inválido. Usa: `/cooldown 10`", parse_mode="Markdown")
+

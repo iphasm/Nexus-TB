@@ -99,10 +99,26 @@ class SessionMiddleware(BaseMiddleware):
 from utils.personalities import PersonalityManager
 personality_manager = PersonalityManager()
 
+# === DYNAMIC TEMPORAL FILTER ===
+# Per-symbol cooldown to prevent alert spam
+import time
+_signal_cooldowns = {}  # {symbol: last_alert_timestamp}
+SIGNAL_COOLDOWN_SECONDS = 300  # 5 minutes default
+
+def _is_on_cooldown(symbol: str) -> bool:
+    """Check if symbol is still on cooldown."""
+    last_time = _signal_cooldowns.get(symbol, 0)
+    return (time.time() - last_time) < SIGNAL_COOLDOWN_SECONDS
+
+def _set_cooldown(symbol: str):
+    """Mark symbol as alerted (start cooldown)."""
+    _signal_cooldowns[symbol] = time.time()
+
 async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     """
     Dispatch trading signals from QuantumEngine to all active sessions.
     This runs in the same event loop as the bot.
+    Includes DYNAMIC TEMPORAL FILTER to prevent spam.
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
@@ -115,6 +131,14 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     # Skip non-actionable signals
     if action in ['HOLD', 'WAIT', 'EXIT_ALL']:
         return
+    
+    # === TEMPORAL FILTER: Skip if on cooldown ===
+    if _is_on_cooldown(symbol):
+        logger.debug(f"⏳ Signal for {symbol} skipped (cooldown active)")
+        return
+    
+    # Mark as alerted
+    _set_cooldown(symbol)
     
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
