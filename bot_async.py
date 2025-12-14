@@ -48,28 +48,8 @@ for v in _vars_to_log:
 # ------------------------------------------
 
 
-# --- ASSET CONFIGURATION ---
-ASSET_GROUPS = {
-    'CRYPTO': [
-        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 
-        'AVAXUSDT', 'LTCUSDT', 'DOTUSDT', 'MATICUSDT', 'LINKUSDT', 
-        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
-        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', 'SHIBUSDT', 'SUIUSDT', 
-        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
-        'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'ZECUSDT', 'EOSUSDT',
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT'
-    ],
-    'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
-    'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG']
-}
-
-
-def get_all_assets():
-    """Get flat list of all tradeable assets."""
-    assets = []
-    for group in ASSET_GROUPS.values():
-        assets.extend(group)
-    return list(set(assets))
+# --- ASSET CONFIGURATION (Centralized) ---
+from config import ASSET_GROUPS, GROUP_CONFIG, get_all_assets, get_display_name
 
 
 # --- MIDDLEWARE ---

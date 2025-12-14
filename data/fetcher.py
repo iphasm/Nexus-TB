@@ -50,46 +50,8 @@ except Exception as e:
     except:
         pass
 
-# --- ASSET CONFIG (Needed for Resolve Symbol) ---
-# NOTE:Ideally this should come from config.py to avoid duplication,
-# but for now we inline it to resolve the immediate 'resolve_symbol' dependency.
-ASSET_GROUPS = {
-    'CRYPTO': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'LTCUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'ZECUSDT', 'SUIUSDT', '1000PEPEUSDT', 'WIFUSDT', 'RENDERUSDT'],
-    'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
-    'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG'] 
-}
-TICKER_MAP = {
-    'BTCUSDT': 'Bitcoin', 'ETHUSDT': 'Ethereum', 'SOLUSDT': 'Solana', 'BNBUSDT': 'Binance Coin',
-    'XRPUSDT': 'Ripple', 'ADAUSDT': 'Cardano', 'LTCUSDT': 'Litecoin', 'LINKUSDT': 'Chainlink',
-    'DOGEUSDT': 'Dogecoin', 'AVAXUSDT': 'Avalanche', 'ZECUSDT': 'Zcash', 'SUIUSDT': 'Sui',
-    '1000PEPEUSDT': 'Pepe', 'WIFUSDT': 'Dogwifhat', 'RENDERUSDT': 'Render',
-    'TSLA': 'Tesla', 'NVDA': 'NVIDIA', 'MSFT': 'Microsoft', 'AAPL': 'Apple', 'AMD': 'AMD',
-    'GLD': 'ORO', 'USO': 'PETROLEO', 'SLV': 'PLATA', 'CPER': 'COBRE', 'UNG': 'GAS NATURAL'
-}
-
-def resolve_symbol(text):
-    """Limpia y estandariza el símbolo (input). Agrega 'USDT' automáticamente."""
-    s = text.strip().upper().replace('/', '').replace('-', '').replace('_', '')
-    
-    # 1. Exact Match Check
-    known_assets = []
-    for g in ASSET_GROUPS.values():
-        known_assets.extend(g)
-    
-    if s in known_assets or s in TICKER_MAP:
-        return s
-        
-    # 2. Reverse Lookup
-    for ticker, name in TICKER_MAP.items():
-        if s == name.upper():
-            return ticker
-            
-    # 3. Try Appending USDT
-    s_usdt = s + "USDT"
-    if s_usdt in ASSET_GROUPS.get('CRYPTO', []) or s_usdt in TICKER_MAP:
-        return s_usdt
-        
-    return s
+# --- ASSET CONFIG (Centralized) ---
+from config import ASSET_GROUPS, TICKER_MAP, resolve_symbol, get_all_assets
 
 def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd.DataFrame:
     """

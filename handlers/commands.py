@@ -13,33 +13,8 @@ import requests
 
 router = Router(name="commands")
 
-# --- ASSET CONFIGURATION (Imported from main config) ---
-ASSET_GROUPS = {
-    'CRYPTO': [
-        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 
-        'AVAXUSDT', 'LTCUSDT', 'DOTUSDT', 'MATICUSDT', 'LINKUSDT', 
-        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
-        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', 'SHIBUSDT', 'SUIUSDT', 
-        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
-        'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'ZECUSDT', 'EOSUSDT',
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT'
-    ],
-    'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
-    'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG']
-}
-
-GROUP_CONFIG = {
-    'CRYPTO': True,
-    'STOCKS': True,
-    'COMMODITY': True
-}
-
-TICKER_MAP = {
-    'BTCUSDT': 'Bitcoin', 'ETHUSDT': 'Ethereum', 'SOLUSDT': 'Solana',
-    'BNBUSDT': 'Binance Coin', 'XRPUSDT': 'Ripple', 'ADAUSDT': 'Cardano',
-    'TSLA': 'Tesla', 'NVDA': 'NVIDIA', 'MSFT': 'Microsoft',
-    'GLD': 'ORO', 'USO': 'PETROLEO', 'SLV': 'PLATA'
-}
+# --- ASSET CONFIGURATION (Centralized) ---
+from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP, get_display_name
 
 
 def get_fear_and_greed_index() -> str:
