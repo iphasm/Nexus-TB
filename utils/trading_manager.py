@@ -721,9 +721,25 @@ class AsyncTradingSession:
             # Place new orders (Split TP Logic)
             sl_side = 'SELL' if side == 'LONG' else 'BUY'
             
+            # Helper for retries
+            async def place_order_with_retry(func, **kwargs):
+                for attempt in range(1, 4):
+                    try:
+                        await func(**kwargs)
+                        return
+                    except Exception as e:
+                        if "timeout" in str(e).lower() or "-1007" in str(e):
+                            if attempt < 3:
+                                wait = 2 * (2 ** (attempt - 1))
+                                print(f"⚠️ Retry Update Order ({attempt}/3): {e}. Wait {wait}s.")
+                                await asyncio.sleep(wait)
+                                continue
+                        raise e
+
             # 1. Stop Loss
             if sl_price > 0:
-                await self.client.futures_create_order(
+                await place_order_with_retry(
+                    self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='STOP_MARKET',
                     stopPrice=sl_price, closePosition=True
                 )
@@ -737,19 +753,22 @@ class AsyncTradingSession:
             tp_msg = ""
             if is_split:
                 # TP1
-                await self.client.futures_create_order(
+                await place_order_with_retry(
+                    self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
                     stopPrice=tp_price, reduceOnly=True, quantity=qty_tp1
                 )
                 # Trailing
-                await self.client.futures_create_order(
+                await place_order_with_retry(
+                    self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
                     quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
                 )
                 tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
             else:
                 # Capital too small: Full Trailing Stop
-                await self.client.futures_create_order(
+                await place_order_with_retry(
+                    self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
                     quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
                 )

@@ -64,7 +64,20 @@ def get_market_data(symbol: str, timeframe: str = '15m', limit: int = 100) -> pd
         # Robust check: If it ends in USDT, BUSD, USDC, or is BTC/ETH -> Crypto (Binance).
         # Everything else -> Stock (Alpaca/YF)
         s = symbol.upper()
-        is_crypto = s.endswith('USDT') or s.endswith('BUSD') or s.endswith('USDC') or s in ['BTC', 'ETH']
+        
+        # Check against known Stock/Commodity lists if available
+        is_known_stock = False
+        try:
+            from config import ASSET_GROUPS
+            if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
+                is_known_stock = True
+        except:
+            pass
+            
+        is_crypto = (s.endswith('USDT') or s.endswith('BUSD') or s.endswith('USDC')) and not is_known_stock
+        
+        # Explicit exceptions for major cryptos without suffix if needed (though bot usually uses pairs)
+        if s in ['BTC', 'ETH', 'BNB', 'SOL', 'XRP']: is_crypto = True
         
         # Explicit override if needed (optional, but suffix is usually enough)
         # if symbol in ASSET_GROUPS.get('STOCKS', []): is_crypto = False
