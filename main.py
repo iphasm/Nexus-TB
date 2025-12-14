@@ -303,20 +303,6 @@ def handle_manual_short(message):
         
         # 2. Execute
         success, msg = session.execute_short_position(symbol, atr=atr_val)
-        
-        if success:
-            pos_state[symbol] = 'SHORT'
-            bot.reply_to(message, f"✅ *SHORT EJECUTADO*\n{msg}", parse_mode='Markdown')
-        else:
-            bot.reply_to(message, f"❌ Error: {msg}")
-
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error crítico: {e}")
-
-@threaded_handler
-def handle_manual_long(message):
-    """ /long <SYMBOL> """
-    chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session:
         bot.reply_to(message, "⚠️ No tienes sesión activa. Usa /set_keys.")
@@ -1104,6 +1090,8 @@ def master_listener(message):
                 handle_manual_close(message)
             elif cmd_part == '/closeall':
                 handle_manual_closeall(message)
+            elif cmd_part == '/cleanup':
+                handle_cleanup_orphaned(message)
             elif cmd_part in ['/reset_pilot', '/resetpilot']:
                  handle_reset_pilot(message)
             elif cmd_part in ['/personality', '/pers']:

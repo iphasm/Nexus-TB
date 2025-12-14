@@ -585,7 +585,8 @@ class TradingSession:
                     break
             
             if qty == 0:
-                return False, f"No open position found for {symbol}."
+                # No position, but still clean orphaned orders
+                return True, f"⚠️ No position found for {symbol}, but orders were canceled."
             
             # 3. Close Position
             side = 'SELL' if qty > 0 else 'BUY'
@@ -602,6 +603,47 @@ class TradingSession:
             
         except Exception as e:
             return False, f"Error: {str(e)}"
+
+    def cleanup_orphaned_orders(self):
+        """
+        Cancels ALL open orders for symbols that have NO active position.
+        Useful for cleaning up stuck SL/TP orders after manual closes.
+        """
+        if not self.client: return False, "No valid session."
+        
+        try:
+            # 1. Get list of all open orders
+            all_orders = self.client.futures_get_open_orders()
+            
+            # 2. Get symbols with active positions
+            active_pos = self.get_active_positions()
+            active_symbols = set(p['symbol'] for p in active_pos)
+            
+            # 3. Find orphaned symbols (orders but no position)
+            orphaned_symbols = set()
+            for order in all_orders:
+                sym = order['symbol']
+                if sym not in active_symbols:
+                    orphaned_symbols.add(sym)
+            
+            if not orphaned_symbols:
+                return True, "✅ No orphaned orders found. All clean!"
+            
+            # 4. Cancel all orders for orphaned symbols
+            canceled_count = 0
+            for sym in orphaned_symbols:
+                try:
+                    self.client.futures_cancel_all_open_orders(symbol=sym)
+                    canceled_count += 1
+                except Exception as e:
+                    print(f"Error canceling orders for {sym}: {e}")
+            
+            symbols_list = ', '.join(orphaned_symbols)
+            return True, f"🧹 Cleanup Complete!\nCanceled orders for {canceled_count} symbols:\n{symbols_list}"
+            
+        except Exception as e:
+            return False, f"Cleanup Error: {e}"
+
 
     def execute_update_sltp(self, symbol, side, atr=None):
         """
