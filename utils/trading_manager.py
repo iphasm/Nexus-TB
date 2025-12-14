@@ -31,7 +31,10 @@ class TradingSession:
             "personality": "STANDARD_ES", # Default: Standard Spanish
             "sentiment_filter": True, # ENABLED BY DEFAULT
             "sentiment_threshold": -0.6, # Default Quantum
-            "atr_multiplier": 2.0 # Default Standard SL
+            "atr_multiplier": 2.0, # Default Standard SL
+            # Per-user Alpaca keys (optional, falls back to ENV)
+            "alpaca_key": None,
+            "alpaca_secret": None
         }
         
         if config:
@@ -67,9 +70,9 @@ class TradingSession:
         else:
             print(f"⚠️ [Chat {self.chat_id}] Missing API Keys.")
             
-        # 2. ALPACA (Env Vars only)
-        ak = os.getenv('APCA_API_KEY_ID')
-        ask = os.getenv('APCA_API_SECRET_KEY')
+        # 2. ALPACA (Per-user keys first, then Env Vars fallback)
+        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID')
+        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY')
         base_url = os.getenv('APCA_API_BASE_URL') 
         
         # Determine paper mode default
@@ -90,7 +93,7 @@ class TradingSession:
             try:
                 # Pass url_override if set, otherwise rely on paper=True/False defaults
                 self.alpaca_client = TradingClient(ak, ask, paper=paper, url_override=base_url)
-                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper}, URL: {base_url or 'Default'})")
+                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
             except Exception as e:
                 print(f"❌ [Chat {self.chat_id}] Failed to init Alpaca: {e}")
 
@@ -103,8 +106,9 @@ class TradingSession:
         return False
 
     def update_config(self, key, value):
+        """Updates a config key. Returns True to signal caller to persist."""
         self.config[key] = value
-        return self.config[key]
+        return True  # Signal that save_sessions() should be called
 
     def get_configuration(self):
         return {

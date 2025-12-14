@@ -699,6 +699,70 @@ def handle_set_keys(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+@bot.message_handler(commands=['delete_keys', 'deletekeys'])
+@threaded_handler
+def handle_delete_keys(message):
+    """Elimina las API Keys del usuario: /delete_keys"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        bot.reply_to(message, "⚠️ No tienes ninguna sesión activa para eliminar.")
+        return
+    
+    try:
+        success = session_manager.delete_session(chat_id)
+        if success:
+            bot.reply_to(message, 
+                "🗑️ *Sesión Eliminada*\n\n"
+                "Tus API Keys han sido borradas de nuestra base de datos.\n"
+                "Para volver a operar, usa `/set_keys <API_KEY> <SECRET>`",
+                parse_mode='Markdown'
+            )
+        else:
+            bot.reply_to(message, "❌ Error eliminando la sesión.")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['set_alpaca', 'setalpaca'])
+@threaded_handler
+def handle_set_alpaca(message):
+    """Configura Alpaca Keys per-user: /set_alpaca <KEY> <SECRET>"""
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        bot.reply_to(message, "⚠️ Primero configura tu sesión con `/set_keys`.", parse_mode='Markdown')
+        return
+    
+    try:
+        args = message.text.split()
+        if len(args) != 3:
+            bot.reply_to(message, "⚠️ Uso: `/set_alpaca <API_KEY> <SECRET>`\n(Te recomendamos borrar el mensaje después)", parse_mode='Markdown')
+            return
+            
+        key = args[1].strip()
+        secret = args[2].strip()
+        
+        # Update config
+        session.update_config('alpaca_key', key)
+        session.update_config('alpaca_secret', secret)
+        session._init_client()  # Re-init to pick up new Alpaca keys
+        
+        # Persist
+        session_manager.save_sessions()
+        
+        status = "✅ *Alpaca Keys Configuradas*\n"
+        if session.alpaca_client:
+            status += "🦙 Conexión con Alpaca: *ESTABLE*"
+        else:
+            status += "⚠️ Keys guardadas pero *falló la conexión* (Revisa si son correctas)."
+            
+        bot.reply_to(message, status, parse_mode='Markdown')
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
 @threaded_handler
 def handle_debug(message):
     """ Genera un Reporte de Diagnóstico del Sistema """
@@ -1818,6 +1882,7 @@ def handle_mode(message):
         session.update_config('stop_loss_pct', 0.015) # Fallback
         session.update_config('atr_multiplier', 1.5)
         session.update_config('sentiment_threshold', -0.8)
+        session_manager.save_sessions()  # Persist immediately
         bot.reply_to(message, "⚔️ **MODO RONIN ACTIVADO**\n- Apalancamiento: 20x\n- Stop Loss: Apretado (1.5 ATR)\n- Filtro IA: Laxo (-0.8)\n_Ojo: Alto Riesgo._", parse_mode='Markdown')
         
     elif profile == 'GUARDIAN':
@@ -1826,6 +1891,7 @@ def handle_mode(message):
         session.update_config('stop_loss_pct', 0.03)
         session.update_config('atr_multiplier', 3.0)
         session.update_config('sentiment_threshold', -0.3)
+        session_manager.save_sessions()  # Persist immediately
         bot.reply_to(message, "🛡️ **MODO GUARDIAN ACTIVADO**\n- Apalancamiento: 3x\n- Stop Loss: Amplio (3.0 ATR)\n- Filtro IA: Estricto (-0.3)\n_Prioridad: Protección de Capital._", parse_mode='Markdown')
         
     elif profile == 'QUANTUM':
@@ -1834,6 +1900,7 @@ def handle_mode(message):
         session.update_config('stop_loss_pct', 0.02)
         session.update_config('atr_multiplier', 2.0)
         session.update_config('sentiment_threshold', -0.6)
+        session_manager.save_sessions()  # Persist immediately
         bot.reply_to(message, "🌌 **MODO QUANTUM ACTIVADO**\n- Apalancamiento: 5x\n- Stop Loss: Estándar (2.0 ATR)\n- Filtro IA: Balanceado (-0.6)\n_Equilibrio Matemático._", parse_mode='Markdown')
         
     else:
