@@ -322,23 +322,6 @@ def handle_manual_short(message):
         success, res = process_asset(symbol)
         if success and 'metrics' in res:
             atr_val = res['metrics'].get('atr', None)
-        
-        # 2. Execute
-        success, msg = session.execute_long_position(symbol, atr=atr_val)
-        
-        if success:
-            pos_state[symbol] = 'LONG'
-            bot.reply_to(message, f"✅ *LONG EJECUTADO*\n{msg}", parse_mode='Markdown')
-        else:
-            bot.reply_to(message, f"❌ Error: {msg}")
-
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error crítico: {e}")
-
-@threaded_handler
-def handle_manual_sell(message):
-    """ /sell <SYMBOL> (Smart Sell: Close Long OR Open Short) """
-    chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id)
     if not session:
         bot.reply_to(message, "⚠️ No tienes sesión activa. Usa /set_keys.")
