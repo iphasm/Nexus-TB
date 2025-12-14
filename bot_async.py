@@ -253,18 +253,22 @@ async def main():
     # 7. Startup Message
     logger.info("🚀 Antigravity Bot (Async) starting...")
     
-    if TELEGRAM_ADMIN_ID:
-        try:
-            await bot.send_message(
-                TELEGRAM_ADMIN_ID,
-                "🟢 *Antigravity Bot Online*\n\n"
-                f"Sesiones: {len(session_manager.sessions)}\n"
-                f"Activos: {len(get_all_assets())}\n"
-                f"Quantum: {'✅' if USE_QUANTUM_ENGINE else '❌'}",
-                parse_mode="Markdown"
-            )
-        except Exception as e:
-            logger.warning(f"Could not send startup message: {e}")
+    raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
+    if raw_admin_ids:
+        admin_ids = [aid.strip() for aid in raw_admin_ids.split(',') if aid.strip()]
+        
+        for admin_id in admin_ids:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    "🟢 *Antigravity Bot Online*\n\n"
+                    f"Sesiones: {len(session_manager.sessions)}\n"
+                    f"Activos: {len(get_all_assets())}\n"
+                    f"Quantum: {'✅' if USE_QUANTUM_ENGINE else '❌'}",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.warning(f"Could not send startup message to {admin_id}: {e}")
     
     # 8. Start Polling
     try:

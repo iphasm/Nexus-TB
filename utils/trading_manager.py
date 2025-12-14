@@ -810,13 +810,19 @@ class AsyncSessionManager:
         await self._ensure_admin_session()
     
     async def _ensure_admin_session(self):
-        """Create or update admin session from env vars."""
-        # Sanitize inputs (remove quotes/spaces often added by mistake)
-        admin_id = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
+        """Create or update admin sessions from env vars (supports comma-separated IDs)."""
+        # Sanitize inputs
+        raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
         api_key = os.getenv('BINANCE_API_KEY', '').strip("'\" ")
         api_secret = os.getenv('BINANCE_SECRET', '').strip("'\" ")
         
-        if admin_id and api_key and api_secret:
+        if not raw_admin_ids or not api_key or not api_secret:
+            return
+
+        # Split multiple IDs (e.g. "123,456,789")
+        admin_ids = [aid.strip() for aid in raw_admin_ids.split(',') if aid.strip()]
+
+        for admin_id in admin_ids:
             # Case 1: Session does not exist -> Create it
             if admin_id not in self.sessions:
                 session = AsyncTradingSession(admin_id, api_key, api_secret)
@@ -832,7 +838,7 @@ class AsyncSessionManager:
                     session.api_secret = api_secret
                     # Re-init client with new keys
                     await session.initialize()
-                    print(f"🔄 Admin session updated from Env Vars")
+                    print(f"🔄 Admin session updated for {admin_id} from Env Vars")
     
     async def save_sessions(self):
         """Persist sessions to JSON file."""
