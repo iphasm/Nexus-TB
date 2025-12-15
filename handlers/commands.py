@@ -84,7 +84,7 @@ async def cmd_start(message: Message, **kwargs):
     mode_str = mode_map.get(mode_raw, mode_raw)
     
     # C. Personality + Greeting
-    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
     p_name = p_key
     greeting = "Sistemas operativos y listos para operar."
     
@@ -189,6 +189,81 @@ async def cmd_start(message: Message, **kwargs):
     ])
     
     await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+
+
+@router.message(Command("startup"))
+async def cmd_startup(message: Message):
+    """Onboarding guide - explains how to set up the bot"""
+    
+    startup_text = (
+        "🚀 **GUÍA DE INICIO RÁPIDO**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "🤖 **¿Qué es Antigravity Bot?**\n"
+        "Un sistema de trading automatizado que opera en Binance (Crypto) y Alpaca (Stocks/ETFs) "
+        "usando algoritmos avanzados de análisis técnico y sentimiento de mercado.\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔧 **CONFIGURACIÓN INICIAL**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "**PASO 1: Configurar Binance (Crypto)**\n"
+        "1. Ve a [Binance API Management](https://www.binance.com/en/my/settings/api-management)\n"
+        "2. Crea una nueva API Key con permisos:\n"
+        "   • ✅ Enable Reading\n"
+        "   • ✅ Enable Futures\n"
+        "   • ✅ Enable Spot & Margin (opcional)\n"
+        "   • ⛔ NO habilites Withdrawals\n"
+        "3. Copia tu API Key y Secret\n"
+        "4. Usa el comando:\n"
+        "   `/set_binance <API_KEY> <API_SECRET>`\n"
+        "   ⚠️ _Borra el mensaje después de enviarlo_\n\n"
+        
+        "**PASO 2: Configurar Alpaca (Stocks)** *(opcional)*\n"
+        "1. Crea cuenta en [Alpaca Markets](https://alpaca.markets/)\n"
+        "2. Ve a Paper Trading > API Keys\n"
+        "3. Genera nuevas credenciales\n"
+        "4. Usa el comando:\n"
+        "   `/set_alpaca <API_KEY> <API_SECRET>`\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🎮 **MODOS DE OPERACIÓN**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "• 🔍 **Watcher**: Solo alertas (sin operaciones)\n"
+        "• 👨‍✈️ **Copilot**: Propuestas con botones Aceptar/Rechazar\n"
+        "• 🤖 **Pilot**: Trading 100% automático\n\n"
+        
+        "Cambia con: `/watcher`, `/copilot`, `/pilot`\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "⚙️ **COMANDOS ESENCIALES**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "• `/start` - Menú principal\n"
+        "• `/status` - Estado de tu sesión\n"
+        "• `/wallet` - Ver tu cartera\n"
+        "• `/config` - Panel de configuración\n"
+        "• `/strategies` - Activar/Desactivar estrategias\n"
+        "• `/help` - Lista completa de comandos\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🛡️ **SEGURIDAD**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "• Nunca compartas tus API Keys\n"
+        "• Usa `/delete_keys` para borrar tu sesión\n"
+        "• Las claves se almacenan encriptadas\n"
+        "• El bot NO puede hacer retiros\n\n"
+        
+        "¿Listo? Usa `/set_binance` para empezar 🚀"
+    )
+    
+    try:
+        await message.answer(startup_text, parse_mode="Markdown", disable_web_page_preview=True)
+    except:
+        # Fallback without markdown
+        await message.answer(startup_text.replace('*', '').replace('`', '').replace('\\_', '_'))
 
 
 @router.message(Command("help"))
@@ -1080,7 +1155,7 @@ async def cmd_about(message: Message, **kwargs):
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id) if session_manager else None
     
-    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
     
     # Import personality manager from bot_async
     from bot_async import personality_manager
@@ -1096,9 +1171,9 @@ async def cmd_strategy(message: Message, **kwargs):
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id) if session_manager else None
     
-    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
     
-    p_key = session.config.get('personality', 'NEXUS') if session else 'NEXUS'
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'NEXUS'
     
     # Import personality manager from bot_async
     from bot_async import personality_manager

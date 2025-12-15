@@ -210,7 +210,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
             
         try:
             mode = session.mode
-            p_key = session.config.get('personality', 'NEXUS')
+            p_key = session.config.get('personality', 'STANDARD_ES')
             
             # Calculate SL/TP preview
             sl_prev, tp_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0)
