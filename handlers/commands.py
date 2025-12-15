@@ -63,13 +63,16 @@ async def cmd_start(message: Message, **kwargs):
     session = session_manager.get_session(chat_id) if session_manager else None
     
     # A. Exchanges
-    exchanges = ["🔑 Binance"]
+    exchanges = []
     if session:
+        if session.client or session.config.get('has_keys'):
+            exchanges.append("🔑 Binance")
+        
         if session.alpaca_client:
             exchanges.append("🦙 Alpaca")
         elif session.config.get('alpaca_key'):
             exchanges.append("🦙 Alpaca (Cfg)")
-    exchange_str = " + ".join(exchanges)
+    exchange_str = " + ".join(exchanges) if exchanges else "Ninguno"
     
     # B. Mode
     mode_raw = session.config.get('mode', 'WATCHER') if session else 'WATCHER'

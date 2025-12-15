@@ -45,8 +45,8 @@ class AsyncTradingSession:
             "max_capital_pct": 0.10,
             "stop_loss_pct": 0.02,
             "spot_allocation_pct": 0.20,
-            "personality": "NEXUS",
-            "sentiment_filter": True,
+            "personality": "STANDARD_ES",
+            "sentiment_filter": False,
             "atr_multiplier": 2.0,
             "alpaca_key": None,
             "alpaca_secret": None
@@ -57,14 +57,14 @@ class AsyncTradingSession:
         
         
         # --- MULTI-TENANT CONFIG INITIALIZATION ---
-        # Ensure deep structure exists using global defaults if missing
+        # SECURE DEFAULTS: Start with everything DISABLED for new sessions
         if 'strategies' not in self.config:
-            from antigravity_quantum.config import ENABLED_STRATEGIES
-            self.config['strategies'] = ENABLED_STRATEGIES.copy()
+            # Empty dict means all False by default
+            self.config['strategies'] = {}
             
         if 'groups' not in self.config:
-             from antigravity_quantum.config import GROUP_CONFIG
-             self.config['groups'] = GROUP_CONFIG.copy()
+            # Empty dict means all False by default
+            self.config['groups'] = {}
              
         if 'disabled_assets' not in self.config:
              self.config['disabled_assets'] = []
