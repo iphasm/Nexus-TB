@@ -9,8 +9,7 @@ router = Router()
 
 from utils.auth import admin_only, owner_only
 
-@router.message(Command("addsub"))
-async def cmd_addsub(message: Message):
+
 @router.message(Command("addsub"))
 @admin_only
 async def cmd_addsub(message: Message):
