@@ -62,8 +62,6 @@ async def cmd_addadmin(message: Message):
         await message.answer(f"❌ Error: {e}")
 
 @router.message(Command("remsub"))
-async def cmd_remsub(message: Message):
-@router.message(Command("remsub"))
 @admin_only
 async def cmd_remsub(message: Message):
         
@@ -82,8 +80,6 @@ async def cmd_remsub(message: Message):
     except ValueError:
         await message.answer("❌ ID debe ser número.")
 
-@router.message(Command("subs"))
-async def cmd_subs(message: Message):
 @router.message(Command("subs"))
 @admin_only
 async def cmd_subs(message: Message):
