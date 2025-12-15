@@ -415,6 +415,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
 async def handle_assets_menu(callback: CallbackQuery, **kwargs):
     """Handle asset module selection"""
     module = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
     
     await callback.answer()
     
