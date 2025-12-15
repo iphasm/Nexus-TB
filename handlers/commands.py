@@ -142,6 +142,10 @@ async def cmd_start(message: Message, **kwargs):
         f"🧠 *Estrategias:* [{strategies_str}]"
     )
     
+    # AI Filter status
+    from antigravity_quantum.config import AI_FILTER_ENABLED
+    ai_status = "🟢 ON" if AI_FILTER_ENABLED else "🔴 OFF"
+    
     # Interactive Menu
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         # Row 1: Dashboard
@@ -159,11 +163,13 @@ async def cmd_start(message: Message, **kwargs):
             InlineKeyboardButton(text="🌌 Quantum", callback_data="CMD|mode_QUANTUM"),
             InlineKeyboardButton(text="🛡️ Guardian", callback_data="CMD|mode_GUARDIAN")
         ],
-        # Row 5: INTEL
+        # Row 5: AI Filter Toggle
+        [InlineKeyboardButton(text=f"🧠 AI Filter Module [{ai_status}]", callback_data="TOGGLE|AI_FILTER")],
+        # Row 6: INTEL
         [InlineKeyboardButton(text="📡 INTEL (Datos de Mercado)", callback_data="MENU|INTEL")],
-        # Row 6: CORE
+        # Row 7: CORE
         [InlineKeyboardButton(text="⚙️ CORE (Configuración)", callback_data="CMD|config")],
-        # Row 7: Help
+        # Row 8: Help
         [InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")]
     ])
     

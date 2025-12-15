@@ -288,14 +288,21 @@ async def main():
         bot_state = load_bot_state()
         if bot_state:
             from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
+            import antigravity_quantum.config as aq_config
             
             # 1. Strategies
             if bot_state.get('enabled_strategies'):
                 ENABLED_STRATEGIES.update(bot_state['enabled_strategies'])
             
-            # 2. Group Config
+            # 2. Group Config (check for embedded AI_FILTER)
             if bot_state.get('group_config'):
-                GROUP_CONFIG.update(bot_state['group_config'])
+                gc = bot_state['group_config']
+                
+                # Extract AI Filter state if present
+                if '_AI_FILTER' in gc:
+                    aq_config.AI_FILTER_ENABLED = gc.pop('_AI_FILTER')
+                
+                GROUP_CONFIG.update(gc)
                 
             # 3. Disabled Assets
             if bot_state.get('disabled_assets'):
@@ -306,7 +313,7 @@ async def main():
                     for asset in assets:
                          DISABLED_ASSETS.add(asset)
             
-            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, {len(GROUP_CONFIG)} groups")
+            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, {len(GROUP_CONFIG)} groups, AI Filter: {aq_config.AI_FILTER_ENABLED}")
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")

@@ -340,7 +340,8 @@ class AsyncTradingSession:
         
         # --- AI SENTIMENT & MACRO FILTER ---
         vol_risk = 'LOW'  # Default for later use
-        if self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
+        from antigravity_quantum.config import AI_FILTER_ENABLED
+        if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
             try:
                 print(f"🧠 Checking Sentiment for {symbol}...")
                 sent = self.ai_analyst.check_market_sentiment(symbol)
@@ -539,7 +540,8 @@ class AsyncTradingSession:
             return False, "No valid API Keys provided."
         
         # --- AI SENTIMENT FILTER (Inverse for Shorts) ---
-        if self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
+        from antigravity_quantum.config import AI_FILTER_ENABLED
+        if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
             try:
                 print(f"🧠 Checking Sentiment for {symbol} (SHORT)...")
                 sent = self.ai_analyst.check_market_sentiment(symbol)

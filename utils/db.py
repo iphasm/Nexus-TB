@@ -196,11 +196,16 @@ def load_bot_state():
     finally:
         conn.close()
 
-def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets: list):
-    """Save global bot state to PostgreSQL."""
+def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets: list, ai_filter: bool = None):
+    """Save global bot state to PostgreSQL. ai_filter is stored within group_config as '_AI_FILTER'."""
     conn = get_connection()
     if not conn:
         return False
+    
+    # Embed AI filter state in group_config for persistence
+    gc_to_save = dict(group_config)
+    if ai_filter is not None:
+        gc_to_save['_AI_FILTER'] = ai_filter
     
     try:
         with conn.cursor() as cur:
@@ -215,7 +220,7 @@ def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets
                     updated_at = NOW()
             """, (
                 json.dumps(enabled_strategies),
-                json.dumps(group_config),
+                json.dumps(gc_to_save),
                 json.dumps(list(disabled_assets) if isinstance(disabled_assets, set) else disabled_assets)
             ))
             conn.commit()

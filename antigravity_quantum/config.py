@@ -29,6 +29,11 @@ SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes minimum between updates per asset
 # Per-symbol last update timestamp (in-memory, persists during bot session)
 SLTP_LAST_UPDATE = {}  # {symbol: timestamp}
 
+# --- AI FILTER MODULE ---
+# Master switch for OpenAI sentiment analysis filter
+# When OFF: Bypasses AI sentiment check, trades execute without IA validation
+AI_FILTER_ENABLED = True
+
 # --- MODULE-SPECIFIC ASSET LISTS ---
 # These can be toggled via /assets menu
 
