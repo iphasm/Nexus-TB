@@ -1412,11 +1412,28 @@ class AsyncSessionManager:
                 
                 if db_sessions is not None:
                     for chat_id, info in db_sessions.items():
+                        # SANITIZE: Check authorization
+                        from utils.db import get_user_role
+                        allowed, role = get_user_role(str(chat_id))
+                        
+                        config = info.get('config', {})
+                        
+                        # FORCE DEFAULTS if unauthorized (Fixes persistent old config issue)
+                        if not allowed:
+                            print(f"🔒 Locking down Unauthorized session: {chat_id}")
+                            config.update({
+                                "mode": "WATCHER",
+                                "strategies": {},
+                                "groups": {},
+                                "sentiment_filter": False,
+                                "personality": "STANDARD_ES"
+                            })
+                        
                         session = AsyncTradingSession(
                             chat_id=chat_id,
                             api_key=info.get('api_key', ''),
                             api_secret=info.get('api_secret', ''),
-                            config=info.get('config')
+                            config=config
                         )
                         await session.initialize()
                         self.sessions[chat_id] = session
@@ -1437,11 +1454,27 @@ class AsyncSessionManager:
                     data = json.load(f)
                 
                 for chat_id, info in data.items():
+                    # SANITIZE: Check authorization
+                    from utils.db import get_user_role
+                    allowed, role = get_user_role(str(chat_id))
+                    
+                    config = info.get('config', {})
+                    
+                    if not allowed:
+                        print(f"🔒 Locking down Unauthorized session (JSON): {chat_id}")
+                        config.update({
+                            "mode": "WATCHER",
+                            "strategies": {},
+                            "groups": {},
+                            "sentiment_filter": False,
+                            "personality": "STANDARD_ES"
+                        })
+
                     session = AsyncTradingSession(
                         chat_id=chat_id,
                         api_key=info.get('api_key', ''),
                         api_secret=info.get('api_secret', ''),
-                        config=info.get('config')
+                        config=config
                     )
                     await session.initialize()
                     self.sessions[chat_id] = session
