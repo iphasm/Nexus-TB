@@ -180,7 +180,9 @@ async def cmd_start(message: Message, **kwargs):
         ],
         # Row 5: AI Filter Toggle
         [InlineKeyboardButton(text=f"🧠 AI Filter Module [{ai_status}]", callback_data="TOGGLE|AI_FILTER")],
-        # Row 6: INTEL
+        # Row 6: Sync Orders
+        [InlineKeyboardButton(text="🔄 Sync Orders", callback_data="SYNC_ORDERS")],
+        # Row 7: INTEL
         [InlineKeyboardButton(text="📡 INTEL (Datos de Mercado)", callback_data="MENU|INTEL")],
         # Row 7: CORE
         [InlineKeyboardButton(text="⚙️ CORE (Configuración)", callback_data="CMD|config")],
@@ -290,6 +292,7 @@ async def cmd_help(message: Message):
         "• /buy `<SYM>` - Compra SPOT\n"
         "• /close `<SYM>` - Cerrar posición\n"
         "• /closeall - Cerrar TODO\n"
+        "• /syncorders - Refrescar SL/TP/TS\n"
         "• /cleanup - Limpiar órdenes huérfanas\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
@@ -1148,6 +1151,24 @@ async def cmd_short(message: Message, **kwargs):
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
 
+
+@router.message(Command("syncorders"))
+async def cmd_syncorders(message: Message, **kwargs):
+    """Refrescar órdenes SL/TP/TS de posiciones abiertas"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+        
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.answer("⚠️ Sin sesión activa.")
+        return
+        
+    msg = await message.answer("⏳ **Sincronizando Órdenes Antigravity...**\nVerificando SL, TP y Trailing activados.", parse_mode="Markdown")
+    
+    res = await session.execute_refresh_all_orders()
+    await msg.edit_text(res, parse_mode="Markdown")
 
 @router.message(Command("about"))
 async def cmd_about(message: Message, **kwargs):

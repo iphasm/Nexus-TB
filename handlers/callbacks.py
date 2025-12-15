@@ -538,3 +538,26 @@ async def handle_intel_menu(callback: CallbackQuery, **kwargs):
     ])
     
     await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
+
+
+@router.callback_query(F.data == "SYNC_ORDERS")
+async def handle_sync_orders(callback: CallbackQuery, **kwargs):
+    """Handle Sync Orders button"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await callback.answer("⚠️ Error interno.")
+        return
+        
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.answer("⚠️ Sin sesión.")
+        return
+    
+    await callback.answer("⏳ Sincronizando órdenes...")
+    
+    try:
+        report = await session.execute_refresh_all_orders()
+        await callback.message.answer(report, parse_mode="Markdown")
+        
+    except Exception as e:
+        await callback.message.answer(f"❌ Error: {e}")

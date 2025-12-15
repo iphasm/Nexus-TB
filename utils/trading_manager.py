@@ -838,6 +838,71 @@ class AsyncTradingSession:
             results.append(f"{sym}: {'✅' if success else '❌'}")
         
         return True, "Batch Close:\n" + "\n".join(results)
+
+    async def execute_refresh_all_orders(self) -> str:
+        """
+        Refresh SL/TP/Trailing for ALL active positions.
+        Forces update based on CURRENT price (Trailing) and Config (SL/TP %).
+        """
+        if not self.client:
+            return "❌ No invalid session."
+
+        try:
+            active_pos = await self.get_active_positions()
+            if not active_pos:
+                return "ℹ️ No hay posiciones activas para sincronizar."
+
+            report = ["🔄 **Reporte de Sincronización:**", ""]
+            
+            for p in active_pos:
+                symbol = p['symbol']
+                qty = float(p['positionAmt'])
+                if qty == 0: continue
+
+                side = 'LONG' if qty > 0 else 'SHORT'
+                entry_price = float(p['entryPrice'])
+                
+                # Get current price
+                ticker = await self.client.futures_symbol_ticker(symbol=symbol)
+                current_price = float(ticker['price'])
+                
+                # Get precision
+                qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+
+                # Calculate standard SL/TP based on entry (or current if preferred, but usually entry for fixed SL)
+                # However, for TRAILING activation, we want to use ENTRY PRICE as per user request.
+                # Standard SL/TP logic:
+                stop_loss_pct = self.config['stop_loss_pct']
+                
+                if side == 'LONG':
+                    # SL is below entry
+                    sl_price = round(entry_price * (1 - stop_loss_pct), price_prec)
+                    # TP is above entry
+                    tp_price = round(entry_price * (1 + (stop_loss_pct * 3)), price_prec)
+                else:
+                    # SL is above entry
+                    sl_price = round(entry_price * (1 + stop_loss_pct), price_prec)
+                    # TP is below entry
+                    tp_price = round(entry_price * (1 - (stop_loss_pct * 3)), price_prec)
+
+                # Execute Sync
+                success, msg = await self.synchronize_sl_tp_safe(
+                    symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, entry_price=entry_price
+                )
+                
+                status_icon = "✅" if success else "⚠️"
+                report.append(f"**{symbol}** ({side}) {status_icon}")
+                if success:
+                    report.append(f"   SL: {sl_price} | TP: {tp_price}")
+                    report.append(f"   TS Act: {entry_price} (Entry)")
+                else:
+                    report.append(f"   Err: {msg}")
+                report.append("")
+
+            return "\n".join(report)
+
+        except Exception as e:
+            return f"❌ Error Critical en Sync: {e}"
     
     async def execute_update_sltp(self, symbol: str, side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
         """Update SL/TP for existing position. Includes spam protection."""
