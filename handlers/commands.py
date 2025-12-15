@@ -226,7 +226,7 @@ async def cmd_help(message: Message):
         "• /strategies - Motores activos\n"
         "• /set\_leverage - Apalancamiento\n"
         "• /set\_margin - Margen máximo\n"
-        "• /set\_keys - API Keys Binance\n"
+        "• /set\_binance - API Keys Binance\n"
         "• /set\_alpaca - API Keys Alpaca\n"
         "• /delete\_keys - Borrar sesión\n"
         "• /togglegroup - Filtrar grupos\n"
@@ -555,7 +555,7 @@ async def cmd_mode(message: Message, **kwargs):
     session = session_manager.get_session(chat_id)
     
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set_keys.")
+        await message.answer("⚠️ Sin sesión activa. Usa /set_binance.")
         return
     
     args = message.text.upper().split()
@@ -650,7 +650,7 @@ async def cmd_risk(message: Message, **kwargs):
     session = session_manager.get_session(chat_id)
     
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Configura primero con `/set_keys`.", parse_mode="Markdown")
+        await message.answer("⚠️ Sin sesión activa. Configura primero con `/set_binance`.", parse_mode="Markdown")
         return
     
     # Extract risk parameters from session config

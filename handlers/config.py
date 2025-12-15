@@ -206,7 +206,7 @@ async def cmd_assets(message: Message, **kwargs):
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
-@router.message(Command("set_keys", "setkeys"))
+@router.message(Command("set_binance", "setbinance"))
 async def cmd_set_keys(message: Message, **kwargs):
     """Configure Binance API Keys"""
     session_manager = kwargs.get('session_manager')
@@ -219,7 +219,7 @@ async def cmd_set_keys(message: Message, **kwargs):
     
     if len(args) != 3:
         await message.answer(
-            "⚠️ Uso: `/set_keys <API_KEY> <API_SECRET>`\n"
+            "⚠️ Uso: `/set_binance <API_KEY> <API_SECRET>`\n"
             "_(Te recomendamos borrar el mensaje después)_",
             parse_mode="Markdown"
         )
