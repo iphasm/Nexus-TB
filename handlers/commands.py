@@ -1104,123 +1104,144 @@ async def cmd_dashboard(message: Message, **kwargs):
 
 @router.message(Command("price"))
 async def cmd_price(message: Message, **kwargs):
-    """Market Scan (Active Assets + F&G)"""
+    """Market Scan (Price + 24h% + RSI + Sentiment)"""
     try:
-        loading = await message.answer("🔍 _Escaneando mercado..._", parse_mode="Markdown")
+        loading = await message.answer("🔍 _Analizando mercado (Precios + RSI + Sentimiento)..._", parse_mode="Markdown")
         
         # 1. Fear & Greed
         fng = get_fear_and_greed_index()
         
-        # 2. Build dynamic target lists from Scanner Global
+        # 2. Build dynamic target lists
         from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
         from antigravity_quantum.config import DISABLED_ASSETS
+        from utils.indicators import calculate_rsi
+        import numpy as np
         
         crypto_targets = []
         stock_targets = []
         commodity_targets = []
         
-        # Crypto (Binance)
+        # Filter Logic (Same as before)
         if GROUP_CONFIG.get('CRYPTO', False):
             for asset in ASSET_GROUPS.get('CRYPTO', []):
                 if asset.endswith('USDT') and asset not in DISABLED_ASSETS:
                     clean_asset = ''.join(c for c in asset if c.isalnum())
-                    if clean_asset:
-                        crypto_targets.append(clean_asset)
+                    if clean_asset: crypto_targets.append(clean_asset)
         
-        # Stocks (Yahoo Finance)
         if GROUP_CONFIG.get('STOCKS', False):
             for asset in ASSET_GROUPS.get('STOCKS', []):
-                if asset not in DISABLED_ASSETS:
-                    stock_targets.append(asset)
+                if asset not in DISABLED_ASSETS: stock_targets.append(asset)
         
-        # Commodities (Yahoo Finance)
         if GROUP_CONFIG.get('COMMODITY', False):
             for asset in ASSET_GROUPS.get('COMMODITY', []):
-                if asset not in DISABLED_ASSETS:
-                    commodity_targets.append(asset)
+                if asset not in DISABLED_ASSETS: commodity_targets.append(asset)
         
-        # 3. Fetch Crypto Prices (Binance Futures)
+        # --- 3. FETCH & PROCESS CRYPTO (Binance) ---
         crypto_str = ""
-        crypto_count = 0
-        for symbol in crypto_targets[:6]:  # Limit to 6
+        for symbol in crypto_targets[:6]:  # Limit 6
             try:
-                url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
-                resp = requests.get(url, timeout=3).json()
-                if 'price' in resp:
+                # A. Get Price & 24h Change
+                ticker_url = f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}"
+                # B. Get Klines for RSI (4h interval, 20 candles)
+                klines_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=4h&limit=20"
+                
+                # Fetch
+                t_resp = requests.get(ticker_url, timeout=2).json()
+                k_resp = requests.get(klines_url, timeout=2).json()
+                
+                if 'lastPrice' in t_resp:
+                    # Data Extraction
+                    price = float(t_resp['lastPrice'])
+                    pct_change = float(t_resp['priceChangePercent'])
+                    
+                    # RSI Calc
+                    closes = [float(k[4]) for k in k_resp] # Index 4 is Close
+                    rsi = calculate_rsi(closes)
+                    
+                    # Indicators
                     sym = symbol.replace('USDT', '').replace('1000', '')
-                    price = float(resp['price'])
-                    crypto_str += f"• *{sym}:* `${price:,.2f}`\n"
-                    crypto_count += 1
-            except:
+                    
+                    # Logic: Bull/Bear/Nuetral
+                    trend_icon = "🐂" if pct_change > 0 else "🐻"
+                    pct_str = f"{'+' if pct_change > 0 else ''}{pct_change:.1f}%"
+                    
+                    # RSI Status
+                    rsi_status = ""
+                    if rsi > 70: rsi_status = "🔥 (OB)" # Overbought
+                    elif rsi < 30: rsi_status = "🧊 (OS)" # Oversold
+                    
+                    crypto_str += f"• *{sym}:* `${price:,.2f}` {trend_icon} `{pct_str}` | `RSI {int(rsi)}` {rsi_status}\n"
+            except Exception as e:
+                print(f"Error fetching {symbol}: {e}")
                 continue
-        
-        # 4. Fetch Stock/Commodity Prices (Yahoo Finance)
+
+        # --- 4. FETCH & PROCESS STOCKS/COMMODITIES (Yahoo) ---
         stocks_str = ""
         commodities_str = ""
+        yf_symbols = stock_targets[:4] + commodity_targets[:3]
         
-        yf_symbols = stock_targets[:4] + commodity_targets[:3]  # Limit
-        yf_error = ""
         if yf_symbols:
-            try:
-                # Use Yahoo Finance chart endpoint (still public)
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-                
-                for sym in yf_symbols:
-                    try:
-                        # Chart endpoint gives current price
-                        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1d"
-                        resp = requests.get(url, headers=headers, timeout=5)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            for sym in yf_symbols:
+                try:
+                    # Fetch History (1 month daily to calc RSI)
+                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1mo"
+                    resp = requests.get(url, headers=headers, timeout=3)
+                    data = resp.json()
+                    
+                    result = data.get('chart', {}).get('result', [{}])[0]
+                    meta = result.get('meta', {})
+                    indicators = result.get('indicators', {}).get('quote', [{}])[0]
+                    
+                    price = meta.get('regularMarketPrice')
+                    prev_close = meta.get('chartPreviousClose')
+                    
+                    if price and prev_close:
+                        # Calcs
+                        pct_change = ((price - prev_close) / prev_close) * 100
+                        closes = indicators.get('close', [])
+                        # Filter None values
+                        clean_closes = [c for c in closes if c is not None]
+                        rsi = calculate_rsi(clean_closes)
                         
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            meta = data.get('chart', {}).get('result', [{}])[0].get('meta', {})
-                            price = meta.get('regularMarketPrice', 0)
-                            name = TICKER_MAP.get(sym, sym)
-                            
-                            if price and sym in stock_targets:
-                                stocks_str += f"• *{name}:* `${price:,.2f}`\n"
-                            elif price and sym in commodity_targets:
-                                commodities_str += f"• *{name}:* `${price:,.2f}`\n"
-                    except:
-                        continue
-            except Exception as e:
-                yf_error = str(e)[:30]
-        
-        # Build final message
-        total = crypto_count + len(stocks_str.split('\n')) - 1 + len(commodities_str.split('\n')) - 1
-        
+                        name = TICKER_MAP.get(sym, sym)
+                        
+                        # Formatting
+                        trend_icon = "🐂" if pct_change > 0 else "🐻"
+                        pct_str = f"{'+' if pct_change > 0 else ''}{pct_change:.1f}%"
+                        
+                        rsi_status = ""
+                        if rsi > 70: rsi_status = "🔥"
+                        elif rsi < 30: rsi_status = "🧊"
+                        
+                        line = f"• *{name}:* `${price:,.2f}` {trend_icon} `{pct_str}` | `RSI {int(rsi)}` {rsi_status}\n"
+                        
+                        if sym in stock_targets: stocks_str += line
+                        elif sym in commodity_targets: commodities_str += line
+                except:
+                    continue
+
+        # --- BUILD MESSAGE ---
         msg = (
-            "📡 **MARKET INTEL**\n"
+            "📡 **MARKET INTEL (Advanced)**\n"
             "━━━━━━━━━━━━━━━━\n"
             f"🧠 **Sentimiento:** {fng}\n\n"
         )
         
-        if crypto_str:
-            msg += f"💎 **Crypto:**\n{crypto_str}\n"
-        if stocks_str:
-            msg += f"📈 **Stocks:**\n{stocks_str}\n"
-        if commodities_str:
-            msg += f"🏆 **Commodities:**\n{commodities_str}\n"
-        
-        # Debug: Show if no stocks/commodities
-        if yf_symbols and not (stocks_str or commodities_str):
-            if yf_error:
-                msg += f"⚠️ _YF Error: {yf_error}_\n"
-            else:
-                msg += f"⚠️ _Symbols: {yf_symbols[:3]}..._\n"
+        if crypto_str: msg += f"💎 **Crypto (4h RSI):**\n{crypto_str}\n"
+        if stocks_str: msg += f"📈 **Stocks (Daily):**\n{stocks_str}\n"
+        if commodities_str: msg += f"🏆 **Commodities:**\n{commodities_str}\n"
         
         if not (crypto_str or stocks_str or commodities_str):
-            msg += "📭 No hay activos activos.\n"
-        
+            msg += "📭 Sin datos disponibles.\n"
+            
         msg += (
             "━━━━━━━━━━━━━━━━\n"
-            "_Usa /sniper para buscar oportunidades._"
+            "🐂 Bull | 🐻 Bear | 🔥 Overbought | 🧊 Oversold"
         )
         
         await loading.edit_text(msg, parse_mode="Markdown")
         
     except Exception as e:
-        await message.answer(f"❌ Error: {e}")
+        await message.answer(f"❌ Error en Price: {e}")
 
