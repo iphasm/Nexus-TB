@@ -161,7 +161,29 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy})")
     
     # Dispatch to all sessions
+    from config import ASSET_GROUPS
+    
+    # Determine Asset Group
+    asset_group = None
+    for group_name, assets in ASSET_GROUPS.items():
+        if symbol in assets:
+            asset_group = group_name
+            break
+            
     for session in session_manager.get_all_sessions():
+        # --- FILTER: Strategy Enabled? ---
+        if not session.is_strategy_enabled(strategy):
+            # Special case: allow if it's a generic signal or essential? No, strict filter.
+            continue
+            
+        # --- FILTER: Group Enabled? ---
+        if asset_group and not session.is_group_enabled(asset_group):
+            continue
+            
+        # --- FILTER: Blacklisted? ---
+        if session.is_asset_disabled(symbol):
+            continue
+            
         try:
             mode = session.mode
             p_key = session.config.get('personality', 'NEXUS')

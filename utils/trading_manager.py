@@ -55,6 +55,20 @@ class AsyncTradingSession:
         if config:
             self.config.update(config)
         
+        
+        # --- MULTI-TENANT CONFIG INITIALIZATION ---
+        # Ensure deep structure exists using global defaults if missing
+        if 'strategies' not in self.config:
+            from antigravity_quantum.config import ENABLED_STRATEGIES
+            self.config['strategies'] = ENABLED_STRATEGIES.copy()
+            
+        if 'groups' not in self.config:
+             from antigravity_quantum.config import GROUP_CONFIG
+             self.config['groups'] = GROUP_CONFIG.copy()
+             
+        if 'disabled_assets' not in self.config:
+             self.config['disabled_assets'] = []
+             
         self.mode = self.config.get('mode', 'WATCHER')
         
         # Circuit Breaker State
@@ -169,8 +183,51 @@ class AsyncTradingSession:
             "leverage": self.config['leverage'],
             "max_capital_pct": self.config['max_capital_pct'],
             "stop_loss_pct": self.config['stop_loss_pct'],
-            "has_keys": bool(self.client)
+            "has_keys": bool(self.client),
+            "strategies": self.config.get('strategies', {}),
+            "groups": self.config.get('groups', {}),
+            "disabled_assets": self.config.get('disabled_assets', [])
         }
+        
+    def toggle_strategy(self, strategy: str) -> bool:
+        """Toggle a specific strategy on/off."""
+        strategies = self.config.get('strategies', {})
+        current = strategies.get(strategy, False)
+        strategies[strategy] = not current
+        self.config['strategies'] = strategies
+        return strategies[strategy]
+
+    def is_strategy_enabled(self, strategy: str) -> bool:
+        """Check if strategy is enabled."""
+        return self.config.get('strategies', {}).get(strategy, False)
+
+    def toggle_group(self, group: str) -> bool:
+        """Toggle a specific asset group on/off."""
+        groups = self.config.get('groups', {})
+        current = groups.get(group, False)
+        groups[group] = not current
+        self.config['groups'] = groups
+        return groups[group]
+
+    def is_group_enabled(self, group: str) -> bool:
+        """Check if group is enabled."""
+        return self.config.get('groups', {}).get(group, False)
+
+    def toggle_asset_blacklist(self, symbol: str) -> bool:
+        """Toggle asset in blacklist. Returns True if now DISABLED (in list)."""
+        disabled = self.config.get('disabled_assets', [])
+        if symbol in disabled:
+            disabled.remove(symbol)
+            result = False
+        else:
+            disabled.append(symbol)
+            result = True
+        self.config['disabled_assets'] = disabled
+        return result
+
+    def is_asset_disabled(self, symbol: str) -> bool:
+        """Check if asset is in blacklist."""
+        return symbol in self.config.get('disabled_assets', [])
     
     # --- HELPER METHODS ---
     

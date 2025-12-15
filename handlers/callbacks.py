@@ -230,28 +230,28 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TOGGLE|"))
 async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle strategy on/off and persist to DB. Also handles AI_FILTER."""
+    """Toggle strategy on/off and persist to Session."""
     strategy = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
-    # Special case: AI_FILTER toggle
-    if strategy == "AI_FILTER":
-        import antigravity_quantum.config as aq_config
-        from utils.db import save_bot_state
-        from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
+    if not session_manager:
+        await callback.answer("⚠️ Error: No session manager", show_alert=True)
+        return
         
-        # Toggle the state
-        aq_config.AI_FILTER_ENABLED = not aq_config.AI_FILTER_ENABLED
-        new_state = aq_config.AI_FILTER_ENABLED
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.answer("⚠️ No hay sesión activa.", show_alert=True)
+        return
+    
+    # Special case: AI_FILTER toggle (mapped to sentiment_filter)
+    if strategy == "AI_FILTER":
+        current = session.config.get('sentiment_filter', True)
+        new_state = not current
+        await session.update_config('sentiment_filter', new_state)
+        await session_manager.save_sessions()
         
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
         await callback.answer(f"🧠 AI Filter {status}")
-        
-        # Persist state
-        try:
-            save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, ai_filter=new_state)
-        except:
-            pass
         
         # Refresh /start menu
         from handlers.commands import cmd_start
@@ -260,25 +260,20 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
     
     # Normal strategy toggle
     try:
-        from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS, GROUP_CONFIG
-        from utils.db import save_bot_state
+        new_val = session.toggle_strategy(strategy)
+        await session_manager.save_sessions()
         
-        current = ENABLED_STRATEGIES.get(strategy, True)
-        ENABLED_STRATEGIES[strategy] = not current
-        
-        # PERSIST TO DB
-        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
-        
-        new_state = "✅ ACTIVADO" if ENABLED_STRATEGIES[strategy] else "❌ DESACTIVADO"
+        new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
         await callback.answer(f"{strategy}: {new_state}")
         
         # Rebuild keyboard
-        t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
-        s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
-        g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
-        m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
-        bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
-        sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', True) else "❌"
+        strategies = session.config.get('strategies', {})
+        t_state = "✅" if strategies.get('TREND', True) else "❌"
+        s_state = "✅" if strategies.get('SCALPING', True) else "❌"
+        g_state = "✅" if strategies.get('GRID', True) else "❌"
+        m_state = "✅" if strategies.get('MEAN_REVERSION', True) else "❌"
+        bs_state = "✅" if strategies.get('BLACK_SWAN', True) else "❌"
+        sh_state = "✅" if strategies.get('SHARK', True) else "❌"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
@@ -301,26 +296,31 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
 async def handle_group_toggle(callback: CallbackQuery, **kwargs):
     """Toggle asset group on/off"""
     group = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
+    
+    if not session_manager:
+        await callback.answer("⚠️ Error interno", show_alert=True)
+        return
+        
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.answer("⚠️ Sin sesión", show_alert=True)
+        return
     
     try:
-        from antigravity_quantum.config import GROUP_CONFIG, ENABLED_STRATEGIES, DISABLED_ASSETS
-        from utils.db import save_bot_state
+        new_val = session.toggle_group(group)
+        await session_manager.save_sessions()
         
-        current = GROUP_CONFIG.get(group, True)
-        GROUP_CONFIG[group] = not current
-        
-        # Save to DB
-        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
-        
-        new_state = "✅ ACTIVADO" if GROUP_CONFIG[group] else "❌ DESACTIVADO"
+        new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
         await callback.answer(f"{group}: {new_state}")
         
         # Rebuild buttons + Volver
+        groups = session.config.get('groups', {})
         buttons = [
             [InlineKeyboardButton(
                 text=f"{'✅' if enabled else '❌'} {grp}",
                 callback_data=f"TOGGLEGRP|{grp}"
-            )] for grp, enabled in GROUP_CONFIG.items()
+            )] for grp, enabled in groups.items()
         ]
         buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
         
@@ -444,8 +444,19 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
         # Build keyboard with toggle buttons
         buttons = []
-        for asset in assets[:80]:  # Limit increased to 80 (covers Crypto + Stocks + Commodities)
-            is_disabled = asset in DISABLED_ASSETS
+        if not session_manager:
+             await callback.message.edit_text("⚠️ Error interno")
+             return
+             
+        session = session_manager.get_session(str(callback.message.chat.id))
+        is_disabled = False
+        
+        for asset in assets[:80]:
+            if session:
+                is_disabled = session.is_asset_disabled(asset)
+            else:
+                 is_disabled = asset in DISABLED_ASSETS
+                 
             icon = "❌" if is_disabled else "✅"
             buttons.append([InlineKeyboardButton(
                 text=f"{icon} {asset}",
@@ -475,19 +486,25 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
     module = parts[1]
     asset = parts[2]
     
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await callback.answer("⚠️ Error interno", show_alert=True)
+        return
+        
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.answer("⚠️ Sin sesión", show_alert=True)
+        return
+    
     try:
-        from antigravity_quantum.config import DISABLED_ASSETS, ENABLED_STRATEGIES, GROUP_CONFIG
-        from utils.db import save_bot_state
+        # Toggle using session method
+        is_now_disabled = session.toggle_asset_blacklist(asset)
+        await session_manager.save_sessions()
         
-        if asset in DISABLED_ASSETS:
-            DISABLED_ASSETS.remove(asset)
-            await callback.answer(f"✅ {asset} activado")
-        else:
-            DISABLED_ASSETS.add(asset)
+        if is_now_disabled:
             await callback.answer(f"❌ {asset} desactivado")
-        
-        # Save state to DB
-        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS))
+        else:
+            await callback.answer(f"✅ {asset} activado")
         
         # Refresh menu
         await handle_assets_menu(callback, **kwargs)

@@ -61,19 +61,28 @@ async def cmd_strategies(message: Message, **kwargs):
     """Interactive strategy selector - ALL 6 STRATEGIES"""
     edit_message = kwargs.get('edit_message', False)
     
-    # Import strategy config
-    try:
-        from antigravity_quantum.config import ENABLED_STRATEGIES
-    except ImportError:
-        ENABLED_STRATEGIES = {'TREND': True, 'SCALPING': True, 'GRID': True, 'MEAN_REVERSION': True, 'BLACK_SWAN': True, 'SHARK': False}
-    
-    # Build state strings for all 6 strategies
-    t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
-    s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
-    g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
-    m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
-    bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
-    sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', False) else "❌"
+    # Get session configuration
+    session_strategies = {}
+    if kwargs.get('session_manager'):
+        session = kwargs['session_manager'].get_session(str(message.chat.id))
+        if session:
+            session_strategies = session.config.get('strategies', {})
+            
+    # Default fallback if no session (should not happen usually)
+    if not session_strategies:
+        try:
+             from antigravity_quantum.config import ENABLED_STRATEGIES
+             session_strategies = ENABLED_STRATEGIES.copy()
+        except ImportError:
+             session_strategies = {'TREND': True, 'SCALPING': True, 'GRID': True, 'MEAN_REVERSION': True, 'BLACK_SWAN': True, 'SHARK': False}
+
+    # Build state strings
+    t_state = "✅" if session_strategies.get('TREND', True) else "❌"
+    s_state = "✅" if session_strategies.get('SCALPING', True) else "❌"
+    g_state = "✅" if session_strategies.get('GRID', True) else "❌"
+    m_state = "✅" if session_strategies.get('MEAN_REVERSION', True) else "❌"
+    bs_state = "✅" if session_strategies.get('BLACK_SWAN', True) else "❌"
+    sh_state = "✅" if session_strategies.get('SHARK', False) else "❌"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
@@ -109,17 +118,25 @@ async def cmd_togglegroup(message: Message, **kwargs):
     """Interactive group selector"""
     edit_message = kwargs.get('edit_message', False)
     
-    # Import group config
-    try:
-        from antigravity_quantum.config import GROUP_CONFIG
-    except ImportError:
-        GROUP_CONFIG = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
+    # Get session group config
+    session_groups = {}
+    if kwargs.get('session_manager'):
+        session = kwargs['session_manager'].get_session(str(message.chat.id))
+        if session:
+            session_groups = session.config.get('groups', {})
+            
+    if not session_groups:
+        try:
+            from antigravity_quantum.config import GROUP_CONFIG
+            session_groups = GROUP_CONFIG.copy()
+        except ImportError:
+            session_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
     
     buttons = [
         [InlineKeyboardButton(
             text=f"{'✅' if enabled else '❌'} {group}",
             callback_data=f"TOGGLEGRP|{group}"
-        )] for group, enabled in GROUP_CONFIG.items()
+        )] for group, enabled in session_groups.items()
     ]
     buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
     

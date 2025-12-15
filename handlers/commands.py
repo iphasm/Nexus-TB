@@ -125,7 +125,13 @@ async def cmd_start(message: Message, **kwargs):
         'GRID': '🕸️ Grid',
         'MEAN_REVERSION': '📉 MR'
     }
-    for k, v in ENABLED_STRATEGIES.items():
+    
+    # Use session strategies if available
+    current_strategies = session.config.get('strategies', {}) if session else ENABLED_STRATEGIES
+    if not current_strategies:
+        current_strategies = ENABLED_STRATEGIES
+        
+    for k, v in current_strategies.items():
         if v and k != 'AI_FILTER':  # AI_FILTER is not a strategy
             active_strats.append(strat_icons.get(k, k))
     
@@ -142,9 +148,15 @@ async def cmd_start(message: Message, **kwargs):
         f"🧠 *Estrategias:* [{strategies_str}]"
     )
     
-    # AI Filter status
-    from antigravity_quantum.config import AI_FILTER_ENABLED
-    ai_status = "🟢 ON" if AI_FILTER_ENABLED else "🔴 OFF"
+    # AI Filter status (Session specific)
+    ai_enabled = True
+    if session:
+        ai_enabled = session.config.get('sentiment_filter', True)
+    else:
+        from antigravity_quantum.config import AI_FILTER_ENABLED
+        ai_enabled = AI_FILTER_ENABLED
+        
+    ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
     
     # Interactive Menu
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
