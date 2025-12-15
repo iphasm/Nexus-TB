@@ -277,7 +277,7 @@ class AsyncTradingSession:
                 raise e
         raise Exception("Max retries exceeded")
 
-    async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int) -> Tuple[bool, str]:
+    async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int, entry_price: float = 0.0) -> Tuple[bool, str]:
         """
         Surgical SL/TP Synchronization (V2 - Anti-Spam):
         1. Check if valid SL/TP already exists (skip if within 1% tolerance).
@@ -363,20 +363,22 @@ class AsyncTradingSession:
                     stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                 )
                 # Trailing for rest
+                activation = entry_price if entry_price > 0 else tp_price
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    quantity=qty_trail, callbackRate=2.0, activationPrice=activation, reduceOnly=True
                 )
-                tp_msg = f"TP1: {tp_price} | Trail: 2.0%"
+                tp_msg = f"TP1: {tp_price} | Trail: 2.0% (Act: {activation})"
             else:
                 # Full trailing
+                activation = entry_price if entry_price > 0 else tp_price
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                    quantity=abs_qty, callbackRate=2.0, activationPrice=activation, reduceOnly=True
                 )
-                tp_msg = f"Trail: {tp_price} (2.0%)"
+                tp_msg = f"Trail: {activation} (2.0%)"
             
             return True, f"{sl_msg}\n{tp_msg}"
             
@@ -547,19 +549,19 @@ class AsyncTradingSession:
                         symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
                         stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                     )
-                    # Trailing: Let the rest run (Activate at TP1, Callback 2.0%)
+                    # Trailing: Let the rest run (Activate at Entry, Callback 2.0%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {entry_price})"
                 else:
                     # Capital too small: Full Trailing Stop
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=quantity, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
+                    tp_msg = f"Trailing Stop: {entry_price} (2.0%)"
                 
                 success_msg = (
                     f"Long {symbol} (x{leverage})\n"
@@ -730,15 +732,15 @@ class AsyncTradingSession:
                     # Trailing Stop (50%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (50%)"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {entry_price})"
                 else:
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=quantity, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"Trailing Stop: {tp_price} (2.0%)"
+                    tp_msg = f"Trailing Stop: {entry_price} (2.0%)"
                 
                 return True, (
                     f"Short {symbol} (x{leverage})\n"
@@ -905,7 +907,7 @@ class AsyncTradingSession:
             
             # Delegate to Surgical Sync
             success, sync_msg = await self.synchronize_sl_tp_safe(
-                symbol, qty, sl_price, tp_price, side, min_notional, qty_precision
+                symbol, qty, sl_price, tp_price, side, min_notional, qty_precision, entry_price=current_price
             )
             
             if success:
