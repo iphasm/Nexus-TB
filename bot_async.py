@@ -219,6 +219,18 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                 )
                 
             elif mode == 'PILOT':
+                # Check if position already exists - DON'T trigger update on every signal
+                try:
+                    positions = await session.get_active_positions()
+                    has_position = any(p['symbol'] == symbol for p in positions)
+                    
+                    if has_position:
+                        # Position exists - skip to prevent SL/TP spam from repeated signals
+                        logger.debug(f"⏭️ {symbol}: Position exists, skipping (cooldown handles updates)")
+                        continue  # Skip this session's signal processing
+                except:
+                    pass  # If check fails, proceed with trade attempt
+                
                 # Auto-execute (no "entering pilot mode" message)
                 if side == 'LONG':
                     success, result = await session.execute_long_position(symbol)
@@ -238,11 +250,13 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         cb_alert = personality_manager.get_message(p_key, 'CB_TRIGGER')
                         await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
-                    await bot.send_message(
-                        session.chat_id,
-                        f"❌ Error: {result}",
-                        parse_mode="Markdown"
-                    )
+                    # Only log errors, don't spam user with cooldown messages
+                    if "Wait" not in result and "cooldown" not in result.lower():
+                        await bot.send_message(
+                            session.chat_id,
+                            f"❌ Error: {result}",
+                            parse_mode="Markdown"
+                        )
                     
         except Exception as e:
             logger.error(f"Signal dispatch error for {session.chat_id}: {e}")

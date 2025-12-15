@@ -222,34 +222,60 @@ class AsyncTradingSession:
 
     async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int) -> Tuple[bool, str]:
         """
-        Surgical SL/TP Synchronization (Refactored):
-        1. Fetch all open orders.
-        2. Cancel ONLY STOP_MARKET / TAKE_PROFIT_MARKET / TRAILING_STOP_MARKET.
-           (Preserves LIMIT orders for Grid/Scalping).
-        3. Place SL using reduceOnly=True (Avoids -4130 conflict).
-        4. Place TP using reduceOnly=True (Allows Split TPs).
+        Surgical SL/TP Synchronization (V2 - Anti-Spam):
+        1. Check if valid SL/TP already exists (skip if within 1% tolerance).
+        2. Cancel existing STOP_MARKET / TAKE_PROFIT_MARKET / TRAILING_STOP_MARKET.
+        3. Verify cancellation succeeded before proceeding.
+        4. Place new SL/TP with reduceOnly=True.
         """
         try:
-            # 1. Fetch Orders
+            # 1. Fetch existing orders
             orders = await self.client.futures_get_open_orders(symbol=symbol)
             
-            # 2. Surgical Filter
+            existing_sl = None
+            existing_tp_count = 0
             to_cancel = []
+            
             for o in orders:
-                if o['type'] in ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET']:
+                order_type = o.get('type', '')
+                if order_type == 'STOP_MARKET':
+                    existing_sl = float(o.get('stopPrice', 0))
+                    to_cancel.append(o['orderId'])
+                elif order_type in ['TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET']:
+                    existing_tp_count += 1
                     to_cancel.append(o['orderId'])
             
-            # Batch Cancel or Individual
+            # 2. Check if existing SL is within 1% tolerance - SKIP UPDATE
+            if existing_sl and sl_price > 0:
+                tolerance = abs(existing_sl - sl_price) / sl_price
+                if tolerance < 0.01 and existing_tp_count >= 1:
+                    return True, f"✅ SL/TP ya configurados (SL: {existing_sl:.2f}, TP count: {existing_tp_count}). Sin cambios."
+            
+            # 3. Cancel existing SL/TP orders
             if to_cancel:
-                # Try batch if possible, else distinct
+                print(f"🔄 {symbol}: Cancelling {len(to_cancel)} existing SL/TP orders...")
                 for oid in to_cancel:
                     try:
                         await self.client.futures_cancel_order(symbol=symbol, orderId=oid)
-                    except:
-                        pass
+                    except Exception as ce:
+                        if 'Unknown order' not in str(ce):
+                            print(f"⚠️ Cancel warning for {oid}: {ce}")
+                
+                # 4. VERIFY cancellation succeeded
                 await asyncio.sleep(0.5)
+                remaining = await self.client.futures_get_open_orders(symbol=symbol)
+                remaining_sltp = [o for o in remaining if o.get('type', '') in ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET']]
+                
+                if remaining_sltp:
+                    print(f"⚠️ {symbol}: {len(remaining_sltp)} orders still exist after cancel. Force retry...")
+                    for o in remaining_sltp:
+                        try:
+                            await self.client.futures_cancel_order(symbol=symbol, orderId=o['orderId'])
+                        except:
+                            pass
+                    await asyncio.sleep(0.5)
             
-            # 3. Place SL (Using reduceOnly to avoid closePosition conflict)
+            # 5. Place new SL (reduceOnly)
             sl_msg = ""
             abs_qty = abs(quantity)
             if sl_price > 0:
@@ -259,27 +285,27 @@ class AsyncTradingSession:
                     symbol=symbol, side=sl_side, type='STOP_MARKET',
                     stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
                 )
-                sl_msg = f"SL: {sl_price} (Protected)"
+                sl_msg = f"SL: {sl_price}"
                 
-            # 4. Place TP (Flexibility: Split TPs with reduceOnly)
+            # 6. Place TP (split or single trailing)
             tp_msg = ""
-            sl_side = 'SELL' if side == 'LONG' else 'BUY' # Same side for closing
+            sl_side = 'SELL' if side == 'LONG' else 'BUY'
             
             qty_tp1 = float(round(abs_qty / 2, qty_precision))
             qty_trail = float(round(abs_qty - qty_tp1, qty_precision))
             
             # Check split feasibility
-            current_price = sl_price # Approx, not critical for check
-            is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
+            current_price = sl_price if sl_price > 0 else tp_price
+            is_split = current_price > 0 and (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
             
             if is_split:
-                 # TP1
+                # TP1 (fixed)
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
                     stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                 )
-                # Trailing
+                # Trailing for rest
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
@@ -287,13 +313,13 @@ class AsyncTradingSession:
                 )
                 tp_msg = f"TP1: {tp_price} | Trail: 2.0%"
             else:
-                 # Full Trailing
+                # Full trailing
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
                     quantity=abs_qty, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
                 )
-                tp_msg = f"Trailing: {tp_price} (2.0%)"
+                tp_msg = f"Trail: {tp_price} (2.0%)"
             
             return True, f"{sl_msg}\n{tp_msg}"
             
@@ -757,8 +783,16 @@ class AsyncTradingSession:
         if not self.client:
             return False, "No session."
         
-        # SPAM PROTECTION: Check if this symbol is locked
+        # PERSISTENT COOLDOWN: Check global per-symbol cooldown
+        from antigravity_quantum.config import SLTP_UPDATE_COOLDOWN, SLTP_LAST_UPDATE
         now = time.time()
+        last_update = SLTP_LAST_UPDATE.get(symbol, 0)
+        
+        if now - last_update < SLTP_UPDATE_COOLDOWN:
+            remaining = int(SLTP_UPDATE_COOLDOWN - (now - last_update))
+            return False, f"⏳ {symbol} SL/TP updated recently. Wait {remaining//60}m {remaining%60}s."
+        
+        # OPERATION LOCK: Short-term lock to prevent concurrent updates
         if symbol in self._operation_locks:
             elapsed = now - self._operation_locks[symbol]
             if elapsed < self._lock_duration:
@@ -816,6 +850,8 @@ class AsyncTradingSession:
             )
             
             if success:
+                # Update persistent cooldown timestamp
+                SLTP_LAST_UPDATE[symbol] = time.time()
                 return True, (
                     f"🔄 SL/TP Updated (Surgical) for {symbol}\n"
                     f"{sync_msg}"

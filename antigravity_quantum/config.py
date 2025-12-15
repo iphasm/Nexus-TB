@@ -24,7 +24,10 @@ GROUP_CONFIG = {
 ALLOW_SLTP_UPDATE = True
 
 # Cooldown for SLTP updates (seconds) - prevents spam on open positions
-SLTP_UPDATE_COOLDOWN = 900  # 15 minutes minimum between updates per asset
+SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes minimum between updates per asset
+
+# Per-symbol last update timestamp (in-memory, persists during bot session)
+SLTP_LAST_UPDATE = {}  # {symbol: timestamp}
 
 # --- MODULE-SPECIFIC ASSET LISTS ---
 # These can be toggled via /assets menu
