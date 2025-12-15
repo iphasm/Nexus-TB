@@ -43,25 +43,25 @@ class QuantumEngine:
     async def core_loop(self):
         """Main Decision Loop"""
         print("🚀 Quantum Core Loop Started.")
+        cycle_count = 0
         while self.running:
+            cycle_count += 1
             # DYNAMIC FILTER: Remove disabled assets each cycle
             active_assets = [a for a in self.assets if a not in DISABLED_ASSETS]
             
             if not active_assets:
+                print(f"⚠️ Cycle {cycle_count}: No active assets (all disabled)")
                 await asyncio.sleep(60)
                 continue
-                
+            
+            signals_generated = 0
             for asset in active_assets:
-                # print(f"🔍 Scanning {asset}...") # Reduced Noise
-                
                 # 1. Fetch Data (Real)
                 market_data = await self.market_stream.get_candles(asset)
                 if market_data['dataframe'].empty:
                     continue
 
                 # 2. Get Dynamic Strategy
-                # In real version, we calculate volatility from market_data to pick strategy
-                # For now using VOL=0.5 default, or based on asset
                 volatility_index = 0.5 
                 strategy = StrategyFactory.get_strategy(asset, volatility_index)
                 
@@ -71,12 +71,18 @@ class QuantumEngine:
                 if signal:
                     # Inject strategy name
                     signal.strategy = strategy.name
+                    signals_generated += 1
                     print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
                     
                     if self.signal_callback:
                         await self.signal_callback(signal)
+            
+            # Diagnostic: Log cycle summary every 5 cycles
+            if cycle_count % 5 == 0:
+                print(f"📊 Cycle {cycle_count}: Scanned {len(active_assets)} assets, {signals_generated} signals generated")
                 
-            await asyncio.sleep(60) # 1 Minute Cycle (Matches 15m candle update speed approx)
+            await asyncio.sleep(60) # 1 Minute Cycle
+
 
     async def run(self):
         self.running = True

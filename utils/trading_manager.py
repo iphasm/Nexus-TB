@@ -57,14 +57,25 @@ class AsyncTradingSession:
         
         
         # --- MULTI-TENANT CONFIG INITIALIZATION ---
-        # SECURE DEFAULTS: Start with everything DISABLED for new sessions
+        # DEFAULT: Start with core strategies ENABLED for new sessions
         if 'strategies' not in self.config:
-            # Empty dict means all False by default
-            self.config['strategies'] = {}
+            # Initialize with sensible defaults matching ENABLED_STRATEGIES
+            self.config['strategies'] = {
+                'TREND': True,
+                'SCALPING': True,
+                'GRID': True,
+                'MEAN_REVERSION': True,
+                'BLACK_SWAN': True,
+                'SHARK': False  # Aggressive shorting OFF by default
+            }
             
         if 'groups' not in self.config:
-            # Empty dict means all False by default
-            self.config['groups'] = {}
+            # All market groups enabled by default
+            self.config['groups'] = {
+                'CRYPTO': True,
+                'STOCKS': True,
+                'COMMODITY': True
+            }
              
         if 'disabled_assets' not in self.config:
              self.config['disabled_assets'] = []
@@ -198,8 +209,10 @@ class AsyncTradingSession:
         return strategies[strategy]
 
     def is_strategy_enabled(self, strategy: str) -> bool:
-        """Check if strategy is enabled."""
-        return self.config.get('strategies', {}).get(strategy, False)
+        """Check if strategy is enabled. Default TRUE for most strategies."""
+        # Default to True for most strategies (except SHARK which is aggressive)
+        default = False if strategy == 'SHARK' else True
+        return self.config.get('strategies', {}).get(strategy, default)
 
     def toggle_group(self, group: str) -> bool:
         """Toggle a specific asset group on/off."""
@@ -210,8 +223,8 @@ class AsyncTradingSession:
         return groups[group]
 
     def is_group_enabled(self, group: str) -> bool:
-        """Check if group is enabled."""
-        return self.config.get('groups', {}).get(group, False)
+        """Check if group is enabled. Default TRUE for all groups."""
+        return self.config.get('groups', {}).get(group, True)
 
     def toggle_asset_blacklist(self, symbol: str) -> bool:
         """Toggle asset in blacklist. Returns True if now DISABLED (in list)."""
@@ -383,18 +396,18 @@ class AsyncTradingSession:
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=qty_trail, callbackRate=2.0, activationPrice=activation, reduceOnly=True
+                    quantity=qty_trail, callbackRate=1.0, activationPrice=activation, reduceOnly=True
                 )
-                tp_msg = f"TP1: {tp_price} | Trail: 2.0% (Act: {activation})"
+                tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
             else:
                 # Full trailing
                 activation = entry_price if entry_price > 0 else tp_price
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=abs_qty, callbackRate=2.0, activationPrice=activation, reduceOnly=True
+                    quantity=abs_qty, callbackRate=1.0, activationPrice=activation, reduceOnly=True
                 )
-                tp_msg = f"Trail: {activation} (2.0%)"
+                tp_msg = f"Trail: {activation} (1.0%)"
             
             return True, f"{sl_msg}\n{tp_msg}"
             
@@ -565,19 +578,20 @@ class AsyncTradingSession:
                         symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
                         stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                     )
-                    # Trailing: Let the rest run (Activate at TP1, Callback 2.0%)
+                    # Trailing: Let the rest run (Activate at TP1, Callback 1.0%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=1.0, activationPrice=tp_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {tp_price})"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
                 else:
                     # Capital too small: Full Trailing Stop
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
+                        quantity=quantity, callbackRate=1.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"Trailing Stop: {entry_price} (2.0%)"
+                    tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
+
                 
                 success_msg = (
                     f"Long {symbol} (x{leverage})\n"
@@ -748,15 +762,16 @@ class AsyncTradingSession:
                     # Trailing Stop (50%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=1.0, activationPrice=tp_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {tp_price})"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
                 else:
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
+                        quantity=quantity, callbackRate=1.0, activationPrice=entry_price, reduceOnly=True
                     )
-                    tp_msg = f"Trailing Stop: {entry_price} (2.0%)"
+                    tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
+
                 
                 return True, (
                     f"Short {symbol} (x{leverage})\n"

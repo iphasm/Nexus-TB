@@ -230,7 +230,7 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TOGGLE|"))
 async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle strategy on/off and persist to Session."""
+    """Toggle strategy on/off and persist to Session + sync with Global Config."""
     strategy = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
@@ -250,6 +250,10 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await session.update_config('sentiment_filter', new_state)
         await session_manager.save_sessions()
         
+        # SYNC with global config
+        import antigravity_quantum.config as aq_config
+        aq_config.AI_FILTER_ENABLED = new_state
+        
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
         await callback.answer(f"🧠 AI Filter {status}")
         
@@ -263,6 +267,12 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         new_val = session.toggle_strategy(strategy)
         await session_manager.save_sessions()
         
+        # === CRITICAL: Sync with Global ENABLED_STRATEGIES ===
+        # This ensures StrategyFactory respects user preferences
+        import antigravity_quantum.config as aq_config
+        aq_config.ENABLED_STRATEGIES[strategy] = new_val
+        print(f"🔄 Strategy Sync: {strategy} = {new_val}")
+        
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
         await callback.answer(f"{strategy}: {new_state}")
         
@@ -273,7 +283,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         g_state = "✅" if strategies.get('GRID', True) else "❌"
         m_state = "✅" if strategies.get('MEAN_REVERSION', True) else "❌"
         bs_state = "✅" if strategies.get('BLACK_SWAN', True) else "❌"
-        sh_state = "✅" if strategies.get('SHARK', True) else "❌"
+        sh_state = "✅" if strategies.get('SHARK', False) else "❌"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
@@ -283,13 +293,15 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
                 InlineKeyboardButton(text=f"⚡ Scalp: {s_state}", callback_data="TOGGLE|SCALPING"),
                 InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
             ],
-            [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
+            [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")],
+            [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
         ])
         
         await callback.message.edit_reply_markup(reply_markup=keyboard)
         
     except Exception as e:
         await callback.answer(f"Error: {e}", show_alert=True)
+
 
 
 @router.callback_query(F.data.startswith("TOGGLEGRP|"))
