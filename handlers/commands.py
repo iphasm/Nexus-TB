@@ -126,7 +126,7 @@ async def cmd_start(message: Message, **kwargs):
         'MEAN_REVERSION': '📉 MR'
     }
     for k, v in ENABLED_STRATEGIES.items():
-        if v:
+        if v and k != 'AI_FILTER':  # AI_FILTER is not a strategy
             active_strats.append(strat_icons.get(k, k))
     
     strategies_str = " | ".join(active_strats) if active_strats else "⚠️ Ninguna (Manual)"
