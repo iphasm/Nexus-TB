@@ -106,21 +106,20 @@ class GatekeeperMiddleware(BaseMiddleware):
                 # REJECTION LOGIC
                 logger.warning(f"⛔ Access Denied: {chat_id} ({user.first_name}) - Role: {role}")
                 
-                # Get owner contact from env
-                owner_id = os.getenv('TELEGRAM_CHAT_ID', '').split(',')[0].strip()
+                # Get owner contact from env (username link preferred, fallback to chat_id)
+                owner_contact = os.getenv('OWNER_CONTACT', '').strip()
+                if not owner_contact:
+                    owner_contact = f"ID: {owner_id}" if owner_id else "_No configurado_"
                 
                 # Reply with rejection message (only for private chats to avoid spam in groups)
                 if isinstance(event, Message) and event.chat.type == 'private':
                     try:
-                        # Create clickable link to owner profile
-                        owner_link = f"[Contactar Owner](tg://user?id={owner_id})" if owner_id else "_No configurado_"
-                        
                         await event.answer(
                             f"⛔ **ACCESO DENEGADO**\n\n"
                             f"No tienes autorización para utilizar este Bot.\n\n"
                             f"📋 **Tu ID:** `{chat_id}`\n"
-                            f"👤 **Owner:** {owner_link}\n\n"
-                            f"_Haz clic en el enlace para solicitar acceso._",
+                            f"👤 **Owner:** {owner_contact}\n\n"
+                            f"_Contacta al Owner para solicitar acceso._",
                             parse_mode="Markdown"
                         )
                     except:
