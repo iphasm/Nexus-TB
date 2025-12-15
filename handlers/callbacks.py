@@ -230,9 +230,35 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TOGGLE|"))
 async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle strategy on/off and persist to DB"""
+    """Toggle strategy on/off and persist to DB. Also handles AI_FILTER."""
     strategy = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
     
+    # Special case: AI_FILTER toggle
+    if strategy == "AI_FILTER":
+        import antigravity_quantum.config as aq_config
+        from utils.db import save_bot_state
+        from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
+        
+        # Toggle the state
+        aq_config.AI_FILTER_ENABLED = not aq_config.AI_FILTER_ENABLED
+        new_state = aq_config.AI_FILTER_ENABLED
+        
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        await callback.answer(f"🧠 AI Filter {status}")
+        
+        # Persist state
+        try:
+            save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, ai_filter=new_state)
+        except:
+            pass
+        
+        # Refresh /start menu
+        from handlers.commands import cmd_start
+        await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
+        return
+    
+    # Normal strategy toggle
     try:
         from antigravity_quantum.config import ENABLED_STRATEGIES, DISABLED_ASSETS, GROUP_CONFIG
         from utils.db import save_bot_state
@@ -495,30 +521,3 @@ async def handle_intel_menu(callback: CallbackQuery, **kwargs):
     ])
     
     await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
-
-
-@router.callback_query(F.data == "TOGGLE|AI_FILTER")
-async def handle_ai_filter_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle AI Sentiment Filter Module on/off"""
-    import antigravity_quantum.config as aq_config
-    from utils.db import save_bot_state
-    from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
-    
-    session_manager = kwargs.get('session_manager')
-    
-    # Toggle the state
-    aq_config.AI_FILTER_ENABLED = not aq_config.AI_FILTER_ENABLED
-    new_state = aq_config.AI_FILTER_ENABLED
-    
-    status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
-    await callback.answer(f"🧠 AI Filter {status}")
-    
-    # Persist state
-    try:
-        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS, ai_filter=new_state)
-    except:
-        pass
-    
-    # Refresh /start menu
-    from handlers.commands import cmd_start
-    await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
