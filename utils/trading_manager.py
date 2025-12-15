@@ -1419,6 +1419,9 @@ class AsyncSessionManager:
                         config = info.get('config', {})
                         
                         # FORCE DEFAULTS if unauthorized (Fixes persistent old config issue)
+                        api_key = info.get('api_key', '')
+                        api_secret = info.get('api_secret', '')
+                        
                         if not allowed:
                             print(f"🔒 Locking down Unauthorized session: {chat_id}")
                             config.update({
@@ -1428,11 +1431,14 @@ class AsyncSessionManager:
                                 "sentiment_filter": False,
                                 "personality": "STANDARD_ES"
                             })
+                            # Force Clear Keys
+                            api_key = ""
+                            api_secret = ""
                         
                         session = AsyncTradingSession(
                             chat_id=chat_id,
-                            api_key=info.get('api_key', ''),
-                            api_secret=info.get('api_secret', ''),
+                            api_key=api_key,
+                            api_secret=api_secret,
                             config=config
                         )
                         await session.initialize()
@@ -1469,6 +1475,9 @@ class AsyncSessionManager:
                             "sentiment_filter": False,
                             "personality": "STANDARD_ES"
                         })
+                        # Force Clear Keys in Info dict (for init below)
+                        info['api_key'] = ""
+                        info['api_secret'] = ""
 
                     session = AsyncTradingSession(
                         chat_id=chat_id,

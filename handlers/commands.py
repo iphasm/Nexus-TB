@@ -131,9 +131,8 @@ async def cmd_start(message: Message, **kwargs):
     }
     
     # Use session strategies if available
-    current_strategies = session.config.get('strategies', {}) if session else ENABLED_STRATEGIES
-    if not current_strategies:
-        current_strategies = ENABLED_STRATEGIES
+    current_strategies = session.config.get('strategies', {}) if session else {}
+    # FALLBACK REMOVED: Trust the session strategy state (even if empty)
         
     for k, v in current_strategies.items():
         if v and k != 'AI_FILTER':  # AI_FILTER is not a strategy
