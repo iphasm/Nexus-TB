@@ -856,11 +856,11 @@ class AsyncTradingSession:
             
             for p in active_pos:
                 symbol = p['symbol']
-                qty = float(p['positionAmt'])
+                qty = float(p['amt'])
                 if qty == 0: continue
 
                 side = 'LONG' if qty > 0 else 'SHORT'
-                entry_price = float(p['entryPrice'])
+                entry_price = float(p['entry'])
                 
                 # Get current price
                 ticker = await self.client.futures_symbol_ticker(symbol=symbol)
