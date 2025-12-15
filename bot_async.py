@@ -112,12 +112,15 @@ class GatekeeperMiddleware(BaseMiddleware):
                 # Reply with rejection message (only for private chats to avoid spam in groups)
                 if isinstance(event, Message) and event.chat.type == 'private':
                     try:
+                        # Create clickable link to owner profile
+                        owner_link = f"[Contactar Owner](tg://user?id={owner_id})" if owner_id else "_No configurado_"
+                        
                         await event.answer(
                             f"⛔ **ACCESO DENEGADO**\n\n"
                             f"No tienes autorización para utilizar este Bot.\n\n"
                             f"📋 **Tu ID:** `{chat_id}`\n"
-                            f"👤 **Contacto del Owner:** `{owner_id}`\n\n"
-                            f"_Escribe a esta cuenta para solicitar acceso._",
+                            f"👤 **Owner:** {owner_link}\n\n"
+                            f"_Haz clic en el enlace para solicitar acceso._",
                             parse_mode="Markdown"
                         )
                     except:
