@@ -1156,26 +1156,29 @@ async def cmd_price(message: Message, **kwargs):
         yf_error = ""
         if yf_symbols:
             try:
-                # Yahoo Finance query API (public)
-                symbols_str = ','.join(yf_symbols)
-                url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbols_str}"
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-                resp = requests.get(url, headers=headers, timeout=10)
+                # Use Yahoo Finance chart endpoint (still public)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
                 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    quotes = data.get('quoteResponse', {}).get('result', [])
-                    for q in quotes:
-                        sym = q.get('symbol', '')
-                        price = q.get('regularMarketPrice', 0)
-                        name = TICKER_MAP.get(sym, sym)
+                for sym in yf_symbols:
+                    try:
+                        # Chart endpoint gives current price
+                        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1d"
+                        resp = requests.get(url, headers=headers, timeout=5)
                         
-                        if sym in stock_targets:
-                            stocks_str += f"• *{name}:* `${price:,.2f}`\n"
-                        elif sym in commodity_targets:
-                            commodities_str += f"• *{name}:* `${price:,.2f}`\n"
-                else:
-                    yf_error = f"HTTP {resp.status_code}"
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            meta = data.get('chart', {}).get('result', [{}])[0].get('meta', {})
+                            price = meta.get('regularMarketPrice', 0)
+                            name = TICKER_MAP.get(sym, sym)
+                            
+                            if price and sym in stock_targets:
+                                stocks_str += f"• *{name}:* `${price:,.2f}`\n"
+                            elif price and sym in commodity_targets:
+                                commodities_str += f"• *{name}:* `${price:,.2f}`\n"
+                    except:
+                        continue
             except Exception as e:
                 yf_error = str(e)[:30]
         
