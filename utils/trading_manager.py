@@ -363,7 +363,7 @@ class AsyncTradingSession:
                     stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                 )
                 # Trailing for rest
-                activation = entry_price if entry_price > 0 else tp_price
+                activation = tp_price  # Activate at TP1
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
@@ -549,12 +549,12 @@ class AsyncTradingSession:
                         symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
                         stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
                     )
-                    # Trailing: Let the rest run (Activate at Entry, Callback 2.0%)
+                    # Trailing: Let the rest run (Activate at TP1, Callback 2.0%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {entry_price})"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {tp_price})"
                 else:
                     # Capital too small: Full Trailing Stop
                     await self.client.futures_create_order(
@@ -732,9 +732,9 @@ class AsyncTradingSession:
                     # Trailing Stop (50%)
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=2.0, activationPrice=entry_price, reduceOnly=True
+                        quantity=qty_trail, callbackRate=2.0, activationPrice=tp_price, reduceOnly=True
                     )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {entry_price})"
+                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 2.0% (Act: {tp_price})"
                 else:
                     await self.client.futures_create_order(
                         symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
