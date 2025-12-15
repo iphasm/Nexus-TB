@@ -334,7 +334,8 @@ async def cmd_help(message: Message):
     help_text += (
         "\n📖 *DOCS*\n"
         "• /about - Sobre el bot\n"
-        "• /strategy - Lógica de trading"
+        "• /strategy - Lógica de trading\n"
+        "• /startup - Guía de inicio rápido"
     )
     
     try:
