@@ -29,7 +29,7 @@ class QuantumAnalyst:
 
         # Construct the context
         prompt = f"""
-        Act as a Professional Crypto Trader ({personality} Persona).
+        Act as a Professional Crypto/Stocks Trader ({personality} Persona).
         Analyze this setup for {symbol} on {timeframe} timeframe:
         
         Price: {indicators.get('price', 'N/A')}
