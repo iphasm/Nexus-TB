@@ -10,6 +10,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import requests
+from utils.auth import admin_only, is_authorized_admin, owner_only
 
 router = Router(name="commands")
 
@@ -190,14 +191,18 @@ async def cmd_start(message: Message, **kwargs):
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
-    """Command reference - COMPREHENSIVE UPDATE"""
+    """Command reference - DYNAMIC based on ROLE"""
+    
+    is_admin = is_authorized_admin(str(message.chat.id))
+    
+    # Base Help (For everyone)
     help_text = (
         "🤖 *ANTIGRAVITY BOT v3.5*\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         
         "📊 *INFO & MERCADO*\n"
         "• /start - Menú principal\n"
-        "• /status - Estado del sistema\n"
+        "• /status - Estado personal\n"
         "• /wallet - Ver cartera\n"
         "• /analyze `<SYM>` - Análisis IA\n"
         "• /cooldown - Ver/Setear cooldown\n\n"
@@ -237,15 +242,20 @@ async def cmd_help(message: Message):
         "🛡️ *SEGURIDAD*\n"
         "• /risk - Gestión de riesgo\n"
         "• /resetpilot - Reset breaker\n"
-        "• /debug - Diagnóstico\n\n"
-        
-        "👑 *ADMINISTRACIÓN*\n"
-        "• /subs - Listar usuarios\n"
-        "• /addsub - Agregar suscriptor\n"
-        "• /addadmin - Agregar admin\n"
-        "• /remsub - Eliminar usuario\n\n"
+    )
+    
+    # Admin Section (Only if admin)
+    if is_admin:
+        help_text += (
+            "\n👑 *ADMINISTRACIÓN*\n"
+            "• /subs - Listar usuarios\n"
+            "• /addsub - Agregar suscriptor\n"
+            "• /remsub - Eliminar usuario\n"
+            "• /debug - Diagnóstico Sistema\n"
+        )
 
-        "📖 *DOCS*\n"
+    help_text += (
+        "\n📖 *DOCS*\n"
         "• /about - Sobre el bot\n"
         "• /strategy - Lógica de trading"
     )
@@ -253,8 +263,8 @@ async def cmd_help(message: Message):
     try:
         await message.answer(help_text, parse_mode="Markdown")
     except:
-        # Fallback sin markdown
         await message.answer(help_text.replace('*', '').replace('`', '').replace('\\_', '_'))
+        
 
 
 @router.message(Command("status"))
@@ -299,20 +309,29 @@ async def cmd_status(message: Message, **kwargs):
         count_str = f"({count})" if enabled else ""
         active_radars += f"{icon} {name} {count_str}\n"
     
+    is_admin = is_authorized_admin(str(message.chat.id))
+    
     status = (
         "🤖 **Estado de Antigravity**\n\n"
         
-        "**Modo de Operación**\n"
-        f"🕹️ `{mode_display}`\n\n"
+        "**Tu Sesión**\n"
+        f"🕹️ Config: `{mode_display}`\n"
+        f"💻 Conexión: **{'Estable' if has_keys else 'Desconectada'}**\n\n"
         
-        "**Entorno de Mercado**\n"
-        f"🌡️ Sentimiento: {fg_text}\n"
-        f"💻 Conexión: **{'Estable' if has_keys else 'Desconectado'}**\n\n"
-        
-        "**Escáneres Activos**\n"
-        f"{active_radars}\n"
-        "_Sistema ejecutándose correctamente._"
+        "**Mercado Hoy**\n"
+        f"🌡️ Sentimiento: {fg_text}\n\n"
     )
+    
+    # Extended info for Admins ONLY
+    if is_admin:
+        active_users_val = len(session_manager.sessions) if session_manager else 0
+        status += (
+            "🛡️ **Panel Admin**\n"
+            f"👥 Sesiones Activas: `{active_users_val}`\n"
+            "_Sistema Global OK_"
+        )
+    else:
+        status += "_Sistema ejecutándose correctamente._"
     
     await message.answer(status, parse_mode="Markdown")
 
@@ -496,6 +515,7 @@ async def cmd_pnl(message: Message, **kwargs):
 
 
 @router.message(Command("debug"))
+@admin_only
 async def cmd_debug(message: Message, **kwargs):
     """System diagnostics - Full Network Report"""
     # Import locally to avoid circular deps if any

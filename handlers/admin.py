@@ -7,15 +7,13 @@ from datetime import datetime
 
 router = Router()
 
-def is_authorized_admin(chat_id: str) -> bool:
-    """Check if user is Owner (ENV) or Admin (DB)."""
-    allowed, role = get_user_role(str(chat_id))
-    return allowed and role in ['owner', 'admin']
+from utils.auth import admin_only, owner_only
 
 @router.message(Command("addsub"))
 async def cmd_addsub(message: Message):
-    if not is_authorized_admin(message.chat.id):
-        return # Silent ignore
+@router.message(Command("addsub"))
+@admin_only
+async def cmd_addsub(message: Message):
         
     try:
         args = message.text.split()
@@ -42,9 +40,8 @@ async def cmd_addsub(message: Message):
         await message.answer(f"❌ Error: {e}")
 
 @router.message(Command("addadmin"))
+@owner_only
 async def cmd_addadmin(message: Message):
-    if not is_authorized_admin(message.chat.id):
-        return
         
     try:
         args = message.text.split()
@@ -67,8 +64,9 @@ async def cmd_addadmin(message: Message):
 
 @router.message(Command("remsub"))
 async def cmd_remsub(message: Message):
-    if not is_authorized_admin(message.chat.id):
-        return
+@router.message(Command("remsub"))
+@admin_only
+async def cmd_remsub(message: Message):
         
     try:
         args = message.text.split()
@@ -87,8 +85,9 @@ async def cmd_remsub(message: Message):
 
 @router.message(Command("subs"))
 async def cmd_subs(message: Message):
-    if not is_authorized_admin(message.chat.id):
-        return
+@router.message(Command("subs"))
+@admin_only
+async def cmd_subs(message: Message):
         
     users = get_all_system_users()
     
