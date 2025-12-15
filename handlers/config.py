@@ -7,7 +7,29 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
+import os
+import re
+
 router = Router(name="config")
+
+def get_proxy_ip_safe() -> str:
+    """Extract IP from PROXY_URL safely."""
+    proxy = os.getenv('PROXY_URL', '')
+    if not proxy: return None
+    
+    # Regex to extract IP
+    match = re.search(r'@([\d\.]+):', proxy)
+    if match:
+        return match.group(1)
+    
+    # Try simple split if regex fails (e.g. http://1.2.3.4:80)
+    try:
+        if '@' in proxy:
+            return proxy.split('@')[1].split(':')[0]
+        else:
+            return proxy.split('//')[1].split(':')[0]
+    except:
+        return None
 
 
 @router.message(Command("config"))
@@ -215,6 +237,15 @@ async def cmd_set_keys(message: Message, **kwargs):
             status += "🔌 Conexión con Binance: *ESTABLE*"
         else:
             status += "⚠️ Keys guardadas pero *falló la conexión* (Revisa si son correctas)."
+            
+        # PROXY INSTRUCTION
+        proxy_ip = get_proxy_ip_safe()
+        if proxy_ip:
+            status += (
+                f"\n\n🚨 **ACCIÓN REQUERIDA** 🚨\n"
+                f"Para evitar bloqueos, añade esta IP a la **Lista Blanca (Whitelist)** de tu API en Binance:\n"
+                f"`{proxy_ip}`"
+            )
         
         await message.answer(status, parse_mode="Markdown")
         
@@ -262,6 +293,15 @@ async def cmd_set_alpaca(message: Message, **kwargs):
             status += "🦙 Conexión con Alpaca: *ESTABLE*"
         else:
             status += "⚠️ Keys guardadas pero *falló la conexión*."
+            
+        # PROXY INSTRUCTION
+        proxy_ip = get_proxy_ip_safe()
+        if proxy_ip:
+            status += (
+                f"\n\n🚨 **ACCIÓN REQUERIDA** 🚨\n"
+                f"Asegúrate de permitir el acceso desde esta IP en Alpaca:\n"
+                f"`{proxy_ip}`"
+            )
         
         await message.answer(status, parse_mode="Markdown")
         

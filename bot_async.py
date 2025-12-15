@@ -103,9 +103,27 @@ class GatekeeperMiddleware(BaseMiddleware):
             allowed, role = get_user_role(str(user.id))
             
             if not allowed:
-                # Silent blocking to avoid spam, or one-time warning?
-                # Let's just ignore for now or print log
-                print(f"⛔ Access Denied: {user.id} ({user.first_name}) - Role: {role}")
+                # REJECTION LOGIC
+                logger.warning(f"⛔ Access Denied: {chat_id} ({user.first_name}) - Role: {role}")
+                
+                # Reply with rejection message (only for private chats to avoid spam in groups)
+                if isinstance(event, Message) and event.chat.type == 'private':
+                    try:
+                        await event.answer(
+                            f"⛔ **ACCESO DENEGADO**\n\n"
+                            f"No tienes autorización para operar este sistema.\n"
+                            f"ID de Usuario: `{chat_id}`\n\n"
+                            f"_Contacta al administrador para solicitar acceso._",
+                            parse_mode="Markdown"
+                        )
+                    except:
+                        pass
+                elif isinstance(event, CallbackQuery):
+                     try:
+                         await event.answer("⛔ Acceso Denegado", show_alert=True)
+                     except:
+                         pass
+                         
                 return # Block execution
                 
             # Optional: Inject role into data handler
