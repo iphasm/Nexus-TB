@@ -1153,26 +1153,31 @@ async def cmd_price(message: Message, **kwargs):
         commodities_str = ""
         
         yf_symbols = stock_targets[:4] + commodity_targets[:3]  # Limit
+        yf_error = ""
         if yf_symbols:
             try:
                 # Yahoo Finance query API (public)
                 symbols_str = ','.join(yf_symbols)
                 url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbols_str}"
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                resp = requests.get(url, headers=headers, timeout=5).json()
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                resp = requests.get(url, headers=headers, timeout=10)
                 
-                quotes = resp.get('quoteResponse', {}).get('result', [])
-                for q in quotes:
-                    sym = q.get('symbol', '')
-                    price = q.get('regularMarketPrice', 0)
-                    name = TICKER_MAP.get(sym, sym)
-                    
-                    if sym in stock_targets:
-                        stocks_str += f"• *{name}:* `${price:,.2f}`\n"
-                    elif sym in commodity_targets:
-                        commodities_str += f"• *{name}:* `${price:,.2f}`\n"
-            except:
-                pass
+                if resp.status_code == 200:
+                    data = resp.json()
+                    quotes = data.get('quoteResponse', {}).get('result', [])
+                    for q in quotes:
+                        sym = q.get('symbol', '')
+                        price = q.get('regularMarketPrice', 0)
+                        name = TICKER_MAP.get(sym, sym)
+                        
+                        if sym in stock_targets:
+                            stocks_str += f"• *{name}:* `${price:,.2f}`\n"
+                        elif sym in commodity_targets:
+                            commodities_str += f"• *{name}:* `${price:,.2f}`\n"
+                else:
+                    yf_error = f"HTTP {resp.status_code}"
+            except Exception as e:
+                yf_error = str(e)[:30]
         
         # Build final message
         total = crypto_count + len(stocks_str.split('\n')) - 1 + len(commodities_str.split('\n')) - 1
@@ -1189,6 +1194,13 @@ async def cmd_price(message: Message, **kwargs):
             msg += f"📈 **Stocks:**\n{stocks_str}\n"
         if commodities_str:
             msg += f"🏆 **Commodities:**\n{commodities_str}\n"
+        
+        # Debug: Show if no stocks/commodities
+        if yf_symbols and not (stocks_str or commodities_str):
+            if yf_error:
+                msg += f"⚠️ _YF Error: {yf_error}_\n"
+            else:
+                msg += f"⚠️ _Symbols: {yf_symbols[:3]}..._\n"
         
         if not (crypto_str or stocks_str or commodities_str):
             msg += "📭 No hay activos activos.\n"
