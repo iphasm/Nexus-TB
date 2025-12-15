@@ -367,7 +367,12 @@ async def main():
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
             
-    # 4. Register Middleware
+    # 4. Register Middleware (BEFORE ROUTERS!)
+    # GatekeeperMiddleware must be registered first so it blocks before other handlers run
+    dp.message.middleware(GatekeeperMiddleware())
+    dp.callback_query.middleware(GatekeeperMiddleware())
+    
+    # SessionMiddleware injects session_manager
     dp.message.middleware(SessionMiddleware(session_manager))
     dp.callback_query.middleware(SessionMiddleware(session_manager))
     
@@ -383,11 +388,6 @@ async def main():
     dp.include_router(config_router)
     dp.include_router(trading_router)
     dp.include_router(callbacks_router)
-    
-    # 5. Register Middleware
-    # Session middleware for all handlers
-    dp.update.middleware(SessionMiddleware(session_manager))
-    dp.update.middleware(GatekeeperMiddleware())
     
     logger.info("✅ Routers and Middleware registered.")
 
