@@ -310,18 +310,22 @@ class AsyncTradingSession:
                     return True, f"✅ SL/TP ya configurados (SL: {existing_sl:.2f}, TP count: {existing_tp_count}). Sin cambios."
             
             # 3. Cancel existing SL/TP orders
-            if to_cancel:
-                print(f"🔄 {symbol}: Cancelling {len(to_cancel)} existing SL/TP orders...")
-                for oid in to_cancel:
-                    try:
-                        await self.client.futures_cancel_order(symbol=symbol, orderId=oid)
-                    except Exception as ce:
-                        if 'Unknown order' not in str(ce):
-                            print(f"⚠️ Cancel warning for {oid}: {ce}")
+            # 3. Cancel existing SL/TP orders - FORCE CLEANUP
+            # If we reached here, tolerance check failed or forced update.
+            # We must clear ALL open orders for this symbol to prevent duplicates.
+            try:
+                print(f"🔄 {symbol}: Cancelling ALL open orders to refresh...")
+                await self.client.futures_cancel_all_open_orders(symbol=symbol)
                 
-                # 4. VERIFY cancellation succeeded
-                await asyncio.sleep(0.5)
-                # Double-check logic omitted for brevity, assumed sufficient
+                # 4. VERIFY cancellation succeeded (Wait for propagation)
+                for _ in range(5): # Wait up to 2.5s
+                    await asyncio.sleep(0.5)
+                    remaining = await self.client.futures_get_open_orders(symbol=symbol)
+                    if not remaining:
+                        break
+                    print(f"⚠️ {symbol}: Waiting for cancellation... ({len(remaining)} left)")
+            except Exception as e:
+                print(f"⚠️ Error cancelling orders for {symbol}: {e}")
             
             # 5. Place new SL (reduceOnly) with -2021 check
             sl_msg = ""
