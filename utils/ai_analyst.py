@@ -103,15 +103,14 @@ class QuantumAnalyst:
         - Ancho BB: ${bb_width:,.2f} (volatilidad)
         - Volumen: {vol_status}
         
-        TAREA: Interpreta estos datos técnicos y elabora una respuesta de EXACTAMENTE 100 palabras en UN SOLO PÁRRAFO.
+        TAREA: Interpreta estos datos técnicos y elabora una respuesta de máximo 100 palabras en UN SOLO PÁRRAFO.
         
         REGLAS:
         1. Habla COMPLETAMENTE en primera persona como el personaje.
         2. Usa expresiones, muletillas y el tono característico del personaje.
         3. Da tu opinión sobre si es buena/mala entrada, qué indica el RSI, volatilidad, etc.
         4. El texto debe salir PLANO (sin markdown, sin asteriscos, sin negritas).
-        5. Idioma: ESPAÑOL.
-        6. Si el personaje es inglés o francés, igual responde en español pero con su estilo.
+        5. Si el personaje es inglés o francés, responde en el idioma correspondiente.
         """
 
         try:
