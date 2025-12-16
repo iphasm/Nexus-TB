@@ -8,6 +8,7 @@ This replaces main.py for the async architecture migration.
 import asyncio
 import os
 import logging
+import random
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import Bot, Dispatcher, BaseMiddleware
@@ -180,7 +181,20 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
-    reason = f"{strategy} (C: {confidence:.0%})"
+    
+    # Format Reason with Metadata
+    # User Format: [Strategy | Conf: 85% | Param1: Val1]
+    meta_params = []
+    if getattr(signal, 'metadata', None):
+        for k, v in signal.metadata.items():
+            if k.lower() == 'strategy': continue
+            if isinstance(v, float):
+                meta_params.append(f"{k.upper()}: {v:.1f}")
+            else:
+                meta_params.append(f"{k.upper()}: {v}")
+    
+    params_str = " | ".join(meta_params)
+    reason = f"[{strategy} | Conf: {confidence:.0%} | {params_str}]"
     
     logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy})")
     
@@ -212,8 +226,13 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
             mode = session.mode
             p_key = session.config.get('personality', 'STANDARD_ES')
             
-            # Calculate SL/TP preview
-            sl_prev, tp_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0)
+            # Calculate SL/TP/TS preview
+            sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
+            
+            # Fetch Personality Data
+            profile = personality_manager.PROFILES.get(p_key, personality_manager.PROFILES.get('STANDARD_ES'))
+            title = profile.get('NAME', 'Antigravity Bot')
+            quote = random.choice(profile.get('GREETING', ["Ready."]))
             
             if mode == 'WATCHER':
                 # Use personality message
@@ -221,13 +240,15 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_LONG',
                         asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev
+                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        title=title, quote=quote, strategy_name=strategy
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
                         asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev
+                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        title=title, quote=quote, strategy_name=strategy
                     )
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
@@ -250,13 +271,15 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_LONG',
                         asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev
+                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        title=title, quote=quote
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
                         asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev
+                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        title=title, quote=quote
                     )
                 await bot.send_message(
                     session.chat_id, msg, 

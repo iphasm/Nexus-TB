@@ -1331,10 +1331,10 @@ class AsyncTradingSession:
 
     # --- RESTORED METHODS FROM SYNC ---
     
-    def get_trade_preview(self, symbol: str, side: str, current_price: float, atr: Optional[float] = None) -> Tuple[float, float]:
+    def get_trade_preview(self, symbol: str, side: str, current_price: float, atr: Optional[float] = None) -> Tuple[float, float, float]:
         """
-        Calculates TP and SL prices without executing the trade.
-        Returns: (sl_price, tp_price)
+        Calculates TP, SL, and TS (Trailing Stop Activation) prices without executing the trade.
+        Returns: (sl_price, tp_price, ts_price)
         """
         try:
             price_precision = 2
@@ -1362,10 +1362,13 @@ class AsyncTradingSession:
                     sl_price = round(current_price * (1 + sl_pct), price_precision)
                     tp_price = round(current_price * (1 - tp_pct), price_precision)
             
-            return sl_price, tp_price
+            # TS Activation is usually set to TP1 price in our logic
+            ts_price = tp_price
+            
+            return sl_price, tp_price, ts_price
         except Exception as e:
             print(f"Preview Error: {e}")
-            return 0.0, 0.0
+            return 0.0, 0.0, 0.0
 
     async def execute_flip_position(self, symbol: str, new_side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
         """
