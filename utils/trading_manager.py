@@ -795,6 +795,41 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"[{symbol}] Error: {str(e)}"
     
+    async def cancel_algo_orders(self, symbol: str):
+        """
+        Explicitly cancel all ALGO orders (SL/TP/Trailing) for a symbol.
+        Uses private endpoint DELETE /fapi/v1/algo/allOpenOrders
+        """
+        if not self.client: return
+        
+        try:
+            # Timestamp required for raw requests usually handled by client, 
+            # but using _request_api (internal) or equivalent if available.
+            # Python-binance client._request handles signing.
+            # Endpoint: DELETE /fapi/v1/algo/allOpenOrders
+            await self.client._request('DELETE', '/fapi/v1/algo/allOpenOrders', signed=True, data={'symbol': symbol})
+            # print(f"🧹 Algo orders cleared for {symbol}")
+        except Exception as e:
+            # code -2011: Unknown order sent (means no algo orders found)
+            if "-2011" not in str(e):
+                print(f"⚠️ Algo Cancel Error ({symbol}): {e}")
+
+    async def _cancel_all_robust(self, symbol: str):
+        """
+        Robust cancellation of ALL orders (Standard + Algo).
+        """
+        # 1. Cancel Standard Orders (Limit, Market)
+        try:
+            await self.client.futures_cancel_all_open_orders(symbol=symbol)
+        except Exception as e:
+            # Ignore "Unknown order" (nothing to cancel)
+            if "Unknown order" not in str(e) and "-2011" not in str(e):
+                print(f"⚠️ Standard Cancel Error ({symbol}): {e}")
+        
+        # 2. Cancel Algo Orders (Stop Loss, Take Profit, Trailing)
+        await self.cancel_algo_orders(symbol)
+
+
     async def execute_close_position(self, symbol: str) -> Tuple[bool, str]:
         """Close position for a symbol."""
         
@@ -811,13 +846,13 @@ class AsyncTradingSession:
             return False, "No valid session."
         
         try:
-            # Cancel orders (Retry Logic)
+            # Cancel ALL orders (Standard + Algo)
+            # Retry up to 3 times
             for _ in range(3):
                 try:
-                    await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                    await self._cancel_all_robust(symbol)
                     break
                 except Exception as e:
-                    if "Unknown order" in str(e): break
                     await asyncio.sleep(0.5)
             
             # Get position
@@ -847,6 +882,11 @@ class AsyncTradingSession:
                             await asyncio.sleep(1.0)
                             continue
                     raise e
+            
+            # Double check algo orders are gone (post-close cleanup)
+            # Sometimes closing triggers new algo fills if not fast enough, 
+            # so we cancel again to be safe.
+            await self._cancel_all_robust(symbol)
             
             return True, f"✅ Closed {symbol} ({qty})."
             
@@ -1043,7 +1083,7 @@ class AsyncTradingSession:
             canceled = 0
             for sym in orphaned:
                 try:
-                    await self.client.futures_cancel_all_open_orders(symbol=sym)
+                    await self._cancel_all_robust(sym)
                     canceled += 1
                 except Exception as e:
                     print(f"Error canceling {sym}: {e}")
