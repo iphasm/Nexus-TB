@@ -78,7 +78,7 @@ async def cmd_config(message: Message, **kwargs):
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
-@router.message(Command("strategies", "strategy"))
+@router.message(Command("strategies"))
 async def cmd_strategies(message: Message, **kwargs):
     """Interactive strategy selector - ALL 6 STRATEGIES"""
     edit_message = kwargs.get('edit_message', False)

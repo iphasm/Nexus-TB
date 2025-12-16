@@ -1197,42 +1197,53 @@ async def cmd_about(message: Message, **kwargs):
 
 @router.message(Command("strategy"))
 async def cmd_strategy(message: Message, **kwargs):
-    """Show trading strategy with personality-aware message."""
-    session_manager = kwargs.get('session_manager')
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id) if session_manager else None
+    """Educational documentation about all trading strategies."""
     
-    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+    strategy_docs = (
+        "📚 *ESTRATEGIAS DE TRADING*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "📈 *BTC TREND FOLLOWING*\n"
+        "Sigue la tendencia macro de Bitcoin usando EMA200.\n"
+        "• Señal LONG: Precio cruza EMA200 hacia arriba\n"
+        "• Señal SHORT: Precio cruza EMA200 hacia abajo\n"
+        "• Timeframe: 4H / Daily\n\n"
+        
+        "🦢 *BLACK SWAN (Defensa)*\n"
+        "Protección contra crashs súbitos del mercado.\n"
+        "• Detecta caídas >5% en ventanas cortas\n"
+        "• Cierra posiciones LONG automáticamente\n"
+        "• Actúa como circuit breaker\n\n"
+        
+        "🦈 *SHARK MODE (Ataque)*\n"
+        "Estrategia ofensiva durante crashs.\n"
+        "• Se activa cuando Black Swan detecta crash\n"
+        "• Abre posiciones SHORT para capitalizar caídas\n"
+        "• Alto riesgo / Alta recompensa\n\n"
+        
+        "⚡ *SCALPING*\n"
+        "Operaciones rápidas en timeframes cortos.\n"
+        "• RSI + Bollinger Bands\n"
+        "• Entradas en sobreventa/sobrecompra\n"
+        "• Timeframe: 1m-15m\n\n"
+        
+        "🕸️ *GRID TRADING*\n"
+        "Trading en mercados laterales.\n"
+        "• Define rangos de precio\n"
+        "• Compra bajo, vende alto repetidamente\n"
+        "• Ideal para consolidación\n\n"
+        
+        "📉 *MEAN REVERSION*\n"
+        "Reversión a la media estadística.\n"
+        "• Detecta desviaciones extremas\n"
+        "• Apuesta por retorno al promedio\n"
+        "• Usa Z-score y bandas de Bollinger\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Usa `/strategies` para activar o desactivar."
+    )
     
-    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'NEXUS'
-    
-    # Import personality manager from bot_async
-    from bot_async import personality_manager
-    msg = personality_manager.get_message(p_key, 'STRATEGY_MSG')
-    
-    # Build Strategy Dashboard
-    from antigravity_quantum.config import ENABLED_STRATEGIES
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    
-    t_state = "✅" if ENABLED_STRATEGIES.get('TREND', True) else "❌"
-    s_state = "✅" if ENABLED_STRATEGIES.get('SCALPING', True) else "❌"
-    g_state = "✅" if ENABLED_STRATEGIES.get('GRID', True) else "❌"
-    m_state = "✅" if ENABLED_STRATEGIES.get('MEAN_REVERSION', True) else "❌"
-    bs_state = "✅" if ENABLED_STRATEGIES.get('BLACK_SWAN', True) else "❌"
-    sh_state = "✅" if ENABLED_STRATEGIES.get('SHARK', True) else "❌"
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
-        [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
-        [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
-        [
-            InlineKeyboardButton(text=f"⚡ Scalp: {s_state}", callback_data="TOGGLE|SCALPING"),
-            InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
-        ],
-        [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")]
-    ])
-    
-    await message.answer(msg, parse_mode="Markdown", reply_markup=keyboard)
+    await message.answer(strategy_docs, parse_mode="Markdown")
 
 
 @router.message(Command("dashboard"))
