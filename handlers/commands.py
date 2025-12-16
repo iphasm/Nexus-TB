@@ -216,6 +216,8 @@ async def cmd_startup(message: Message):
         "   • ✅ Enable Futures\n"
         "   • ✅ Enable Spot & Margin (opcional)\n"
         "   • ⛔ NO habilites Withdrawals\n"
+        "   • 🛡️ **IP Whitelist**: Debes agregar la IP confiable `96.62.194.97`\n"
+        "     *(Sin esto, la API rechazará las conexiones de Railway)*\n"
         "3. Copia tu API Key y Secret\n"
         "4. Usa el comando:\n"
         "   `/set_binance <API_KEY> <API_SECRET>`\n"
