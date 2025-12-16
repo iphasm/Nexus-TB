@@ -70,7 +70,7 @@ class QuantumAnalyst:
         
         # Build indicator context
         price = indicators.get('price', 'N/A')
-        rsi = indicators.get('rsi', 50)
+        rsi = indicators.get('rsi', 'N/A')
         bb_upper = indicators.get('bb_upper', 'N/A')
         bb_lower = indicators.get('bb_lower', 'N/A')
         bb_width = indicators.get('bb_width', 'N/A')
