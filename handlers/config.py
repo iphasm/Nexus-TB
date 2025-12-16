@@ -140,19 +140,18 @@ async def cmd_togglegroup(message: Message, **kwargs):
     """Interactive group selector"""
     edit_message = kwargs.get('edit_message', False)
     
-    # Get session group config
-    session_groups = {}
+    # Default groups - always show all
+    default_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
+    
+    # Get session overrides
+    session_groups = default_groups.copy()
     if kwargs.get('session_manager'):
         session = kwargs['session_manager'].get_session(str(message.chat.id))
         if session:
-            session_groups = session.config.get('groups', {})
-            
-    if not session_groups:
-        try:
-            from antigravity_quantum.config import GROUP_CONFIG
-            session_groups = GROUP_CONFIG.copy()
-        except ImportError:
-            session_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
+            # Merge session config into defaults (session values override)
+            stored = session.config.get('groups', {})
+            for key, val in stored.items():
+                session_groups[key] = val
     
     buttons = [
         [InlineKeyboardButton(
