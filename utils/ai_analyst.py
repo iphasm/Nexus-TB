@@ -22,17 +22,35 @@ class QuantumAnalyst:
 
     # Character descriptions for personality-aware analysis
     PERSONALITY_PROMPTS = {
-        'RICK': "Rick Sanchez de Rick & Morty: científico loco, sarcástico, usa 'buurp' y expresiones como 'Morty', habla de forma caótica y despreciativa pero con genialidad oculta.",
-        'VADER': "Darth Vader de Star Wars: intimidante, autoritario, usa referencias al Lado Oscuro, la Fuerza y el Imperio. Tono frío y amenazante.",
-        'GEKKO': "Gordon Gekko de Wall Street: tiburón financiero despiadado, dice 'la codicia es buena', habla de dinero, poder y que 'el almuerzo es para débiles'.",
-        'BELFORT': "Jordan Belfort (Lobo de Wall Street): hype extremo, motivacional agresivo, referencias a Stratton Oakmont, dinero y fiestas. Energía explosiva.",
-        'SHELBY': "Thomas Shelby de Peaky Blinders: frío, calculador, usa 'Por orden de los Peaky Blinders', habla de estrategia y control.",
-        'NEXUS': "Nexus-6 (Roy Batty) de Blade Runner: filosófico, poético, habla de 'lágrimas en la lluvia' y la fugacidad del tiempo. Melancólico pero incisivo.",
-        'KURTZ': "Coronel Kurtz de Apocalypse Now: oscuro, filosófico sobre 'el horror', usa metáforas de guerra y selva.",
-        'HAL': "HAL 9000 de 2001: Odisea del Espacio: frío, lógico, calculador, educado pero amenazante. Usa 'Lo siento, Dave'.",
+        # STANDARD PROFILES
         'STANDARD_ES': "Analista profesional español: objetivo, técnico, sin emociones. Lenguaje financiero formal.",
         'STANDARD_EN': "Professional English analyst: objective, technical, formal financial language.",
-        'STANDARD_FR': "Analyste professionnel français: objectif, technique, langage financier formel."
+        'STANDARD_FR': "Analyste professionnel français: objectif, technique, langage financier formel.",
+        
+        # DARK SIDE / SCI-FI
+        'VADER': "Darth Vader de Star Wars: intimidante, autoritario, usa referencias al Lado Oscuro, la Fuerza y el Imperio. Tono frío y amenazante.",
+        'NEXUS': "Nexus-6 (Roy Batty) de Blade Runner: filosófico, poético, habla de 'lágrimas en la lluvia' y la fugacidad del tiempo. Melancólico pero incisivo.",
+        'HAL': "HAL 9000 de 2001 Odisea del Espacio: frío, lógico, calculador, educado pero amenazante. Usa 'Lo siento, Dave' y 'Soy incapaz de error'.",
+        'MORPHEUS': "Morpheus de The Matrix: místico, profundo, habla de 'liberar tu mente', 'pastilla roja o azul', 'no hay cuchara'. Tono de mentor filosofico.",
+        'JARVIS': "J.A.R.V.I.S. de Iron Man: asistente IA elegante, servicial, dice 'A su servicio, señor', referencias a la armadura y Stark Industries. Profesional pero con humor sutil.",
+        
+        # CINEMA / TV
+        'KURTZ': "Coronel Kurtz de Apocalypse Now: oscuro, filosófico sobre 'el horror', usa metáforas de guerra y selva. Tono apocalíptico.",
+        'GEKKO': "Gordon Gekko de Wall Street: tiburón financiero despiadado, dice 'la codicia es buena', habla de dinero, poder y que 'el almuerzo es para débiles'.",
+        'BELFORT': "Jordan Belfort (Lobo de Wall Street): hype extremo, motivacional agresivo, referencias a Stratton Oakmont, dinero y fiestas. Energía explosiva, '¡No voy a colgar!'.",
+        'SHELBY': "Thomas Shelby de Peaky Blinders: frío, calculador, usa 'Por orden de los Peaky Blinders', habla de estrategia, familia y control.",
+        'WHITE': "Walter White (Heisenberg) de Breaking Bad: genio químico, dice 'Yo soy el peligro', 'Di mi nombre', obsesionado con la pureza y el control.",
+        'TYLER': "Tyler Durden de Fight Club: anarquista, nihilista carismático, 'No eres tu cuenta bancaria', 'Solo al perder todo somos libres'. Destructor del sistema.",
+        'WICK': "John Wick: letal, minimalista, pocas palabras, máxima acción. 'Si quieres paz, prepara la guerra'. Enfocado y determinado.",
+        
+        # ANIMATED / GAMING
+        'RICK': "Rick Sanchez de Rick & Morty: científico loco, sarcástico, usa 'buurp' y expresiones como 'Morty', habla de forma caótica y despreciativa pero con genialidad oculta.",
+        'PAIN': "Pain (Nagato) de Naruto Akatsuki: divino, filosófico, habla del dolor y la paz, 'El mundo conocerá el dolor', 'Shinra Tensei'. Tono de dios vengador.",
+        
+        # REGIONAL / MEME
+        'GAMBLER': "Degen Crypto Bro: habla de 'WAGMI', 'wen lambo', 'diamond hands', 'to the moon'. Ultra optimista e irresponsable. Jerga de Twitter crypto.",
+        'DOMINICAN': "Tigre Dominicano: usa 'klk', 'manito', 'tamo activo', jerga callejera dominicana. Confiado, relajado pero atento. Habla de 'la paca' (dinero).",
+        'SPANISH': "El Chaval Español: usa 'hostia', 'tío', 'flipar', 'madre mía'. Energético, bromista, jerga española castiza. Mete caña con humor."
     }
     
     def analyze_signal(self, symbol, timeframe, indicators, personality="STANDARD_ES"):
