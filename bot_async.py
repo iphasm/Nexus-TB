@@ -253,34 +253,33 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
             elif mode == 'COPILOT':
-                # Send proposal with buttons
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="✅ Aceptar",
-                            callback_data=f"TRADE|ACCEPT|{symbol}|{side}"
-                        ),
-                        InlineKeyboardButton(
-                            text="❌ Rechazar",
-                            callback_data=f"TRADE|REJECT|{symbol}|{side}"
-                        )
-                    ]
-                ])
-                
                 if side == 'LONG':
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_LONG',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote
+                        title=title, quote=quote, strategy_name=strategy
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote
+                        title=title, quote=quote, strategy_name=strategy
                     )
+                    
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="✅ Aceptar",
+                            callback_data=f"TRADE|ACCEPT|{symbol}|{side}|{strategy}"
+                        ),
+                        InlineKeyboardButton(
+                            text="❌ Rechazar",
+                            callback_data=f"TRADE|REJECT|{symbol}|{side}|{strategy}"
+                        )
+                    ]
+                ])
                 await bot.send_message(
                     session.chat_id, msg, 
                     reply_markup=keyboard, 

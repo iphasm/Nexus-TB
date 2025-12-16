@@ -376,6 +376,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     action = parts[1]
     symbol = parts[2]
     side = parts[3]
+    strategy = parts[4] if len(parts) > 4 else "Manual"
     
     await callback.answer()
     
@@ -387,7 +388,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     
     if action == "REJECT":
         await callback.message.answer(
-            f"❌ *Propuesta Rechazada*\n"
+            f"❌ *Propuesta Rechazada* ({strategy})\n"
             f"Operación {side} en {symbol} cancelada.",
             parse_mode="Markdown"
         )
@@ -407,9 +408,9 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     
     try:
         if side == "LONG":
-            success, msg = await session.execute_long_position(symbol)
+            success, msg = await session.execute_long_position(symbol, strategy=strategy)
         else:
-            success, msg = await session.execute_short_position(symbol)
+            success, msg = await session.execute_short_position(symbol, strategy=strategy)
         
         if success:
             await status_msg.edit_text(

@@ -419,7 +419,7 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Sync Error: {e}"
 
-    async def execute_long_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a LONG position asynchronously."""
         
         # Route non-crypto to Alpaca
@@ -599,11 +599,13 @@ class AsyncTradingSession:
 
                 
                 success_msg = (
-                    f"Long {symbol} (x{leverage})\n"
-                    f"Entry: {entry_price}\n"
-                    f"Qty: {quantity}\n"
-                    f"SL: {sl_price}\n"
-                    f"TP: {tp_msg}"
+                    f"✅ LONG EJECUTADO\n"
+                    f"⚡ {symbol} (x{leverage})\n"
+                    f"🧠 Estrategia: {strategy}\n\n"
+                    f"📈 Entrada: {entry_price}\n"
+                    f"📦 Tamaño: {quantity}\n\n"
+                    f"🛑 SL: {sl_price}\n"
+                    f"🎯 TP: {tp_msg}"
                 )
                 
                 return True, success_msg
@@ -623,7 +625,7 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"[{symbol}] Error: {str(e)}"
     
-    async def execute_short_position(self, symbol: str, atr: Optional[float] = None) -> Tuple[bool, str]:
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously."""
         
         # Route non-crypto to Alpaca
@@ -779,11 +781,13 @@ class AsyncTradingSession:
 
                 
                 return True, (
-                    f"Short {symbol} (x{leverage})\n"
-                    f"Entry: {entry_price}\n"
-                    f"Qty: {quantity}\n"
-                    f"SL: {sl_price}\n"
-                    f"TP: {tp_msg}"
+                    f"✅ SHORT EJECUTADO\n"
+                    f"⚡ {symbol} (x{leverage})\n"
+                    f"🧠 Estrategia: {strategy}\n\n"
+                    f"📉 Entrada: {entry_price}\n"
+                    f"📦 Tamaño: {quantity}\n\n"
+                    f"🛑 SL: {sl_price}\n"
+                    f"🎯 TP: {tp_msg}"
                 )
                 
             except Exception as e:
