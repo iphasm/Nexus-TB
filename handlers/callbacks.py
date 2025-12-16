@@ -10,6 +10,57 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 router = Router(name="callbacks")
 
 
+@router.callback_query(F.data.startswith("MENU|"))
+async def handle_menu_callback(callback: CallbackQuery, **kwargs):
+    """Handle v4 Menu Navigation"""
+    menu = callback.data.split("|")[1]
+    
+    if menu == "INTEL":
+        # Intel Menu (Previously in callbacks.py but now moved/unified)
+        msg = (
+            "📡 **INTEL CENTER**\n"
+            "━━━━━━━━━━━━━━\n"
+            "Acceso a datos de mercado y análisis cuántico.\n"
+            "Seleccione un módulo:"
+        )
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💎 Precios Spot", callback_data="CMD|price"),
+                InlineKeyboardButton(text="📰 Noticias AI", callback_data="CMD|news")
+            ],
+            [
+                InlineKeyboardButton(text="🧠 Sentimiento", callback_data="CMD|sentiment"),
+                InlineKeyboardButton(text="🏦 FOMC / FED", callback_data="CMD|fomc")
+            ],
+            [InlineKeyboardButton(text="🎯 Sniper Scan", callback_data="CMD|sniper")],
+            [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+        ])
+        await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
+        
+    elif menu == "MODES":
+        # Handled in commands.py? No, cleaner here to avoid import circles.
+        # But we defined it in commands.py earlier. Let's redirect to commands if possible, 
+        # OR re-implement here (safe since it's just a keyboard).
+        # We'll use the one defined in commands.py if registered, else here.
+        pass # It is registered in commands.py, so it will be caught there if router order allows.
+             # Wait, different routers? Same dispatcher. Commands router usually first.
+             # We should ensure commands router catches MENU|MODES.
+             # Actually, better to centralize menu logic here.
+             
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
+            [InlineKeyboardButton(text="👨‍✈️ COPILOT (Semi)", callback_data="CMD|copilot")],
+            [InlineKeyboardButton(text="👁️ WATCHER (Alertas)", callback_data="CMD|watcher")],
+            [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+        ])
+        await callback.message.edit_text(
+            "🎮 *SELECTOR DE MODO*\n"
+            "Selecciona perfil operativo:",
+            reply_markup=keyboard, 
+            parse_mode="Markdown"
+        )
+
+
 @router.callback_query(F.data.startswith("CMD|"))
 async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     """Handle command shortcuts from buttons - dispatches to actual handlers"""
@@ -172,7 +223,8 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
                 InlineKeyboardButton(text="15x", callback_data="CFG|LEV|15"),
                 InlineKeyboardButton(text="20x", callback_data="CFG|LEV|20"),
                 InlineKeyboardButton(text="25x", callback_data="CFG|LEV|25")
-            ]
+            ],
+            [InlineKeyboardButton(text="🔙 Volver", callback_data="CMD|config")]
         ])
         await callback.message.edit_text(
             "⚖️ *CONFIGURAR APALANCAMIENTO*\n\nSelecciona el nivel:",
@@ -191,7 +243,8 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
                 InlineKeyboardButton(text="20%", callback_data="CFG|MARGIN|20"),
                 InlineKeyboardButton(text="25%", callback_data="CFG|MARGIN|25"),
                 InlineKeyboardButton(text="50%", callback_data="CFG|MARGIN|50")
-            ]
+            ],
+            [InlineKeyboardButton(text="🔙 Volver", callback_data="CMD|config")]
         ])
         await callback.message.edit_text(
             "💰 *CONFIGURAR MARGEN*\n\nPorcentaje del balance por operación:",
@@ -327,18 +380,9 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
         await callback.answer(f"{group}: {new_state}")
         
         # Rebuild buttons + Volver
-        groups = session.config.get('groups', {})
-        buttons = [
-            [InlineKeyboardButton(
-                text=f"{'✅' if enabled else '❌'} {grp}",
-                callback_data=f"TOGGLEGRP|{grp}"
-            )] for grp, enabled in groups.items()
-        ]
-        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-        
-        await callback.message.edit_reply_markup(reply_markup=keyboard)
+        # Use simple reload of cmd_assets to update view properly
+        from handlers.config import cmd_assets
+        await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
         
     except Exception as e:
         await callback.answer(f"Error: {e}", show_alert=True)
@@ -468,7 +512,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
                 callback_data=f"ASSET_TOGGLE|{module}|{asset}"
             )])
         
-        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|assets")])
+        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         

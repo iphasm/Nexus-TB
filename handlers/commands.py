@@ -44,134 +44,113 @@ def get_fear_and_greed_index() -> str:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, **kwargs):
-    """Bienvenida Profesional V3.5 (Dynamic)"""
+    """
+    v4 CENTRAL HUB
+    Single message navigation center.
+    """
     edit_message = kwargs.get('edit_message', False)
-    
-    # 1. Mensaje de carga (or use existing message if editing)
-    if edit_message:
-        msg_load = message  # We'll edit this message directly
-    else:
-        msg_load = await message.answer("🔄 _Iniciando protocolos Antigravity..._", parse_mode="Markdown")
-        await asyncio.sleep(0.5)
-    
-    # 2. Datos de Sesión y Estado
-    bot = message.bot
-    me = await bot.get_me()
-    
-    chat_id = str(message.chat.id)
     session_manager = kwargs.get('session_manager')
+    
+    # 1. Loading State (only if new message)
+    if not edit_message:
+        msg_load = await message.answer("🔄 _Iniciando v4 Hub..._", parse_mode="Markdown")
+        await asyncio.sleep(0.3)
+    else:
+        msg_load = message
+
+    # 2. Session Data
+    chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id) if session_manager else None
     
-    # A. Exchanges
-    exchanges = []
+    # Defaults
+    mode = "WATCHER"
+    p_name = "Estándar"
+    risk_label = "Personalizado"
+    
     if session:
-        if session.client or session.config.get('has_keys'):
-            exchanges.append("🔑 Binance")
+        # Mode
+        mode = session.config.get('mode', 'WATCHER')
         
-        if session.alpaca_client:
-            exchanges.append("🦙 Alpaca")
-        elif session.config.get('alpaca_key'):
-            exchanges.append("🦙 Alpaca (Cfg)")
-    exchange_str = " + ".join(exchanges) if exchanges else "Ninguno"
-    
-    # B. Mode
-    mode_raw = session.config.get('mode', 'WATCHER') if session else 'WATCHER'
-    mode_map = {
-        'PILOT': '🤖 Pilot (Auto)',
-        'COPILOT': '👨‍✈️ Copilot (Asistido)',
-        'WATCHER': '🔍 Watcher (Observador)'
-    }
-    mode_str = mode_map.get(mode_raw, mode_raw)
-    
-    # C. Personality + Greeting
-    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
-    p_name = p_key
-    greeting = "Sistemas operativos y listos para operar."
-    
-    try:
+        # Personality
+        p_key = session.config.get('personality', 'STANDARD_ES')
         from utils.personalities import PersonalityManager
-        pm = PersonalityManager()
-        profile = pm.PROFILES.get(p_key, {})
-        p_name = profile.get('NAME', p_key)
+        p_name = PersonalityManager().get_profile(p_key).get('NAME', p_key)
         
-        # Try to extract a simple greeting or use generic
-        if 'GREETING' in profile:
-            greeting = profile['GREETING']
-            if isinstance(greeting, list):
-                import random
-                greeting = random.choice(greeting)
-        elif 'WELCOME' in profile and isinstance(profile['WELCOME'], list):
-            # Fallback: Use a generic safe greeting if specific one not found
-            # (We avoid parsing the complex WELCOME block)
-            pass 
-    except:
-        pass
-
-    # D. Risk
-    risk_str = "🛠️ Personalizado"
-    if session:
+        # Risk
         lev = session.config.get('leverage', 5)
         sl = session.config.get('stop_loss_pct', 0.02)
-        ia = session.config.get('sentiment_threshold', -0.6)
-        
-        if lev == 5 and sl == 0.015 and ia == -0.8: risk_str = "⚔️ Ronin"
-        elif lev == 3 and sl == 0.03 and ia == -0.3: risk_str = "🛡️ Guardian"
-        elif lev == 5 and sl == 0.02 and ia == -0.6: risk_str = "🌌 Quantum"
+        if lev == 20: risk_label = "⚔️ Ronin"
+        elif lev == 3: risk_label = "🛡️ Guardian"
+        elif lev == 5: risk_label = "🌌 Quantum"
+
+    # 3. Status Icons
+    mode_icon = {
+        'PILOT': '🤖',
+        'COPILOT': '👨‍✈️',
+        'WATCHER': '👁️'
+    }.get(mode, '❓')
     
-    # E. Strategies
-    strategies_str = "🧠 Dynamic Engine Active"
-    
-    # --- FINAL MESSAGE ---
+    # 4. Message Content
     welcome = (
-        f"🤖 *ANTIGRAVITY BOT v3.5 (Async)* 🟢\n\n"
-        f"🔗 *Exchanges:* {exchange_str}\n"
-        f"🎮 *Modo:* `{mode_str}`\n"
-        f"🎭 *Personalidad:* [{p_name}]\n"
-        f"_{greeting}_\n\n"
-        f"⚙️ *Gestión de Riesgo:* [{risk_str}]\n"
-        f"🧠 *Estrategias:* [{strategies_str}]"
+        f"🌌 *ANTIGRAVITY BOT v4.0* | {mode_icon} *{mode}*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎭 *Personalidad:* {p_name}\n"
+        f"⚖️ *Riesgo:* {risk_label}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Selecciona un módulo operativo:"
     )
     
-    # AI Filter status (Session specific)
-    ai_enabled = True
-    if session:
-        ai_enabled = session.config.get('sentiment_filter', True)
-    else:
-        from antigravity_quantum.config import AI_FILTER_ENABLED
-        ai_enabled = AI_FILTER_ENABLED
-        
-    ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
-    
-    # Interactive Menu
+    # 5. v4 Interactive Keyboard
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        # Row 1: Dashboard
-        [InlineKeyboardButton(text="📈 DASHBOARD (Estado + Cartera)", callback_data="CMD|dashboard")],
-        # Row 2: Modes
+        # Main Operations
         [
-            InlineKeyboardButton(text="👨‍✈️ Copilot", callback_data="CMD|copilot"),
-            InlineKeyboardButton(text="🔍 Watcher", callback_data="CMD|watcher")
+            InlineKeyboardButton(text="📈 Dashboard", callback_data="CMD|dashboard"),
+            InlineKeyboardButton(text="📡 Intel", callback_data="MENU|INTEL")
         ],
-        # Row 3: Pilot
-        [InlineKeyboardButton(text="🤖 Pilot (Auto)", callback_data="CMD|pilot")],
-        # Row 4: Risk
+        # Quick Actions
         [
-            InlineKeyboardButton(text="⚔️ Ronin", callback_data="CMD|mode_RONIN"),
-            InlineKeyboardButton(text="🌌 Quantum", callback_data="CMD|mode_QUANTUM"),
-            InlineKeyboardButton(text="🛡️ Guardian", callback_data="CMD|mode_GUARDIAN")
+            InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES"),
+            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
         ],
-        # Row 5: AI Filter Toggle
-        [InlineKeyboardButton(text=f"🧠 AI Filter Module [{ai_status}]", callback_data="TOGGLE|AI_FILTER")],
-        # Row 6: Sync Orders
-        [InlineKeyboardButton(text="🔄 Sync Orders", callback_data="SYNC_ORDERS")],
-        # Row 7: INTEL
-        [InlineKeyboardButton(text="📡 INTEL (Datos de Mercado)", callback_data="MENU|INTEL")],
-        # Row 7: CORE
-        [InlineKeyboardButton(text="⚙️ CORE (Configuración)", callback_data="CMD|config")],
-        # Row 8: Help
-        [InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")]
+        # Tools
+        [
+            InlineKeyboardButton(text="🔄 Sync", callback_data="SYNC_ORDERS"),
+            InlineKeyboardButton(text="🧠 AI Filter", callback_data="TOGGLE|AI_FILTER") 
+        ],
+        # Info
+        [
+            InlineKeyboardButton(text="❓ Ayuda / Docs", callback_data="CMD|help")
+        ]
     ])
     
-    await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+    if edit_message:
+        await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+
+
+# --- NEW MENU HANDLERS ---
+
+@router.callback_query(F.data == "MENU|MODES")
+async def menu_modes(callback: CallbackQuery, **kwargs):
+    """Sub-menu for Mode Selection"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
+        [InlineKeyboardButton(text="👨‍✈️ COPILOT (Semi)", callback_data="CMD|copilot")],
+        [InlineKeyboardButton(text="👁️ WATCHER (Alertas)", callback_data="CMD|watcher")],
+        [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+    ])
+    
+    await callback.message.edit_text(
+        "🎮 *SELECTOR DE MODO*\n\n"
+        "• **PILOT**: El bot opera 100% solo.\n"
+        "• **COPILOT**: Te pregunta antes de entrar.\n"
+        "• **WATCHER**: Solo envía señales.\n\n"
+        "Selecciona modo activo:",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
 
 
 @router.message(Command("startup"))

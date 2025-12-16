@@ -46,14 +46,11 @@ async def cmd_config(message: Message, **kwargs):
     lev = session.config.get('leverage', 5) if session else 5
     margin = (session.config.get('max_capital_pct', 0.1) * 100) if session else 10
     
-    # Build keyboard
+    # Build keyboard (v4 Clean)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🎛️ Estrategias", callback_data="CMD|strategies"),
-            InlineKeyboardButton(text="📡 Grupos", callback_data="CMD|togglegroup")
-        ],
-        [
-            InlineKeyboardButton(text="🪙 Activos (Blacklist)", callback_data="CMD|assets")
+            InlineKeyboardButton(text="🎛️ Estrategias (Motor)", callback_data="CMD|strategies"),
+            InlineKeyboardButton(text="📡 Grupos y Activos", callback_data="CMD|assets")
         ],
         [
             InlineKeyboardButton(text=f"⚖️ Lev: {lev}x", callback_data="CFG|LEV_MENU"),
@@ -63,7 +60,7 @@ async def cmd_config(message: Message, **kwargs):
             InlineKeyboardButton(text="🧠 Personalidad", callback_data="CMD|personality")
         ],
         [
-            InlineKeyboardButton(text="🔙 Volver", callback_data="CMD|start")
+            InlineKeyboardButton(text="⬅️ Volver al Hub", callback_data="CMD|start")
         ]
     ])
     
@@ -160,8 +157,6 @@ async def cmd_togglegroup(message: Message, **kwargs):
     ]
     buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
     
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    
     msg_text = (
         "📡 *CONFIGURACIÓN DE RADARES*\n"
         "Activa/Desactiva grupos de mercado:"
@@ -173,24 +168,38 @@ async def cmd_togglegroup(message: Message, **kwargs):
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
-@router.message(Command("assets"))
-async def cmd_assets(message: Message, **kwargs):
-    """Hierarchical asset selection menu"""
-    edit_message = kwargs.get('edit_message', False)
+    # v4 Combined Menu (Assets + Groups)
+    
+    # 1. Groups Section
+    default_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
+    session_groups = default_groups.copy()
+    if kwargs.get('session_manager'):
+        session = kwargs['session_manager'].get_session(str(message.chat.id))
+        if session:
+            stored = session.config.get('groups', {})
+            session_groups.update(stored)
+            
+    group_buttons = []
+    for grp, enabled in session_groups.items():
+        icon = "✅" if enabled else "❌"
+        group_buttons.append(InlineKeyboardButton(text=f"{icon} {grp}", callback_data=f"TOGGLEGRP|{grp}"))
+    
+    # 2. Specific Asset Lists
+    list_buttons = [
+        InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK"),
+        InlineKeyboardButton(text="📡 Scanner Global", callback_data="ASSETS|GLOBAL")
+    ]
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK")
-        ],
-        [
-            InlineKeyboardButton(text="📡 Scanner Global", callback_data="ASSETS|GLOBAL")
-        ],
+        group_buttons, # Row 1: Groups
+        list_buttons,  # Row 2: Asset Lists
         [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
     ])
     
     msg_text = (
-        "📦 *CONFIGURACIÓN DE ACTIVOS*\n\n"
-        "Selecciona el módulo a configurar:"
+        "📦 *GESTIÓN DE ACTIVOS*\n\n"
+        "1. **Grupos:** Activa sectores completos.\n"
+        "2. **Listas:** Configura activos individuales."
     )
     
     if edit_message:
