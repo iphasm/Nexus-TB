@@ -26,6 +26,12 @@ def init_db():
     if not conn:
         print("⚠️ DATABASE_URL not set. Using JSON fallback.")
         return False
+        
+    # Security Check
+    if not os.getenv('ENCRYPTION_KEY'):
+        print("⚠️ WARNING: 'ENCRYPTION_KEY' not found in env. API Keys will be saved in PLAIN TEXT.")
+    else:
+        print("🔒 Security: Encryption Enabled (Fernet AES-256).")
     
     try:
         with conn.cursor() as cur:
@@ -84,6 +90,7 @@ def init_db():
         conn.close()
 
 # --- SESSION FUNCTIONS ---
+from utils.security import encrypt_value, decrypt_value
 
 def load_all_sessions():
     """Load all sessions from PostgreSQL. Returns dict {chat_id: session_data}."""
@@ -98,9 +105,10 @@ def load_all_sessions():
             
             sessions = {}
             for row in rows:
+                # Decrypt keys on load (Lazy Migration handled in decrypt_value)
                 sessions[row['chat_id']] = {
-                    'api_key': row['api_key'],
-                    'api_secret': row['api_secret'],
+                    'api_key': decrypt_value(row['api_key']),
+                    'api_secret': decrypt_value(row['api_secret']),
                     'config': row['config'] or {}
                 }
             print(f"📚 Loaded {len(sessions)} sessions from PostgreSQL.")
@@ -117,6 +125,10 @@ def save_session(chat_id: str, api_key: str, api_secret: str, config: dict):
     if not conn:
         return False
     
+    # Encrypt sensitive data before saving
+    enc_key = encrypt_value(api_key)
+    enc_secret = encrypt_value(api_secret)
+    
     try:
         with conn.cursor() as cur:
             cur.execute("""
@@ -128,7 +140,7 @@ def save_session(chat_id: str, api_key: str, api_secret: str, config: dict):
                     api_secret = EXCLUDED.api_secret,
                     config = EXCLUDED.config,
                     updated_at = NOW()
-            """, (chat_id, api_key, api_secret, json.dumps(config)))
+            """, (chat_id, enc_key, enc_secret, json.dumps(config)))
             conn.commit()
             return True
     except Exception as e:
@@ -146,6 +158,13 @@ def save_all_sessions(sessions_dict: dict):
     try:
         with conn.cursor() as cur:
             for chat_id, data in sessions_dict.items():
+                # Encrypt sensitive data before saving
+                raw_key = data.get('api_key')
+                raw_secret = data.get('api_secret')
+                
+                enc_key = encrypt_value(raw_key) if raw_key else ""
+                enc_secret = encrypt_value(raw_secret) if raw_secret else ""
+                
                 cur.execute("""
                     INSERT INTO sessions (chat_id, api_key, api_secret, config, updated_at)
                     VALUES (%s, %s, %s, %s, NOW())
@@ -157,8 +176,8 @@ def save_all_sessions(sessions_dict: dict):
                         updated_at = NOW()
                 """, (
                     chat_id,
-                    data.get('api_key'),
-                    data.get('api_secret'),
+                    enc_key,
+                    enc_secret,
                     json.dumps(data.get('config', {}))
                 ))
             conn.commit()

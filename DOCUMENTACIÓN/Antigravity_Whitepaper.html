@@ -282,6 +282,8 @@
                     múltiples marcos temporales.</li>
                 <li><strong>Base de Datos:</strong> PostgreSQL + Redis para persistencia de estado y caché de alta
                     velocidad.</li>
+                <li><strong>Seguridad:</strong> Encriptación de grado militar <code>AES-256 (Fernet)</code> para la
+                    protección de todas las llaves API y secretos en la base de datos.</li>
                 <li><strong>Interfaz:</strong> Bot de Telegram interactivo con callbacks en tiempo real.</li>
             </ul>
         </section>
@@ -371,8 +373,8 @@
             <h2>🛠️ Guía Rápida</h2>
 
             <h3>1. Configuración Inicial</h3>
-            <p>Inicia el bot y configura tus llaves API. <strong>Nota:</strong> Debes autorizar la IP
-                <code>96.62.194.97</code> en tu exchange.</p>
+            <p>Inicia el bot y configura tus llaves API. <strong>Nota:</strong> Tus llaves son encriptadas con AES-256
+                antes de guardarse.</p>
             <pre>/start            # Menú principal
 /set_binance [API_KEY] [SECRET]   # Para Crypto
 /set_alpaca [API_KEY] [SECRET]    # Para Stocks/Commodities</pre>
