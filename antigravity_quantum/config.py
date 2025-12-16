@@ -42,11 +42,11 @@ AI_FILTER_ENABLED = True
 TREND_ASSETS = ['BTCUSDT', 'ETHUSDT']
 
 # 2. SHARK MODE (Crash/Sniper Targets)
-# High beta assets that crash hard when market dumps + volatile tech stocks
+# High beta CRYPTO assets that crash hard when BTC dumps
+# NOTE: Stocks removed - no direct BTC crash correlation
 SHARK_TARGETS = [
     '1000PEPEUSDT', 'WIFUSDT', 'SOLUSDT', 'SUIUSDT', 
-    'BONKUSDT', 'FLOKIUSDT', 'DOGEUSDT',
-    'TSLA', 'NVDA'  # Tech stocks with high beta
+    'BONKUSDT', 'FLOKIUSDT', 'DOGEUSDT'
 ]
 
 # 3. SCALPING (High Volatility & Momentum)
