@@ -4,22 +4,32 @@ import requests
 import traceback
 from binance.client import Client
 
-def run_diagnostics():
+def run_diagnostics(api_key: str = None, api_secret: str = None):
+    """
+    Run system diagnostics.
+    
+    Args:
+        api_key: Optional API key (uses env var if not provided)
+        api_secret: Optional API secret (uses env var if not provided)
+    """
     report = ["🔍 **SYSTEM DIAGNOSTICS REPORT** 🔍\n"]
     
     # 1. System Info
     report.append(f"**Python Version:** {sys.version.split()[0]}")
     report.append(f"**Platform:** {sys.platform}")
     
-    # 2. Environment Variables (Safety First)
-    api_key = os.getenv('BINANCE_API_KEY')
-    api_secret = os.getenv('BINANCE_SECRET')
+    # 2. Credentials - Use provided or fallback to env
+    used_api_key = api_key or os.getenv('BINANCE_API_KEY')
+    used_api_secret = api_secret or os.getenv('BINANCE_SECRET')
     
-    report.append("\n**🔑 Credentials Check:**")
-    report.append(f"- API Key Present: {'✅' if api_key else '❌'}")
-    if api_key:
-        report.append(f"- API Key Masked: {api_key[:4]}...{api_key[-4:]}")
-    report.append(f"- Secret Present: {'✅' if api_secret else '❌'}")
+    # Indicate source of credentials
+    cred_source = "Session" if api_key else "Environment"
+    
+    report.append(f"\n**🔑 Credentials Check ({cred_source}):**")
+    report.append(f"- API Key Present: {'✅' if used_api_key else '❌'}")
+    if used_api_key:
+        report.append(f"- API Key Masked: {used_api_key[:4]}...{used_api_key[-4:]}")
+    report.append(f"- Secret Present: {'✅' if used_api_secret else '❌'}")
     
     # 3. IP Check (Crucial for Geo-blocking)
     report.append("\n**🌍 Network / IP Check:**")
@@ -83,11 +93,11 @@ def run_diagnostics():
         report.append(f"❌ Public Connection Failed:\n`{str(e)}`")
 
     # 5. Binance Authenticated Connectivity
-    if api_key and api_secret:
+    if used_api_key and used_api_secret:
         report.append("\n**🔐 Binance Authenticated API:**")
         try:
             request_params = {'proxies': proxies} if proxies else None
-            auth_client = Client(api_key, api_secret, tld='com', requests_params=request_params)
+            auth_client = Client(used_api_key, used_api_secret, tld='com', requests_params=request_params)
             account = auth_client.get_account()
             can_trade = account.get('canTrade', False)
             report.append(f"✅ Auth Success!")
@@ -111,3 +121,4 @@ def run_diagnostics():
 
 if __name__ == "__main__":
     print(run_diagnostics())
+

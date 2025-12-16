@@ -598,16 +598,25 @@ async def cmd_pnl(message: Message, **kwargs):
 @router.message(Command("debug"))
 @admin_only
 async def cmd_debug(message: Message, **kwargs):
-    """System diagnostics - Full Network Report"""
+    """System diagnostics - Full Network Report (User-Specific)"""
     # Import locally to avoid circular deps if any
     from utils.diagnostics import run_diagnostics
+    from functools import partial
     
     msg = await message.answer("⏳ Ejecutando diagnóstico de red y sistema...")
     
     try:
-        # Run blocking diagnostics in thread pool
+        # Get user's session credentials (if available)
+        session_manager = kwargs.get('session_manager')
+        session = session_manager.get_session(str(message.chat.id)) if session_manager else None
+        
+        user_api_key = session.api_key if session else None
+        user_api_secret = session.api_secret if session else None
+        
+        # Run blocking diagnostics in thread pool with user's credentials
         loop = asyncio.get_running_loop()
-        report = await loop.run_in_executor(None, run_diagnostics)
+        diag_func = partial(run_diagnostics, api_key=user_api_key, api_secret=user_api_secret)
+        report = await loop.run_in_executor(None, diag_func)
         
         # Split report if too long (Telegram limit 4096)
         if len(report) > 4000:

@@ -225,8 +225,8 @@ async def cmd_set_keys(message: Message, **kwargs):
         )
         return
     
-    key = args[1].strip()
-    secret = args[2].strip()
+    key = args[1].strip().strip('<>').strip()
+    secret = args[2].strip().strip('<>').strip()
     
     try:
         # Create or update session
@@ -277,8 +277,8 @@ async def cmd_set_alpaca(message: Message, **kwargs):
         )
         return
     
-    key = args[1].strip()
-    secret = args[2].strip()
+    key = args[1].strip().strip('<>').strip()
+    secret = args[2].strip().strip('<>').strip()
     
     try:
         # Update config
