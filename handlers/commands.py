@@ -974,11 +974,20 @@ async def cmd_analyze(message: Message, **kwargs):
             return
         
         current_price = float(df['close'].iloc[-1])
-        rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df.columns else 50
         
-        # Additional indicators for richer analysis
-        bb_upper = float(df['bb_upper'].iloc[-1]) if 'bb_upper' in df.columns else current_price * 1.02
-        bb_lower = float(df['bb_lower'].iloc[-1]) if 'bb_lower' in df.columns else current_price * 0.98
+        # Calculate RSI from close prices using the utility function
+        from utils.indicators import calculate_rsi
+        closes = df['close'].tolist()
+        rsi = calculate_rsi(closes, period=14)
+        
+        # Calculate Bollinger Bands (20 period, 2 std dev)
+        close_series = df['close'].astype(float)
+        bb_middle = close_series.rolling(window=20).mean()
+        bb_std = close_series.rolling(window=20).std()
+        bb_upper = float(bb_middle.iloc[-1] + 2 * bb_std.iloc[-1]) if len(df) >= 20 else current_price * 1.02
+        bb_lower = float(bb_middle.iloc[-1] - 2 * bb_std.iloc[-1]) if len(df) >= 20 else current_price * 0.98
+        
+        # Volume metrics
         volume = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0
         avg_vol = float(df['volume'].mean()) if 'volume' in df.columns else 1
         
