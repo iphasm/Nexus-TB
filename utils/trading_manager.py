@@ -327,8 +327,8 @@ class AsyncTradingSession:
             # If we reached here, tolerance check failed or forced update.
             # We must clear ALL open orders for this symbol to prevent duplicates.
             try:
-                print(f"🔄 {symbol}: Cancelling ALL open orders to refresh...")
-                await self.client.futures_cancel_all_open_orders(symbol=symbol)
+                print(f"🔄 {symbol}: Cancelling ALL open orders (Robust) to refresh...")
+                await self._cancel_all_robust(symbol)
                 
                 # 4. VERIFY cancellation succeeded (Wait for propagation)
                 for _ in range(5): # Wait up to 2.5s
@@ -373,6 +373,9 @@ class AsyncTradingSession:
             ref_price = current_price if current_price > 0 else (sl_price if sl_price > 0 else tp_price)
             is_split = ref_price > 0 and (qty_tp1 * ref_price) > min_notional and (qty_trail * ref_price) > min_notional
             
+            if not is_split:
+                print(f"ℹ️ {symbol}: Skipping TP1 split (Position value < 2x MinNotional). Using Full Trailing.")
+            
             if is_split:
                 # Validation TP1
                 valid_tp = True
@@ -401,7 +404,9 @@ class AsyncTradingSession:
                 tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
             else:
                 # Full trailing
-                activation = entry_price if entry_price > 0 else tp_price
+                # Fix: Use tp_price as activation. entry_price can be invalid if currently in profit
+                # (e.g. SHORT Entry 100, Current 90. Activation cannot be 100 for BUY Trailing)
+                activation = tp_price 
                 await self._place_order_with_retry(
                     self.client.futures_create_order,
                     symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
