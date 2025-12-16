@@ -32,13 +32,28 @@ class MarketStream:
     async def get_candles(self, symbol: str, limit: int = 100) -> Dict[str, Any]:
         """
         Fetches OHLCV data and returns a formatted dict ready for Strategy.analyze()
+        NOTE: This stream is for CRYPTO (Binance) only. Stocks should use data/fetcher.py
         """
+        # ROUTING: Skip non-crypto symbols (Stocks/Commodities)
+        # They don't exist on Binance and should be fetched via data/fetcher.py
+        try:
+            from config import ASSET_GROUPS
+            if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
+                # Not a crypto symbol - skip Binance
+                return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
+        except:
+            pass
+        
+        # Only process crypto (symbols with USDT suffix)
+        if not ('USDT' in symbol or 'BUSD' in symbol):
+            return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
+        
         # 1. Resolve Timeframe based on asset config (Dynamic)
         timeframe = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
         
         try:
             # 2. Fetch (Async)
-            # symbol needs to be compatible with ecxchange (e.g. BTC/USDT)
+            # symbol needs to be compatible with exchange (e.g. BTC/USDT)
             # internal we might use BTCUSDT, ccxt needs BTC/USDT usually
             formatted_symbol = symbol.replace('USDT', '/USDT') if 'USDT' in symbol and '/' not in symbol else symbol
             
@@ -80,6 +95,7 @@ class MarketStream:
         except Exception as e:
             print(f"⚠️ Data Fetch Error ({symbol}): {e}")
             return {"dataframe": pd.DataFrame()} # Empty DF
+
 
     async def get_historical_candles(self, symbol: str, days: int = 30) -> pd.DataFrame:
         """
