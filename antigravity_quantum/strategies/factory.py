@@ -1,8 +1,10 @@
+from typing import Dict, Any
 from .base import IStrategy
 from .trend import TrendFollowingStrategy
 from .grid import GridTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .scalping import ScalpingStrategy
+from .classifier import MarketClassifier
 
 # Import the config MODULE (not individual vars) for runtime access
 import antigravity_quantum.config as qconfig
@@ -11,44 +13,51 @@ class StrategyFactory:
     """
     Dynamic Factory to assign strategies based on asset profile and Global Config.
     Reads config at RUNTIME to respect changes made via /assets menu.
+    Uses MarketClassifier for intelligent selection.
     """
     
     @staticmethod
-    def get_strategy(symbol: str, volatility_index: float) -> IStrategy:
+    def get_strategy(symbol: str, market_data: Dict[str, Any]) -> IStrategy:
         """
-        Assigns the optimal strategy based on flags and whitelist.
-        Priority: Grid > Scalping > Trend > Mean Reversion (Fallback for ALL)
+        Assigns the optimal strategy based on Market Regime Classification.
         
-        NOTE: All config reads happen HERE (runtime) not at import time.
+        Args:
+            symbol: Asset symbol (e.g. BTCUSDT)
+            market_data: Dictionary containing 'dataframe' with technical indicators
         """
+        # 1. Classify Regime Logic
+        regime_result = MarketClassifier.classify(market_data)
+        
+        # 2. Assign Strategy based on Regime
         strategy = None
         
-        # 1. GRID STRATEGY (Sideways/Accumulation)
-        if qconfig.ENABLED_STRATEGIES.get('GRID', False):
-            if symbol in qconfig.GRID_ASSETS:
-                strategy = GridTradingStrategy()
-                print(f"🎯 {symbol} → GRID Strategy")
-                return strategy
-        
-        # 2. SCALPING STRATEGY (High Volatility)
-        if qconfig.ENABLED_STRATEGIES.get('SCALPING', False):
-            if symbol in qconfig.SCALPING_ASSETS:
-                strategy = ScalpingStrategy()
-                print(f"🎯 {symbol} → SCALPING Strategy")
-                return strategy
-        
-        # 3. TREND FOLLOWING (BTC + ETH as per TREND_ASSETS)
-        if qconfig.ENABLED_STRATEGIES.get('TREND', True):
-            if symbol in qconfig.TREND_ASSETS:
+        # TREND
+        if regime_result.suggested_strategy == "TrendFollowing":
+            if qconfig.ENABLED_STRATEGIES.get('TREND', True):
                 strategy = TrendFollowingStrategy()
-                print(f"🎯 {symbol} → TREND Strategy")
-                return strategy
+                
+        # SCALPING (Volatile)
+        elif regime_result.suggested_strategy == "Scalping":
+            if qconfig.ENABLED_STRATEGIES.get('SCALPING', False):
+                strategy = ScalpingStrategy()
+                
+        # GRID (Tight Range)
+        elif regime_result.suggested_strategy == "Grid":
+            if qconfig.ENABLED_STRATEGIES.get('GRID', True):
+                strategy = GridTradingStrategy()
+                
+        # EXTENSIONS: Add more as needed (e.g. Breakout)
         
-        # 4. MEAN REVERSION (Enabled by default, applies to ALL non-matched assets)
-        if qconfig.ENABLED_STRATEGIES.get('MEAN_REVERSION', True):
-            strategy = MeanReversionStrategy()
-            # Only log on first occurrence to reduce noise
-            return strategy
-            
-        # 5. ABSOLUTE FALLBACK (if mean reversion disabled): Still use it as safety
-        return MeanReversionStrategy()
+        # 3. Fallback: Mean Reversion (Safe default for Range/Uncertain)
+        if strategy is None:
+            # Default to MeanReversion if the suggested one is disabled or fallback needed
+            if qconfig.ENABLED_STRATEGIES.get('MEAN_REVERSION', True):
+                strategy = MeanReversionStrategy()
+            else:
+                # Absolute panic fallback if MeanReversion is disabled too (Unlikely)
+                strategy = MeanReversionStrategy()
+                
+        # Optional: Attach regime metdata to strategy for logging?
+        # strategy.regime_meta = regime_result 
+        
+        return strategy

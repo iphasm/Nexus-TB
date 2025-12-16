@@ -145,6 +145,43 @@ class AsyncTradingSession:
         
         return success
     
+    # --- RISK HELPER ---
+    def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
+        """
+        Calculates position size based on Risk Per Trade (e.g. 1% of Equity).
+        Formula: Risk Amount / Distance to SL
+        """
+        from antigravity_quantum.config import RISK_PER_TRADE_PCT
+        
+        # 1. Calculate Risk Amount ($)
+        risk_amount = equity * RISK_PER_TRADE_PCT
+        
+        # 2. Calculate Distance to SL
+        dist_to_sl = abs(price - sl_price)
+        if dist_to_sl <= 0: return 0.0
+        
+        # 3. Raw Quantity (Units)
+        raw_qty = risk_amount / dist_to_sl
+        
+        # 4. Cap at Max Capital Allocation (Safety Net)
+        max_cap_val = equity * self.config.get('max_capital_pct', 0.10) * leverage
+        max_qty = max_cap_val / price
+        
+        final_qty = min(raw_qty, max_qty)
+        
+        # 5. Min Notional Check
+        if (final_qty * price) < min_notional:
+             # If risk-based size is too small, check if we can bump to min_notional 
+             # without exceeding 2x risk. If so, allowed. Else, skip.
+             min_qty = (min_notional * 1.05) / price
+             implied_risk = min_qty * dist_to_sl
+             if implied_risk <= (risk_amount * 2): # Allow slight risk stretch for small accounts
+                 return min_qty
+             else:
+                 return 0.0 # Too risky for this account size
+                 
+        return final_qty
+    
     async def initialize_alpaca(self):
         """Initialize Alpaca client from config or env."""
         ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
@@ -500,25 +537,15 @@ class AsyncTradingSession:
             
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
             
-            # 5. Calculate Position Size
+            # 5. Calculate Position Size (Dynamic Risk)
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price - sl_dist, price_precision)
-                
-                risk_amount = total_equity * 0.02
-                raw_quantity = risk_amount / sl_dist
-                
-                # Min notional check (increased buffer to 1.15x to prevent rounding issues)
-                notional = raw_quantity * current_price
-                if notional < min_notional:
-                    raw_quantity = (min_notional * 1.15) / current_price
-                
-                # Max allocation check
-                if (raw_quantity * current_price / leverage) > (total_equity * max_capital_pct):
-                    raw_quantity = (total_equity * max_capital_pct * leverage) / current_price
-                
                 tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                
+                # Use Helper for Risk Sizing
+                raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
             else:
                 margin_assignment = total_equity * max_capital_pct
                 raw_quantity = (margin_assignment * leverage) / current_price
@@ -689,27 +716,19 @@ class AsyncTradingSession:
             acc = await self.client.futures_account()
             equity = float(acc['totalWalletBalance'])
             
-            # 4. Calculate Size
+            # 4. Calculate Size (Dynamic Risk)
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price + sl_dist, price_precision)
                 tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+                
+                raw_quantity = self.calculate_dynamic_size(equity, current_price, sl_price, leverage, min_notional)
             else:
                 sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
                 tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
-            
-            dist_to_stop = abs(sl_price - current_price) or (current_price * 0.01)
-            risk_amount = equity * 0.02
-            raw_quantity = risk_amount / dist_to_stop
-            
-            # Min notional check (increased buffer to 1.15x to prevent rounding issues)
-            notional = raw_quantity * current_price
-            if notional < min_notional:
-                raw_quantity = (min_notional * 1.15) / current_price
-            
-            max_alloc = equity * max_capital_pct
-            if (raw_quantity * current_price) > max_alloc:
+                
+                max_alloc = equity * max_capital_pct
                 raw_quantity = max_alloc / current_price
             
             quantity = float(round(raw_quantity, qty_precision))

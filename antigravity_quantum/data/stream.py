@@ -85,9 +85,26 @@ class MarketStream:
             df['upper_bb'] = sma_20 + (std_20 * 2)
             df['lower_bb'] = sma_20 - (std_20 * 2)
             
-            # ADX placeholder (Requires complex calc, mocking for prototype)
-            # In production, use pandas_ta or ta-lib
-            df['adx'] = 30.0 # Mock to allow Trend Strategy to trigger
+            # ADX & ATR (Lightweight Implementation)
+            # --------------------------------------
+            # 1. ATR (Average True Range) - Volatility
+            prev_close = df['close'].shift(1)
+            high_low = df['high'] - df['low']
+            high_close = (df['high'] - prev_close).abs()
+            low_close = (df['low'] - prev_close).abs()
+            
+            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            df['atr'] = tr.rolling(window=14).mean()
+            
+            # 2. Synthetic ADX (Trend Strength) - Proxy used in get_historical_candles
+            # Measures divergence between EMA20 and EMA50 relative to price
+            # Scale factor 1000 maps 2% divergence to ~20 ADX
+            div = (df['ema_20'] - df['ema_50']).abs()
+            df['adx'] = (div / df['close']) * 1000
+            
+            # Fill NaN
+            df.fillna(method='bfill', inplace=True)
+            df.fillna(0, inplace=True)
             
             return {
                 "symbol": symbol,

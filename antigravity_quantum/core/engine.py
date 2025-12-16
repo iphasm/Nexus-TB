@@ -56,20 +56,6 @@ class QuantumEngine:
             
             signals_generated = 0
             for asset in active_assets:
-                # 1. Fetch Data (Real)
-                market_data = await self.market_stream.get_candles(asset)
-                if market_data['dataframe'].empty:
-                    continue
-
-                # 2. Get Dynamic Strategy
-                volatility_index = 0.5 
-                strategy = StrategyFactory.get_strategy(asset, volatility_index)
-                
-                # 3. Analyze (Async)
-                signal = await strategy.analyze(market_data)
-                
-                if signal:
-                    # Inject strategy name
                     signal.strategy = strategy.name
                     signals_generated += 1
                     print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")

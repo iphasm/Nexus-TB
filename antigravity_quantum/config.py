@@ -32,47 +32,25 @@ SLTP_LAST_UPDATE = {}  # {symbol: timestamp}
 # --- AI FILTER MODULE ---
 # Master switch for OpenAI sentiment analysis filter
 # When OFF: Bypasses AI sentiment check, trades execute without IA validation
+# When OFF: Bypasses AI sentiment check, trades execute without IA validation
 AI_FILTER_ENABLED = True
+
+# --- RISK MANAGEMENT CONFIG ---
+# Percentage of account equity to risk per trade (e.g., 0.01 = 1% risk)
+# Used when ATR-based sizing is active.
+RISK_PER_TRADE_PCT = 0.01 
 
 # --- MODULE-SPECIFIC ASSET LISTS ---
 # Intelligent classification based on market logic
 
-# 1. TREND FOLLOWING (Major dominance, long-term momentum)
-# Only BTC and ETH - these drive market direction
-TREND_ASSETS = ['BTCUSDT', 'ETHUSDT']
+# NOTE: TREND, SCALPING, GRID, MEAN_REV lists have been deprecated
+# in favor of Dynamic Market Classifier (strategies/classifier.py).
 
-# 2. SHARK MODE (Crash/Sniper Targets)
-# High beta CRYPTO assets that crash hard when BTC dumps
-# NOTE: Stocks removed - no direct BTC crash correlation
+# SHARK MODE (Crash/Sniper Targets)
+# Specific targets for Black Swan Defense (SharkSentinel)
 SHARK_TARGETS = [
     '1000PEPEUSDT', 'WIFUSDT', 'SOLUSDT', 'SUIUSDT', 
     'BONKUSDT', 'FLOKIUSDT', 'DOGEUSDT'
-]
-
-# 3. SCALPING (High Volatility & Momentum)
-# CRYPTO ONLY - Stocks don't have enough intraday volatility
-SCALPING_ASSETS = [
-    'SOLUSDT', 'WIFUSDT', '1000PEPEUSDT', 'SUIUSDT', 'AVAXUSDT',
-    'DOGEUSDT', 'RENDERUSDT', 'NEARUSDT', 'FTMUSDT', 'INJUSDT', 
-    'SEIUSDT', 'BONKUSDT', 'FLOKIUSDT'
-]
-
-# 4. GRID TRADING (Sideways/Range)
-# CRYPTO ONLY - Blue chips with consistent support/resistance
-GRID_ASSETS = [
-    'ADAUSDT', 'XRPUSDT', 'LTCUSDT', 'LINKUSDT', 
-    'DOTUSDT', 'MATICUSDT', 'XLMUSDT', 'EOSUSDT'
-]
-
-# 5. MEAN REVERSION (All asset classes)
-# Assets that reliably revert to EMA - includes Stocks & Commodities
-MEAN_REV_ASSETS = [
-    # Crypto
-    'BNBUSDT', 'ETHUSDT', 'ZECUSDT', 'UNIUSDT', 'AAVEUSDT', 'ATOMUSDT',
-    # Stocks (Alpaca)
-    'TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD',
-    # Commodities (Alpaca ETFs)
-    'GLD', 'SLV', 'USO', 'UNG', 'CPER'
 ]
 
 # Runtime Blacklist (Global - applies to main scanner)
