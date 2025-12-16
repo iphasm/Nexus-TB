@@ -599,7 +599,6 @@ class AsyncTradingSession:
 
                 
                 success_msg = (
-                    f"✅ LONG EJECUTADO\n"
                     f"⚡ {symbol} (x{leverage})\n"
                     f"🧠 Estrategia: {strategy}\n\n"
                     f"📈 Entrada: {entry_price}\n"
@@ -781,7 +780,6 @@ class AsyncTradingSession:
 
                 
                 return True, (
-                    f"✅ SHORT EJECUTADO\n"
                     f"⚡ {symbol} (x{leverage})\n"
                     f"🧠 Estrategia: {strategy}\n\n"
                     f"📉 Entrada: {entry_price}\n"
