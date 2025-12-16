@@ -20,37 +20,90 @@ class QuantumAnalyst:
         else:
             print("⚠️ Quantum Analyst: No OPENAI_API_KEY found.")
 
-    def analyze_signal(self, symbol, timeframe, indicators, personality="Standard"):
+    # Character descriptions for personality-aware analysis
+    PERSONALITY_PROMPTS = {
+        'RICK': "Rick Sanchez de Rick & Morty: científico loco, sarcástico, usa 'buurp' y expresiones como 'Morty', habla de forma caótica y despreciativa pero con genialidad oculta.",
+        'VADER': "Darth Vader de Star Wars: intimidante, autoritario, usa referencias al Lado Oscuro, la Fuerza y el Imperio. Tono frío y amenazante.",
+        'GEKKO': "Gordon Gekko de Wall Street: tiburón financiero despiadado, dice 'la codicia es buena', habla de dinero, poder y que 'el almuerzo es para débiles'.",
+        'BELFORT': "Jordan Belfort (Lobo de Wall Street): hype extremo, motivacional agresivo, referencias a Stratton Oakmont, dinero y fiestas. Energía explosiva.",
+        'SHELBY': "Thomas Shelby de Peaky Blinders: frío, calculador, usa 'Por orden de los Peaky Blinders', habla de estrategia y control.",
+        'NEXUS': "Nexus-6 (Roy Batty) de Blade Runner: filosófico, poético, habla de 'lágrimas en la lluvia' y la fugacidad del tiempo. Melancólico pero incisivo.",
+        'KURTZ': "Coronel Kurtz de Apocalypse Now: oscuro, filosófico sobre 'el horror', usa metáforas de guerra y selva.",
+        'HAL': "HAL 9000 de 2001: Odisea del Espacio: frío, lógico, calculador, educado pero amenazante. Usa 'Lo siento, Dave'.",
+        'STANDARD_ES': "Analista profesional español: objetivo, técnico, sin emociones. Lenguaje financiero formal.",
+        'STANDARD_EN': "Professional English analyst: objective, technical, formal financial language.",
+        'STANDARD_FR': "Analyste professionnel français: objectif, technique, langage financier formel."
+    }
+    
+    def analyze_signal(self, symbol, timeframe, indicators, personality="STANDARD_ES"):
         """
-        Generates a narrative analysis of the market situation.
+        Generates a narrative analysis of the market situation 
+        ROLEPLAYING as the specified personality character.
+        Returns ~100 words in a single paragraph with the character's voice.
         """
         if not self.client:
             return "⚠️ IA Desconectada. Configura OPENAI_API_KEY."
 
-        # Construct the context
+        # Get character description
+        char_desc = self.PERSONALITY_PROMPTS.get(
+            personality, 
+            self.PERSONALITY_PROMPTS.get('STANDARD_ES')
+        )
+        
+        # Build indicator context
+        price = indicators.get('price', 'N/A')
+        rsi = indicators.get('rsi', 50)
+        bb_upper = indicators.get('bb_upper', 'N/A')
+        bb_lower = indicators.get('bb_lower', 'N/A')
+        bb_width = indicators.get('bb_width', 'N/A')
+        vol_ratio = indicators.get('volume_ratio', 1)
+        
+        # Interpret data for prompt
+        rsi_status = "neutral"
+        if rsi > 70:
+            rsi_status = "sobrecomprado (DANGER)"
+        elif rsi < 30:
+            rsi_status = "sobrevendido (OPPORTUNITY)"
+        elif rsi > 55:
+            rsi_status = "alcista"
+        elif rsi < 45:
+            rsi_status = "bajista"
+            
+        vol_status = "normal"
+        if vol_ratio > 1.5:
+            vol_status = "alto (interés elevado)"
+        elif vol_ratio < 0.5:
+            vol_status = "bajo (sin interés)"
+
         prompt = f"""
-        Act as a Professional Crypto/Stocks Trader ({personality} Persona).
-        Analyze this setup for {symbol} on {timeframe} timeframe:
+        ROLEPLAY ESTRICTO: Eres el personaje "{char_desc}".
         
-        Price: {indicators.get('price', 'N/A')}
-        RSI: {indicators.get('rsi', 'N/A')}
-        Bollinger Gap: {indicators.get('gap', 'N/A')}%
-        Recent Volume: {indicators.get('vol', 'Normal')}
+        DATOS DE MERCADO para {symbol} ({timeframe}):
+        - Precio: ${price:,.2f}
+        - RSI: {rsi:.1f} ({rsi_status})
+        - Bandas Bollinger: Superior ${bb_upper:,.2f} / Inferior ${bb_lower:,.2f}
+        - Ancho BB: ${bb_width:,.2f} (volatilidad)
+        - Volumen: {vol_status}
         
-        Task: Explain specifically WHY this is a good/bad entry or what the market is doing.
-        Tone: {personality} (Sarcastic/Professional/Mystic depending on name).
-        Length: MAX 2 SENTENCES. Concise.
-        Language: Spanish.
+        TAREA: Interpreta estos datos técnicos y elabora una respuesta de EXACTAMENTE 100 palabras en UN SOLO PÁRRAFO.
+        
+        REGLAS:
+        1. Habla COMPLETAMENTE en primera persona como el personaje.
+        2. Usa expresiones, muletillas y el tono característico del personaje.
+        3. Da tu opinión sobre si es buena/mala entrada, qué indica el RSI, volatilidad, etc.
+        4. El texto debe salir PLANO (sin markdown, sin asteriscos, sin negritas).
+        5. Idioma: ESPAÑOL.
+        6. Si el personaje es inglés o francés, igual responde en español pero con su estilo.
         """
 
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a seasoned high-frequency trading algorithm with a personality."},
+                    {"role": "system", "content": f"Eres el personaje: {char_desc}. Mantén su personalidad al 100% durante toda la respuesta. Responde SOLO en español con texto plano."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=100
+                max_tokens=200
             )
             return response.choices[0].message.content.strip()
         except Exception as e:

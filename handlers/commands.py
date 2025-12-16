@@ -940,9 +940,20 @@ async def cmd_fomc(message: Message, **kwargs):
 
 @router.message(Command("analyze"))
 async def cmd_analyze(message: Message, **kwargs):
-    """Per-asset AI analysis: /analyze BTC"""
+    """Per-asset AI analysis: /analyze BTC - Uses active personality"""
     from utils.ai_analyst import QuantumAnalyst
     from data.fetcher import get_market_data
+    from utils.personalities import PersonalityManager
+    
+    # Get user's active personality from session
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+    
+    # Get personality key and name
+    p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+    pm = PersonalityManager()
+    p_name = pm.get_profile(p_key).get('NAME', 'Estándar')
     
     args = message.text.split()
     if len(args) < 2:
@@ -953,10 +964,10 @@ async def cmd_analyze(message: Message, **kwargs):
     if 'USDT' not in symbol:
         symbol = f"{symbol}USDT"
     
-    msg = await message.answer(f"🔍 Analizando {symbol}...")
+    msg = await message.answer(f"🔍 Analizando {symbol} con personalidad *{p_name}*...", parse_mode='Markdown')
     
     try:
-        # Get data
+        # Get data with more indicators
         df = get_market_data(symbol, timeframe='1h', limit=50)
         if df.empty:
             await msg.edit_text(f"❌ No data for {symbol}")
@@ -964,6 +975,12 @@ async def cmd_analyze(message: Message, **kwargs):
         
         current_price = float(df['close'].iloc[-1])
         rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df.columns else 50
+        
+        # Additional indicators for richer analysis
+        bb_upper = float(df['bb_upper'].iloc[-1]) if 'bb_upper' in df.columns else current_price * 1.02
+        bb_lower = float(df['bb_lower'].iloc[-1]) if 'bb_lower' in df.columns else current_price * 0.98
+        volume = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0
+        avg_vol = float(df['volume'].mean()) if 'volume' in df.columns else 1
         
         analyst = QuantumAnalyst()
         if not analyst.client:
@@ -973,15 +990,21 @@ async def cmd_analyze(message: Message, **kwargs):
         indicators = {
             'price': current_price,
             'rsi': rsi,
-            'gap': 0
+            'bb_upper': bb_upper,
+            'bb_lower': bb_lower,
+            'bb_width': bb_upper - bb_lower,
+            'volume_ratio': volume / avg_vol if avg_vol > 0 else 1
         }
-        analysis = analyst.analyze_signal(symbol, '1h', indicators)
+        
+        # Pass personality key for character-based analysis
+        analysis = analyst.analyze_signal(symbol, '1h', indicators, personality=p_key)
         
         await msg.edit_text(
             f"🔬 **ANÁLISIS: {symbol}**\n\n"
             f"💵 Precio: ${current_price:,.2f}\n"
-            f"📊 RSI: {rsi:.1f}\n\n"
-            f"🧠 **IA:**\n{analysis}",
+            f"📊 RSI: {rsi:.1f}\n"
+            f"🎭 Personalidad: *{p_name}*\n\n"
+            f"{analysis}",
             parse_mode='Markdown'
         )
     except Exception as e:
