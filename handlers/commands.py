@@ -100,6 +100,12 @@ async def cmd_start(message: Message, **kwargs):
         "Selecciona un módulo operativo:"
     )
     
+    # AI Filter Status
+    ai_enabled = True
+    if session:
+        ai_enabled = session.config.get('sentiment_filter', True)
+    ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
+    
     # 5. v4 Interactive Keyboard
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         # Main Operations
@@ -115,7 +121,7 @@ async def cmd_start(message: Message, **kwargs):
         # Tools
         [
             InlineKeyboardButton(text="🔄 Sync", callback_data="SYNC_ORDERS"),
-            InlineKeyboardButton(text="🧠 AI Filter", callback_data="TOGGLE|AI_FILTER") 
+            InlineKeyboardButton(text=f"🧠 AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
         ],
         # Info
         [
@@ -299,9 +305,9 @@ async def cmd_help(message: Message):
     help_text += (
         "\n📖 *DOCS*\n"
         "• /about - Sobre el bot\n"
-        "• /about - Sobre el bot\n"
-        "• /strategy - Lógica Dinámica (Nuevo)\n"
-        "• /startup - Guía de inicio rápido"
+        "• /strategy - Lógica Dinámica\n"
+        "• /startup - Guía de inicio rápido\n"
+        "• /cooldowns - Ver cooldowns activos"
     )
     
     try:
@@ -1047,6 +1053,41 @@ async def cmd_cooldown(message: Message, **kwargs):
         )
     except ValueError:
         await message.reply("❌ Valor inválido. Usa: `/cooldown 10`", parse_mode="Markdown")
+
+
+@router.message(Command("cooldowns"))
+async def cmd_cooldowns(message: Message, **kwargs):
+    """Show all active symbol cooldowns."""
+    from bot_async import cooldown_manager
+    
+    # Get all symbols with active cooldowns
+    active = []
+    for symbol, last_time in cooldown_manager._last_alert.items():
+        status = cooldown_manager.get_status(symbol)
+        if status['remaining_seconds'] > 0:
+            active.append(status)
+    
+    if not active:
+        await message.reply(
+            "⏱️ **COOLDOWNS ACTIVOS**\n\n"
+            "No hay cooldowns activos actualmente.\n"
+            f"Intervalo base: `{cooldown_manager.default_cooldown // 60}` minutos.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    # Build report
+    lines = ["⏱️ **COOLDOWNS ACTIVOS**\n"]
+    for s in active[:15]:  # Limit to 15
+        remaining_m = int(s['remaining_seconds'] // 60)
+        remaining_s = int(s['remaining_seconds'] % 60)
+        lines.append(
+            f"• `{s['symbol']}`: {remaining_m}m {remaining_s}s restante "
+            f"(freq: {s['signals_per_hour']:.1f}/hr)"
+        )
+    
+    lines.append(f"\n_Base: {cooldown_manager.default_cooldown // 60} min_")
+    await message.reply("\n".join(lines), parse_mode="Markdown")
 
 
 # =================================================================

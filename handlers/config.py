@@ -133,42 +133,15 @@ async def cmd_strategies(message: Message, **kwargs):
 
 @router.message(Command("togglegroup"))
 async def cmd_togglegroup(message: Message, **kwargs):
-    """Interactive group selector"""
+    """Interactive group selector - redirects to assets"""
+    # Redirect to unified assets menu
+    await cmd_assets(message, **kwargs)
+
+
+@router.message(Command("assets"))
+async def cmd_assets(message: Message, **kwargs):
+    """v4 Combined Assets + Groups Menu"""
     edit_message = kwargs.get('edit_message', False)
-    
-    # Default groups - always show all
-    default_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
-    
-    # Get session overrides
-    session_groups = default_groups.copy()
-    if kwargs.get('session_manager'):
-        session = kwargs['session_manager'].get_session(str(message.chat.id))
-        if session:
-            # Merge session config into defaults (session values override)
-            stored = session.config.get('groups', {})
-            for key, val in stored.items():
-                session_groups[key] = val
-    
-    buttons = [
-        [InlineKeyboardButton(
-            text=f"{'✅' if enabled else '❌'} {group}",
-            callback_data=f"TOGGLEGRP|{group}"
-        )] for group, enabled in session_groups.items()
-    ]
-    buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
-    
-    msg_text = (
-        "📡 *CONFIGURACIÓN DE RADARES*\n"
-        "Activa/Desactiva grupos de mercado:"
-    )
-    
-    if edit_message:
-        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
-    else:
-        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
-
-
-    # v4 Combined Menu (Assets + Groups)
     
     # 1. Groups Section
     default_groups = {'CRYPTO': True, 'STOCKS': True, 'COMMODITY': True}
