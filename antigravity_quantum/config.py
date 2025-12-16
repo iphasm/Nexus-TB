@@ -35,34 +35,44 @@ SLTP_LAST_UPDATE = {}  # {symbol: timestamp}
 AI_FILTER_ENABLED = True
 
 # --- MODULE-SPECIFIC ASSET LISTS ---
-# These can be toggled via /assets menu
+# Intelligent classification based on market logic
 
-# 1. SHARK MODE (Crash/Sniper Targets)
-# High beta assets that crash hard when market dumps
+# 1. TREND FOLLOWING (Major dominance, long-term momentum)
+# Only BTC and ETH - these drive market direction
+TREND_ASSETS = ['BTCUSDT', 'ETHUSDT']
+
+# 2. SHARK MODE (Crash/Sniper Targets)
+# High beta assets that crash hard when market dumps + volatile tech stocks
 SHARK_TARGETS = [
     '1000PEPEUSDT', 'WIFUSDT', 'SOLUSDT', 'SUIUSDT', 
-    'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'DOGEUSDT'
+    'BONKUSDT', 'FLOKIUSDT', 'DOGEUSDT',
+    'TSLA', 'NVDA'  # Tech stocks with high beta
 ]
 
-# 2. SCALPING (High Volatility & Momentum)
-# Assets with clean impulse moves
+# 3. SCALPING (High Volatility & Momentum)
+# CRYPTO ONLY - Stocks don't have enough intraday volatility
 SCALPING_ASSETS = [
     'SOLUSDT', 'WIFUSDT', '1000PEPEUSDT', 'SUIUSDT', 'AVAXUSDT',
-    'DOGEUSDT', 'RENDERUSDT', 'NEARUSDT', 'FTMUSDT', 'INJUSDT', 'SEIUSDT'
+    'DOGEUSDT', 'RENDERUSDT', 'NEARUSDT', 'FTMUSDT', 'INJUSDT', 
+    'SEIUSDT', 'BONKUSDT', 'FLOKIUSDT'
 ]
 
-# 3. GRID TRADING (Sideways/Range)
-# Stable assets that respect support/resistance
+# 4. GRID TRADING (Sideways/Range)
+# CRYPTO ONLY - Blue chips with consistent support/resistance
 GRID_ASSETS = [
     'ADAUSDT', 'XRPUSDT', 'LTCUSDT', 'LINKUSDT', 
     'DOTUSDT', 'MATICUSDT', 'XLMUSDT', 'EOSUSDT'
 ]
 
-# 4. MEAN REVERSION (Solid/Bluechip)
-# Assets that reliably return to EMA
+# 5. MEAN REVERSION (All asset classes)
+# Assets that reliably revert to EMA - includes Stocks & Commodities
 MEAN_REV_ASSETS = [
-    'BNBUSDT', 'ETHUSDT', 'ZECUSDT', 
-    'UNIUSDT', 'AAVEUSDT', 'ATOMUSDT'
+    # Crypto
+    'BNBUSDT', 'ETHUSDT', 'ZECUSDT', 'UNIUSDT', 'AAVEUSDT', 'ATOMUSDT',
+    # Stocks (Alpaca)
+    'TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD',
+    # Commodities (Alpaca ETFs)
+    'GLD', 'SLV', 'USO', 'UNG', 'CPER'
 ]
 
 # Runtime Blacklist (Global - applies to main scanner)

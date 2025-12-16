@@ -37,9 +37,9 @@ class StrategyFactory:
                 print(f"🎯 {symbol} → SCALPING Strategy")
                 return strategy
         
-        # 3. TREND FOLLOWING (Only BTC/Major dominance)
-        if symbol == 'BTC' or symbol == 'BTCUSDT':
-            if qconfig.ENABLED_STRATEGIES.get('TREND', True):
+        # 3. TREND FOLLOWING (BTC + ETH as per TREND_ASSETS)
+        if qconfig.ENABLED_STRATEGIES.get('TREND', True):
+            if symbol in qconfig.TREND_ASSETS:
                 strategy = TrendFollowingStrategy()
                 print(f"🎯 {symbol} → TREND Strategy")
                 return strategy

@@ -32,17 +32,20 @@ class MarketStream:
     async def get_candles(self, symbol: str, limit: int = 100) -> Dict[str, Any]:
         """
         Fetches OHLCV data and returns a formatted dict ready for Strategy.analyze()
-        NOTE: This stream is for CRYPTO (Binance) only. Stocks should use data/fetcher.py
+        Routes to AlpacaStream for Stocks/Commodities.
         """
-        # ROUTING: Skip non-crypto symbols (Stocks/Commodities)
-        # They don't exist on Binance and should be fetched via data/fetcher.py
+        # ROUTING: Non-crypto symbols go to Alpaca
         try:
             from config import ASSET_GROUPS
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
-                # Not a crypto symbol - skip Binance
-                return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
-        except:
-            pass
+                # Delegate to AlpacaStream
+                from .alpaca_stream import AlpacaStream
+                alpaca = AlpacaStream()
+                # Note: Alpaca init requires session keys, handled in QuantumEngine
+                return await alpaca.get_candles(symbol, limit)
+        except Exception as e:
+            print(f"⚠️ Alpaca routing error: {e}")
+            return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
         
         # Only process crypto (symbols with USDT suffix)
         if not ('USDT' in symbol or 'BUSD' in symbol):
