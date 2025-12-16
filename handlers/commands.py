@@ -7,7 +7,7 @@ EXACT REPLICA of main.py interface
 import asyncio
 from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 import os
 import requests
 from utils.auth import admin_only, is_authorized_admin, owner_only
