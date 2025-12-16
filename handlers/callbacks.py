@@ -434,20 +434,11 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
     
     # Build asset list for selected module
     try:
-        from antigravity_quantum.config import SHARK_TARGETS, SCALPING_ASSETS, GRID_ASSETS, MEAN_REV_ASSETS, DISABLED_ASSETS
+        from antigravity_quantum.config import SHARK_TARGETS, DISABLED_ASSETS
         
         if module == "SHARK":
             assets = SHARK_TARGETS
             title = "🦈 SHARK TARGETS"
-        elif module == "SCALPING":
-            assets = SCALPING_ASSETS
-            title = "⚡ SCALPING ASSETS"
-        elif module == "GRID":
-            assets = GRID_ASSETS
-            title = "🕸️ GRID ASSETS"
-        elif module == "MEANREV":
-            assets = MEAN_REV_ASSETS
-            title = "📉 MEAN REVERSION"
         else:
             # Global scanner - Import from root config to ensure all groups are present
             from config import ASSET_GROUPS

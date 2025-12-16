@@ -119,14 +119,13 @@ async def cmd_strategies(message: Message, **kwargs):
     ])
     
     msg_text = (
-        "🎛️ *CONFIGURACIÓN DE ESTRATEGIAS*\n"
-        "Activa/Desactiva módulos de trading:\n\n"
-        "• 📈 *Trend* - Seguimiento de tendencia en BTC\n"
-        "• 🦢 *Black Swan* - Defensa: Cierra longs en crashs\n"
-        "• 🦈 *Shark* - Ataque: Abre shorts en crashs\n"
-        "• ⚡ *Scalping* - Operaciones rápidas\n"
-        "• 🕸️ *Grid* - Trading en rangos\n"
-        "• 📉 *Mean Rev* - Reversión a la media"
+        "🎛️ *MOTOR DINÁMICO DE ESTRATEGIAS*\n"
+        "El sistema selecciona automáticamente la mejor estrategia:\n\n"
+        "• 📈 *Trend* - Tendencias fuertes (RSI > 50 + ADX)\n"
+        "• ⚡ *Scalping* - Alta volatilidad intradía\n"
+        "• 🕸️ *Grid* - Mercados laterales\n"
+        "• 📉 *Mean Rev* - Reversión a la media\n\n"
+        "_Los módulos Black Swan y Shark siguen siendo configurables:_ "
     )
     
     if edit_message:
@@ -181,12 +180,7 @@ async def cmd_assets(message: Message, **kwargs):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK"),
-            InlineKeyboardButton(text="⚡ Scalping", callback_data="ASSETS|SCALPING")
-        ],
-        [
-            InlineKeyboardButton(text="🕸️ Grid Trading", callback_data="ASSETS|GRID"),
-            InlineKeyboardButton(text="📉 Mean Reversion", callback_data="ASSETS|MEANREV")
+            InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK")
         ],
         [
             InlineKeyboardButton(text="📡 Scanner Global", callback_data="ASSETS|GLOBAL")

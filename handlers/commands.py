@@ -119,26 +119,7 @@ async def cmd_start(message: Message, **kwargs):
         elif lev == 5 and sl == 0.02 and ia == -0.6: risk_str = "🌌 Quantum"
     
     # E. Strategies
-    from antigravity_quantum.config import ENABLED_STRATEGIES
-    active_strats = []
-    strat_icons = {
-        'TREND': '📈 BTC Trend',
-        'BLACK_SWAN': '🦢 Black Swan',
-        'SHARK': '🦈 Shark',
-        'SCALPING': '🥷 Scalping',
-        'GRID': '🕸️ Grid',
-        'MEAN_REVERSION': '📉 MR'
-    }
-    
-    # Use session strategies if available
-    current_strategies = session.config.get('strategies', {}) if session else {}
-    # FALLBACK REMOVED: Trust the session strategy state (even if empty)
-        
-    for k, v in current_strategies.items():
-        if v and k != 'AI_FILTER':  # AI_FILTER is not a strategy
-            active_strats.append(strat_icons.get(k, k))
-    
-    strategies_str = " | ".join(active_strats) if active_strats else "⚠️ Ninguna (Manual)"
+    strategies_str = "🧠 Dynamic Engine Active"
     
     # --- FINAL MESSAGE ---
     welcome = (
@@ -298,14 +279,14 @@ async def cmd_help(message: Message):
         "• /cleanup - Limpiar órdenes huérfanas\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
-        "• /pilot - Automático\n"
+        "• /pilot - Automático (Dinámico)\n"
         "• /copilot - Asistido\n"
         "• /watcher - Solo alertas\n"
         "• /mode `<PRESET>` - Ronin/Guardian/Quantum\n\n"
         
         "⚙️ *CONFIGURACIÓN*\n"
         "• /config - Panel de ajustes\n"
-        "• /strategies - Motores activos\n"
+        "• /strategies - Motor Dinámico\n"
         "• /set\_leverage - Apalancamiento\n"
         "• /set\_margin - Margen máximo\n"
         "• /set\_binance - API Keys Binance\n"
@@ -339,7 +320,8 @@ async def cmd_help(message: Message):
     help_text += (
         "\n📖 *DOCS*\n"
         "• /about - Sobre el bot\n"
-        "• /strategy - Lógica de trading\n"
+        "• /about - Sobre el bot\n"
+        "• /strategy - Lógica Dinámica (Nuevo)\n"
         "• /startup - Guía de inicio rápido"
     )
     
@@ -782,9 +764,10 @@ async def cmd_risk(message: Message, **kwargs):
         "🛡️ **GESTIÓN DE RIESGO**\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         f"⚖️ Apalancamiento: `{leverage}x`\n"
-        f"💰 Margen por Op: `{margin_pct:.0f}%`\n"
+        f"💰 Margen por Op: `{margin_pct:.0f}%` (Max Cap)\n"
         f"📉 Stop Loss Base: `{sl_pct:.1f}%`\n"
-        f"📏 Multiplicador ATR: `{atr_mult}x`\n\n"
+        f"📏 Multiplicador ATR: `{atr_mult}x`\n"
+        f"🧠 **Risk Model**: Dynamic 1% / trade\n\n"
         f"🔌 Circuit Breaker: {breaker_status}\n\n"
         "_Usa /config para modificar estos valores._",
         parse_mode='Markdown'
