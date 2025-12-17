@@ -44,6 +44,10 @@ class GridTradingStrategy(IStrategy):
         elif dev > self.spacing * 2: # price pops 2 grids above
             signal_type = "SELL"
             confidence = 0.8
+        
+        # Return None for HOLD (consistent with other strategies)
+        if signal_type == "HOLD":
+            return None
             
         return Signal(
             symbol=market_data.get('symbol', "ADA"),
