@@ -48,7 +48,7 @@ class AlpacaStream:
         
         try:
             from alpaca.data.requests import StockBarsRequest
-            from alpaca.data.timeframe import TimeFrame
+            from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
             
             # Calculate date range (last ~7 days for 15m bars)
             end = datetime.now()
