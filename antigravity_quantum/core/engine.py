@@ -56,18 +56,43 @@ class QuantumEngine:
             
             signals_generated = 0
             for asset in active_assets:
+                try:
+                    # 1. Fetch Market Data
+                    market_data = await self.market_stream.get_candles(asset)
+                    
+                    if market_data.get('dataframe') is None or market_data['dataframe'].empty:
+                        continue
+                    
+                    # 2. Get Strategy via Factory (Dynamic Classification)
+                    strategy = StrategyFactory.get_strategy(asset, market_data)
+                    
+                    # 3. Analyze Market & Generate Signal
+                    signal = strategy.analyze(market_data)
+                    
+                    # 4. Filter: Only actionable signals
+                    if signal is None or signal.action == 'HOLD':
+                        continue
+                    
+                    # 5. Risk Check (Optional - basic exposure check)
+                    # approved = await self.risk_guardian.check_trade_approval(signal, 0.0)
+                    
+                    # 6. Emit Signal
                     signal.strategy = strategy.name
                     signals_generated += 1
                     print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
                     
                     if self.signal_callback:
                         await self.signal_callback(signal)
+                        
+                except Exception as e:
+                    print(f"⚠️ Error processing {asset}: {e}")
+                    continue
             
             # Diagnostic: Log cycle summary every 5 cycles
             if cycle_count % 5 == 0:
                 print(f"📊 Cycle {cycle_count}: Scanned {len(active_assets)} assets, {signals_generated} signals generated")
                 
-            await asyncio.sleep(60) # 1 Minute Cycle
+            await asyncio.sleep(60)  # 1 Minute Cycle
 
 
     async def run(self):
