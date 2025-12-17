@@ -550,14 +550,29 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         return
     
     try:
-        # Toggle using session method
+        # Toggle using session method (for per-user filtering)
         is_now_disabled = session.toggle_asset_blacklist(asset)
         await session_manager.save_sessions()
         
+        # ALSO update GLOBAL DISABLED_ASSETS (used by QuantumEngine)
+        from antigravity_quantum.config import DISABLED_ASSETS
+        from config import ASSET_GROUPS, GROUP_CONFIG
+        from utils.db import save_bot_state
+        import antigravity_quantum.config as aq_config
+        
         if is_now_disabled:
-            await callback.answer(f"❌ {asset} desactivado")
+            DISABLED_ASSETS.add(asset)
         else:
-            await callback.answer(f"✅ {asset} activado")
+            DISABLED_ASSETS.discard(asset)
+        
+        # Persist to database so it survives restarts
+        from antigravity_quantum.config import ENABLED_STRATEGIES
+        save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED)
+        
+        if is_now_disabled:
+            await callback.answer(f"❌ {asset} desactivado (Global + Session)")
+        else:
+            await callback.answer(f"✅ {asset} activado (Global + Session)")
         
         # Refresh menu
         await handle_assets_menu(callback, **kwargs)
