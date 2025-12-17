@@ -627,7 +627,7 @@ class AsyncTradingSession:
                 
                 success_msg = (
                     f"⚡ {symbol} (x{leverage})\n"
-                    f"🧠 Estrategia: {strategy}\n\n"
+                    f"🧠 Estrategia: {strategy.replace('_', ' ')}\n\n"
                     f"📈 Entrada: {entry_price}\n"
                     f"📦 Tamaño: {quantity}\n\n"
                     f"🛑 SL: {sl_price}\n"
@@ -800,7 +800,7 @@ class AsyncTradingSession:
                 
                 return True, (
                     f"⚡ {symbol} (x{leverage})\n"
-                    f"🧠 Estrategia: {strategy}\n\n"
+                    f"🧠 Estrategia: {strategy.replace('_', ' ')}\n\n"
                     f"📉 Entrada: {entry_price}\n"
                     f"📦 Tamaño: {quantity}\n\n"
                     f"🛑 SL: {sl_price}\n"
