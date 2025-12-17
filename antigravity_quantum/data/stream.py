@@ -37,14 +37,22 @@ class MarketStream:
         # ROUTING: Non-crypto symbols go to Alpaca
         try:
             from config import ASSET_GROUPS
+            import os
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
-                # Delegate to AlpacaStream
+                # Delegate to AlpacaStream with credentials from environment
                 from .alpaca_stream import AlpacaStream
-                alpaca = AlpacaStream()
-                # Note: Alpaca init requires session keys, handled in QuantumEngine
+                alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
+                alpaca_secret = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
+                
+                if not alpaca_key or not alpaca_secret:
+                    print(f"⚠️ Alpaca keys missing - cannot fetch {symbol}")
+                    return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
+                
+                alpaca = AlpacaStream(api_key=alpaca_key, api_secret=alpaca_secret)
+                await alpaca.initialize()  # Initialize the client with credentials
                 return await alpaca.get_candles(symbol, limit)
         except Exception as e:
-            print(f"⚠️ Alpaca routing error: {e}")
+            print(f"⚠️ Alpaca routing error for {symbol}: {e}")
             return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
         
         # Only process crypto (symbols with USDT suffix)
