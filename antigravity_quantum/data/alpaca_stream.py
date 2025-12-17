@@ -56,7 +56,7 @@ class AlpacaStream:
             
             request = StockBarsRequest(
                 symbol_or_symbols=symbol,
-                timeframe=TimeFrame.Minute * 15,  # 15-minute bars
+                timeframe=TimeFrame(15, TimeFrameUnit.Minute),  # 15-minute bars
                 start=start,
                 end=end,
                 limit=limit
