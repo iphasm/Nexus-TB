@@ -190,6 +190,14 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     if getattr(signal, 'metadata', None):
         for k, v in signal.metadata.items():
             if k.lower() == 'strategy': continue
+            
+            # Emoji Logic for TREND
+            if k.upper() == 'TREND':
+                if str(v).upper() == 'UP':
+                    v = f"{v} 🐂"
+                elif str(v).upper() == 'DOWN':
+                    v = f"{v} 🐻"
+            
             if isinstance(v, float):
                 meta_params.append(f"{k.upper()}: {v:.1f}")
             else:
