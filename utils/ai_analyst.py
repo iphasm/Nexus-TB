@@ -175,52 +175,52 @@ class QuantumAnalyst:
             # Combine Context
             import datetime
             now_str = datetime.datetime.now().strftime("%Y-%m-%d")
-            # 4. Analyze with GPT (Trump + Fed Aware)
+            # 4. Analyze with GPT-4o Class Logic
             prompt = f"""
-            Analyze market sentiment for: {symbol}.
+            You are a Senior Financial Analyst with 20 years of experience in quantitative trading. 
+            Your approach is conservative, evidence-based, and risk-averse. 
+            
+            ANALYZE NEWS FOR ASSET: {symbol}
             
             --- DATA SOURCES ---
-            1. ASSET SPECIFIC NEWS (High Priority):
+            
+            [ASSET SPECIFIC NEWS] (Primary Driver)
             {chr(10).join(asset_headlines) if asset_headlines else "No specific news found."}
             
-            2. POLITICAL CONTEXT (DJT Proxy) - IGNORE IF IRRELEVANT:
+            [POLITICAL CONTEXT - DJT] (Secondary - Ignore if irrelevant)
             {chr(10).join(trump_headlines) if trump_headlines else "No political news."}
             
-            3. MACRO CONTEXT (S&P 500) - IGNORE IF IRRELEVANT:
+            [MACRO CONTEXT - S&P500] (Market Environment)
             {chr(10).join(macro_headlines) if macro_headlines else "No macro news."}
             
-            --- RULES ---
-            1. **RELEVANCE FILTER:** You must IGNORE the Political/Macro news unless they have a logically DIRECT impact on {symbol} or the broader Crypto market right now.
-            2. **NO HALLUCINATIONS:** Do NOT force a connection. If {symbol} is an altcoin and the news is about "Trump Trade Wars" but there's no direct link, IGNORE IT.
-            3. **PRIORITY:** Base your score 80% on the Asset Specific News if available.
+            --- CHAIN-OF-THOUGHT PROCESS (Internal Monologue) ---
+            Performs these steps internally before answering:
+            1. OBJECTIVE SUMMARY: Summarize key facts (dates, figures).
+            2. SENTIMENT CHECK: Positive/Negative/Neutral? (Short vs Long term).
+            3. MACRO FILTER: Does Inflation/Fed/War overpower the asset news?
+            4. RISK ANALYSIS: What could invalidate the bullish/bearish thesis?
+            5. PROBABILITY CALCULATION: Estimate % chance of uptrend.
             
-            --- SPECIAL CHECKS ---
-            check 1: "THE TRUMP FACTOR"
-            - Only cite this if the news explicitly mentions Crypto, Bitcoin, or widespread market regulatory changes.
-            - If it's just "Trump held a rally", IGNORE it.
+            --- OUTPUT TASK ---
+            Based on the above, return a JSON object exactly matching this schema:
             
-            check 2: "MACRO SHIELD" (FED/ECONOMY)
-            - Only cite if relates to FOMC, Inflation, or Rate Hikes that are IMMINENT (today/tomorrow).
+            {{
+                "score": float,  // Range: -1.0 (Strong Sell) to 1.0 (Strong Buy)
+                "reason": "string", // MAX 20 WORDS in SPANISH. Summarize the KEY driver based on step 5.
+                "volatility_risk": "string" // "LOW", "HIGH", or "EXTREME" (If Fed/War is today)
+            }}
             
-            --- TASK ---
-            Return JSON: {{ "score": float, "reason": "string", "volatility_risk": "LOW" | "HIGH" | "EXTREME" }}
-            
-            - "score": -1.0 (Bearish) to 1.0 (Bullish).
-            - "reason": Max 15 words (Spanish). Explain the MAIN driver. Do NOT mention Trump/Fed unless they are the primary reason.
-            - "volatility_risk": 
-                - "EXTREME": Only if FOMC/CPI/War is TODAY.
-                - "HIGH": Significant uncertainty.
-                - "LOW": Normal market conditions.
+            Use your expert judgment. If news is old or irrelevant, Neural Score should be 0.
             """
 
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a hedge fund risk manager. You are extremely skeptical. You strict filter out noise and irrelevant political news. Output JSON only."},
+                    {"role": "system", "content": "You are a Senior Financial Analyst. Use Chain-of-Thought reasoning. Output valid JSON only."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"}, 
-                max_tokens=150
+                max_tokens=200
             )
             
             content = response.choices[0].message.content.strip()
