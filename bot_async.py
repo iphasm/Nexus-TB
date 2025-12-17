@@ -433,8 +433,16 @@ async def main():
             
             logger.info("🌌 Quantum Engine initialized and ready.")
             
+            # Wrapper to catch and log exceptions from engine task
+            async def run_engine_with_logging():
+                try:
+                    logger.info("🚀 Starting Quantum Engine core loop...")
+                    await engine.run()
+                except Exception as e:
+                    logger.error(f"❌ Quantum Engine crashed: {e}", exc_info=True)
+            
             # Create engine task (will run concurrently with bot)
-            engine_task = asyncio.create_task(engine.run())
+            engine_task = asyncio.create_task(run_engine_with_logging())
             
         except Exception as e:
             logger.warning(f"⚠️ Quantum Engine init failed: {e}")
