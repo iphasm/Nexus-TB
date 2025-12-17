@@ -4,6 +4,95 @@ import requests
 import traceback
 from binance.client import Client
 
+def get_asset_diagnostics(symbol: str) -> dict:
+    """
+    Fetch market data and calculate all signal indicators for an asset.
+    Returns a dict with all indicator values.
+    """
+    try:
+        from data.fetcher import get_market_data
+        from strategies.engine import StrategyEngine
+        
+        # Fetch data (needs 200+ candles for EMA200)
+        df = get_market_data(symbol, timeframe='15m', limit=250)
+        
+        if df.empty or len(df) < 100:
+            return {"error": f"Datos insuficientes para {symbol}", "symbol": symbol}
+        
+        # Run full strategy analysis
+        engine = StrategyEngine(df)
+        result = engine.analyze()
+        
+        # Get current values from the dataframe after calculate_indicators
+        curr = engine.df.iloc[-1]
+        
+        return {
+            "symbol": symbol,
+            "price": float(curr['close']),
+            "rsi": float(curr['rsi']) if 'rsi' in curr else 0,
+            "adx": float(curr['adx']) if 'adx' in curr else 0,
+            "bb_upper": float(curr['bb_upper']) if 'bb_upper' in curr else 0,
+            "bb_lower": float(curr['bb_lower']) if 'bb_lower' in curr else 0,
+            "hma_55": float(curr['hma_55']) if 'hma_55' in curr else 0,
+            "kc_upper": float(curr['kc_upper']) if 'kc_upper' in curr else 0,
+            "kc_lower": float(curr['kc_lower']) if 'kc_lower' in curr else 0,
+            "stoch_k": float(curr['stoch_k']) if 'stoch_k' in curr else 0,
+            "stoch_d": float(curr['stoch_d']) if 'stoch_d' in curr else 0,
+            "atr": float(curr['atr']) if 'atr' in curr else 0,
+            "ema_200": float(curr['ema_200']) if 'ema_200' in curr else 0,
+            "volume": float(curr['volume']) if 'volume' in curr else 0,
+            "vol_sma": float(curr['vol_sma']) if 'vol_sma' in curr else 0,
+            "squeeze_on": result.get('metrics', {}).get('squeeze_on', False),
+            "signal": result.get('signal_futures', 'N/A'),
+            "reason": result.get('reason_futures', 'N/A'),
+            "error": None
+        }
+    except Exception as e:
+        return {"error": str(e), "symbol": symbol}
+
+def format_indicator_report(data: dict) -> str:
+    """Format asset indicators into readable report."""
+    if data.get("error"):
+        return f"❌ {data.get('symbol', 'N/A')}: {data['error']}"
+    
+    price = data.get('price', 0)
+    rsi = data.get('rsi', 0)
+    adx = data.get('adx', 0)
+    squeeze = "🔴 ACTIVO" if data.get('squeeze_on') else "⚪ NO"
+    signal = data.get('signal', 'N/A')
+    
+    # Signal icon
+    sig_icon = "🟡"
+    if signal == "BUY": sig_icon = "🟢"
+    elif signal == "SHORT": sig_icon = "🔴"
+    elif "CLOSE" in signal: sig_icon = "🟠"
+    
+    # RSI condition
+    rsi_icon = "🟡" 
+    if rsi > 70: rsi_icon = "🔴 (Sobrecompra)"
+    elif rsi < 30: rsi_icon = "🟢 (Sobreventa)"
+    elif rsi > 50: rsi_icon = "🟢"
+    elif rsi < 50: rsi_icon = "🔴"
+    
+    # ADX interpretation
+    adx_strength = "Débil" if adx < 20 else "Moderado" if adx < 40 else "Fuerte"
+    
+    return f"""
+**{data.get('symbol', 'N/A')}**
+• Precio: `${price:,.2f}`
+• RSI (14): `{rsi:.1f}` {rsi_icon}
+• ADX (14): `{adx:.1f}` ({adx_strength})
+• Bollinger Bands: `{data.get('bb_lower', 0):,.2f}` - `{data.get('bb_upper', 0):,.2f}`
+• Keltner Channels: `{data.get('kc_lower', 0):,.2f}` - `{data.get('kc_upper', 0):,.2f}`
+• HMA (55): `{data.get('hma_55', 0):,.2f}`
+• EMA (200): `{data.get('ema_200', 0):,.2f}`
+• StochRSI K/D: `{data.get('stoch_k', 0):.1f}` / `{data.get('stoch_d', 0):.1f}`
+• ATR (14): `{data.get('atr', 0):.4f}`
+• Volume/SMA: `{data.get('volume', 0):,.0f}` / `{data.get('vol_sma', 0):,.0f}`
+• Squeeze: {squeeze}
+• **Señal**: {sig_icon} `{signal}`
+• Razón: _{data.get('reason', 'N/A')}_"""
+
 def run_diagnostics(api_key: str = None, api_secret: str = None):
     """
     Run system diagnostics.
@@ -116,6 +205,24 @@ def run_diagnostics(api_key: str = None, api_secret: str = None):
             report.append(f"❌ Auth Failed:\n`{str(e)}`")
     else:
         report.append("\n**🔐 Auth Test Skipped (No Keys)**")
+
+    # 6. Full Asset Signal Diagnostics (BTC + TSLA)
+    report.append("\n\n📊 **SIGNAL GENERATION DIAGNOSTICS**")
+    report.append("━━━━━━━━━━━━━━━━━━")
+    
+    # Test BTC (Crypto)
+    try:
+        btc_data = get_asset_diagnostics("BTCUSDT")
+        report.append(format_indicator_report(btc_data))
+    except Exception as e:
+        report.append(f"\n❌ BTC Diagnostics Error: {e}")
+    
+    # Test TSLA (Stock)
+    try:
+        tsla_data = get_asset_diagnostics("TSLA")
+        report.append(format_indicator_report(tsla_data))
+    except Exception as e:
+        report.append(f"\n❌ TSLA Diagnostics Error: {e}")
 
     return "\n".join(report)
 
