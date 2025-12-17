@@ -67,7 +67,7 @@ class QuantumEngine:
                     strategy = StrategyFactory.get_strategy(asset, market_data)
                     
                     # 3. Analyze Market & Generate Signal
-                    signal = strategy.analyze(market_data)
+                    signal = await strategy.analyze(market_data)
                     
                     # 4. Filter: Only actionable signals
                     if signal is None or signal.action == 'HOLD':

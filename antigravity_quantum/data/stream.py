@@ -103,7 +103,7 @@ class MarketStream:
             df['adx'] = (div / df['close']) * 1000
             
             # Fill NaN
-            df.fillna(method='bfill', inplace=True)
+            df.bfill(inplace=True)
             df.fillna(0, inplace=True)
             
             return {
