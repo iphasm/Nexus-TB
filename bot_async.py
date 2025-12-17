@@ -7,6 +7,7 @@ This replaces main.py for the async architecture migration.
 
 import asyncio
 import os
+import sys
 import logging
 import random
 from typing import Any, Awaitable, Callable, Dict
@@ -21,10 +22,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- CONFIGURATION ---
-# Set up logging
+# Set up logging (stream to stdout so Railway doesn't show as red/error)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
 
