@@ -1280,12 +1280,6 @@ async def cmd_strategy(message: Message, **kwargs):
     await message.answer(strategy_docs, parse_mode="Markdown")
 
 
-@router.message(Command("dashboard"))
-async def cmd_dashboard(message: Message, **kwargs):
-    """Combined Status + Wallet"""
-    await cmd_status(message, **kwargs)
-    await cmd_wallet(message, **kwargs)
-
 
 @router.message(Command("price"))
 async def cmd_price(message: Message, **kwargs):
