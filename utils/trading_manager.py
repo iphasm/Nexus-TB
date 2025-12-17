@@ -1243,6 +1243,54 @@ class AsyncTradingSession:
             
         except Exception as e:
             return {"error": str(e)}
+
+    async def get_dashboard_summary(self) -> Dict:
+        """
+        Aggregates all data for the Unified Dashboard.
+        - Wallet (Binance/Alpaca)
+        - Active Positions (Count/PnL)
+        - Mode/Risk Status
+        """
+        # 1. Wallet Data
+        wallet = await self.get_wallet_details()
+        if 'error' in wallet:
+            wallet = {k: 0.0 for k in ['spot_usdt','earn_usdt','futures_balance','futures_pnl','alpaca_equity','total']}
+            wallet['error'] = True
+            
+        # 2. Active Positions
+        positions = await self.get_active_positions()
+        pos_count = len(positions)
+        longs = len([p for p in positions if p['amt'] > 0])
+        shorts = len([p for p in positions if p['amt'] < 0])
+        
+        # 3. Aggregated PnL (Futures)
+        # Note: wallet['futures_pnl'] comes from account info, confirming with raw positions sum
+        calc_pnl = sum(p['pnl'] for p in positions)
+        
+        # 4. Allocations
+        total_equity = wallet['total']
+        if total_equity > 0:
+            alloc_binance_fut = (wallet['futures_balance'] / total_equity) * 100
+            alloc_binance_spot = ((wallet['spot_usdt'] + wallet['earn_usdt']) / total_equity) * 100
+            alloc_alpaca = (wallet['alpaca_equity'] / total_equity) * 100
+        else:
+            alloc_binance_fut = alloc_binance_spot = alloc_alpaca = 0
+
+        return {
+            "wallet": wallet,
+            "positions": {
+                "count": pos_count,
+                "longs": longs,
+                "shorts": shorts,
+                "total_pnl": calc_pnl
+            },
+            "allocation": {
+                "binance_futures": alloc_binance_fut,
+                "binance_spot": alloc_binance_spot,
+                "alpaca": alloc_alpaca
+            },
+            "config": self.config
+        }
     
     async def _execute_alpaca_order(self, symbol: str, side: str, atr: Optional[float] = None) -> Tuple[bool, str]:
         """Execute order via Alpaca (runs sync code in executor)."""

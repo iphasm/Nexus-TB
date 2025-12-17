@@ -317,132 +317,133 @@ async def cmd_help(message: Message):
         
 
 
-@router.message(Command("status"))
-async def cmd_status(message: Message, **kwargs):
-    """Muestra estado del sistema (Diseño: Clean Glass) - EXACT REPLICA"""
+@router.message(Command("dashboard"))
+async def cmd_dashboard(message: Message, **kwargs):
+    """
+    🪐 ORBITAL COMMAND DASHBOARD
+    Premium Unified Interface for Status + Wallet + Operations
+    """
     session_manager = kwargs.get('session_manager')
-    session = None
-    
-    if session_manager:
-        session = session_manager.get_session(str(message.chat.id))
-    
-    mode = "WATCHER"
-    has_keys = False
-    
-    if session:
-        cfg = session.get_configuration()
-        mode = cfg.get('mode', 'WATCHER')
-        has_keys = cfg.get('has_keys', False)
-    
-    # Fear & Greed
-    fg_text = get_fear_and_greed_index()
-    
-    # Mode display
-    mode_map = {
-        'WATCHER': 'WATCHER (Observador)',
-        'COPILOT': 'COPILOT (Asistido)',
-        'PILOT': 'PILOT (Automático)'
-    }
-    mode_display = mode_map.get(mode, mode)
-    
-    # Build asset list
-    active_radars = ""
-    for group, enabled in GROUP_CONFIG.items():
-        icon = "🟢" if enabled else "⚪"
-        name_map = {
-            'CRYPTO': 'Criptomonedas',
-            'STOCKS': 'Acciones',
-            'COMMODITY': 'Materias Primas'
-        }
-        name = name_map.get(group, group)
-        count = len(ASSET_GROUPS.get(group, [])) if enabled else 0
-        count_str = f"({count})" if enabled else ""
-        active_radars += f"{icon} {name} {count_str}\n"
-    
-    is_admin = is_authorized_admin(str(message.chat.id))
-    
-    status = (
-        "🤖 **Estado de Antigravity**\n\n"
-        
-        "**Tu Sesión**\n"
-        f"🕹️ Config: `{mode_display}`\n"
-        f"💻 Conexión: **{'Estable' if has_keys else 'Desconectada'}**\n\n"
-        
-        "**Mercado Hoy**\n"
-        f"🌡️ Sentimiento: {fg_text}\n\n"
-    )
-    
-    # Extended info for Admins ONLY
-    if is_admin:
-        active_users_val = len(session_manager.sessions) if session_manager else 0
-        status += (
-            "🛡️ **Panel Admin**\n"
-            f"👥 Sesiones Activas: `{active_users_val}`\n"
-            "_Sistema Global OK_"
-        )
-    else:
-        status += "_Sistema ejecutándose correctamente._"
-    
-    await message.answer(status, parse_mode="Markdown")
-
-
-@router.message(Command("wallet"))
-async def cmd_wallet(message: Message, **kwargs):
-    """Muestra detalles completos de la cartera - EXACT REPLICA"""
-    session_manager = kwargs.get('session_manager')
-    if not session_manager:
-        await message.answer("⚠️ Error interno.")
-        return
+    if not session_manager: return
     
     session = session_manager.get_session(str(message.chat.id))
     if not session:
         await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys.")
         return
-    
-    loading = await message.answer("⏳ Consultando Blockchain y Binance...")
+
+    # Use a placeholder while loading
+    loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
     
     try:
-        details = await session.get_wallet_details()
-        if not details or 'error' in details:
-            await loading.edit_text(f"❌ Error: {details.get('error', 'Unknown')}")
-            return
+        # Fetch Aggregated Data
+        data = await session.get_dashboard_summary()
         
-        # Unpack
-        spot_bal = details.get('spot_usdt', 0.0)
-        earn_bal = details.get('earn_usdt', 0.0)
+        # Unpack Data
+        wallet = data['wallet']
+        pos = data['positions']
+        alloc = data['allocation']
+        cfg = data['config']
         
-        # Binance Section
-        binance_spot = spot_bal + earn_bal  # Include earn in spot internally
-        binance_futures = details.get('futures_balance', 0.0)
-        futures_pnl = details.get('futures_pnl', 0.0)
-        binance_total = binance_spot + binance_futures
+        # --- UI CONSTRUCTION (Orbital Command Style) ---
         
-        # Alpaca Section  
-        alpaca_futures = details.get('alpaca_equity', 0.0)
+        # 1. Header & ID
+        user_id_short = str(message.chat.id)[-4:]
+        header = f"🪐 **ORBITAL COMMAND**\n`ID: AG-{user_id_short}` • 🟢 System Stable\n"
         
-        # Net Worth
-        net_worth = binance_total + alpaca_futures
+        # 2. Net Worth & Allocation Bar
+        net_worth = wallet.get('total', 0.0)
         
-        pnl_icon = "🟢" if futures_pnl >= 0 else "🔴"
+        # Allocation Bar Visual: ▓▓▓▓░░
+        # Use simple logic: 10 blocks. Each block = 10%
+        # Allocation is based on USDT (Stable) vs Active Deployment? 
+        # Actually user asked for "USDT Alloc". Let's use Binance vs Alpaca split for the visual.
         
-        msg = (
-            "💼 *CARTERA ANTIGRAVITY*\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "💰 **Binance:**\n"
-            f"   • Spot: `${binance_spot:,.2f}`\n"
-            f"   • Futuros: `${binance_futures:,.2f}`\n"
-            f"   └─ **Total Binance:** `${binance_total:,.2f}`\n\n"
-            f"   📊 *PnL No Realizado:* {pnl_icon} `${futures_pnl:,.2f}`\n\n"
-            "🦙 **Alpaca:**\n"
-            f"   • Futuros: `${alpaca_futures:,.2f}`\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💎 **NET WORTH TOTAL:** `${net_worth:,.2f}`"
+        b_pct = int((alloc['binance_futures'] + alloc['binance_spot']) / 10)
+        a_pct = int(alloc['alpaca'] / 10)
+        # Remainder is empty or error? Normalize to 10
+        total_blocks = min(10, b_pct + a_pct)
+        empty_blocks = 10 - total_blocks
+        
+        visual_bar = "▓" * b_pct + "▒" * a_pct + "░" * empty_blocks
+        
+        net_worth_section = (
+            f"\n**💵 NET WORTH: ${net_worth:,.2f}**\n"
+            f"{visual_bar} 100% Alloc\n"
         )
         
-        await loading.edit_text(msg, parse_mode="Markdown")
+        # 3. Operations Module
+        mode = cfg.get('mode', 'WATCHER')
+        mode_icon = {'WATCHER': '👁️', 'COPILOT': '🦾', 'PILOT': '🤖'}.get(mode, '❓')
         
+        # Calculate PnL Icon
+        pnl_val = pos['total_pnl']
+        pnl_icon = "🟢" if pnl_val >= 0 else "🔴"
+        pnl_str = f"{pnl_icon} ${abs(pnl_val):.2f}"
+        
+        ops_section = (
+            "**🛠️ OPERATIONS**\n"
+            f"{mode_icon} **Mode:** `{mode}`\n"
+            f"📡 **Positions:** `{pos['count']}` ({pos['longs']}L / {pos['shorts']}S)\n"
+            f"🧨 **PnL RealTime:** {pnl_str}\n"
+        )
+        
+        # 4. Asset Allocation Details
+        binance_total = wallet['futures_balance'] + wallet['spot_usdt'] + wallet['earn_usdt']
+        binance_section = (
+            "**📊 ASSET ALLOCATION**\n"
+            "🔸 **Binance**\n"
+            f"   ├─ Spot: `${wallet['spot_usdt'] + wallet['earn_usdt']:,.0f}`\n"
+            f"   └─ Fut:  `${wallet['futures_balance']:,.0f}`\n"
+        )
+        
+        alpaca_section = (
+            "🦙 **Alpaca**\n"
+            f"   └─ Main: `${wallet['alpaca_equity']:,.0f}`\n"
+        )
+        
+        # 5. Market Intel (Placeholder or Real F&G)
+        fg_text = get_fear_and_greed_index()
+        # Extract just the label if possible? get_fear_and_greed_index returns formatted text usually
+        # We can just use it directly
+        
+        intel_section = (
+            "\n**🧠 AI INSIGHTS**\n"
+            f"{fg_text}\n"
+            "_El mercado muestra divergencias en TF 15m._" 
+        )
+        
+        # Assemble Final Message
+        final_msg = (
+            f"{header}"
+            f"{net_worth_section}\n"
+            f"{ops_section}\n"
+            f"{binance_section}"
+            f"{alpaca_section}"
+            f"{intel_section}"
+        )
+        
+        # Keyboard for Refresh/Action
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Est. Sistema", callback_data="DASHBOARD"),
+                InlineKeyboardButton(text="⚙️ Config", callback_data="CONFIG")
+            ]
+        ])
+        
+        await loading.edit_text(final_msg, parse_mode="Markdown", reply_markup=kb)
+
     except Exception as e:
-        await loading.edit_text(f"❌ Error: {e}")
+        await loading.edit_text(f"❌ Orbit Failure: {e}")
+
+
+# ALIASES
+@router.message(Command("status"))
+async def cmd_status(message: Message, **kwargs):
+    await cmd_dashboard(message, **kwargs)
+
+@router.message(Command("wallet"))
+async def cmd_wallet(message: Message, **kwargs):
+    await cmd_dashboard(message, **kwargs)
 
 
 

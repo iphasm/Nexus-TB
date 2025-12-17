@@ -137,6 +137,19 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     elif cmd == "assets":
         from handlers.config import cmd_assets
         await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
+
+    # Dashboard / Status (Consolidated)
+    elif cmd == "dashboard" or cmd == "status":
+        from handlers.commands import cmd_dashboard
+        # We need to answer the callback query first if needed, but here we edit message
+        # Convert callback message to look like a new message but we edit it? 
+        # Actually cmd_dashboard sends a NEW message "Loading...". 
+        # If we want to replace the existing menu, we should modify cmd_dashboard to support edit=True?
+        # For "Orbital Command", refreshing in place is better.
+        
+        # Let's call cmd_dashboard but handle 'edit' inside? 
+        # Currently cmd_dashboard sends a new message. Let's redirect but maybe delete previous?
+        await cmd_dashboard(callback.message, session_manager=session_manager)
     
     # Mode presets (Ronin/Guardian/Quantum)
     elif cmd.startswith("mode_"):
