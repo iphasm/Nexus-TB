@@ -320,123 +320,94 @@ async def cmd_help(message: Message):
 @router.message(Command("dashboard"))
 async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
     """
-    🪐 ORBITAL COMMAND DASHBOARD
-    Premium Unified Interface for Status + Wallet + Operations
+    📊 TRADING DASHBOARD
+    Unified view of Status + Wallet
     """
     session_manager = kwargs.get('session_manager')
-    if not session_manager: return
+    if not session_manager: 
+        return
     
     session = session_manager.get_session(str(message.chat.id))
     if not session:
+        text = "⚠️ Sin sesión activa. Usa /set\\_keys."
         if edit_message:
-            await message.edit_text("⚠️ Sin sesión activa. Usa /set\\_keys.")
+            try:
+                await message.edit_text(text)
+            except:
+                await message.answer(text)
         else:
-            await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys.")
+            await message.answer(text)
         return
 
-    # Loading State
+    # Show loading indicator
+    loading_text = "⏳ Cargando Dashboard..."
     try:
         if edit_message:
-            # Edit existing message (from callback)
-            loading = await message.edit_text("🛰️ **Estableciendo enlace con Orbital Command...**")
-            if not isinstance(loading, Message): loading = message # Fallback if edit returns bool
+            await message.edit_text(loading_text)
+            target_msg = message
         else:
-            # Send new message
-            loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
-    except Exception as e:
-        # Fallback if edit fails (e.g. message too old)
-        loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
+            target_msg = await message.answer(loading_text)
+    except Exception:
+        target_msg = await message.answer(loading_text)
     
     try:
-        # Fetch Aggregated Data
+        # Fetch Data
         data = await session.get_dashboard_summary()
-        
-        # Unpack Data
         wallet = data['wallet']
         pos = data['positions']
-        alloc = data['allocation']
         cfg = data['config']
         
-        # --- UI CONSTRUCTION (Orbital Command Style) ---
+        # Mode Info
+        mode = cfg.get('mode', 'WATCHER')
+        mode_map = {'WATCHER': '👁️ Watcher', 'COPILOT': '🦾 Copilot', 'PILOT': '🤖 Pilot'}
+        mode_display = mode_map.get(mode, mode)
         
-        # 1. Header & ID
-        user_id_short = str(message.chat.id)[-4:]
-        header = f"🪐 **ORBITAL COMMAND**\n`ID: AG-{user_id_short}` • 🟢 System Stable\n"
-        
-        # 2. Net Worth & Allocation Bar
+        # Net Worth
         net_worth = wallet.get('total', 0.0)
         
-        b_pct = int((alloc['binance_futures'] + alloc['binance_spot']) / 10)
-        a_pct = int(alloc['alpaca'] / 10)
-        total_blocks = min(10, b_pct + a_pct)
-        empty_blocks = 10 - total_blocks
+        # PnL
+        pnl = pos['total_pnl']
+        pnl_icon = "🟢" if pnl >= 0 else "🔴"
         
-        visual_bar = "▓" * b_pct + "▒" * a_pct + "░" * empty_blocks
-        
-        net_worth_section = (
-            f"\n**💵 NET WORTH: ${net_worth:,.2f}**\n"
-            f"{visual_bar} 100% Alloc\n"
-        )
-        
-        # 3. Operations Module
-        mode = cfg.get('mode', 'WATCHER')
-        mode_icon = {'WATCHER': '👁️', 'COPILOT': '🦾', 'PILOT': '🤖'}.get(mode, '❓')
-        
-        pnl_val = pos['total_pnl']
-        pnl_icon = "🟢" if pnl_val >= 0 else "🔴"
-        pnl_str = f"{pnl_icon} ${abs(pnl_val):.2f}"
-        
-        ops_section = (
-            "**🛠️ OPERATIONS**\n"
-            f"{mode_icon} **Mode:** `{mode}`\n"
-            f"📡 **Positions:** `{pos['count']}` ({pos['longs']}L / {pos['shorts']}S)\n"
-            f"🧨 **PnL RealTime:** {pnl_str}\n"
-        )
-        
-        # 4. Asset Allocation Details
-        binance_section = (
-            "**📊 ASSET ALLOCATION**\n"
-            "🔸 **Binance**\n"
-            f"   ├─ Spot: `${wallet['spot_usdt'] + wallet['earn_usdt']:,.0f}`\n"
-            f"   └─ Futures: `${wallet['futures_balance']:,.0f}`\n"
-        )
-        
-        alpaca_section = (
-            "🦙 **Alpaca**\n"
-            f"   └─ Main: `${wallet['alpaca_equity']:,.0f}`\n"
-        )
-        
-        # 5. Market Intel
+        # Fear & Greed
         fg_text = get_fear_and_greed_index()
         
-        intel_section = (
-            "\n**🧠 AI INSIGHTS**\n"
-            f"{fg_text}\n"
-            "_El mercado muestra divergencias en TF 15m._" 
+        # Build Message
+        msg = (
+            "📊 **TRADING DASHBOARD**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            f"� **Net Worth:** `${net_worth:,.2f}`\n"
+            f"📈 **PnL Abierto:** {pnl_icon} `${pnl:,.2f}`\n\n"
+            
+            "**💰 Balances**\n"
+            f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`\n"
+            f"• Binance Futures: `${wallet.get('futures_balance', 0):,.0f}`\n"
+            f"• Alpaca: `${wallet.get('alpaca_equity', 0):,.0f}`\n\n"
+            
+            "**⚙️ Estado**\n"
+            f"• Modo: {mode_display}\n"
+            f"• Posiciones: `{pos['count']}` ({pos['longs']}L / {pos['shorts']}S)\n\n"
+            
+            "**🌡️ Mercado**\n"
+            f"{fg_text}"
         )
         
-        # Assemble Final Message
-        final_msg = (
-            f"{header}"
-            f"{net_worth_section}\n"
-            f"{ops_section}\n"
-            f"{binance_section}"
-            f"{alpaca_section}"
-            f"{intel_section}"
-        )
-        
-        # Keyboard for Refresh/Action
+        # Keyboard
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="🔄 Actualizar", callback_data="CMD|dashboard"),
                 InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
+            ],
+            [
+                InlineKeyboardButton(text="🔙 Menú Principal", callback_data="CMD|start")
             ]
         ])
         
-        await loading.edit_text(final_msg, parse_mode="Markdown", reply_markup=kb)
+        await target_msg.edit_text(msg, parse_mode="Markdown", reply_markup=kb)
 
     except Exception as e:
-        await loading.edit_text(f"❌ Orbit Failure: {e}")
+        await target_msg.edit_text(f"❌ Error: {e}")
 
 
 # ALIASES
