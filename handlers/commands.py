@@ -318,7 +318,7 @@ async def cmd_help(message: Message):
 
 
 @router.message(Command("dashboard"))
-async def cmd_dashboard(message: Message, **kwargs):
+async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
     """
     🪐 ORBITAL COMMAND DASHBOARD
     Premium Unified Interface for Status + Wallet + Operations
@@ -328,11 +328,24 @@ async def cmd_dashboard(message: Message, **kwargs):
     
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys.")
+        if edit_message:
+            await message.edit_text("⚠️ Sin sesión activa. Usa /set\\_keys.")
+        else:
+            await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys.")
         return
 
-    # Use a placeholder while loading
-    loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
+    # Loading State
+    try:
+        if edit_message:
+            # Edit existing message (from callback)
+            loading = await message.edit_text("🛰️ **Estableciendo enlace con Orbital Command...**")
+            if not isinstance(loading, Message): loading = message # Fallback if edit returns bool
+        else:
+            # Send new message
+            loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
+    except Exception as e:
+        # Fallback if edit fails (e.g. message too old)
+        loading = await message.answer("🛰️ **Estableciendo enlace con Orbital Command...**")
     
     try:
         # Fetch Aggregated Data
@@ -353,14 +366,8 @@ async def cmd_dashboard(message: Message, **kwargs):
         # 2. Net Worth & Allocation Bar
         net_worth = wallet.get('total', 0.0)
         
-        # Allocation Bar Visual: ▓▓▓▓░░
-        # Use simple logic: 10 blocks. Each block = 10%
-        # Allocation is based on USDT (Stable) vs Active Deployment? 
-        # Actually user asked for "USDT Alloc". Let's use Binance vs Alpaca split for the visual.
-        
         b_pct = int((alloc['binance_futures'] + alloc['binance_spot']) / 10)
         a_pct = int(alloc['alpaca'] / 10)
-        # Remainder is empty or error? Normalize to 10
         total_blocks = min(10, b_pct + a_pct)
         empty_blocks = 10 - total_blocks
         
@@ -375,7 +382,6 @@ async def cmd_dashboard(message: Message, **kwargs):
         mode = cfg.get('mode', 'WATCHER')
         mode_icon = {'WATCHER': '👁️', 'COPILOT': '🦾', 'PILOT': '🤖'}.get(mode, '❓')
         
-        # Calculate PnL Icon
         pnl_val = pos['total_pnl']
         pnl_icon = "🟢" if pnl_val >= 0 else "🔴"
         pnl_str = f"{pnl_icon} ${abs(pnl_val):.2f}"
@@ -388,12 +394,11 @@ async def cmd_dashboard(message: Message, **kwargs):
         )
         
         # 4. Asset Allocation Details
-        binance_total = wallet['futures_balance'] + wallet['spot_usdt'] + wallet['earn_usdt']
         binance_section = (
             "**📊 ASSET ALLOCATION**\n"
             "🔸 **Binance**\n"
             f"   ├─ Spot: `${wallet['spot_usdt'] + wallet['earn_usdt']:,.0f}`\n"
-            f"   └─ Fut:  `${wallet['futures_balance']:,.0f}`\n"
+            f"   └─ Futures: `${wallet['futures_balance']:,.0f}`\n"
         )
         
         alpaca_section = (
@@ -401,10 +406,8 @@ async def cmd_dashboard(message: Message, **kwargs):
             f"   └─ Main: `${wallet['alpaca_equity']:,.0f}`\n"
         )
         
-        # 5. Market Intel (Placeholder or Real F&G)
+        # 5. Market Intel
         fg_text = get_fear_and_greed_index()
-        # Extract just the label if possible? get_fear_and_greed_index returns formatted text usually
-        # We can just use it directly
         
         intel_section = (
             "\n**🧠 AI INSIGHTS**\n"
@@ -425,7 +428,7 @@ async def cmd_dashboard(message: Message, **kwargs):
         # Keyboard for Refresh/Action
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Est. Sistema", callback_data="DASHBOARD"),
+                InlineKeyboardButton(text="🔄 Actualizar", callback_data="DASHBOARD"),
                 InlineKeyboardButton(text="⚙️ Config", callback_data="CONFIG")
             ]
         ])
