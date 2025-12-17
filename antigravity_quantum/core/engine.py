@@ -41,7 +41,7 @@ class QuantumEngine:
         print("✅ Strategy Factory: Online")
 
     async def core_loop(self):
-        """Main Decision Loop"""
+        """Main Decision Loop with Diagnostic Logging"""
         print("🚀 Quantum Core Loop Started.")
         cycle_count = 0
         while self.running:
@@ -55,13 +55,21 @@ class QuantumEngine:
                 continue
             
             signals_generated = 0
+            assets_scanned = 0
+            skip_reasons = {"no_data": 0, "hold": 0, "error": 0}
+            
             for asset in active_assets:
                 try:
                     # 1. Fetch Market Data
                     market_data = await self.market_stream.get_candles(asset)
                     
                     if market_data.get('dataframe') is None or market_data['dataframe'].empty:
+                        skip_reasons["no_data"] += 1
                         continue
+                    
+                    assets_scanned += 1
+                    df = market_data['dataframe']
+                    last = df.iloc[-1]
                     
                     # 2. Get Strategy via Factory (Dynamic Classification)
                     strategy = StrategyFactory.get_strategy(asset, market_data)
@@ -71,6 +79,12 @@ class QuantumEngine:
                     
                     # 4. Filter: Only actionable signals
                     if signal is None or signal.action == 'HOLD':
+                        skip_reasons["hold"] += 1
+                        # Verbose: Log why this asset was skipped (every 10 cycles)
+                        if cycle_count % 10 == 0:
+                            adx = last.get('adx', 0)
+                            rsi = last.get('rsi', 50)
+                            print(f"   📊 {asset} ({strategy.name}): HOLD | ADX={adx:.1f} RSI={rsi:.1f}")
                         continue
                     
                     # 5. Risk Check (Optional - basic exposure check)
@@ -85,12 +99,12 @@ class QuantumEngine:
                         await self.signal_callback(signal)
                         
                 except Exception as e:
+                    skip_reasons["error"] += 1
                     print(f"⚠️ Error processing {asset}: {e}")
                     continue
             
-            # Diagnostic: Log cycle summary every 5 cycles
-            if cycle_count % 5 == 0:
-                print(f"📊 Cycle {cycle_count}: Scanned {len(active_assets)} assets, {signals_generated} signals generated")
+            # Diagnostic: Log cycle summary every cycle (verbose mode)
+            print(f"📊 Cycle {cycle_count}: Scanned {assets_scanned}/{len(active_assets)} | Signals: {signals_generated} | Skips: data={skip_reasons['no_data']} hold={skip_reasons['hold']} err={skip_reasons['error']}")
                 
             await asyncio.sleep(60)  # 1 Minute Cycle
 
