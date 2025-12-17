@@ -299,6 +299,7 @@ async def cmd_help(message: Message):
             "• /subs - Listar usuarios\n"
             "• /addsub - Agregar suscriptor\n"
             "• /remsub - Eliminar usuario\n"
+            "• /reset\\_assets - Limpiar assets deshabilitados\n"
             "• /debug - Diagnóstico Sistema\n"
         )
 
