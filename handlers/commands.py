@@ -1065,6 +1065,28 @@ async def cmd_cooldowns(message: Message, **kwargs):
     await message.reply("\n".join(lines), parse_mode="Markdown")
 
 
+@router.message(Command("reset_assets"))
+async def cmd_reset_assets(message: Message, **kwargs):
+    """Clear all disabled assets (Admin only)."""
+    from antigravity_quantum.config import DISABLED_ASSETS, ENABLED_STRATEGIES
+    from config import GROUP_CONFIG
+    from utils.db import save_bot_state
+    import antigravity_quantum.config as aq_config
+    
+    count = len(DISABLED_ASSETS)
+    DISABLED_ASSETS.clear()
+    
+    # Persist to database
+    save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, [], aq_config.AI_FILTER_ENABLED)
+    
+    await message.reply(
+        f"✅ **Assets Reset**\n"
+        f"Se habilitaron {count} activos previamente deshabilitados.\n"
+        f"Total disabled ahora: 0",
+        parse_mode="Markdown"
+    )
+
+
 # =================================================================
 # MANUAL TRADING COMMANDS
 # =================================================================
@@ -1285,7 +1307,7 @@ async def cmd_strategy(message: Message, **kwargs):
 async def cmd_price(message: Message, **kwargs):
     """Market Scan (Price + 24h% + RSI + Sentiment)"""
     try:
-        loading = await message.answer("🔍 _Analizando mercado (Precios + RSI + Sentimiento)..._", parse_mode="Markdown")
+        loading = await message.answer("🔍 _Analizando mercado..._", parse_mode="Markdown")
         
         # 1. Fear & Greed
         fng = get_fear_and_greed_index()
