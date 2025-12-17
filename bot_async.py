@@ -308,9 +308,26 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     success, result = await session.execute_short_position(symbol, strategy=strategy)
                 
                 if success:
+                    # Use personality-based message for PILOT mode
+                    if side == 'LONG':
+                        pilot_msg = personality_manager.get_message(
+                            p_key, 'TRADE_LONG',
+                            asset=symbol, price=price, reason=reason,
+                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                            title=title, quote=quote, strategy_name=strategy
+                        )
+                    else:
+                        pilot_msg = personality_manager.get_message(
+                            p_key, 'TRADE_SHORT',
+                            asset=symbol, price=price, reason=reason,
+                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                            title=title, quote=quote, strategy_name=strategy
+                        )
+                    
+                    # Add execution confirmation + personality message
                     await bot.send_message(
                         session.chat_id,
-                        f"✅ *{side} EJECUTADO*\n{result}",
+                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n\n{pilot_msg}\n\n📋 {result}",
                         parse_mode="Markdown"
                     )
                     
