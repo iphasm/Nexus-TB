@@ -327,7 +327,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     # Add execution confirmation + personality message
                     await bot.send_message(
                         session.chat_id,
-                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n\n{pilot_msg}\n\n📋 {result}",
+                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n\n{pilot_msg}",
                         parse_mode="Markdown"
                     )
                     

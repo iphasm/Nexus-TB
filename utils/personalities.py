@@ -86,7 +86,7 @@ class PersonalityManager:
                 "• **Seguridad:** Gestión de claves encriptada y ejecución local."
             ),
             'TRADE_LONG': (
-                "{title}\n\n"
+                "{title}: \"{quote}\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🟢 **LONG (Compra)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -94,12 +94,10 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "{title}\n\n"
+                "{title}: \"{quote}\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🔴 **SHORT (Venta)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -107,8 +105,6 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Cierre de Posición**\n{asset} ({side}). {reason}.",
@@ -335,7 +331,7 @@ class PersonalityManager:
             'STRATEGY_MSG': "🌑 **DOCTRINA IMPERIAL**\n\nNo confío en la suerte, sino en el orden absoluto.\n1. **Conquista**: Identificamos tendencias débiles y las aplastamos.\n2. **Sitio**: En mercados laterales, asfixiamos al enemigo poco a poco.\n3. **Fuerza**: Usamos la volatilidad del Lado Oscuro a nuestro favor.",
             'ABOUT_MSG': "🌑 **IMPERIO GALÁCTICO**\n\nEsta estación de batalla es el poder definitivo en el universo. Diseñada para imponer orden en el caos financiero.",
             'TRADE_LONG': (
-                "{title}\n\n"
+                "{title}: \"{quote}\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🟢 **LONG (Imperio)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -343,12 +339,10 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "{title}\n\n"
+                "{title}: \"{quote}\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🔴 **SHORT (Purga)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -356,8 +350,6 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Cierre Imperial**\n{asset} cerrado. {reason}.",
