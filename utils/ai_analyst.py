@@ -175,42 +175,48 @@ class QuantumAnalyst:
             # Combine Context
             import datetime
             now_str = datetime.datetime.now().strftime("%Y-%m-%d")
-            full_context = f"Date: {now_str}\n--- ASSET NEWS ---\n" + "\n".join(asset_headlines)
-            full_context += "\n\n--- POLITICAL (DJT) ---\n" + "\n".join(trump_headlines)
-            full_context += "\n\n--- MACRO (S&P 500) ---\n" + "\n".join(macro_headlines)
-
-            if not asset_headlines and not trump_headlines and not macro_headlines:
-                return {'score': 0, 'reason': "No recent news found.", 'volatility_risk': "LOW"}
-            
             # 4. Analyze with GPT (Trump + Fed Aware)
             prompt = f"""
             Analyze market sentiment for: {symbol}.
             
-            Context Data:
-            {full_context}
+            --- DATA SOURCES ---
+            1. ASSET SPECIFIC NEWS (High Priority):
+            {chr(10).join(asset_headlines) if asset_headlines else "No specific news found."}
             
+            2. POLITICAL CONTEXT (DJT Proxy) - IGNORE IF IRRELEVANT:
+            {chr(10).join(trump_headlines) if trump_headlines else "No political news."}
+            
+            3. MACRO CONTEXT (S&P 500) - IGNORE IF IRRELEVANT:
+            {chr(10).join(macro_headlines) if macro_headlines else "No macro news."}
+            
+            --- RULES ---
+            1. **RELEVANCE FILTER:** You must IGNORE the Political/Macro news unless they have a logically DIRECT impact on {symbol} or the broader Crypto market right now.
+            2. **NO HALLUCINATIONS:** Do NOT force a connection. If {symbol} is an altcoin and the news is about "Trump Trade Wars" but there's no direct link, IGNORE IT.
+            3. **PRIORITY:** Base your score 80% on the Asset Specific News if available.
+            
+            --- SPECIAL CHECKS ---
             check 1: "THE TRUMP FACTOR"
-            - Keywords: "Trump", "Election", "Regulations", "Tariff", "Trade War".
-            - Tariff/Trade War = Negative for Risk Assets (usually).
-            - Deregulation/Pro-Crypto = Positive.
+            - Only cite this if the news explicitly mentions Crypto, Bitcoin, or widespread market regulatory changes.
+            - If it's just "Trump held a rally", IGNORE it.
             
             check 2: "MACRO SHIELD" (FED/ECONOMY)
-            - Keywords: "FOMC", "Powell", "Fed", "CPI", "Inflation", "Rate Hike", "Job Data", "NFP".
-            - If these are TODAY or IMMINENT, risk is EXTREME.
+            - Only cite if relates to FOMC, Inflation, or Rate Hikes that are IMMINENT (today/tomorrow).
             
-            Task: Return JSON {{ "score": float, "reason": "string", "volatility_risk": "LOW" | "HIGH" | "EXTREME" }}.
-            - "score": -1.0 to 1.0.
-            - "reason": Max 10 words (Spanish). Mention Fed/Trump if relevant.
+            --- TASK ---
+            Return JSON: {{ "score": float, "reason": "string", "volatility_risk": "LOW" | "HIGH" | "EXTREME" }}
+            
+            - "score": -1.0 (Bearish) to 1.0 (Bullish).
+            - "reason": Max 15 words (Spanish). Explain the MAIN driver. Do NOT mention Trump/Fed unless they are the primary reason.
             - "volatility_risk": 
-                - "EXTREME" if FOMC/CPI/Powell/War is happening NOW or TODAY.
-                - "HIGH" if Trump Tariffs or uncertain political noise.
-                - "LOW" otherwise.
+                - "EXTREME": Only if FOMC/CPI/War is TODAY.
+                - "HIGH": Significant uncertainty.
+                - "LOW": Normal market conditions.
             """
 
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a hedge fund risk manager. Detect Fed Events and Political Volatility. Output JSON only."},
+                    {"role": "system", "content": "You are a hedge fund risk manager. You are extremely skeptical. You strict filter out noise and irrelevant political news. Output JSON only."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"}, 
