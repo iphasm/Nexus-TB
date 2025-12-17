@@ -301,9 +301,9 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                 
                 # Auto-execute (no "entering pilot mode" message)
                 if side == 'LONG':
-                    success, result = await session.execute_long_position(symbol)
+                    success, result = await session.execute_long_position(symbol, strategy=strategy)
                 else:
-                    success, result = await session.execute_short_position(symbol)
+                    success, result = await session.execute_short_position(symbol, strategy=strategy)
                 
                 if success:
                     await bot.send_message(
