@@ -59,7 +59,8 @@ class AlpacaStream:
                 timeframe=TimeFrame(15, TimeFrameUnit.Minute),  # 15-minute bars
                 start=start,
                 end=end,
-                limit=limit
+                limit=limit,
+                feed="iex"  # Use IEX feed (free tier) instead of SIP (paid)
             )
             
             bars = self.client.get_stock_bars(request)
