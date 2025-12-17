@@ -58,13 +58,17 @@ class SharkSentinel(threading.Thread):
     def fetch_btc_price_raw(self):
         """Ultra-lightweight raw price fetch (bypassing main fetcher logic)."""
         url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        try:
-            resp = requests.get(url, timeout=2)
-            data = resp.json()
-            return float(data['price'])
-        except Exception as e:
-            logger.warning(f"Price fetch failed: {e}")
-            return None
+        for attempt in range(2):  # 2 attempts total
+            try:
+                resp = requests.get(url, timeout=5)
+                data = resp.json()
+                return float(data['price'])
+            except Exception as e:
+                if attempt == 0:
+                    time.sleep(0.5)  # Brief pause before retry
+                    continue
+                logger.warning(f"Price fetch failed after retry: {e}")
+                return None
 
     def execute_defense_sequence(self):
         """
