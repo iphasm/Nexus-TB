@@ -428,8 +428,8 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
         # Keyboard for Refresh/Action
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Actualizar", callback_data="DASHBOARD"),
-                InlineKeyboardButton(text="⚙️ Config", callback_data="CONFIG")
+                InlineKeyboardButton(text="🔄 Actualizar", callback_data="CMD|dashboard"),
+                InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
             ]
         ])
         
