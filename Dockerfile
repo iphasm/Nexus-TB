@@ -1,5 +1,5 @@
 # Use lightweight Python 3.11
-FROM python:3.11-slim-bookworm
+FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm
 
 # Set working directory
 WORKDIR /app
