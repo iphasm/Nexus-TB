@@ -346,7 +346,23 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
                     # Only log errors, don't spam user with cooldown messages
-                    if "Wait" not in result and "cooldown" not in result.lower():
+                    ignore_phrases = ["Wait", "cooldown", "duplicate"]
+                    
+                    # Special handling for "Insufficient capital" (Min Notional)
+                    if "Insufficient capital" in result:
+                        # 1. Trigger Long Cooldown (1 hour) to stop spam
+                        cooldown_manager.set_cooldown(symbol, 3600)
+                        
+                        # 2. Notify User only once (Cooldown matches)
+                        await bot.send_message(
+                            session.chat_id,
+                            f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
+                            f"El tamaño de la posición es menor al mínimo del exchange ($5-10).\n"
+                            f"❄️ **Acción:** {symbol} pausado por 1 hora.",
+                            parse_mode="Markdown"
+                        )
+                    
+                    elif not any(x in result for x in ignore_phrases):
                         await bot.send_message(
                             session.chat_id,
                             f"❌ Error: {result}",
