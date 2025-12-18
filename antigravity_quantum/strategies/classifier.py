@@ -17,6 +17,11 @@ class MarketClassifier:
     - TREND: High ADX, aligned EMAs. -> TrendFollowing
     - RANGE: Low ADX, High Choppiness (proxy), bounded Price. -> Grid / MeanReversion
     - VOLATILE: High ATR, rapid Price changes. -> Scalping (or WAIT if too risky)
+    
+    NOTE: ADX values are synthetic (EMA divergence * 2500), calibrated for:
+    - Weak trend: < 15
+    - Moderate trend: 15-30
+    - Strong trend: > 30
     """
 
     @staticmethod
@@ -42,16 +47,17 @@ class MarketClassifier:
         
         # Metrics
         atr_pct = (atr / close) * 100 if close > 0 else 0
-        trend_strength = abs(ema_20 - ema_50) / close * 1000 # Proxy for divergence
+        trend_strength = abs(ema_20 - ema_50) / close * 1000 if close > 0 else 0  # Proxy for divergence
         
         # --- CLASSIFICATION LOGIC ---
         
         # 1. TREND REGIME
-        # Criteria: Strong ADX or Strong EMA separation
-        if adx > 25 or trend_strength > 5.0:
+        # Criteria: Moderate-High ADX (>20 with our scale) or Strong EMA separation
+        # Lowered from 25 to 20 to catch more trend signals
+        if adx > 20 or trend_strength > 4.0:
             # Check alignment with Macro (EMA 200) for Extra Confidence
             aligned_macro = (close > ema_200 and ema_20 > ema_50) or (close < ema_200 and ema_20 < ema_50)
-            conf = 0.8 if aligned_macro else 0.6
+            conf = 0.8 if aligned_macro else 0.65
             
             return MarketRegime(
                 regime="TREND",
@@ -61,9 +67,8 @@ class MarketClassifier:
             )
             
         # 2. VOLATILE / SCALPING REGIME
-        # Criteria: High ATR % (Volatile) but ADX not necessarily super high (Choppy Volatility)
-        # OR RSI Extremes with movement
-        if atr_pct > 1.5:  # Moves > 1.5% per candle (on selected timeframe)
+        # Criteria: High ATR % (Volatile) - adjusted for typical crypto volatility
+        if atr_pct > 1.2:  # Lowered from 1.5 to catch more volatile periods
             return MarketRegime(
                 regime="VOLATILE",
                 suggested_strategy="Scalping",
@@ -73,12 +78,12 @@ class MarketClassifier:
 
         # 3. RANGING / ACCUMULATION REGIME
         # Criteria: Low ADX, EMAs close together
-        if adx < 20 and trend_strength < 2.0:
+        if adx < 18 and trend_strength < 3.0:
             # Distinguish between Tight Range (Grid) and Wide Range (Mean Rev)
             bb_width_pct = ((last.get('upper_bb', 0) - last.get('lower_bb', 0)) / close) * 100
-            
-            if bb_width_pct < 2.0: 
-                # Very tight - Grid is good
+
+            if bb_width_pct < 2.5: 
+                # Tight range - Grid is good
                 return MarketRegime(
                     regime="RANGE_TIGHT",
                     suggested_strategy="Grid",
@@ -94,10 +99,10 @@ class MarketClassifier:
                     reason=f"Wide Range (ADX: {adx:.1f}, BB: {bb_width_pct:.1f}%)"
                 )
         
-        # 4. DEFAULT FALLBACK
+        # 4. DEFAULT FALLBACK - Use Mean Reversion as safe default
         return MarketRegime(
             regime="NORMAL",
             suggested_strategy="MeanReversion",
             confidence=0.5,
-            reason="No strong regime (Default)"
+            reason=f"Normal Market (ADX: {adx:.1f})"
         )

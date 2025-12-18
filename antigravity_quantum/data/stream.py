@@ -104,11 +104,12 @@ class MarketStream:
             tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
             df['atr'] = tr.rolling(window=14).mean()
             
-            # 2. Synthetic ADX (Trend Strength) - Proxy used in get_historical_candles
+            # 2. Synthetic ADX (Trend Strength) - Proxy for real ADX
             # Measures divergence between EMA20 and EMA50 relative to price
-            # Scale factor 1000 maps 2% divergence to ~20 ADX
+            # Scale factor 2500 calibrated to produce ~20 ADX on 0.8% divergence (realistic for crypto)
+            # Typical crypto ranges: 0.3-1.5% divergence -> 7.5-37.5 ADX
             div = (df['ema_20'] - df['ema_50']).abs()
-            df['adx'] = (div / df['close']) * 1000
+            df['adx'] = (div / df['close']) * 2500
             
             # Fill NaN
             df.bfill(inplace=True)
@@ -195,11 +196,9 @@ class MarketStream:
         atr_14 = tr.rolling(14).mean()
         df['atr'] = atr_14
         
-        # Synthetic ADX-like filter: 
-        # If SMA slopes are aligned and Volatility is rising -> High Trend Strength
-        # This is a robust proxy 
-        df['adx'] = (abs(df['ema_20'] - df['ema_50']) / close) * 1000 
-        # Normalized logic: > 5 usually means strong divergence/trend
+        # Synthetic ADX-like filter (same scale as get_candles: 2500)
+        # Measures EMA divergence relative to price
+        df['adx'] = (abs(df['ema_20'] - df['ema_50']) / close) * 2500
         
         return df
 

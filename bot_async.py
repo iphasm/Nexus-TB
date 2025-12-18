@@ -154,6 +154,28 @@ import time
 
 cooldown_manager = DynamicCooldownManager(default_cooldown=300)  # 5 min default
 
+# === STRATEGY NAME MAPPING ===
+# Maps strategy.name values from StrategyFactory to session config keys
+# This is CRITICAL for signal filtering to work correctly
+STRATEGY_NAME_TO_CONFIG_KEY = {
+    'TrendFollowing': 'TREND',
+    'Trend': 'TREND',
+    'TREND': 'TREND',
+    'Scalping': 'SCALPING',
+    'Scalping (High Vol)': 'SCALPING',
+    'SCALPING': 'SCALPING',
+    'MeanReversion': 'MEAN_REVERSION',
+    'Mean Reversion': 'MEAN_REVERSION',
+    'MEAN_REVERSION': 'MEAN_REVERSION',
+    'Grid': 'GRID',
+    'GridTrading': 'GRID',
+    'GRID': 'GRID',
+    'BlackSwan': 'BLACK_SWAN',
+    'BLACK_SWAN': 'BLACK_SWAN',
+    'Shark': 'SHARK',
+    'SHARK': 'SHARK',
+}
+
 async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     """
     Dispatch trading signals from QuantumEngine to all active sessions.
@@ -177,12 +199,11 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
         logger.debug(f"⏳ Signal for {symbol} skipped (cooldown active)")
         return
     
-    # Mark as alerted with ATR if available
-    atr = getattr(signal, 'atr', None)
-    cooldown_manager.set_cooldown(symbol, atr=atr)
-    
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
+    
+    # Map strategy name to config key for filtering
+    strategy_config_key = STRATEGY_NAME_TO_CONFIG_KEY.get(strategy, strategy.upper())
     
     # Format Reason with Metadata
     # User Format: [Strategy | Conf: 85% | Param1: Val1]
@@ -206,7 +227,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     params_str = " | ".join(meta_params)
     reason = f"[{strategy} | Conf: {confidence:.0%} | {params_str}]"
     
-    logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy})")
+    logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy} -> Key: {strategy_config_key})")
     
     # Dispatch to all sessions
     from config import ASSET_GROUPS
@@ -217,11 +238,16 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
         if symbol in assets:
             asset_group = group_name
             break
+    
+    # Track if at least one session processed the signal
+    signal_processed = False
+    atr = getattr(signal, 'atr', None)
             
     for session in session_manager.get_all_sessions():
         # --- FILTER: Strategy Enabled? ---
-        if not session.is_strategy_enabled(strategy):
-            # Special case: allow if it's a generic signal or essential? No, strict filter.
+        # Use mapped config key instead of raw strategy name
+        if not session.is_strategy_enabled(strategy_config_key):
+            logger.debug(f"  ⏭️ {session.chat_id}: Strategy {strategy_config_key} disabled")
             continue
             
         # --- FILTER: Group Enabled? ---
@@ -369,8 +395,15 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                             parse_mode="Markdown"
                         )
                     
+            signal_processed = True
         except Exception as e:
             logger.error(f"Signal dispatch error for {session.chat_id}: {e}")
+    
+    # Set cooldown ONLY if at least one session processed the signal
+    if signal_processed:
+        cooldown_manager.set_cooldown(symbol, atr=atr)
+    else:
+        logger.debug(f"📭 Signal for {symbol} not dispatched (no eligible sessions)")
 
 
 # --- MAIN APPLICATION ---
