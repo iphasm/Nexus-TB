@@ -1296,22 +1296,27 @@ class AsyncTradingSession:
             return False, f"Spot Buy Error: {e}"
     
     async def get_active_positions(self) -> List[Dict]:
-        """Get list of active futures positions."""
+        """Get list of active futures positions with correct leverage."""
         if not self.client:
             return []
         
         try:
-            positions = await self.client.futures_position_information()
+            # Use futures_account to get positions with correct leverage
+            account = await self.client.futures_account()
+            positions = account.get('positions', [])
+            
             active = []
             for p in positions:
-                amt = float(p['positionAmt'])
+                amt = float(p.get('positionAmt', 0))
                 if abs(amt) > 0.0001:  # Filter dust
+                    # Get leverage from position data (it's a string in the API)
+                    lev = p.get('leverage', '5')
                     active.append({
                         'symbol': p['symbol'],
                         'amt': amt,
-                        'entry': float(p['entryPrice']),
-                        'pnl': float(p.get('unRealizedProfit', 0)),  # Correct key name
-                        'leverage': int(p.get('leverage', 5))
+                        'entry': float(p.get('entryPrice', 0)),
+                        'pnl': float(p.get('unrealizedProfit', 0)),
+                        'leverage': int(lev) if isinstance(lev, (int, float)) else int(lev)
                     })
             return active
         except Exception as e:
