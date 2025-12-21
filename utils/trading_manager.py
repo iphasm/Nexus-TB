@@ -831,7 +831,8 @@ class AsyncTradingSession:
         
         try:
             # NEW Endpoint (Dec 2025): DELETE /fapi/v1/algoOpenOrders
-            await self.client._request('DELETE', '/fapi/v1/algoOpenOrders', signed=True, data={'symbol': symbol})
+            # Note: python-binance _request expects lowercase method
+            await self.client._request('delete', '/fapi/v1/algoOpenOrders', signed=True, data={'symbol': symbol})
             print(f"🧹 Algo orders cleared for {symbol}")
         except Exception as e:
             # -2011: Unknown order (no algo orders to cancel)
@@ -849,7 +850,8 @@ class AsyncTradingSession:
             params = {}
             if symbol:
                 params['symbol'] = symbol
-            result = await self.client._request('GET', '/fapi/v1/openAlgoOrders', signed=True, data=params)
+            # Note: python-binance _request expects lowercase method
+            result = await self.client._request('get', '/fapi/v1/openAlgoOrders', signed=True, data=params)
             return result.get('orders', []) if result else []
         except Exception as e:
             if "-2011" not in str(e):
