@@ -1235,7 +1235,7 @@ class AsyncTradingSession:
                     except Exception as e:
                         report.append(f"❌ **{symbol}** - Error: {e}")
                 else:
-                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}, Margin: ${initial_margin:.2f}) < {breakeven_roi_threshold*100:.0f}%")
+                    report.append(f"⏳ **{symbol}** ({leverage}x) - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}, Margin: ${initial_margin:.2f}) < {breakeven_roi_threshold*100:.0f}%")
             
             if modified > 0:
                 report.append("")
