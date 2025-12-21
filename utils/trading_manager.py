@@ -1312,7 +1312,8 @@ class AsyncTradingSession:
                         'symbol': p['symbol'],
                         'amt': amt,
                         'entry': float(p['entryPrice']),
-                        'pnl': float(p.get('unrealizedProfit', 0))
+                        'pnl': float(p.get('unRealizedProfit', 0)),  # Correct key name
+                        'leverage': int(p.get('leverage', 5))
                     })
             return active
         except Exception as e:
