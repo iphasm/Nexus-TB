@@ -1190,24 +1190,23 @@ class AsyncTradingSession:
                 ticker = await self.client.futures_symbol_ticker(symbol=symbol)
                 current_price = float(ticker['price'])
                 
-                # Calculate position value and ROI correctly
-                # Position notional = abs(qty) * entry_price
-                position_notional = abs(qty) * entry_price
-                
-                # Margin used = notional / leverage
-                margin_used = position_notional / leverage if leverage > 0 else position_notional
-                
-                # ROI = PnL / Margin * 100 (this is the leveraged ROI shown in Binance)
-                if margin_used > 0:
-                    roi = unrealized_pnl / margin_used
+                # Calculate ROI using price change (more reliable)
+                # ROI = ((current - entry) / entry) * leverage  (for LONG)
+                # ROI = ((entry - current) / entry) * leverage  (for SHORT)
+                if side == 'LONG':
+                    price_change_pct = (current_price - entry_price) / entry_price
                 else:
-                    # Fallback: simple price-based ROI
-                    if side == 'LONG':
-                        roi = (current_price - entry_price) / entry_price * leverage
-                    else:
-                        roi = (entry_price - current_price) / entry_price * leverage
+                    price_change_pct = (entry_price - current_price) / entry_price
                 
+                # Apply leverage to get actual ROI
+                roi = price_change_pct * leverage
                 roi_pct = roi * 100
+                
+                # Also calculate PnL for display
+                if side == 'LONG':
+                    calculated_pnl = (current_price - entry_price) * abs(qty)
+                else:
+                    calculated_pnl = (entry_price - current_price) * abs(qty)
                 
                 # Check if ROI >= threshold (10%)
                 if roi >= breakeven_roi_threshold:
@@ -1231,13 +1230,13 @@ class AsyncTradingSession:
                         )
                         if success:
                             modified += 1
-                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${unrealized_pnl:.2f}) → SL moved to breakeven ({new_sl})")
+                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${calculated_pnl:.2f}) → SL moved to breakeven ({new_sl})")
                         else:
                             report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
                     except Exception as e:
                         report.append(f"❌ **{symbol}** - Error: {e}")
                 else:
-                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${unrealized_pnl:.2f}) < {breakeven_roi_threshold*100:.0f}% threshold")
+                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${calculated_pnl:.2f}) < {breakeven_roi_threshold*100:.0f}% threshold")
             
             if modified > 0:
                 report.append("")
