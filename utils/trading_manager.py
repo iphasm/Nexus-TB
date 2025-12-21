@@ -1190,11 +1190,8 @@ class AsyncTradingSession:
                 ticker = await self.client.futures_symbol_ticker(symbol=symbol)
                 current_price = float(ticker['price'])
                 
-                # Calculate PnL
-                if side == 'LONG':
-                    calculated_pnl = (current_price - entry_price) * abs(qty)
-                else:
-                    calculated_pnl = (entry_price - current_price) * abs(qty)
+                # Use unrealized PnL from API (confirmed correct by user)
+                pnl = unrealized_pnl
                 
                 # Calculate ROI using Binance formula:
                 # ROI = PnL / Initial_Margin
@@ -1204,7 +1201,7 @@ class AsyncTradingSession:
                 
                 # ROI = PnL / Initial_Margin
                 if initial_margin > 0:
-                    roi = calculated_pnl / initial_margin
+                    roi = pnl / initial_margin
                 else:
                     roi = 0
                 
@@ -1232,13 +1229,13 @@ class AsyncTradingSession:
                         )
                         if success:
                             modified += 1
-                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${calculated_pnl:.2f}) → SL moved to breakeven ({new_sl})")
+                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}) → SL moved to breakeven ({new_sl})")
                         else:
                             report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
                     except Exception as e:
                         report.append(f"❌ **{symbol}** - Error: {e}")
                 else:
-                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${calculated_pnl:.2f}) < {breakeven_roi_threshold*100:.0f}% threshold")
+                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}, Margin: ${initial_margin:.2f}) < {breakeven_roi_threshold*100:.0f}%")
             
             if modified > 0:
                 report.append("")
