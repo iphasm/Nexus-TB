@@ -824,32 +824,51 @@ class AsyncTradingSession:
     async def cancel_algo_orders(self, symbol: str):
         """
         Explicitly cancel all ALGO orders (SL/TP/Trailing) for a symbol.
-        Uses private endpoint DELETE /fapi/v1/algo/allOpenOrders
+        Uses NEW Algo Service endpoint: DELETE /fapi/v1/algoOpenOrders
+        (Migrated Dec 9, 2025 - old endpoint was /fapi/v1/algo/allOpenOrders)
         """
         if not self.client: return
         
         try:
-            # Timestamp required for raw requests usually handled by client, 
-            # but using _request_api (internal) or equivalent if available.
-            # Python-binance client._request handles signing.
-            # Endpoint: DELETE /fapi/v1/algo/allOpenOrders
-            await self.client._request('DELETE', '/fapi/v1/algo/allOpenOrders', signed=True, data={'symbol': symbol})
-            # print(f"🧹 Algo orders cleared for {symbol}")
+            # NEW Endpoint (Dec 2025): DELETE /fapi/v1/algoOpenOrders
+            await self.client._request('DELETE', '/fapi/v1/algoOpenOrders', signed=True, data={'symbol': symbol})
+            print(f"🧹 Algo orders cleared for {symbol}")
         except Exception as e:
-            # code -2011: Unknown order sent (means no algo orders found)
+            # -2011: Unknown order (no algo orders to cancel)
             if "-2011" not in str(e):
                 print(f"⚠️ Algo Cancel Error ({symbol}): {e}")
+
+    async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
+        """
+        Get open ALGO orders (conditional orders) for a symbol.
+        Uses GET /fapi/v1/openAlgoOrders (Binance Algo Service - Dec 2025)
+        """
+        if not self.client: return []
+        
+        try:
+            params = {}
+            if symbol:
+                params['symbol'] = symbol
+            result = await self.client._request('GET', '/fapi/v1/openAlgoOrders', signed=True, data=params)
+            return result.get('orders', []) if result else []
+        except Exception as e:
+            if "-2011" not in str(e):
+                print(f"⚠️ Algo Query Error: {e}")
+            return []
 
     async def _cancel_all_robust(self, symbol: str):
         """
         Robust cancellation of ALL orders (Standard + Algo).
+        Handles -4120 (STOP_ORDER_SWITCH_ALGO) error after Dec 2025 migration.
         """
         # 1. Cancel Standard Orders (Limit, Market)
         try:
             await self.client.futures_cancel_all_open_orders(symbol=symbol)
         except Exception as e:
-            # Ignore "Unknown order" (nothing to cancel)
-            if "Unknown order" not in str(e) and "-2011" not in str(e):
+            error_str = str(e)
+            # -4120 = STOP_ORDER_SWITCH_ALGO (expected for conditional orders after migration)
+            # -2011 = Unknown order (nothing to cancel)
+            if "-4120" not in error_str and "-2011" not in error_str and "Unknown order" not in error_str:
                 print(f"⚠️ Standard Cancel Error ({symbol}): {e}")
         
         # 2. Cancel Algo Orders (Stop Loss, Take Profit, Trailing)
@@ -1088,23 +1107,36 @@ class AsyncTradingSession:
             self._operation_locks.pop(symbol, None)
     
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
-        """Cancel orders for symbols without positions."""
+        """Cancel orders for symbols without positions (Standard + Algo)."""
         if not self.client:
             return False, "No valid session."
         
         try:
+            # Get BOTH standard AND algo orders
             all_orders = await self.client.futures_get_open_orders()
+            algo_orders = await self.get_open_algo_orders()
+            
             active_pos = await self.get_active_positions()
             active_symbols = set(p['symbol'] for p in active_pos)
             
             orphaned = set()
+            
+            # Check standard orders
             for order in all_orders:
                 sym = order['symbol']
                 if sym not in active_symbols:
                     orphaned.add(sym)
             
+            # Check algo orders (SL/TP/Trailing)
+            for order in algo_orders:
+                sym = order.get('symbol', '')
+                if sym and sym not in active_symbols:
+                    orphaned.add(sym)
+            
+            total_orders = len(all_orders) + len(algo_orders)
+            
             if not orphaned:
-                return True, f"✅ No orphaned orders found. ({len(all_orders)} orders, {len(active_symbols)} positions)"
+                return True, f"✅ No orphaned orders. ({total_orders} orders, {len(active_symbols)} positions)"
             
             canceled = 0
             for sym in orphaned:
