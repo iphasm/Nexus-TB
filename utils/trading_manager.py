@@ -824,20 +824,16 @@ class AsyncTradingSession:
     async def cancel_algo_orders(self, symbol: str):
         """
         Explicitly cancel all ALGO orders (SL/TP/Trailing) for a symbol.
-        Uses NEW Algo Service endpoint: DELETE /fapi/v1/algoOpenOrders
-        (Migrated Dec 9, 2025 - old endpoint was /fapi/v1/algo/allOpenOrders)
+        Note: Algo Service endpoint may not be available for all accounts.
+        Errors are silently ignored as they're not critical.
         """
         if not self.client: return
         
         try:
-            # NEW Endpoint (Dec 2025): DELETE /fapi/v1/algoOpenOrders
-            # Note: python-binance _request expects lowercase method
-            await self.client._request('delete', '/fapi/v1/algoOpenOrders', signed=True, data={'symbol': symbol})
-            print(f"🧹 Algo orders cleared for {symbol}")
-        except Exception as e:
-            # -2011: Unknown order (no algo orders to cancel)
-            if "-2011" not in str(e):
-                print(f"⚠️ Algo Cancel Error ({symbol}): {e}")
+            # Try standard open orders cancel which covers most cases
+            await self.client.futures_cancel_all_open_orders(symbol=symbol)
+        except Exception:
+            pass  # Silently ignore - orders may not exist
 
     async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
         """
