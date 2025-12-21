@@ -1178,7 +1178,8 @@ class AsyncTradingSession:
                 symbol = p['symbol']
                 qty = float(p['amt'])
                 entry_price = float(p['entry'])
-                pnl = float(p.get('pnl', 0))
+                unrealized_pnl = float(p.get('pnl', 0))
+                leverage = int(p.get('leverage', self.config.get('leverage', 5)))
                 
                 if qty == 0 or entry_price == 0:
                     continue
@@ -1189,11 +1190,22 @@ class AsyncTradingSession:
                 ticker = await self.client.futures_symbol_ticker(symbol=symbol)
                 current_price = float(ticker['price'])
                 
-                # Calculate ROI
-                if side == 'LONG':
-                    roi = (current_price - entry_price) / entry_price
+                # Calculate position value and ROI correctly
+                # Position notional = abs(qty) * entry_price
+                position_notional = abs(qty) * entry_price
+                
+                # Margin used = notional / leverage
+                margin_used = position_notional / leverage if leverage > 0 else position_notional
+                
+                # ROI = PnL / Margin * 100 (this is the leveraged ROI shown in Binance)
+                if margin_used > 0:
+                    roi = unrealized_pnl / margin_used
                 else:
-                    roi = (entry_price - current_price) / entry_price
+                    # Fallback: simple price-based ROI
+                    if side == 'LONG':
+                        roi = (current_price - entry_price) / entry_price * leverage
+                    else:
+                        roi = (entry_price - current_price) / entry_price * leverage
                 
                 roi_pct = roi * 100
                 
@@ -1219,13 +1231,13 @@ class AsyncTradingSession:
                         )
                         if success:
                             modified += 1
-                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% → SL moved to breakeven ({new_sl})")
+                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${unrealized_pnl:.2f}) → SL moved to breakeven ({new_sl})")
                         else:
                             report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
                     except Exception as e:
                         report.append(f"❌ **{symbol}** - Error: {e}")
                 else:
-                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (< {breakeven_roi_threshold*100:.0f}% threshold)")
+                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${unrealized_pnl:.2f}) < {breakeven_roi_threshold*100:.0f}% threshold")
             
             if modified > 0:
                 report.append("")
