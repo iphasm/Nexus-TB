@@ -1190,23 +1190,25 @@ class AsyncTradingSession:
                 ticker = await self.client.futures_symbol_ticker(symbol=symbol)
                 current_price = float(ticker['price'])
                 
-                # Calculate ROI using price change (more reliable)
-                # ROI = ((current - entry) / entry) * leverage  (for LONG)
-                # ROI = ((entry - current) / entry) * leverage  (for SHORT)
-                if side == 'LONG':
-                    price_change_pct = (current_price - entry_price) / entry_price
-                else:
-                    price_change_pct = (entry_price - current_price) / entry_price
-                
-                # Apply leverage to get actual ROI
-                roi = price_change_pct * leverage
-                roi_pct = roi * 100
-                
-                # Also calculate PnL for display
+                # Calculate PnL
                 if side == 'LONG':
                     calculated_pnl = (current_price - entry_price) * abs(qty)
                 else:
                     calculated_pnl = (entry_price - current_price) * abs(qty)
+                
+                # Calculate ROI using Binance formula:
+                # ROI = PnL / Initial_Margin
+                # Initial_Margin = Notional / Leverage = (qty * entry_price) / leverage
+                notional = abs(qty) * entry_price
+                initial_margin = notional / leverage if leverage > 0 else notional
+                
+                # ROI = PnL / Initial_Margin
+                if initial_margin > 0:
+                    roi = calculated_pnl / initial_margin
+                else:
+                    roi = 0
+                
+                roi_pct = roi * 100
                 
                 # Check if ROI >= threshold (10%)
                 if roi >= breakeven_roi_threshold:
