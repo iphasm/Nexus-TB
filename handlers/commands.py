@@ -233,7 +233,7 @@ async def cmd_startup(message: Message):
         await message.answer(startup_text, parse_mode="Markdown", disable_web_page_preview=True)
     except:
         # Fallback without markdown
-        await message.answer(startup_text.replace('*', '').replace('`', '').replace('\\_', '_'))
+        await message.answer(startup_text.replace('*', '').replace('`', '').replace('_', '_'))
 
 
 @router.message(Command("help"))
@@ -272,11 +272,11 @@ async def cmd_help(message: Message):
         "⚙️ *CONFIGURACIÓN*\n"
         "• /config - Panel de ajustes\n"
         "• /strategies - Motor Dinámico\n"
-        "• /set\_leverage - Apalancamiento\n"
-        "• /set\_margin - Margen máximo\n"
-        "• /set\_binance - API Keys Binance\n"
-        "• /set\_alpaca - API Keys Alpaca\n"
-        "• /delete\_keys - Borrar sesión\n"
+        "• /set_leverage - Apalancamiento\n"
+        "• /set_margin - Margen máximo\n"
+        "• /set_binance - API Keys Binance\n"
+        "• /set_alpaca - API Keys Alpaca\n"
+        "• /delete_keys - Borrar sesión\n"
         "• /togglegroup - Filtrar grupos\n"
         "• /assets - Config activos\n"
         "• /personality - Cambiar voz\n\n"
@@ -299,7 +299,7 @@ async def cmd_help(message: Message):
             "• /subs - Listar usuarios\n"
             "• /addsub - Agregar suscriptor\n"
             "• /remsub - Eliminar usuario\n"
-            "• /reset\\_assets - Limpiar assets deshabilitados\n"
+            "• /reset_assets - Limpiar assets deshabilitados\n"
             "• /debug - Diagnóstico Sistema\n"
         )
 
@@ -314,7 +314,7 @@ async def cmd_help(message: Message):
     try:
         await message.answer(help_text, parse_mode="Markdown")
     except:
-        await message.answer(help_text.replace('*', '').replace('`', '').replace('\\_', '_'))
+        await message.answer(help_text.replace('*', '').replace('`', '').replace('_', '_'))
         
 
 
@@ -330,7 +330,7 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
     
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        text = "⚠️ Sin sesión activa. Usa /set\\_keys."
+        text = "⚠️ Sin sesión activa. Usa /set_keys."
         if edit_message:
             try:
                 await message.edit_text(text)
@@ -432,7 +432,7 @@ async def cmd_watcher(message: Message, **kwargs):
         
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys primero.")
+        await message.answer("⚠️ Sin sesión activa. Usa /set_keys primero.")
         return
     
     session.set_mode('WATCHER')
@@ -456,7 +456,7 @@ async def cmd_copilot(message: Message, **kwargs):
         
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys primero.")
+        await message.answer("⚠️ Sin sesión activa. Usa /set_keys primero.")
         return
     
     session.set_mode('COPILOT')
@@ -480,7 +480,7 @@ async def cmd_pilot(message: Message, **kwargs):
         
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys primero.")
+        await message.answer("⚠️ Sin sesión activa. Usa /set_keys primero.")
         return
     
     session.set_mode('PILOT')
@@ -504,7 +504,7 @@ async def cmd_pnl(message: Message, **kwargs):
     
     session = session_manager.get_session(str(message.chat.id))
     if not session:
-        await message.answer("⚠️ Sin sesión activa. Usa /set\\_keys.")
+        await message.answer("⚠️ Sin sesión activa. Usa /set_keys.")
         return
     
     loading = await message.answer("⏳ Consultando historial de PnL...")
