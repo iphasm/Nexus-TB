@@ -1236,6 +1236,27 @@ async def cmd_syncorders(message: Message, **kwargs):
     res = await session.execute_refresh_all_orders()
     await msg.edit_text(res, parse_mode="Markdown")
 
+
+@router.message(Command("breakeven"))
+async def cmd_breakeven(message: Message, **kwargs):
+    """Check positions and move SL to breakeven if ROI >= 10%."""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Error interno.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await message.answer("⚠️ Sin sesión activa.")
+        return
+        
+    msg = await message.answer("📊 **Verificando posiciones para Breakeven...**\nUmbral: ROI >= 10%", parse_mode="Markdown")
+    
+    res = await session.smart_breakeven_check(breakeven_roi_threshold=0.10)
+    await msg.edit_text(res, parse_mode="Markdown")
+
 @router.message(Command("about"))
 async def cmd_about(message: Message, **kwargs):
     """Show bot information with personality-aware message."""

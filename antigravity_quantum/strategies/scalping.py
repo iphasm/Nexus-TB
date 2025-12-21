@@ -8,27 +8,37 @@ class ScalpingStrategy(IStrategy):
 
     async def analyze(self, market_data: Dict[str, Any]) -> Signal:
         """
-        Scalping Strategy for High Volatility - BIDIRECTIONAL.
+        Scalping Strategy for High Volatility - BIDIRECTIONAL with protection.
         
         Logic:
-        - LONG: RSI momentum up + ADX trending
-        - SHORT: RSI momentum down + ADX trending
+        - LONG: RSI momentum up + ADX trending + RSI rising for 2+ candles
+        - SHORT: RSI momentum down + ADX trending + RSI falling for 2+ candles
         
-        EMA200 is used for CONFIDENCE boost, not as a hard filter.
-        This allows trading in both directions during volatile markets.
+        Filters:
+        - Volatility Filter: Skip if ATR > 2x average (extreme crash/pump)
+        - Momentum Strength: Require sustained direction, not just single candle
         """
         df = market_data.get('dataframe')
-        if df is None or df.empty: return None
+        if df is None or df.empty or len(df) < 4: return None
         
         # Latest Candles
         last = df.iloc[-1]
         prev = df.iloc[-2]
+        prev2 = df.iloc[-3]
         
         # Indicators
         rsi = last.get('rsi', 50)
+        rsi_prev = prev.get('rsi', 50)
+        rsi_prev2 = prev2.get('rsi', 50)
         adx = last.get('adx', 0)
         close = last['close']
         ema_200 = last.get('ema_200', close)
+        atr = last.get('atr', 0)
+        
+        # VOLATILITY FILTER: Skip extreme volatility
+        atr_avg = df['atr'].rolling(20).mean().iloc[-1] if 'atr' in df.columns else atr
+        if atr > atr_avg * 2.0 and atr_avg > 0:
+            return None  # Skip during crashes/pumps
         
         signal_type = "HOLD"
         confidence = 0.0
@@ -37,20 +47,20 @@ class ScalpingStrategy(IStrategy):
         is_uptrend = close > ema_200
         is_downtrend = close < ema_200
         
-        # MOMENTUM LONG
-        # RSI crossing up with momentum, ADX confirms trend
-        if rsi > 52 and last['rsi'] > prev['rsi'] and adx > 20:
+        # MOMENTUM CHECKS - Require 2 consecutive candles in same direction
+        rsi_rising_strong = rsi > rsi_prev > rsi_prev2  # 2 candles up
+        rsi_falling_strong = rsi < rsi_prev < rsi_prev2  # 2 candles down
+        
+        # MOMENTUM LONG - Strong upward RSI with trend confirmation
+        if rsi > 52 and rsi_rising_strong and adx > 20:
             signal_type = "BUY"
             base_conf = 0.65 + (min(adx, 50)/200)
-            # Boost confidence if aligned with macro trend
             confidence = base_conf + 0.1 if is_uptrend else base_conf
             
-        # MOMENTUM SHORT
-        # RSI crossing down with momentum, ADX confirms trend
-        elif rsi < 48 and last['rsi'] < prev['rsi'] and adx > 20:
+        # MOMENTUM SHORT - Strong downward RSI with trend confirmation
+        elif rsi < 48 and rsi_falling_strong and adx > 20:
             signal_type = "SELL"
             base_conf = 0.65 + (min(adx, 50)/200)
-            # Boost confidence if aligned with macro trend
             confidence = base_conf + 0.1 if is_downtrend else base_conf
             
         if signal_type == "HOLD":
@@ -61,7 +71,14 @@ class ScalpingStrategy(IStrategy):
             action=signal_type,
             confidence=min(confidence, 1.0),
             price=last['close'],
-            metadata={"strategy": "Scalping", "rsi": rsi, "adx": adx, "trend": "UP" if is_uptrend else "DOWN"}
+            metadata={
+                "strategy": "Scalping", 
+                "rsi": rsi, 
+                "adx": adx, 
+                "trend": "UP" if is_uptrend else "DOWN",
+                "momentum_strength": "STRONG",
+                "atr": atr
+            }
         )
 
     def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:

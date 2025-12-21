@@ -1151,6 +1151,90 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Cleanup Error: {e}"
     
+    async def smart_breakeven_check(self, breakeven_roi_threshold: float = 0.10) -> str:
+        """
+        Smart Breakeven Manager - Protects profits by moving SL to breakeven.
+        
+        Rules:
+        - If ROI >= 10% (threshold): Move SL to entry price + small buffer
+        - This locks in breakeven and prevents winning trades from going negative
+        
+        Called periodically or after position opens.
+        """
+        if not self.client:
+            return "❌ No session."
+        
+        try:
+            active_pos = await self.get_active_positions()
+            if not active_pos:
+                return "ℹ️ No positions to check."
+            
+            report = ["📊 **Breakeven Check Report:**", ""]
+            modified = 0
+            
+            for p in active_pos:
+                symbol = p['symbol']
+                qty = float(p['amt'])
+                entry_price = float(p['entry'])
+                pnl = float(p.get('pnl', 0))
+                
+                if qty == 0 or entry_price == 0:
+                    continue
+                
+                side = 'LONG' if qty > 0 else 'SHORT'
+                
+                # Get current price
+                ticker = await self.client.futures_symbol_ticker(symbol=symbol)
+                current_price = float(ticker['price'])
+                
+                # Calculate ROI
+                if side == 'LONG':
+                    roi = (current_price - entry_price) / entry_price
+                else:
+                    roi = (entry_price - current_price) / entry_price
+                
+                roi_pct = roi * 100
+                
+                # Check if ROI >= threshold (10%)
+                if roi >= breakeven_roi_threshold:
+                    # Time to move SL to breakeven!
+                    qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+                    
+                    # Breakeven SL with small buffer (0.1% above entry for LONG, below for SHORT)
+                    buffer = 0.001  # 0.1% buffer to cover fees
+                    if side == 'LONG':
+                        new_sl = round(entry_price * (1 + buffer), price_prec)
+                        new_tp = round(current_price * 1.15, price_prec)  # Keep TP at +15% from current
+                    else:
+                        new_sl = round(entry_price * (1 - buffer), price_prec)
+                        new_tp = round(current_price * 0.85, price_prec)  # Keep TP at -15% from current
+                    
+                    # Apply the new SL
+                    try:
+                        success, msg = await self.synchronize_sl_tp_safe(
+                            symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
+                            entry_price=entry_price, current_price=current_price
+                        )
+                        if success:
+                            modified += 1
+                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% → SL moved to breakeven ({new_sl})")
+                        else:
+                            report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
+                    except Exception as e:
+                        report.append(f"❌ **{symbol}** - Error: {e}")
+                else:
+                    report.append(f"⏳ **{symbol}** - ROI: {roi_pct:.1f}% (< {breakeven_roi_threshold*100:.0f}% threshold)")
+            
+            if modified > 0:
+                report.append("")
+                report.append(f"📈 **{modified} positions moved to breakeven!**")
+            
+            return "\n".join(report)
+            
+        except Exception as e:
+            return f"❌ Breakeven Check Error: {e}"
+
+    
     async def execute_spot_buy(self, symbol: str) -> Tuple[bool, str]:
         """Execute SPOT market buy."""
         if not self.client:

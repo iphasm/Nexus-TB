@@ -17,14 +17,17 @@ class TrendFollowingStrategy(IStrategy):
 
     async def analyze(self, market_data: Dict[str, Any]) -> Signal:
         """
-        Trend Following Strategy - BIDIRECTIONAL.
+        Trend Following Strategy - BIDIRECTIONAL with protection.
         
         Logic:
         - LONG: EMA20 crosses above EMA50 with ADX > 20
         - SHORT: EMA20 crosses below EMA50 with ADX > 20
+        
+        Filters:
+        - Volatility Filter: Skip if ATR > 2x average (extreme conditions)
         """
         df = market_data.get('dataframe')
-        if df is None or df.empty:
+        if df is None or df.empty or len(df) < 3:
             return None
 
         last_row = df.iloc[-1]
@@ -34,6 +37,12 @@ class TrendFollowingStrategy(IStrategy):
         ema_200 = last_row.get('ema_200', 0)
         adx = last_row.get('adx', 0)
         price = last_row.get('close', 0)
+        atr = last_row.get('atr', 0)
+        
+        # VOLATILITY FILTER: Skip extreme volatility
+        atr_avg = df['atr'].rolling(20).mean().iloc[-1] if 'atr' in df.columns else atr
+        if atr > atr_avg * 2.0 and atr_avg > 0:
+            return None  # Skip during extreme conditions
         
         signal_type = "HOLD"
         confidence = 0.0
@@ -67,7 +76,8 @@ class TrendFollowingStrategy(IStrategy):
             metadata={
                 "adx": adx, 
                 "ema_diff": ema_short - ema_long,
-                "trend": "UP" if ema_short > ema_long else "DOWN"
+                "trend": "UP" if ema_short > ema_long else "DOWN",
+                "atr": atr
             }
         )
 
