@@ -261,6 +261,7 @@ async def cmd_help(message: Message):
         "• /close `<SYM>` - Cerrar posición\n"
         "• /closeall - Cerrar TODO\n"
         "• /syncorders - Refrescar SL/TP/TS\n"
+        "• /breakeven - Mover SL a entrada (ROI 10%)\n"
         "• /cleanup - Limpiar órdenes huérfanas\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
