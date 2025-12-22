@@ -21,5 +21,8 @@ PySocks
 # AI/Analysis
 openai
 
+# Scheduler
+APScheduler>=3.10.0
+
 # Database
 psycopg2-binary

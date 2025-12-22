@@ -80,6 +80,37 @@ def init_db():
             if cur.fetchone()[0] == 0:
                  cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1000")
             
+            # Add timezone column if not exists (migration)
+            cur.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'
+            """)
+            
+            # Add telegram_id column alias if not exists (for timezone_manager compatibility)
+            cur.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT
+            """)
+            # Sync chat_id to telegram_id for existing rows
+            cur.execute("""
+                UPDATE users SET telegram_id = chat_id::BIGINT WHERE telegram_id IS NULL AND chat_id ~ '^[0-9]+$'
+            """)
+            
+            # Scheduled tasks table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    job_id VARCHAR(100),
+                    action VARCHAR(50) NOT NULL,
+                    params JSONB DEFAULT '{}'::jsonb,
+                    schedule_type VARCHAR(20),
+                    schedule_value TEXT,
+                    description TEXT,
+                    next_run TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
             conn.commit()
             print("✅ Database tables initialized.")
             return True
@@ -354,5 +385,103 @@ def get_all_system_users():
             return cur.fetchall()
     except:
         return []
+    finally:
+        conn.close()
+
+
+# --- SCHEDULED TASKS FUNCTIONS ---
+
+def save_scheduled_task(user_id: int, task_data: dict) -> int:
+    """Save a new scheduled task. Returns task ID or -1 on error."""
+    conn = get_connection()
+    if not conn:
+        return -1
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO scheduled_tasks 
+                (user_id, job_id, action, params, schedule_type, schedule_value, description, next_run)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                user_id,
+                task_data.get('job_id'),
+                task_data.get('action'),
+                json.dumps(task_data.get('params', {})),
+                task_data.get('schedule_type'),
+                task_data.get('schedule_value'),
+                task_data.get('description'),
+                task_data.get('next_run')
+            ))
+            task_id = cur.fetchone()[0]
+            conn.commit()
+            return task_id
+    except Exception as e:
+        print(f"❌ Save Task Error: {e}")
+        return -1
+    finally:
+        conn.close()
+
+
+def get_scheduled_tasks(user_id: int) -> list:
+    """Get all active scheduled tasks for a user."""
+    conn = get_connection()
+    if not conn:
+        return []
+    
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, job_id, action, params, schedule_type, schedule_value, 
+                       description, next_run, created_at
+                FROM scheduled_tasks 
+                WHERE user_id = %s AND is_active = TRUE
+                ORDER BY created_at DESC
+            """, (user_id,))
+            return cur.fetchall()
+    except Exception as e:
+        print(f"❌ Get Tasks Error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def delete_scheduled_task(task_id: int) -> bool:
+    """Delete (deactivate) a scheduled task."""
+    conn = get_connection()
+    if not conn:
+        return False
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE scheduled_tasks SET is_active = FALSE WHERE id = %s
+            """, (task_id,))
+            conn.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        print(f"❌ Delete Task Error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_task_next_run(task_id: int, next_run: str) -> bool:
+    """Update the next_run timestamp for a task."""
+    conn = get_connection()
+    if not conn:
+        return False
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE scheduled_tasks SET next_run = %s WHERE id = %s
+            """, (next_run, task_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"❌ Update Task Error: {e}")
+        return False
     finally:
         conn.close()

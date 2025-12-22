@@ -466,8 +466,76 @@ async def main():
     from utils.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
+    
+    # 5. Initialize Task Scheduler
+    scheduler = None
+    try:
+        from utils.task_scheduler import get_scheduler
+        scheduler = get_scheduler()
+        await scheduler.initialize(bot)
+        
+        # Register action handlers for scheduled tasks
+        async def handle_analyze(user_id, params, bot_instance):
+            symbol = params.get('symbol', 'BTC')
+            from utils.ai_analyst import QuantumAnalyst
+            from data.fetcher import get_market_data
             
-    # 4. Register Middleware (BEFORE ROUTERS!)
+            analyst = QuantumAnalyst()
+            df = get_market_data(f"{symbol}USDT", timeframe='4h', limit=50)
+            if not df.empty:
+                indicators = {
+                    'rsi': df['rsi'].iloc[-1] if 'rsi' in df.columns else 50,
+                    'trend': 'UP' if df['close'].iloc[-1] > df['close'].iloc[-5] else 'DOWN'
+                }
+                session = session_manager.get_session(str(user_id))
+                p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
+                analysis = await asyncio.get_event_loop().run_in_executor(
+                    None, analyst.analyze_signal, symbol, '4h', indicators, p_key
+                )
+                await bot_instance.send_message(user_id, f"📊 **Análisis Programado: {symbol}**\n\n{analysis}", parse_mode="Markdown")
+        
+        async def handle_news(user_id, params, bot_instance):
+            from utils.ai_analyst import QuantumAnalyst
+            analyst = QuantumAnalyst()
+            briefing = await asyncio.get_event_loop().run_in_executor(None, analyst.generate_market_briefing)
+            await bot_instance.send_message(user_id, f"📰 **Briefing Programado**\n\n{briefing}", parse_mode="Markdown")
+        
+        async def handle_sniper(user_id, params, bot_instance):
+            await bot_instance.send_message(user_id, "🎯 **Sniper Scan Ejecutándose...**\nUsa /sniper para ver resultados.", parse_mode="Markdown")
+        
+        async def handle_dashboard(user_id, params, bot_instance):
+            session = session_manager.get_session(str(user_id))
+            if session:
+                data = await session.get_dashboard_summary()
+                wallet = data.get('wallet', {})
+                net = wallet.get('total', 0)
+                await bot_instance.send_message(user_id, f"📊 **Dashboard Programado**\n💰 Net Worth: `${net:,.2f}`", parse_mode="Markdown")
+        
+        async def handle_sentiment(user_id, params, bot_instance):
+            from utils.ai_analyst import QuantumAnalyst
+            analyst = QuantumAnalyst()
+            symbol = params.get('symbol', 'BTC')
+            if analyst.client:
+                sent = analyst.check_market_sentiment(f"{symbol}USDT")
+                score = sent.get('score', 0)
+                reason = sent.get('reason', 'N/A')
+                icon = "🟢" if score > 0.2 else "🔴" if score < -0.2 else "🟡"
+                await bot_instance.send_message(user_id, f"🧠 **Sentimiento: {symbol}**\n{icon} Score: `{score:.2f}`\n📝 {reason}", parse_mode="Markdown")
+        
+        scheduler.register_action('analyze', handle_analyze)
+        scheduler.register_action('news', handle_news)
+        scheduler.register_action('sniper', handle_sniper)
+        scheduler.register_action('dashboard', handle_dashboard)
+        scheduler.register_action('sentiment', handle_sentiment)
+        scheduler.register_action('fomc', handle_news)  # Alias
+        
+        scheduler.start()
+        logger.info("📅 Task Scheduler initialized and started.")
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Task Scheduler init skipped: {e}")
+            
+    # 6. Register Middleware (BEFORE ROUTERS!)
     # GatekeeperMiddleware must be registered first so it blocks before other handlers run
     dp.message.middleware(GatekeeperMiddleware())
     dp.callback_query.middleware(GatekeeperMiddleware())
@@ -476,7 +544,7 @@ async def main():
     dp.message.middleware(SessionMiddleware(session_manager))
     dp.callback_query.middleware(SessionMiddleware(session_manager))
     
-    # 5. Register Routers
+    # 7. Register Routers
     from handlers.commands import router as commands_router
     from handlers.trading import router as trading_router
     from handlers.config import router as config_router
@@ -574,6 +642,10 @@ async def main():
     finally:
         # Cleanup
         logger.info("🛑 Shutting down...")
+        
+        # Shutdown scheduler
+        if scheduler:
+            scheduler.shutdown(wait=False)
         
         if engine_task:
             engine_task.cancel()

@@ -244,7 +244,7 @@ async def cmd_help(message: Message):
     
     # Base Help (For everyone)
     help_text = (
-        "🤖 *ANTIGRAVITY BOT v3.5*\n"
+        "🤖 *ANTIGRAVITY BOT v4.0*\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         
         "📊 *INFO & MERCADO*\n"
@@ -286,6 +286,12 @@ async def cmd_help(message: Message):
         "• /sentiment - Radar global\n"
         "• /sniper - Oportunidades\n"
         "• /fomc - Análisis FED\n\n"
+        
+        "📅 *PROGRAMACIÓN*\n"
+        "• /schedule `<texto>` - Programar tarea (IA)\n"
+        "• /tasks - Ver tareas programadas\n"
+        "• /cancel `<ID>` - Cancelar tarea\n"
+        "• /timezone `<ZONA>` - Zona horaria\n\n"
         
         "🛡️ *SEGURIDAD*\n"
         "• /risk - Gestión de riesgo\n"
@@ -1472,3 +1478,191 @@ async def cmd_price(message: Message, **kwargs):
     except Exception as e:
         await message.answer(f"❌ Error en Price: {e}")
 
+
+# =================================================================
+# SCHEDULER COMMANDS - Time & Task Management
+# =================================================================
+
+@router.message(Command("timezone"))
+async def cmd_timezone(message: Message, **kwargs):
+    """View or set user timezone: /timezone [ZONE]"""
+    from utils.timezone_manager import (
+        get_user_timezone, set_user_timezone, resolve_timezone,
+        get_current_time_str, TIMEZONE_ALIASES
+    )
+    
+    user_id = message.from_user.id
+    args = message.text.split(maxsplit=1)
+    
+    if len(args) < 2:
+        # Display current timezone
+        current_tz = get_user_timezone(user_id)
+        current_time = get_current_time_str(user_id, "%Y-%m-%d %H:%M:%S %Z")
+        
+        aliases = ", ".join(TIMEZONE_ALIASES.keys())
+        
+        await message.answer(
+            f"🌍 **Tu Zona Horaria**\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"📍 Zona: `{current_tz}`\n"
+            f"🕐 Hora actual: `{current_time}`\n\n"
+            f"**Cambiar:** `/timezone <ZONA>`\n"
+            f"**Alias válidos:** `{aliases}`\n"
+            f"**Ejemplos:** `America/New_York`, `Europe/Madrid`, `Asia/Tokyo`",
+            parse_mode="Markdown"
+        )
+        return
+    
+    # Set new timezone
+    tz_input = args[1].strip()
+    resolved = resolve_timezone(tz_input)
+    success, msg_text = set_user_timezone(user_id, resolved)
+    
+    if success:
+        current_time = get_current_time_str(user_id, "%Y-%m-%d %H:%M:%S %Z")
+        await message.answer(
+            f"{msg_text}\n🕐 Hora actual: `{current_time}`",
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer(msg_text, parse_mode="Markdown")
+
+
+@router.message(Command("schedule"))
+async def cmd_schedule(message: Message, **kwargs):
+    """
+    Create a scheduled task using natural language.
+    Example: /schedule analyze BTC every day at 9am
+    """
+    from utils.task_scheduler import get_scheduler
+    from utils.timezone_manager import get_user_timezone, get_current_time_str
+    
+    user_id = message.from_user.id
+    args = message.text.split(maxsplit=1)
+    
+    if len(args) < 2:
+        await message.answer(
+            "📅 **Programar Tarea**\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "**Uso:** `/schedule <descripción en lenguaje natural>`\n\n"
+            "**Ejemplos:**\n"
+            "• `/schedule analyze BTC every day at 9am`\n"
+            "• `/schedule news every Monday at 8:00`\n"
+            "• `/schedule sniper in 30 minutes`\n"
+            "• `/schedule dashboard every 4 hours`\n\n"
+            "**Acciones disponibles:**\n"
+            "`analyze`, `sniper`, `news`, `sentiment`, `fomc`, `dashboard`",
+            parse_mode="Markdown"
+        )
+        return
+    
+    task_description = args[1]
+    msg = await message.answer("⏳ Procesando solicitud con IA...")
+    
+    try:
+        scheduler = get_scheduler()
+        user_tz = get_user_timezone(user_id)
+        
+        # Parse with LLM
+        parsed = await scheduler.parse_task_with_llm(task_description, user_id, user_tz)
+        
+        if parsed.get("error"):
+            await msg.edit_text(f"❌ {parsed['error']}", parse_mode="Markdown")
+            return
+        
+        # Schedule the task
+        success, result_msg, task_id = await scheduler.schedule_task(
+            user_id=user_id,
+            action=parsed["action"],
+            params=parsed.get("params", {}),
+            schedule=parsed["schedule"],
+            description=parsed.get("description", task_description)
+        )
+        
+        await msg.edit_text(result_msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}", parse_mode="Markdown")
+
+
+@router.message(Command("tasks"))
+async def cmd_tasks(message: Message, **kwargs):
+    """List all scheduled tasks for the user."""
+    from utils.task_scheduler import get_scheduler
+    from utils.timezone_manager import convert_from_utc, get_user_timezone
+    from datetime import datetime
+    
+    user_id = message.from_user.id
+    scheduler = get_scheduler()
+    tasks = scheduler.list_tasks(user_id)
+    
+    if not tasks:
+        await message.answer(
+            "📋 **Tareas Programadas**\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "No tienes tareas programadas.\n\n"
+            "Usa `/schedule <descripción>` para crear una.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    user_tz = get_user_timezone(user_id)
+    
+    msg = "📋 **Tareas Programadas**\n━━━━━━━━━━━━━━━━━━\n\n"
+    
+    for task in tasks:
+        task_id = task.get('id')
+        action = task.get('action', 'N/A')
+        description = task.get('description', 'Sin descripción')
+        schedule_type = task.get('schedule_type', '')
+        schedule_value = task.get('schedule_value', '')
+        next_run = task.get('next_run')
+        
+        # Format next run time
+        next_run_str = "N/A"
+        if next_run:
+            try:
+                if isinstance(next_run, str):
+                    next_run = datetime.fromisoformat(next_run.replace('Z', '+00:00'))
+                next_run_str = next_run.strftime("%m/%d %H:%M UTC")
+            except:
+                next_run_str = str(next_run)[:16]
+        
+        schedule_icon = {
+            "cron": "🔄",
+            "interval": "⏱️",
+            "date": "📆"
+        }.get(schedule_type, "📌")
+        
+        msg += (
+            f"**#{task_id}** `{action}` {schedule_icon}\n"
+            f"   📝 {description}\n"
+            f"   ⏰ Próximo: `{next_run_str}`\n\n"
+        )
+    
+    msg += f"━━━━━━━━━━━━━━━━━━\n📌 Total: {len(tasks)} tareas\n`/cancel <ID>` para cancelar"
+    
+    await message.answer(msg, parse_mode="Markdown")
+
+
+@router.message(Command("cancel"))
+async def cmd_cancel(message: Message, **kwargs):
+    """Cancel a scheduled task: /cancel <TASK_ID>"""
+    from utils.task_scheduler import get_scheduler
+    
+    user_id = message.from_user.id
+    args = message.text.split()
+    
+    if len(args) < 2:
+        await message.answer(
+            "❌ **Uso:** `/cancel <TASK_ID>`\n\n"
+            "Usa `/tasks` para ver tus tareas y sus IDs.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    task_id = args[1]
+    scheduler = get_scheduler()
+    success, result_msg = scheduler.cancel_task(user_id, task_id)
+    
+    await message.answer(result_msg, parse_mode="Markdown")
