@@ -21,7 +21,8 @@ def get_user_timezone(user_id: int) -> str:
             return DEFAULT_TIMEZONE
         
         cur = conn.cursor()
-        cur.execute("SELECT timezone FROM users WHERE telegram_id = %s", (user_id,))
+        # Use chat_id (VARCHAR) which is the primary key column
+        cur.execute("SELECT timezone FROM users WHERE chat_id = %s", (str(user_id),))
         row = cur.fetchone()
         cur.close()
         conn.close()
@@ -51,11 +52,21 @@ def set_user_timezone(user_id: int, tz_name: str) -> tuple[bool, str]:
             return False, "❌ Error de conexión a base de datos"
         
         cur = conn.cursor()
-        # Upsert timezone
+        # Use chat_id (VARCHAR) which has the UNIQUE constraint
+        chat_id_str = str(user_id)
+        
+        # Try update first, then insert if no rows affected
         cur.execute("""
-            INSERT INTO users (telegram_id, timezone) VALUES (%s, %s)
-            ON CONFLICT (telegram_id) DO UPDATE SET timezone = EXCLUDED.timezone
-        """, (user_id, tz_name))
+            UPDATE users SET timezone = %s WHERE chat_id = %s
+        """, (tz_name, chat_id_str))
+        
+        if cur.rowcount == 0:
+            # User doesn't exist, insert new row
+            cur.execute("""
+                INSERT INTO users (chat_id, timezone) VALUES (%s, %s)
+                ON CONFLICT (chat_id) DO UPDATE SET timezone = EXCLUDED.timezone
+            """, (chat_id_str, tz_name))
+        
         conn.commit()
         cur.close()
         conn.close()
