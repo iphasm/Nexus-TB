@@ -63,6 +63,45 @@ class ScalpingStrategy(IStrategy):
             base_conf = 0.65 + (min(adx, 50)/200)
             confidence = base_conf + 0.1 if is_downtrend else base_conf
             
+        # --- PREMIUM SIGNALS (RSI Divergence & MTF) ---
+        if signal_type != "HOLD":
+            # 1. RSI Divergence (Last 10 frames)
+            if len(df) >= 15:
+                recent = df.iloc[-5:]
+                older = df.iloc[-10:-5]
+                
+                # Bullish Div: Lower Low Price + Higher Low RSI
+                if signal_type == "BUY":
+                    if recent['low'].min() < older['low'].min() and recent['rsi'].min() > older['rsi'].min():
+                        confidence = min(confidence + 0.15, 1.0)
+                        
+                # Bearish Div: Higher High Price + Lower High RSI
+                elif signal_type == "SELL":
+                    if recent['high'].max() > older['high'].max() and recent['rsi'].max() < older['rsi'].max():
+                         confidence = min(confidence + 0.15, 1.0)
+                         
+            # 2. MTF Filter (Macro RSI Context)
+            macro_df = market_data.get('macro_dataframe')
+            if macro_df is not None and not macro_df.empty:
+                try:
+                    macro_rsi = macro_df.iloc[-1].get('rsi', 50)
+                    
+                    # Prevent buying into Macro Bear Trend limit? 
+                    # Actually for scalping, we just want to avoid fighting massive momentum.
+                    if signal_type == "BUY" and macro_rsi < 30: 
+                        confidence += 0.1 # Oversold bounce likely
+                    elif signal_type == "SELL" and macro_rsi > 70:
+                        confidence += 0.1 # Overbought dump likely
+                        
+                    # Filter: Don't Short if Macro RSI > 60 (Likely strong uptrend)
+                    if signal_type == "SELL" and macro_rsi > 60:
+                        return None 
+                    # Filter: Don't Long if Macro RSI < 40 (Likely strong downtrend)
+                    if signal_type == "BUY" and macro_rsi < 40:
+                        return None
+                        
+                except: pass
+            
         if signal_type == "HOLD":
             return None
             

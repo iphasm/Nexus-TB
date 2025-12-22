@@ -35,6 +35,10 @@ SLTP_LAST_UPDATE = {}  # {symbol: timestamp}
 # When OFF: Bypasses AI sentiment check, trades execute without IA validation
 AI_FILTER_ENABLED = True
 
+# --- PREMIUM SIGNALS (MTF & Volume) ---
+# When ON: Strategies use Multi-Timeframe + Volume validation (stricter but better)
+PREMIUM_SIGNALS_ENABLED = False
+
 # --- RISK MANAGEMENT CONFIG ---
 # Percentage of account equity to risk per trade (e.g., 0.01 = 1% risk)
 # Used when ATR-based sizing is active.

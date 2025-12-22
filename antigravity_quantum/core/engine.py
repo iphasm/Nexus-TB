@@ -61,7 +61,16 @@ class QuantumEngine:
             for asset in active_assets:
                 try:
                     # 1. Fetch Market Data
-                    market_data = await self.market_stream.get_candles(asset)
+                    from ..config import PREMIUM_SIGNALS_ENABLED
+                    
+                    if PREMIUM_SIGNALS_ENABLED:
+                        mtf_data = await self.market_stream.get_multiframe_candles(asset)
+                        market_data = mtf_data['main']
+                        # Attach macro data for logic that needs it
+                        if not mtf_data['macro']['dataframe'].empty:
+                            market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
+                    else:
+                        market_data = await self.market_stream.get_candles(asset)
                     
                     if market_data.get('dataframe') is None or market_data['dataframe'].empty:
                         skip_reasons["no_data"] += 1

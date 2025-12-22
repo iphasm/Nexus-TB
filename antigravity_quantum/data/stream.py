@@ -29,17 +29,63 @@ class MarketStream:
         except Exception as e:
             print(f"❌ Connection Failed: {e}")
 
-    async def get_candles(self, symbol: str, limit: int = 100) -> Dict[str, Any]:
+    def _add_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add Technical Indicators (Standard + Premium Volume)"""
+        # EMAs
+        df['ema_20'] = df['close'].ewm(span=20).mean()
+        df['ema_50'] = df['close'].ewm(span=50).mean()
+        df['ema_200'] = df['close'].ewm(span=200).mean()
+        
+        # RSI (14)
+        delta = df['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['rsi'] = 100 - (100 / (1 + rs))
+        
+        # Bollinger Bands (20, 2)
+        sma_20 = df['close'].rolling(window=20).mean()
+        std_20 = df['close'].rolling(window=20).std()
+        df['upper_bb'] = sma_20 + (std_20 * 2)
+        df['lower_bb'] = sma_20 - (std_20 * 2)
+        
+        # ATR (Average True Range)
+        prev_close = df['close'].shift(1)
+        high_low = df['high'] - df['low']
+        high_close = (df['high'] - prev_close).abs()
+        low_close = (df['low'] - prev_close).abs()
+        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        df['atr'] = tr.rolling(window=14).mean()
+        
+        # Synthetic ADX (Trend Strength)
+        div = (df['ema_20'] - df['ema_50']).abs()
+        df['adx'] = (div / df['close']) * 2500
+        
+        # --- PREMIUM INDICATORS (Volume) ---
+        # Volume SMA (20)
+        df['vol_sma'] = df['volume'].rolling(window=20).mean()
+        
+        # OBV (On-Balance Volume)
+        obv_change = pd.Series(0, index=df.index)
+        obv_change[df['close'] > df['close'].shift(1)] = df['volume']
+        obv_change[df['close'] < df['close'].shift(1)] = -df['volume']
+        df['obv'] = obv_change.cumsum()
+        
+        # Fill NaN
+        df.bfill(inplace=True)
+        df.fillna(0, inplace=True)
+        return df
+
+    async def get_candles(self, symbol: str, limit: int = 100, timeframe: str = None) -> Dict[str, Any]:
         """
-        Fetches OHLCV data and returns a formatted dict ready for Strategy.analyze()
-        Routes to AlpacaStream for Stocks/Commodities.
+        Fetches OHLCV data. Support override timeframe.
         """
         # ROUTING: Non-crypto symbols go to Alpaca
         try:
             from config import ASSET_GROUPS
             import os
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
-                # Delegate to AlpacaStream with credentials from environment
+                # Delegate to AlpacaStream
                 from .alpaca_stream import AlpacaStream
                 alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
                 alpaca_secret = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
@@ -49,71 +95,31 @@ class MarketStream:
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
                 
                 alpaca = AlpacaStream(api_key=alpaca_key, api_secret=alpaca_secret)
-                await alpaca.initialize()  # Initialize the client with credentials
-                return await alpaca.get_candles(symbol, limit)
+                await alpaca.initialize()
+                return await alpaca.get_candles(symbol, limit) # alpaca get_candles might not support timeframe override yet, keeping simple
         except Exception as e:
             print(f"⚠️ Alpaca routing error for {symbol}: {e}")
             return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
         
-        # Only process crypto (symbols with USDT suffix)
+        # Only process crypto
         if not ('USDT' in symbol or 'BUSD' in symbol):
-            return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
+            return {"dataframe": pd.DataFrame()}
         
-        # 1. Resolve Timeframe based on asset config (Dynamic)
-        timeframe = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
+        # 1. Resolve Timeframe
+        if not timeframe:
+            timeframe = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
         
         try:
             # 2. Fetch (Async)
-            # symbol needs to be compatible with exchange (e.g. BTC/USDT)
-            # internal we might use BTCUSDT, ccxt needs BTC/USDT usually
             formatted_symbol = symbol.replace('USDT', '/USDT') if 'USDT' in symbol and '/' not in symbol else symbol
-            
             ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)
             
             # 3. Parse to DataFrame
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             
-            # 4. Add Basic Indicators (Lightweight)
-            # Ideally this moves to a 'Technicals' module, but keeping here for speed
-            df['ema_20'] = df['close'].ewm(span=20).mean()
-            df['ema_50'] = df['close'].ewm(span=50).mean()
-            df['ema_200'] = df['close'].ewm(span=200).mean()
-            
-            # RSI (14) - Required for Mean Reversion and Scalping
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['rsi'] = 100 - (100 / (1 + rs))
-            
-            # Bollinger Bands (20, 2) - Required for Mean Reversion
-            sma_20 = df['close'].rolling(window=20).mean()
-            std_20 = df['close'].rolling(window=20).std()
-            df['upper_bb'] = sma_20 + (std_20 * 2)
-            df['lower_bb'] = sma_20 - (std_20 * 2)
-            
-            # ADX & ATR (Lightweight Implementation)
-            # --------------------------------------
-            # 1. ATR (Average True Range) - Volatility
-            prev_close = df['close'].shift(1)
-            high_low = df['high'] - df['low']
-            high_close = (df['high'] - prev_close).abs()
-            low_close = (df['low'] - prev_close).abs()
-            
-            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            df['atr'] = tr.rolling(window=14).mean()
-            
-            # 2. Synthetic ADX (Trend Strength) - Proxy for real ADX
-            # Measures divergence between EMA20 and EMA50 relative to price
-            # Scale factor 2500 calibrated to produce ~20 ADX on 0.8% divergence (realistic for crypto)
-            # Typical crypto ranges: 0.3-1.5% divergence -> 7.5-37.5 ADX
-            div = (df['ema_20'] - df['ema_50']).abs()
-            df['adx'] = (div / df['close']) * 2500
-            
-            # Fill NaN
-            df.bfill(inplace=True)
-            df.fillna(0, inplace=True)
+            # 4. Add Indicators (Unified)
+            df = self._add_indicators(df)
             
             return {
                 "symbol": symbol,
@@ -123,7 +129,44 @@ class MarketStream:
             
         except Exception as e:
             print(f"⚠️ Data Fetch Error ({symbol}): {e}")
-            return {"dataframe": pd.DataFrame()} # Empty DF
+            return {"dataframe": pd.DataFrame()}
+
+    async def get_multiframe_candles(self, symbol: str, limit: int = 100) -> Dict[str, Any]:
+        """
+        Fetches both Lower Timeframe (Strategy TF) and Higher Timeframe (4h) candles.
+        Returns: {'main': dict, 'macro': dict}
+        """
+        # 1. Identify Timeframes
+        tf_main = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
+        tf_macro = '4h'
+        
+        # Optimization: If main IS macro (unlikely but possible), skip double fetch
+        if tf_main == tf_macro:
+             data = await self.get_candles(symbol, limit, timeframe=tf_main)
+             return {'main': data, 'macro': data}
+
+        # 2. Fetch Concurrently
+        try:
+            task_main = self.get_candles(symbol, limit, timeframe=tf_main)
+            task_macro = self.get_candles(symbol, limit, timeframe=tf_macro)
+            
+            # Run parallel
+            res_main, res_macro = await asyncio.gather(task_main, task_macro)
+            
+            # Check for errors (empty frames)
+            if res_main['dataframe'].empty:
+                 print(f"⚠️ MTF Fetch Failed for Main ({symbol})")
+            if res_macro['dataframe'].empty:
+                 print(f"⚠️ MTF Fetch Failed for Macro ({symbol})")
+                 
+            return {
+                'main': res_main,
+                'macro': res_macro
+            }
+            
+        except Exception as e:
+            print(f"❌ MTF Execution Error: {e}")
+            return {'main': {"dataframe": pd.DataFrame()}, 'macro': {"dataframe": pd.DataFrame()}}
 
 
     async def get_historical_candles(self, symbol: str, days: int = 30) -> pd.DataFrame:

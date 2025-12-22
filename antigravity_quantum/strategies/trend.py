@@ -64,6 +64,36 @@ class TrendFollowingStrategy(IStrategy):
             # Boost if aligned with macro trend (bearish = price < EMA200)
             confidence = base_conf + 0.15 if not is_macro_uptrend else base_conf
         
+        # --- PREMIUM SIGNALS (MTF & Volume) ---
+        # Stricter filtering if MTF data is available
+        macro_df = market_data.get('macro_dataframe')
+        if macro_df is not None and not macro_df.empty and signal_type != "HOLD":
+            try:
+                macro_last = macro_df.iloc[-1]
+                macro_close = macro_last['close']
+                # Use EMA200 if available, else EMA50
+                macro_ema = macro_last.get('ema_200', macro_last.get('ema_50', 0))
+                
+                # 1. MTF Confirmation (Must align with Macro Trend)
+                if signal_type == "BUY" and macro_close < macro_ema:
+                    return None # Filter out: Macro is Bearish
+                if signal_type == "SELL" and macro_close > macro_ema:
+                    return None # Filter out: Macro is Bullish
+                
+                # 2. Volume Validation
+                vol_sma = last_row.get('vol_sma', 0)
+                volume = last_row.get('volume', 0)
+                if volume > vol_sma:
+                    confidence += 0.1 # Volume Breakout Boost
+                else:
+                    confidence -= 0.05 # Low Volume Penalty
+                    
+                # 3. OBV Alignment (Optional for now, keeping simple)
+                
+            except Exception as e:
+                print(f"⚠️ Premium Logic Error: {e}")
+                pass # Fallback to standard logic if error
+        
         # Return None for HOLD to avoid processing non-actionable signals
         if signal_type == "HOLD":
             return None

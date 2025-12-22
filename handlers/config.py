@@ -103,7 +103,15 @@ async def cmd_strategies(message: Message, **kwargs):
     bs_state = "✅" if session_strategies.get('BLACK_SWAN', True) else "❌"
     sh_state = "✅" if session_strategies.get('SHARK', False) else "❌"
     
+    # Premium Signal State
+    try:
+        from antigravity_quantum.config import PREMIUM_SIGNALS_ENABLED
+        ps_state = "✅" if PREMIUM_SIGNALS_ENABLED else "❌"
+    except ImportError:
+        ps_state = "❌"
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💎 Premium Signals: {ps_state}", callback_data="TOGGLE|PREMIUM")],
         [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
         [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
         [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],

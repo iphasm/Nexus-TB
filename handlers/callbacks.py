@@ -318,6 +318,26 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         from handlers.commands import cmd_start
         await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
         return
+
+    # Special case: PREMIUM SIGNALS toggle
+    if strategy == "PREMIUM":
+        import antigravity_quantum.config as aq_config
+        current = aq_config.PREMIUM_SIGNALS_ENABLED
+        new_state = not current
+        aq_config.PREMIUM_SIGNALS_ENABLED = new_state
+        
+        # Persist to DB
+        from utils.db import save_bot_state
+        from config import GROUP_CONFIG
+        save_bot_state(aq_config.ENABLED_STRATEGIES, GROUP_CONFIG, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED, new_state)
+        
+        status = "💎 ACTIVADO (MTF + Volume)" if new_state else "❌ DESACTIVADO"
+        await callback.answer(f"Premium Signals: {status}")
+        
+        # Refresh Strategy Menu
+        from handlers.config import cmd_strategies
+        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
+        return
     
     # Normal strategy toggle
     try:
