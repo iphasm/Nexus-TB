@@ -358,10 +358,12 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                             title=title, quote=quote, strategy_name=strategy
                         )
                     
-                    # Add execution confirmation + personality message
+                    # Add execution confirmation + personality message with timestamp
+                    from datetime import datetime, timezone
+                    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     await bot.send_message(
                         session.chat_id,
-                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n\n{pilot_msg}",
+                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}",
                         parse_mode="Markdown"
                     )
                     
