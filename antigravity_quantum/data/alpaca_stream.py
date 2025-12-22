@@ -103,8 +103,24 @@ class AlpacaStream:
             df['upper_bb'] = sma_20 + (std_20 * 2)
             df['lower_bb'] = sma_20 - (std_20 * 2)
             
-            # ADX placeholder
-            df['adx'] = 25.0
+            # ATR (Average True Range) - CRITICAL for strategy filters
+            prev_close = df['close'].shift(1)
+            high_low = df['high'] - df['low']
+            high_close = (df['high'] - prev_close).abs()
+            low_close = (df['low'] - prev_close).abs()
+            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            df['atr'] = tr.rolling(window=14).mean()
+            
+            # Synthetic ADX (Trend Strength) - Same formula as MarketStream
+            div = (df['ema_20'] - df['ema_50']).abs()
+            df['adx'] = (div / df['close']) * 2500
+            
+            # Volume SMA (20) - For premium volume validation
+            df['vol_sma'] = df['volume'].rolling(window=20).mean()
+            
+            # Fill NaN values
+            df.bfill(inplace=True)
+            df.fillna(0, inplace=True)
             
             return {
                 "symbol": symbol,
