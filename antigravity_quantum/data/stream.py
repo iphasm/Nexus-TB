@@ -66,7 +66,7 @@ class MarketStream:
         df['vol_sma'] = df['volume'].rolling(window=20).mean()
         
         # OBV (On-Balance Volume)
-        obv_change = pd.Series(0, index=df.index)
+        obv_change = pd.Series(0.0, index=df.index, dtype=float)
         obv_change[df['close'] > df['close'].shift(1)] = df['volume']
         obv_change[df['close'] < df['close'].shift(1)] = -df['volume']
         df['obv'] = obv_change.cumsum()
