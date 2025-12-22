@@ -260,8 +260,7 @@ async def cmd_help(message: Message):
         "• /buy `<SYM>` - Compra SPOT\n"
         "• /close `<SYM>` - Cerrar posición\n"
         "• /closeall - Cerrar TODO\n"
-        "• /syncorders - Refrescar SL/TP/TS\n"
-        "• /breakeven - Mover SL a entrada (ROI 10%)\n"
+        "• /sync - Sincronización inteligente (SL/TP + Breakeven)\n"
         "• /cleanup - Limpiar órdenes huérfanas\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
@@ -1219,9 +1218,14 @@ async def cmd_short(message: Message, **kwargs):
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
 
 
-@router.message(Command("syncorders"))
-async def cmd_syncorders(message: Message, **kwargs):
-    """Refrescar órdenes SL/TP/TS de posiciones abiertas"""
+@router.message(Command("sync"))
+@router.message(Command("syncorders"))  # Alias for backwards compatibility
+async def cmd_sync(message: Message, **kwargs):
+    """
+    Smart Sync - Unified order management:
+    1. Applies breakeven SL to positions with ROI >= 10%
+    2. Applies standard SL/TP to remaining positions
+    """
     session_manager = kwargs.get('session_manager')
     if not session_manager:
         await message.answer("⚠️ Session manager not available.")
@@ -1232,31 +1236,30 @@ async def cmd_syncorders(message: Message, **kwargs):
         await message.answer("⚠️ Sin sesión activa.")
         return
         
-    msg = await message.answer("⏳ **Sincronizando Órdenes Antigravity...**\nVerificando SL, TP y Trailing activados.", parse_mode="Markdown")
+    msg = await message.answer(
+        "🔄 **Sincronización Inteligente...**\n"
+        "• Aplicando breakeven a posiciones rentables (ROI ≥ 10%)\n"
+        "• Sincronizando SL/TP en posiciones restantes",
+        parse_mode="Markdown"
+    )
     
-    res = await session.execute_refresh_all_orders()
-    await msg.edit_text(res, parse_mode="Markdown")
-
-
-@router.message(Command("breakeven"))
-async def cmd_breakeven(message: Message, **kwargs):
-    """Check positions and move SL to breakeven if ROI >= 10%."""
-    session_manager = kwargs.get('session_manager')
-    if not session_manager:
-        await message.answer("⚠️ Error interno.")
-        return
+    # Step 1: Apply breakeven to profitable positions
+    breakeven_report = await session.smart_breakeven_check(breakeven_roi_threshold=0.10)
     
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
+    # Step 2: Apply standard SL/TP sync to all positions
+    sync_report = await session.execute_refresh_all_orders()
     
-    if not session:
-        await message.answer("⚠️ Sin sesión activa.")
-        return
-        
-    msg = await message.answer("📊 **Verificando posiciones para Breakeven...**\nUmbral: ROI >= 10%", parse_mode="Markdown")
+    # Combine reports
+    final_report = (
+        "📊 **SINCRONIZACIÓN COMPLETADA**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🛡️ **Breakeven (ROI ≥ 10%):**\n"
+        f"{breakeven_report}\n\n"
+        "🔄 **SL/TP Estándar:**\n"
+        f"{sync_report}"
+    )
     
-    res = await session.smart_breakeven_check(breakeven_roi_threshold=0.10)
-    await msg.edit_text(res, parse_mode="Markdown")
+    await msg.edit_text(final_report, parse_mode="Markdown")
 
 @router.message(Command("about"))
 async def cmd_about(message: Message, **kwargs):
