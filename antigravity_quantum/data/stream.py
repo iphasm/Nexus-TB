@@ -76,6 +76,14 @@ class MarketStream:
         df.fillna(0, inplace=True)
         return df
 
+    def _is_alpaca_symbol(self, symbol: str) -> bool:
+        """Check if symbol should be routed to Alpaca (stocks/commodities)."""
+        try:
+            from config import ASSET_GROUPS
+            return symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', [])
+        except Exception:
+            return False
+
     async def get_candles(self, symbol: str, limit: int = 100, timeframe: str = None) -> Dict[str, Any]:
         """
         Fetches OHLCV data. Support override timeframe.
@@ -136,7 +144,13 @@ class MarketStream:
         Fetches both Lower Timeframe (Strategy TF) and Higher Timeframe (4h) candles.
         Returns: {'main': dict, 'macro': dict}
         """
-        # 1. Identify Timeframes
+        # ROUTING: Non-crypto symbols go to Alpaca (no MTF needed for stocks)
+        if self._is_alpaca_symbol(symbol):
+            data = await self.get_candles(symbol, limit)
+            # Use same data for both main and macro (stocks don't need MTF analysis)
+            return {'main': data, 'macro': data}
+        
+        # 1. Identify Timeframes (crypto only from here)
         tf_main = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
         tf_macro = '4h'
         
