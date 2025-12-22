@@ -126,6 +126,10 @@ TIMEZONE_ALIASES = {
     "GMT": "Etc/GMT",
     "JST": "Asia/Tokyo",
     "AEST": "Australia/Sydney",
+    # Caribbean / Dominican Republic
+    "AST": "America/Santo_Domingo",
+    "RD": "America/Santo_Domingo",
+    "GMT-4": "America/Santo_Domingo",
 }
 
 
