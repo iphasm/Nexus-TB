@@ -141,8 +141,8 @@ class MarketStream:
         
         try:
             # 2. Fetch (Async)
-            formatted_symbol = symbol.replace('USDT', '/USDT') if 'USDT' in symbol and '/' not in symbol else symbol
-            ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)
+            # NOTE: Binance USDM Futures uses symbols WITHOUT slash (e.g., BTCUSDT not BTC/USDT)
+            ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
             
             # 3. Parse to DataFrame
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -210,7 +210,7 @@ class MarketStream:
         Fetches a large dataset for backtesting using pagination.
         """
         timeframe = self.tf_map.get(symbol.split('USDT')[0], '15m')
-        formatted_symbol = symbol.replace('USDT', '/USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+        # NOTE: Binance USDM Futures uses symbols WITHOUT slash (e.g., BTCUSDT not BTC/USDT)
         
         # Calculate start time
         now = pd.Timestamp.now()
@@ -224,7 +224,7 @@ class MarketStream:
         
         for _ in range(10): # Safety limit 10 pages
             try:
-                ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, since=current_since, limit=1000)
+                ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, since=current_since, limit=1000)
                 if not ohlcv:
                     break
                 
