@@ -113,7 +113,8 @@ class GatekeeperMiddleware(BaseMiddleware):
                 # Get owner contact from env (username link preferred, fallback to chat_id)
                 owner_contact = os.getenv('OWNER_CONTACT', '').strip()
                 if not owner_contact:
-                    owner_contact = f"ID: {owner_id}" if owner_id else "_No configurado_"
+                    admin_id = os.getenv('TELEGRAM_ADMIN_ID', os.getenv('TELEGRAM_CHAT_ID', ''))
+                    owner_contact = f"ID: {admin_id}" if admin_id else "_No configurado_"
                 
                 # Reply with rejection message (only for private chats to avoid spam in groups)
                 if isinstance(event, Message) and event.chat.type == 'private':
