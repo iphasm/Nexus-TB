@@ -2,6 +2,23 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import asyncio
 from typing import Dict, Any, List
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+def is_us_market_open() -> bool:
+    """Check if US stock market is currently open (9:30 AM - 4:00 PM ET, Mon-Fri)."""
+    et = ZoneInfo("America/New_York")
+    now = datetime.now(et)
+    
+    # Weekday check (Monday=0, Friday=4)
+    if now.weekday() > 4:  # Saturday or Sunday
+        return False
+    
+    # Time check: 9:30 AM to 4:00 PM ET
+    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    return market_open <= now <= market_close
 
 class MarketStream:
     """
@@ -93,6 +110,11 @@ class MarketStream:
             from config import ASSET_GROUPS
             import os
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
+                # Skip if US market is closed (avoid unnecessary API calls)
+                if not is_us_market_open():
+                    # Return empty data silently (market closed is expected, not an error)
+                    return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A", "market_closed": True}
+                
                 # Delegate to AlpacaStream
                 from .alpaca_stream import AlpacaStream
                 alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
