@@ -94,6 +94,9 @@ class AsyncTradingSession:
         self._operation_locks = {}  # {symbol: timestamp}
         self._lock_duration = 30  # seconds
         
+        # Algo Order Tracking: Track algoIds for selective cancellation
+        self.active_algo_orders = {}  # {symbol: {'sl_id': str, 'tp_id': str}}
+        
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
     
