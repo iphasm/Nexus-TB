@@ -124,8 +124,8 @@ async def cmd_start(message: Message, **kwargs):
     except:
         pass
         
-    # Indent the quote for the UI
-    formatted_quote = f"      \"{quote}\""
+    # Indent the quote for the UI with user name
+    formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
     welcome = (
         f"🌌 **ANTIGRAVITY BOT v4.0** | {mode_icon} **{mode}{ai_header_suffix}**\n"

@@ -332,6 +332,10 @@ def get_user_name(chat_id: str) -> str:
     Fetch the user's name from the database.
     Fallback to 'Operador' if not found.
     """
+    # Hardcoded owner name
+    if str(chat_id) == "1265547936":
+        return "Fabio"
+    
     conn = get_connection()
     if not conn:
         return "Operador"
