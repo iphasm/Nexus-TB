@@ -1,3 +1,17 @@
+"""
+Antigravity Bot - Command Handlers
+Basic commands: /start, /help, /status, /wallet, /price, /pnl
+EXACT REPLICA of main.py interface
+"""
+
+import asyncio
+import logging
+import random
+import os
+import requests
+from aiogram import Router, F
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from utils.auth import admin_only, is_authorized_admin, owner_only
 from utils.db import get_user_name
 
