@@ -123,6 +123,9 @@ async def cmd_start(message: Message, **kwargs):
         quote = quote.format(user_name=user_name)
     except:
         pass
+    
+    # Strip trailing punctuation to avoid "message., Name."
+    quote = quote.rstrip('.!?,;:')
         
     # Indent the quote for the UI with user name
     formatted_quote = f"      \"{quote}, **{user_name}**.\""
