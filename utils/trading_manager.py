@@ -394,14 +394,24 @@ class AsyncTradingSession:
             
             # 3. Cancel existing SL/TP orders - FORCE CLEANUP (Standard + Algo)
             # Uses _cancel_all_robust which now includes verification
+            # 3. Cancel existing SL/TP orders - FORCE CLEANUP (Standard + Algo)
+            # Uses _cancel_all_robust which now includes verification
             try:
-                print(f"🔄 {symbol}: Cancelling ALL orders (Standard + Algo)...")
-                cleared = await self._cancel_all_robust(symbol, verify=True)
+                # Retry loop for cancellation
+                cleared = False
+                for _ in range(2):
+                    cleared = await self._cancel_all_robust(symbol, verify=True)
+                    if cleared:
+                        break
+                    await asyncio.sleep(0.5)
                 
                 if not cleared:
-                    print(f"⚠️ {symbol}: Some orders may remain after cancellation")
+                    print(f"⚠️ {symbol}: Cancellation failed (orders remain). Aborting Sync to avoid duplicates.")
+                    return False, "⚠️ Sync Aborted: Could not clear existing orders."
+                    
             except Exception as e:
                 print(f"⚠️ Error cancelling orders for {symbol}: {e}")
+                return False, f"Sync Error (Cancel): {e}"
             
             # 5. Place new SL (reduceOnly) with -2021 check
             sl_msg = ""

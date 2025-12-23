@@ -659,6 +659,10 @@ async def main():
             scheduler.shutdown(wait=False)
         
         if engine_task:
+            # Signal engine to stop gracefullly first
+            if 'quantum_engine' in globals() and quantum_engine:
+                 await quantum_engine.stop()
+            
             engine_task.cancel()
             try:
                 await engine_task
