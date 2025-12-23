@@ -338,6 +338,7 @@ def get_user_name(chat_id: str) -> str:
     
     conn = get_connection()
     if not conn:
+        print(f"⚠️ get_user_name: No DB connection for chat_id={chat_id}")
         return "Operador"
         
     try:
@@ -345,13 +346,15 @@ def get_user_name(chat_id: str) -> str:
             cur.execute("SELECT name FROM users WHERE chat_id = %s", (str(chat_id),))
             row = cur.fetchone()
             if row and row[0]:
+                print(f"✅ get_user_name: Found '{row[0]}' for chat_id={chat_id}")
                 return row[0]
             
             # Fallback if owner
             env_owner = os.getenv('TELEGRAM_CHAT_ID', '')
             if str(chat_id) in env_owner.split(','):
                 return "Comandante"
-                
+            
+            print(f"⚠️ get_user_name: No name found for chat_id={chat_id}, defaulting to Operador")
             return "Operador"
     except Exception as e:
         print(f"❌ Get User Name Error: {e}")
