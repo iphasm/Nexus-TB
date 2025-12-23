@@ -1302,7 +1302,10 @@ class AsyncTradingSession:
             self._operation_locks.pop(symbol, None)
     
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
-        """Cancel orders for symbols without positions (Standard + Algo)."""
+        """
+        Cancel orders for symbols without positions (Standard + Algo).
+        Also detects 'messy' active positions (too many orders) and advises sync.
+        """
         if not self.client:
             return False, "No valid session."
         
@@ -1315,33 +1318,54 @@ class AsyncTradingSession:
             active_symbols = set(p['symbol'] for p in active_pos)
             
             orphaned = set()
+            messy_active = []
+            
+            # Logic: Group orders by symbol
+            orders_by_symbol = {s: 0 for s in active_symbols}
             
             # Check standard orders
             for order in all_orders:
                 sym = order['symbol']
                 if sym not in active_symbols:
                     orphaned.add(sym)
+                else:
+                    orders_by_symbol[sym] += 1
             
             # Check algo orders (SL/TP/Trailing)
             for order in algo_orders:
                 sym = order.get('symbol', '')
                 if sym and sym not in active_symbols:
                     orphaned.add(sym)
+                elif sym in active_symbols:
+                    orders_by_symbol[sym] += 1
+            
+            # Identify Messy Active Positions (> 4 orders is suspicious for single position)
+            for sym, count in orders_by_symbol.items():
+                if count > 4:
+                    messy_active.append(f"{sym} ({count})")
             
             total_orders = len(all_orders) + len(algo_orders)
             
-            if not orphaned:
-                return True, f"✅ No orphaned orders. ({total_orders} orders, {len(active_symbols)} positions)"
+            # 1. Cancel Orphans
+            probs = []
+            if orphaned:
+                canceled = 0
+                for sym in orphaned:
+                    try:
+                        await self._cancel_all_robust(sym)
+                        canceled += 1
+                    except Exception as e:
+                        print(f"Error canceling {sym}: {e}")
+                probs.append(f"🧹 Cleaned {canceled} orphaned symbols ({', '.join(orphaned)})")
             
-            canceled = 0
-            for sym in orphaned:
-                try:
-                    await self._cancel_all_robust(sym)
-                    canceled += 1
-                except Exception as e:
-                    print(f"Error canceling {sym}: {e}")
+            # 2. Report Messy Active
+            if messy_active:
+                probs.append(f"⚠️ Messy positions: {', '.join(messy_active)}. Run /sync to fix.")
             
-            return True, f"🧹 Cleaned {canceled} symbols: {', '.join(orphaned)}"
+            if not probs:
+                return True, f"✅ No orphaned orders. ({total_orders} orders total, {len(active_symbols)} positions)"
+            
+            return True, "\n".join(probs)
             
         except Exception as e:
             return False, f"Cleanup Error: {e}"
