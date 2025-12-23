@@ -444,7 +444,8 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
             
             "**⚙️ Estado**\n"
             f"• Modo: {mode_display}\n"
-            f"• Posiciones: `{pos['count']}` ({pos['longs']}L / {pos['shorts']}S)\n\n"
+            f"• Posiciones Binance: `{pos.get('binance', {}).get('count', 0)}` ({pos.get('binance', {}).get('longs', 0)}L / {pos.get('binance', {}).get('shorts', 0)}S)\n"
+            f"• Posiciones Alpaca: `{pos.get('alpaca', {}).get('count', 0)}` ({pos.get('alpaca', {}).get('longs', 0)}L / {pos.get('alpaca', {}).get('shorts', 0)}S)\n\n"
             
             "**🌡️ Mercado**\n"
             f"{fg_text}"

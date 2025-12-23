@@ -1570,32 +1570,56 @@ class AsyncTradingSession:
             return False, f"Spot Buy Error: {e}"
     
     async def get_active_positions(self) -> List[Dict]:
-        """Get list of active futures positions with correct leverage."""
-        if not self.client:
-            return []
+        """Get list of active positions (Binance + Alpaca)."""
+        active = []
         
-        try:
-            # Use futures_account to get positions with correct leverage
-            account = await self.client.futures_account()
-            positions = account.get('positions', [])
-            
-            active = []
-            for p in positions:
-                amt = float(p.get('positionAmt', 0))
-                if abs(amt) > 0.0001:  # Filter dust
-                    # Get leverage from position data (it's a string in the API)
-                    lev = p.get('leverage', '5')
+        # 1. Binance Futures
+        if self.client:
+            try:
+                # Use futures_account to get positions with correct leverage
+                account = await self.client.futures_account()
+                positions = account.get('positions', [])
+                
+                for p in positions:
+                    amt = float(p.get('positionAmt', 0))
+                    if abs(amt) > 0.0001:  # Filter dust
+                        # Get leverage from position data
+                        lev = p.get('leverage', '5')
+                        active.append({
+                            'symbol': p['symbol'],
+                            'amt': amt,
+                            'entry': float(p.get('entryPrice', 0)),
+                            'pnl': float(p.get('unrealizedProfit', 0)),
+                            'leverage': int(lev) if isinstance(lev, (int, float)) else int(lev),
+                            'source': 'BINANCE'
+                        })
+            except Exception as e:
+                print(f"Binance Position error: {e}")
+        
+        # 2. Alpaca Stocks
+        if self.alpaca_client:
+            try:
+                loop = asyncio.get_event_loop()
+                # Run sync Alpaca call in executor
+                alp_positions = await loop.run_in_executor(None, self.alpaca_client.get_all_positions)
+                
+                for p in alp_positions:
+                    amt = float(p.qty)
+                    if p.side == 'short':
+                        amt = -abs(amt)
+                        
                     active.append({
-                        'symbol': p['symbol'],
+                        'symbol': p.symbol,
                         'amt': amt,
-                        'entry': float(p.get('entryPrice', 0)),
-                        'pnl': float(p.get('unrealizedProfit', 0)),
-                        'leverage': int(lev) if isinstance(lev, (int, float)) else int(lev)
+                        'entry': float(p.avg_entry_price),
+                        'pnl': float(p.unrealized_pl),
+                        'leverage': 1, # Stocks usually 1:1 or 1:2, hard to track per pos via API simply
+                        'source': 'ALPACA'
                     })
-            return active
-        except Exception as e:
-            print(f"Position fetch error: {e}")
-            return []
+            except Exception as e:
+                print(f"Alpaca Position error: {e}")
+
+        return active
     
     async def get_wallet_details(self) -> Dict:
         """Get wallet balances including Alpaca and Earn products."""
@@ -1680,6 +1704,16 @@ class AsyncTradingSession:
         longs = len([p for p in positions if p['amt'] > 0])
         shorts = len([p for p in positions if p['amt'] < 0])
         
+        # Split by Exchange
+        bin_pos = [p for p in positions if p.get('source') == 'BINANCE'] # Default if None
+        alp_pos = [p for p in positions if p.get('source') == 'ALPACA']
+        
+        bin_longs = len([p for p in bin_pos if p['amt'] > 0])
+        bin_shorts = len([p for p in bin_pos if p['amt'] < 0])
+        
+        alp_longs = len([p for p in alp_pos if p['amt'] > 0])
+        alp_shorts = len([p for p in alp_pos if p['amt'] < 0])
+
         # 3. Aggregated PnL (Futures)
         # Note: wallet['futures_pnl'] comes from account info, confirming with raw positions sum
         calc_pnl = sum(p['pnl'] for p in positions)
@@ -1699,7 +1733,10 @@ class AsyncTradingSession:
                 "count": pos_count,
                 "longs": longs,
                 "shorts": shorts,
-                "total_pnl": calc_pnl
+                "total_pnl": calc_pnl,
+                # Detailed breakdown
+                "binance": {"count": len(bin_pos), "longs": bin_longs, "shorts": bin_shorts},
+                "alpaca": {"count": len(alp_pos), "longs": alp_longs, "shorts": alp_shorts}
             },
             "allocation": {
                 "binance_futures": alloc_binance_fut,
