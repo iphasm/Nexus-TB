@@ -7,9 +7,9 @@ class MarketStream:
     """
     Async Market Data Provider.
     Currently uses REST Polling via CCXT (Async).
-    Can be upgraded to WebSockets (CCXT Pro) later.
+    Uses Binance USD-M Futures for crypto.
     """
-    def __init__(self, exchange_id='binance'):
+    def __init__(self, exchange_id='binanceusdm'):  # Changed to USD-M Futures
         self.exchange_id = exchange_id
         self.exchange = getattr(ccxt, exchange_id)()
         self.tf_map = {
