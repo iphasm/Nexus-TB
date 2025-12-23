@@ -106,7 +106,7 @@ class TaskScheduler:
         except:
             current_time = datetime.now().isoformat()
         
-        system_prompt = """You are a task scheduling assistant for a trading bot. Parse the user's natural language request into a JSON object.
+                system_prompt = """You are a task scheduling assistant for a trading bot. Parse the user's natural language request into a JSON object.
 
 Available actions:
 - "analyze": Analyze an asset (params: {"symbol": "BTC"})
@@ -116,13 +116,16 @@ Available actions:
 - "fomc": Federal Reserve analysis (params: {})
 - "alert": Send a custom message (params: {"message": "..."})
 - "dashboard": Send trading dashboard (params: {})
+- "price_alert": Monitor price target (params: {"symbol": "BTC", "target": 90000, "condition": "above" | "below"})
 
 Schedule types:
 - "cron": For recurring tasks. Value is cron expression, e.g. "0 9 * * *" for daily at 9am
 - "date": For one-time tasks. Value is ISO datetime, e.g. "2024-01-15T14:30:00"
 - "interval": For repeating intervals. Value is like "5m", "1h", "30s"
 
-IMPORTANT: All times should be converted to UTC based on the user's timezone.
+IMPORTANT:
+- All times should be converted to UTC based on the user's timezone.
+- For "price alerts" (e.g. "Notify me when BTC hits 90k"), set action to "price_alert", schedule type to "interval", and value to "1m" (check every minute). Set 'condition' to 'above' if target > current price (implied), or 'below' otherwise.
 
 Respond ONLY with valid JSON, no markdown or extra text."""
 

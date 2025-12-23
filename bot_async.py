@@ -532,13 +532,70 @@ async def main():
                 reason = sent.get('reason', 'N/A')
                 icon = "🟢" if score > 0.2 else "🔴" if score < -0.2 else "🟡"
                 await bot_instance.send_message(user_id, f"🧠 **Sentimiento: {symbol}**\n{icon} Score: `{score:.2f}`\n📝 {reason}", parse_mode="Markdown")
-        
+
+        async def handle_price_alert(user_id, params, bot_instance):
+            """Check if price target is met, notify, and cancel task."""
+            symbol = params.get('symbol', 'BTC').upper()
+            target = float(params.get('target', 0))
+            condition = params.get('condition', 'above') # above or below
+            
+            # Use a session to get price (or created temp)
+            session = session_manager.get_session(str(user_id))
+            if not session:
+                return # Can't check price without session/client
+                
+            try:
+                # 1. Get Current Price
+                current_price = await session.get_symbol_price(symbol)
+                if not current_price:
+                    return
+
+                # 2. Check Condition
+                triggered = False
+                if condition == 'above' and current_price >= target:
+                    triggered = True
+                elif condition == 'below' and current_price <= target:
+                    triggered = True
+                
+                # 3. Notify and Cancel if Triggered
+                if triggered:
+                    msg = (
+                        f"🚨 **ALERTA DE PRECIO: {symbol}**\n\n"
+                        f"Target alcanzado: `${target:,.2f}`\n"
+                        f"Precio actual: `${current_price:,.2f}`\n"
+                        f"📈 Condición: {condition.upper()}"
+                    )
+                    await bot_instance.send_message(user_id, msg, parse_mode="Markdown")
+                    
+                    # Search and cancel this specific task
+                    # We need to find the task_id. Since we don't have it passed directly, we look it up.
+                    # This is a bit inefficient but works for now.
+                    #Ideally, scheduler should pass task_id to handler.
+                    scheduler = get_scheduler()
+                    tasks = scheduler.list_tasks(user_id)
+                    for t in tasks:
+                        # Match params to identify the task
+                        t_params = t.get('params', {})
+                        if (t.get('action') == 'price_alert' and 
+                            t_params.get('symbol') == symbol and 
+                            float(t_params.get('target', 0)) == target):
+                            
+                            scheduler.cancel_task(user_id, t['id'])
+                            await bot_instance.send_message(user_id, f"✅ Tarea de alerta para {symbol} completada y eliminada.", parse_mode="Markdown")
+                            break
+
+            except Exception as e:
+                logger.error(f"Price alert check failed: {e}")
+
+        # Register Actions
         scheduler.register_action('analyze', handle_analyze)
         scheduler.register_action('news', handle_news)
         scheduler.register_action('sniper', handle_sniper)
         scheduler.register_action('dashboard', handle_dashboard)
         scheduler.register_action('sentiment', handle_sentiment)
         scheduler.register_action('fomc', handle_news)  # Alias
+        scheduler.register_action('price_alert', handle_price_alert)
+        scheduler.register_action('alert', handle_price_alert) # Fallback alias
         
         scheduler.start()
         logger.info("📅 Task Scheduler initialized and started.")
