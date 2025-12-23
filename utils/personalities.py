@@ -41,6 +41,14 @@ class PersonalityManager:
                     "📈 *Mercado:* Analizando...\n"
                     "🎮 *Modo:* `{mode}`\n\n"
                     "¿Cuál es el plan de ejecución para hoy?"
+                ),
+                (
+                    "🇪🇸 **CENTRO DE COMANDO**\n"
+                    "Identificación confirmada: **{user_name}**.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Sistemas:* {status_icon}\n"
+                    "🎮 *Protocolo:* `{mode}`\n\n"
+                    "Listo para iniciar operaciones. Ordene."
                 )
             ],
             'PILOT_ON': [
@@ -56,8 +64,13 @@ class PersonalityManager:
                 ),
                 (
                     "⚡ **SISTEMA DE CONTROL**\n\n"
-                    "Algoritmos activados. Manos libres. El bot operará según la configuración de riesgo establecida.\n\n"
+                    "Algoritmos activados, **{user_name}**. Manos libres. El bot operará según la configuración de riesgo establecida.\n\n"
                     "⚠️ *Revise su margen disponible.*"
+                ),
+                (
+                    "🤖 **PROTOCOLO AUTOMATIZADO**\n\n"
+                    "El sistema ha asumido el control, **{user_name}**. Ejecución algorítmica en progreso.\n\n"
+                    "⚠️ *Supervisión recomendada.*"
                 )
             ],
             'COPILOT_ON': "✅ **Modo Copilot Activado**\n\nEl bot enviará propuestas de trading para su aprobación manual.",
@@ -88,7 +101,7 @@ class PersonalityManager:
                 "• **Seguridad:** Gestión de claves encriptada y ejecución local."
             ),
             'TRADE_LONG': (
-                "{title}: \"{quote}\"\n\n"
+                "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🟢 **LONG (Compra)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -99,7 +112,7 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "{title}: \"{quote}\"\n\n"
+                "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🔴 **SHORT (Venta)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -129,20 +142,47 @@ class PersonalityManager:
                 "Systems online.",
                 "Awaiting instructions."
             ],
-            'WELCOME': (
+            'WELCOME': [
+            (
                 "🇬🇧 **ANTIGRAVITY BOT v3.3**\n"
                 "Automated Trading System.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
+                "Welcome, **{user_name}**.\n"
                 "🔋 *Status:* `{status_text}` {status_icon}\n"
                 "🎮 *Mode:* `{mode}`\n"
                 "🔐 *Access:* `{auth}`\n\n"
                 "Ready to operate. Select an option from the menu."
             ),
+            (
+                 "🇬🇧 **COMMAND CENTER**\n"
+                 "Identification confirmed: **{user_name}**.\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "🔋 *Systems:* {status_icon}\n"
+                 "🎮 *Protocol:* `{mode}`\n\n"
+                 "Ready to initiate operations. Awaiting orders."
+            ),
+            (
+                 "🇬🇧 **SYSTEM ONLINE**\n"
+                 "Operator: **{user_name}**\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "📈 *Market:* Scanning...\n"
+                 "🎮 *Mode:* `{mode}`\n\n"
+                 "Awaiting critical instructions."
+            ),
+            (
+                 "🤖 **ANTIGRAVITY CORE**\n"
+                 "Uplink established, **{user_name}**.\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "🔋 *Power:* {status_icon}\n"
+                 "🎮 *Status:* `{mode}`\n\n"
+                 "What is your command?"
+            )
+            ],
             'PILOT_ON': [
                 (
                     "🇬🇧 **PILOT MODE ENGAGED**\n\n"
                     "System has assumed control of operations. Entries and exits will be executed based on detected algorithms.\n\n"
-                    "⚠️ **Warning:** *Periodic human supervision is recommended.*"
+                    "⚠️ **Warning:** *Periodic human supervision is recommended, **{user_name}**.*"
                 ),
                 (
                     "🤖 **AUTOPILOT ACTIVE**\n\n"
@@ -151,8 +191,13 @@ class PersonalityManager:
                 ),
                 (
                     "⚡ **CONTROL SYSTEM**\n\n"
-                    "Algorithms engaged. Hands-free mode. Bot operates based on risk settings.\n\n"
+                    "Algorithms engaged, **{user_name}**. Hands-free mode. Bot operates based on risk settings.\n\n"
                     "⚠️ *Check available margin.*"
+                ),
+                (
+                    "🤖 **AUTOMATED PROTOCOL**\n\n"
+                    "System has assumed control, **{user_name}**. Algorithmic execution in progress.\n\n"
+                    "⚠️ *Supervision recommended.*"
                 )
             ],
             'COPILOT_ON': "✅ **Copilot Mode Activated**\n\nBot will send trade proposals for manual approval.",
@@ -173,7 +218,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Reason:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -204,20 +249,47 @@ class PersonalityManager:
                 "Systèmes en ligne.",
                 "En attente d'instructions."
             ],
-            'WELCOME': (
+            'WELCOME': [
+            (
                 "🇫🇷 **ANTIGRAVITY BOT v3.3**\n"
                 "Système de Trading Automatisé.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
+                "Bienvenue, **{user_name}**.\n"
                 "🔋 *État:* `{status_text}` {status_icon}\n"
                 "🎮 *Mode:* `{mode}`\n"
                 "🔐 *Accès:* `{auth}`\n\n"
                 "Prêt à opérer. Sélectionnez une option."
             ),
+            (
+                 "🇫🇷 **CENTRE DE COMMANDE**\n"
+                 "Identification confirmée: **{user_name}**.\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "🔋 *Systèmes:* {status_icon}\n"
+                 "🎮 *Protocole:* `{mode}`\n\n"
+                 "En attente de vos ordres."
+            ),
+            (
+                 "🇫🇷 **SYSTÈME ONLINE**\n"
+                 "Opérateur: **{user_name}**\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "📈 *Marché:* En analyse...\n"
+                 "🎮 *Mode:* `{mode}`\n\n"
+                 "Quel est le plan pour aujourd'hui?"
+            ),
+            (
+                 "🤖 **ANTIGRAVITY CORE**\n"
+                 "Connexion établie, **{user_name}**.\n"
+                 "〰️〰️〰️〰️〰️〰️〰️\n"
+                 "🔋 *Puissance:* {status_icon}\n"
+                 "🎮 *Statut:* `{mode}`\n\n"
+                 "Prêt pour l'exécution."
+            )
+            ],
             'PILOT_ON': [
                 (
                     "🇫🇷 **MODE PILOT ACTIVÉ**\n\n"
                     "Le système a pris le contrôle des opérations. Les entrées et sorties seront exécutées selon les algorithmes détectés.\n\n"
-                    "⚠️ **Avertissement:** *Une surveillance humaine périodique est recommandée.*"
+                    "⚠️ **Avertissement:** *Une surveillance humaine périodique est recommandée, **{user_name}**.*"
                 ),
                 (
                     "🤖 **PILOTE AUTOMATIQUE**\n\n"
@@ -226,8 +298,13 @@ class PersonalityManager:
                 ),
                 (
                     "⚡ **SYSTÈME DE CONTRÔLE**\n\n"
-                    "Algorithmes activés. Mains libres.\n\n"
+                    "Algorithmes activés, **{user_name}**. Mains libres.\n\n"
                     "⚠️ *Vérifiez votre marge.*"
+                ),
+                (
+                    "🤖 **PROTOCOLE AUTOMATISÉ**\n\n"
+                    "Le système a pris le contrôle, **{user_name}**. Exécution algorithmique en cours.\n\n"
+                    "⚠️ *Surveillance recommandée.*"
                 )
             ],
             'COPILOT_ON': "✅ **Mode Copilot Activé**\n\nLe bot enverra des propositions de trading.",
@@ -248,7 +325,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Raison:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -261,7 +338,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Raison:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': [
@@ -305,6 +382,14 @@ class PersonalityManager:
                     "🎮 *Modo:* `{mode}`\n"
                     "🔐 *Acceso:* `{auth}`\n\n"
                     "*Estamos a punto de completar el arma definitiva. Inicia la purga del mercado.*"
+                ),
+                (
+                    "🌑 **EJECUTOR IMPERIAL**\n"
+                    "El Emperador espera grandes cosas, **{user_name}**.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Energía:* {status_icon}\n"
+                    "🎮 *Control:* `{mode}`\n\n"
+                    "*No falles de nuevo.*"
                 )
             ],
             'PILOT_ON': [
@@ -320,8 +405,13 @@ class PersonalityManager:
                 ),
                 (
                     "⚡ **PODER ILIMITADO**\n\n"
-                    "El Lado Oscuro de la Fuerza es un camino hacia muchas habilidades que algunos consideran antinaturales. Operando.\n\n"
+                    "El Lado Oscuro de la Fuerza es un camino hacia muchas habilidades que algunos consideran antinaturales. Operando, **{user_name}**.\n\n"
                     "⚠️ *Únete a mí.*"
+                ),
+                (
+                    "🌑 **ORDEN 66**\n\n"
+                    "Será hecho, mi Lord **{user_name}**. Los Jedi financieros caerán.\n\n"
+                    "⚠️ *Sin piedad.*"
                 )
             ],
             'COPILOT_ON': "🤝 **Copilot**: Tú eres el Comandante, yo sigo siendo el Lord Sith. Te aconsejaré, pero no toleraré fallos.",
@@ -333,7 +423,7 @@ class PersonalityManager:
             'STRATEGY_MSG': "🌑 **DOCTRINA IMPERIAL**\n\nNo confío en la suerte, sino en el orden absoluto.\n1. **Conquista**: Identificamos tendencias débiles y las aplastamos.\n2. **Sitio**: En mercados laterales, asfixiamos al enemigo poco a poco.\n3. **Fuerza**: Usamos la volatilidad del Lado Oscuro a nuestro favor.",
             'ABOUT_MSG': "🌑 **IMPERIO GALÁCTICO**\n\nEsta estación de batalla es el poder definitivo en el universo. Diseñada para imponer orden en el caos financiero.",
             'TRADE_LONG': (
-                "{title}: \"{quote}\"\n\n"
+                "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🟢 **LONG (Imperio)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -344,7 +434,7 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "{title}: \"{quote}\"\n\n"
+                "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🔴 **SHORT (Purga)**\n"
                 "Estrategia: **{strategy_name}**\n"
@@ -383,7 +473,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-                    "*He visto cosas que vosotros no creeríais... naves de ataque en llamas más allá de Orión.*"
+                    "*He visto cosas que vosotros no creeríais, **{user_name}**... naves de ataque en llamas más allá de Orión.*"
                 ),
                 (
                      "👁️ **NEXUS-6 ONLINE**\n"
@@ -395,17 +485,25 @@ class PersonalityManager:
                 ),
                 (
                     "👁️ **MORE HUMAN THAN HUMAN**\n"
-                    "Tyrell Corp os saluda.\n"
+                    "Tyrell Corp os saluda, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* {status_icon}\n"
                     "🎮 *Control:* `{mode}`\n\n"
                     "Tengo una pregunta... ¿Sueñan los androides con ovejas eléctricas?"
+                ),
+                (
+                    "👁️ **VOIGHT-KAMPFF PASSED**\n"
+                    "No eres un replicante, **{user_name}**.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Nivel:* {status_icon}\n"
+                    "🎮 *Unidad:* `{mode}`\n\n"
+                    "*Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser esclavo.*"
                 )
             ],
             'PILOT_ON': [
                 (
                     "🤖 **MODO PILOT ACTIVADO**\n\n"
-                    "He tomado el control de la nave. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
+                    "He tomado el control de la nave, **{user_name}**. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
                     "⚠️ **Advertencia:** *La vida es riesgo.*"
                 ),
                 (
@@ -417,6 +515,11 @@ class PersonalityManager:
                     "⚡ **NEXUS-6 COMBAT MODEL**\n\n"
                     "Modo de combate financiero activado. Tiempo de ganar.\n\n"
                     "⚠️ *Nada es real.*"
+                ),
+                (
+                    "👁️ **TIEMPO DE MORIR**\n\n"
+                    "He visto cosas... pero esta operación será legendaria, **{user_name}**.\n\n"
+                    "⚠️ *Like tears in rain.*"
                 )
             ],
             'COPILOT_ON': "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido.",
@@ -437,7 +540,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -450,7 +553,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Fin de Ciclo**\n{asset} cerrado. {reason}.",
@@ -497,6 +600,13 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Orden:* `{mode}`\n\n"
                     "*El horror... el horror.*"
+                ),
+                (
+                    "☠️ **THE HORROR**\n"
+                    "Tienen que ser hombres morales... y al mismo tiempo capaces de utilizar sus instintos primordiales para operar, **{user_name}**.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Misión:* `{mode}`\n\n"
+                    "*Júzgame... pero no me llames débil.*"
                 )
             ],
             'PILOT_ON': [
@@ -514,6 +624,11 @@ class PersonalityManager:
                     "⚡ **MÉTODO: INSANO**\n\n"
                     "Mis métodos son... eficaces. No juzgues mis órdenes.\n\n"
                     "⚠️ *El horror.*"
+                ),
+                (
+                    "🚁 **AIR CAVALRY**\n\n"
+                    "¿Hueles eso, **{user_name}**? Es la victoria. Procediendo con la operación.\n\n"
+                    "⚠️ *Someday this war's gonna end.*"
                 )
             ],
             'COPILOT_ON': "🗡️ **COPILOT: MISIÓN CONJUNTA**\n\nTe enseñaré a ser un soldado. Tú aprietas el gatillo.",
@@ -534,7 +649,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -547,7 +662,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': [
@@ -584,11 +699,15 @@ class PersonalityManager:
                     "*Despierta, **{user_name}**. El dinero nunca duerme.*"
                 ),
                 (
-                    "📈 **GEKKO CORP**\n"
-                    "No creo en la suerte, **{user_name}**. Creo en ganar.\n"
+                    "*Si necesitas un amigo, cómprate un perro. Si quieres dinero, quédate conmigo, **{user_name}**.*"
+                ),
+                (
+                    "📈 **MASTER OF THE UNIVERSE**\n"
+                    "El mundo gira gracias al capital, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
-                    "🎮 *Strategy:* `{mode}`\n\n"
-                    "*Si necesitas un amigo, cómprate un perro. Si quieres dinero, quédate conmigo.*"
+                    "🔋 *Juego:* 100%\n"
+                    "🎮 *Estrategia:* `{mode}`\n\n"
+                    "*Lo único que importa es cuánto ganas.*"
                 )
             ],
             'PILOT_ON': [
@@ -604,8 +723,13 @@ class PersonalityManager:
                 ),
                 (
                     "⚡ **TIBURÓN FINANCIERO**\n\n"
-                    "Voy a crear valor. Voy a enriquecerte. Confía en mi visión.\n\n"
+                    "Voy a crear valor. Voy a enriquecerte. Confía en mi visión, **{user_name}**.\n\n"
                     "⚠️ *Greed works.*"
+                ),
+                (
+                    "💰 **INSIDER TRADING**\n\n"
+                    "Tengo la información antes que nadie, **{user_name}**. Voy a ejecutarla. Mira y aprende.\n\n"
+                    "⚠️ *Don't get emotional.*"
                 )
             ],
             'COPILOT_ON': "🤝 **Copilot**: Tú tienes la info, yo el capital. Haremos grandes cosas.",
@@ -626,7 +750,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -639,7 +763,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': [
@@ -681,6 +805,13 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Mode:* `{mode}`\n\n"
                     "*¿Quieres ser millonario? ¡Pues empieza a actuar como uno!*"
+                ),
+                (
+                    "💸 **THE WOLF'S DEN**\n"
+                    "¡No me iré! ¡No me iré! Y tú tampoco, **{user_name}**.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Show:* `{mode}`\n\n"
+                    "*¡Coged el teléfono y empezad a marcar! ¡Quiero ganadores!*"
                 )
             ],
             'PILOT_ON': [
@@ -698,6 +829,11 @@ class PersonalityManager:
                     "⚡ **WOLF MODE**\n\n"
                     "Estamos imprimiendo dinero. ¡Más vale que estéis listos para gastarlo! Operando.\n\n"
                     "⚠️ *To the moon.*"
+                ),
+                (
+                    "💰 **THE SHOW GOES ON**\n\n"
+                    "La única forma de que te lastimen es si tienes miedo, **{user_name}**. ¡Sé feroz!\n\n"
+                    "⚠️ *I'm not leaving.*"
                 )
             ],
             'COPILOT_ON': "🤝 **Copilot**: Te voy a enseñar a vender. Yo te doy el guion, tú cierras el trato.",
@@ -718,7 +854,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -731,7 +867,7 @@ class PersonalityManager:
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "\"{quote}\"\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': [
@@ -773,6 +909,20 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Plan:* `{mode}`\n\n"
                     "*No hay descanso para mí en este mundo. Quizás en el siguiente.*"
+                ),
+                (
+                    "🥃 **GARRISON PUB**\n"
+                    "Esta reunión es oficial, **{user_name}**. Cierra la puerta.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Asuntos:* `{mode}`\n\n"
+                    "*El buen whiskey te dice quién es real y quién no.*"
+                ),
+                (
+                    "🥃 **BY ORDER**\n"
+                    "Caminamos por el filo de la navaja, **{user_name}**. Y no vamos a caer.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Control:* `{mode}`\n\n"
+                    "*No fuckin' fighting!*"
                 )
             ],
             'PILOT_ON': [
@@ -790,6 +940,11 @@ class PersonalityManager:
                     "⚡ **ESTRATEGIA SHELBY**\n\n"
                     "Ya he ganado esta batalla en mi mente. Ahora solo falta ejecutarla. Manos a la obra.\n\n"
                     "⚠️ *Don't fuck with the Peaky Blinders.*"
+                ),
+                (
+                    "🐎 **RACE DAY**\n\n"
+                    "He apostado por nosotros, **{user_name}**. No me decepciones. El sistema está corriendo.\n\n"
+                    "⚠️ *No fighting.*"
                 )
             ],
             'COPILOT_ON': "🤝 **Copilot**: Eres parte de la familia ahora. Escucha mis consejos.",
@@ -809,6 +964,8 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
+                "**Motivo:**\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_SHORT': (
@@ -820,6 +977,8 @@ class PersonalityManager:
                 "💸 TS: **${ts:,.2f}**\n"
                 "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
+                "**Motivo:**\n"
+                "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Orden de los Peaky Blinders**\n{asset} cerrado. {reason}.",
