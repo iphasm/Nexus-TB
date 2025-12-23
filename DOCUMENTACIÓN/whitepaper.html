@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Quantum | Technical Whitepaper</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #050505;
+            --bg-panel: #0f1014;
+            --accent-primary: #00f2ea;
+            --accent-secondary: #3b82f6;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-light: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: var(--bg-body);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            margin: 0;
+            display: flex;
+        }
+
+        /* Sidebar */
+        aside {
+            width: 280px;
+            background: var(--bg-panel);
+            height: 100vh;
+            position: fixed;
+            padding: 2rem;
+            border-right: 1px solid var(--border-light);
+            overflow-y: auto;
+        }
+
+        aside h2 {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: var(--accent-primary);
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        aside ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        aside li {
+            margin-bottom: 1rem;
+        }
+
+        aside a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+            font-size: 0.95rem;
+        }
+
+        aside a:hover,
+        aside a.active {
+            color: var(--text-main);
+            border-left: 2px solid var(--accent-secondary);
+            padding-left: 10px;
+        }
+
+        /* Main Content */
+        main {
+            margin-left: 280px;
+            padding: 4rem 6rem;
+            max-width: 1000px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-top: 4rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 1rem;
+        }
+
+        h3 {
+            color: var(--accent-primary);
+            margin-top: 2.5rem;
+        }
+
+        p,
+        li {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-primary);
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #0a0a0c;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-secondary);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .diagram {
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 2rem 0;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .back-link {
+            position: fixed;
+            top: 2rem;
+            right: 3rem;
+            padding: 0.8rem 1.5rem;
+            background: var(--accent-secondary);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        @media(max-width: 900px) {
+            aside {
+                display: none;
+            }
+
+            main {
+                margin-left: 0;
+                padding: 2rem;
+            }
+
+            .back-link {
+                position: static;
+                display: inline-block;
+                margin-bottom: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <aside>
+        <h2>DOCS v4.0</h2>
+        <ul>
+            <li><a href="#intro">Introduction</a></li>
+            <li><a href="#architecture">System Architecture</a></li>
+            <li><a href="#engine">Quantum Engine</a></li>
+            <li><a href="#strategies">Trading Strategies</a></li>
+            <li><a href="#risk">Risk Management</a></li>
+            <li><a href="#ai">AI Sentiment Layer</a></li>
+            <li><a href="#config">Configuration</a></li>
+        </ul>
+        <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
+            <p style="font-size: 0.8rem;">&copy; 2025 Antigravity Labs</p>
+        </div>
+    </aside>
+
+    <main>
+        <a href="index.html" class="back-link">← Back to Product</a>
+
+        <section id="intro">
+            <span class="badge">v4.0.0 STABLE</span>
+            <h1>Technical Whitepaper</h1>
+            <p>Antigravity Quantum is an institutional-grade algorithmic trading system designed for high-frequency
+                low-latency execution across Crypto (Binance) and Equity (Alpaca) markets. This document outlines the
+                technical specification, internal logic, and security protocols of the bot.</p>
+        </section>
+
+        <section id="architecture">
+            <h2>1. System Architecture</h2>
+            <p>The system is built on an asynchronous event-driven architecture using Python 3.11 and
+                <code>asyncio</code>. It creates a non-blocking loop that handles websocket data streams, signal
+                processing, and order execution concurrently.</p>
+
+            <div class="diagram">
+                [ Binance WS ] <----> [ Data Normalizer ] ----> [ Quantum Engine ] <br>
+                    |<br>
+                    [ Alpaca API ] <----> [ AI Analyst ] --------> [ Signal Bus ] ----> [ Execution Manager ]
+            </div>
+
+            <h3>Core Components</h3>
+            <ul>
+                <li><strong>Bot Async (`bot_async.py`)</strong>: The central entry point. Manages the
+                    <code>aiogram</code> polling loop and the background <code>QuantumEngine</code> task.</li>
+                <li><strong>Trading Manager (`AsyncTrainingSession`)</strong>: Handles exchange interactions, position
+                    sizing, and order lifecycle.</li>
+                <li><strong>Dynamic Cooldown</strong>: Prevents signal spam/over-trading by tracking volatility and ATR
+                    per asset.</li>
+            </ul>
+        </section>
+
+        <section id="engine">
+            <h2>2. Quantum Engine</h2>
+            <p>The <code>Quantum Engine</code> is the decision-making brain. It processes raw market data (OHLCV) into
+                actionable signals.</p>
+            <h3>Signal Generation Process</h3>
+            <ol>
+                <li><strong>Data Ingestion</strong>: Fetches up to 1000 candles for analysis.</li>
+                <li><strong>Indicator Calculation</strong>: Computes RSI, Bollinger Bands, ATR, MACD, and ADX using
+                    <code>pandas_ta</code>.</li>
+                <li><strong>Strategy Evaluation</strong>: Passes data through active Strategy Classes (Trend, Scalping,
+                    etc.).</li>
+                <li><strong>Consensus Filter</strong>: Checks signals against global market sentiment (AI) and Risk
+                    constraints.</li>
+            </ol>
+        </section>
+
+        <section id="strategies">
+            <h2>3. Trading Strategies</h2>
+            <p>The bot employs specific logic classes found in <code>strategies/classes/</code>.</p>
+
+            <h3>Trend Following</h3>
+            <code>CONFIDENCE > 0.75</code>
+            <p>Identifies sustained momentum. Enters when price breaks Bollinger Bands with high ADX. Uses an EMA200
+                filter for directionality.</p>
+
+            <h3>Mean Reversion</h3>
+            <code>CONFIDENCE > 0.80</code>
+            <p>Contrarian strategy. Buys when RSI < 30 and price hits lower Bollinger Band; Shorts when RSI> 70 and
+                    price hits upper band.</p>
+
+            <h3>Scalping (High Frequency)</h3>
+            <code>CONFIDENCE > 0.65</code>
+            <p>Exploits micro-movements on 1m/5m timeframes. Tight Stop Losses and quick Take Profits.</p>
+        </section>
+
+        <section id="risk">
+            <h2>4. Risk Management Protocols</h2>
+            <p>Security is the primary directive. The system cannot be overridden to bypass these checks.</p>
+
+            <h3>🦈 Shark Sentinel</h3>
+            <p>A background daemon that monitors Bitcoin's global health. If BTC drops more than 3% in 1 hour (Flash
+                Crash), the bot:</p>
+            <ul>
+                <li>Cancels all open BUY orders.</li>
+                <li>Freezes new Long positions.</li>
+                <li>Sends a "Black Swan" alert to all admins.</li>
+            </ul>
+
+            <h3>Circuit Breaker</h3>
+            <p>If the Daily PnL drops below a configurable threshold (e.g., -5%), trading is suspended for 24 hours to
+                prevent "revenge trading" spirals.</p>
+        </section>
+
+        <section id="ai">
+            <h2>5. AI Sentiment Layer</h2>
+            <p>The system queries OpenAI (GPT-4) to analyze textual market data.</p>
+            <p>Usage: <code>/analyze [SYMBOL]</code></p>
+            <p>The AI reviews technical indicators + "simulated" news events to provide a verbal summary and a
+                "Sentiment Score" (-1.0 to 1.0). If the Sentiment Score is negative, Long Technical signals are
+                invalidated.</p>
+        </section>
+
+        <section id="config">
+            <h2>6. Configuration</h2>
+            <pre>
+# Essential Environment Variables
+TELEGRAM_TOKEN=123456:ABC-DEF...
+BINANCE_API_KEY=...
+BINANCE_SECRET=...
+ALPACA_API_KEY=...
+OPENAI_API_KEY=...
+
+# Risk Defaults
+MAX_DAILY_LOSS=5.0
+RISK_PER_TRADE=1.5
+            </pre>
+        </section>
+
+    </main>
+</body>
+
+</html>
