@@ -1037,21 +1037,46 @@ class AsyncTradingSession:
             return False, f"Error: {e}"
     
     async def execute_close_all(self) -> Tuple[bool, str]:
-        """Close all open positions."""
+        """
+        NUCLEAR CLOSE: Close ALL open positions and cancel ALL open orders for ALL symbols.
+        Ensures no orphaned orders (standard or algo) remain anywhere in the account.
+        """
         if not self.client:
             return False, "No valid session."
         
-        active = await self.get_active_positions()
-        if not active:
-            return False, "No active positions."
-        
-        results = []
-        for p in active:
-            sym = p['symbol']
-            success, msg = await self.execute_close_position(sym)
-            results.append(f"{sym}: {'✅' if success else '❌'}")
-        
-        return True, "Batch Close:\n" + "\n".join(results)
+        try:
+            # 1. Get symbols with active positions
+            active = await self.get_active_positions()
+            pos_symbols = {p['symbol'] for p in active}
+            
+            # 2. Get symbols with standard open orders
+            # (Executing without symbol returns all open orders)
+            all_standard = await self.client.futures_get_open_orders()
+            std_order_symbols = {o['symbol'] for o in all_standard}
+            
+            # 3. Get symbols with algo orders
+            all_algo = await self.get_open_algo_orders()
+            algo_order_symbols = {o['symbol'] for o in all_algo}
+            
+            # 4. Merge all unique symbols
+            all_symbols = pos_symbols.union(std_order_symbols).union(algo_order_symbols)
+            
+            if not all_symbols:
+                return True, "✅ No hay posiciones ni órdenes activas."
+            
+            print(f"☢️ NUCLEAR CLOSE: Cleansing {len(all_symbols)} symbols: {all_symbols}")
+            
+            results = []
+            for sym in sorted(list(all_symbols)):
+                # execute_close_position robustly cancels (pre & post) and closes position
+                success, msg = await self.execute_close_position(sym)
+                results.append(f"{sym}: {'✅' if success else '❌'}")
+            
+            return True, "🔥 Limpieza Total:\n" + "\n".join(results)
+            
+        except Exception as e:
+            print(f"❌ Error in execute_close_all: {e}")
+            return False, f"Error en Limpieza Total: {e}"
 
     async def execute_refresh_all_orders(self) -> str:
         """
