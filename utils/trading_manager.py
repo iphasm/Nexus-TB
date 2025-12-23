@@ -1714,9 +1714,10 @@ class AsyncTradingSession:
         alp_longs = len([p for p in alp_pos if p['amt'] > 0])
         alp_shorts = len([p for p in alp_pos if p['amt'] < 0])
 
-        # 3. Aggregated PnL (Futures)
-        # Note: wallet['futures_pnl'] comes from account info, confirming with raw positions sum
+        # 3. Aggregated PnL
         calc_pnl = sum(p['pnl'] for p in positions)
+        bin_pnl = sum(p['pnl'] for p in bin_pos)
+        alp_pnl = sum(p['pnl'] for p in alp_pos)
         
         # 4. Allocations
         total_equity = wallet['total']
@@ -1735,8 +1736,18 @@ class AsyncTradingSession:
                 "shorts": shorts,
                 "total_pnl": calc_pnl,
                 # Detailed breakdown
-                "binance": {"count": len(bin_pos), "longs": bin_longs, "shorts": bin_shorts},
-                "alpaca": {"count": len(alp_pos), "longs": alp_longs, "shorts": alp_shorts}
+                "binance": {
+                    "count": len(bin_pos),
+                    "longs": bin_longs,
+                    "shorts": bin_shorts,
+                    "pnl": bin_pnl
+                },
+                "alpaca": {
+                    "count": len(alp_pos),
+                    "longs": alp_longs,
+                    "shorts": alp_shorts,
+                    "pnl": alp_pnl
+                }
             },
             "allocation": {
                 "binance_futures": alloc_binance_fut,

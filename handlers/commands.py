@@ -435,7 +435,8 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             
             f"� **Net Worth:** `${net_worth:,.2f}`\n"
-            f"📈 **PnL Abierto:** {pnl_icon} `${pnl:,.2f}`\n\n"
+            f"📈 **PnL Binance:** {'🟢' if pos.get('binance', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('binance', {}).get('pnl', 0):,.2f}`\n"
+            f"📈 **PnL Alpaca:** {'🟢' if pos.get('alpaca', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('alpaca', {}).get('pnl', 0):,.2f}`\n\n"
             
             "**💰 Balances**\n"
             f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`\n"
