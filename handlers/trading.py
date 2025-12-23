@@ -75,7 +75,7 @@ async def cmd_long(message: Message, **kwargs):
                 msg = parts[0].strip()
                 img_path = parts[1].strip()
 
-            await processing.edit_text(f"✅ *LONG EJECUTADO*\n{msg}", parse_mode="Markdown")
+            await processing.edit_text(f"✅ LONG EJECUTADO\n{msg}")
             
             if img_path and os.path.exists(img_path):
                 try:
@@ -124,7 +124,7 @@ async def cmd_short(message: Message, **kwargs):
                 msg = parts[0].strip()
                 img_path = parts[1].strip()
 
-            await processing.edit_text(f"✅ *SHORT EJECUTADO*\n{msg}", parse_mode="Markdown")
+            await processing.edit_text(f"✅ SHORT EJECUTADO\n{msg}")
             
             if img_path and os.path.exists(img_path):
                 try:

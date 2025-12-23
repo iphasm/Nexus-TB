@@ -1188,7 +1188,7 @@ async def cmd_long(message: Message, **kwargs):
         
         # Execute with ATR
         success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
-        await message.reply(res_msg, parse_mode="Markdown")
+        await message.reply(res_msg)
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
