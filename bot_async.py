@@ -627,7 +627,18 @@ async def main():
     except Exception as e:
         logger.error(f"❌ Failed to start Shark Sentinel: {e}")
 
-    # 8. Startup Message
+    # 8. Start Web Server (Docs Hosting)
+    try:
+        from utils.web_server import start_web_server
+        web_server = await start_web_server()
+        if web_server:
+            logger.info("🌍 Web Docs Server is RUNNING.")
+        else:
+            logger.warning("🌍 Web Docs Server failed to start.")
+    except Exception as e:
+        logger.error(f"❌ Web Server Error: {e}")
+
+    # 9. Startup Message
     logger.info("🚀 Antigravity Bot (Async) starting...")
     
     raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
