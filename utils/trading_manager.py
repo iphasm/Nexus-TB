@@ -185,10 +185,21 @@ class AsyncTradingSession:
         return final_qty
     
     async def initialize_alpaca(self):
-        """Initialize Alpaca client from per-user config ONLY (no ENV fallback)."""
-        # SECURITY: Only use per-user keys. ENV keys are for owner's system operations only.
+        """Initialize Alpaca client from per-user config, with ENV fallback for admins only."""
+        # Check if this user is an admin (allow ENV fallback for owners)
+        admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').replace(' ', '').split(',')
+        is_admin = str(self.chat_id) in admin_ids
+        
+        # Get credentials: per-user config first, ENV fallback only for admins
         ak = self.config.get('alpaca_key', '').strip() if self.config.get('alpaca_key') else ''
         ask = self.config.get('alpaca_secret', '').strip() if self.config.get('alpaca_secret') else ''
+        
+        # ENV fallback ONLY for admins
+        if not ak and is_admin:
+            ak = os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
+        if not ask and is_admin:
+            ask = os.getenv('APCA_API_SECRET_KEY', '').strip().strip("'\"")
+        
         base_url = os.getenv('APCA_API_BASE_URL', '').strip().strip("'\"")
         
         if ak and ask:
