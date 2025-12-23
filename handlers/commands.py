@@ -22,25 +22,29 @@ from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP, get_display_name
 
 
 def get_fear_and_greed_index() -> str:
-    """Fetch Fear and Greed Index from alternative.me"""
-    try:
-        url = "https://api.alternative.me/fng/"
-        resp = requests.get(url, timeout=5)
-        data = resp.json()
-        if 'data' in data and len(data['data']) > 0:
-            item = data['data'][0]
-            val = int(item['value'])
-            classification = item['value_classification']
-            
-            icon = "😐"
-            if val >= 75: icon = "🤑"
-            elif val >= 55: icon = "😏"
-            elif val <= 25: icon = "😱"
-            elif val <= 45: icon = "😨"
-            
-            return f"{icon} *{classification}* ({val}/100)"
-    except Exception as e:
-        print(f"F&G Error: {e}")
+    """Fetch Fear and Greed Index from alternative.me with retry and extended timeout"""
+    url = "https://api.alternative.me/fng/"
+    for attempt in range(2):
+        try:
+            resp = requests.get(url, timeout=15)
+            data = resp.json()
+            if 'data' in data and len(data['data']) > 0:
+                item = data['data'][0]
+                val = int(item['value'])
+                classification = item['value_classification']
+                
+                icon = "😐"
+                if val >= 75: icon = "🤑"
+                elif val >= 55: icon = "😏"
+                elif val <= 25: icon = "😱"
+                elif val <= 45: icon = "😨"
+                
+                return f"{icon} *{classification}* ({val}/100)"
+        except Exception as e:
+            if attempt == 1:
+                print(f"F&G Error (Final): {e}")
+            else:
+                print(f"F&G Error (Retrying...): {e}")
     
     return "N/A"
 
@@ -144,18 +148,18 @@ async def cmd_start(message: Message, **kwargs):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         # Main Operations
         [
-            InlineKeyboardButton(text="📈 Dashboard", callback_data="CMD|dashboard"),
-            InlineKeyboardButton(text="📡 Intel", callback_data="MENU|INTEL")
+            InlineKeyboardButton(text="📊 Dashboard", callback_data="CMD|dashboard"),
+            InlineKeyboardButton(text="🔄 Sync All", callback_data="SYNC_ORDERS")
         ],
-        # Quick Actions
+        # Selection Modules
         [
-            InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES"),
-            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
+            InlineKeyboardButton(text="📡 Intel Center", callback_data="MENU|INTEL"),
+            InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
         ],
-        # Tools
+        # Settings
         [
-            InlineKeyboardButton(text="🔄 Sync", callback_data="SYNC_ORDERS"),
-            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
+            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
+            InlineKeyboardButton(text=f"🧠 AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
         ],
         # Info
         [
@@ -283,8 +287,8 @@ async def cmd_help(message: Message):
         
         "📊 *INFO & MERCADO*\n"
         "• /start - Menú principal\n"
-        "• /status - Estado personal\n"
-        "• /wallet - Ver cartera\n"
+        "• /status - Dashboard Operativo\n"
+        "• /sync - Sincronizar SL/TP Inteligente\n"
         "• /analyze SYMBOL - Análisis IA\n"
         "• /cooldown - Ver/Setear cooldown\n\n"
         
@@ -293,9 +297,7 @@ async def cmd_help(message: Message):
         "• /short SYMBOL - Abrir SHORT\n"
         "• /buy SYMBOL - Compra SPOT\n"
         "• /close SYMBOL - Cerrar posición\n"
-        "• /closeall - Cerrar TODO\n"
-        "• /sync - Sincronizar SL/TP\n"
-        "• /cleanup - Limpiar órdenes\n\n"
+        "• /closeall - Cerrar TODO\n\n"
         
         "🎮 *MODOS OPERATIVOS*\n"
         "• /pilot - Automático\n"
@@ -471,12 +473,9 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
 
 
 # ALIASES
-@router.message(Command("status"))
-async def cmd_status(message: Message, **kwargs):
-    await cmd_dashboard(message, **kwargs)
-
-@router.message(Command("wallet"))
-async def cmd_wallet(message: Message, **kwargs):
+@router.message(Command("status", "wallet", "dashboard"))
+async def cmd_dashboard_alias(message: Message, **kwargs):
+    """Unified access to Dashboard"""
     await cmd_dashboard(message, **kwargs)
 
 
@@ -794,90 +793,6 @@ async def cmd_risk(message: Message, **kwargs):
     )
 
 
-@router.message(Command("sniper"))
-async def cmd_sniper(message: Message, **kwargs):
-    """Scan for instant trading opportunities"""
-    from utils.ai_analyst import QuantumAnalyst
-    from data.fetcher import get_market_data
-    from strategies.engine import StrategyEngine
-    
-    session_manager = kwargs.get('session_manager')
-    if not session_manager:
-        await message.answer("⚠️ Session manager not available.")
-        return
-    
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id)
-    
-    msg = await message.answer("🎯 **SNIPER MODE ACTIVADO**\n👁️ Escaneando 5 activos principales...")
-    
-    targets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT']
-    best_candidate = None
-    best_score = -999
-    
-    try:
-        analyst = QuantumAnalyst()
-        
-        for asset in targets:
-            # 1. Tech Analysis
-            df = get_market_data(asset, timeframe='15m', limit=100)
-            if df.empty:
-                continue
-            
-            engine = StrategyEngine(df)
-            res = engine.analyze()
-            
-            # Score Technicals
-            tech_score = 0
-            sig = res.get('signal_futures', 'NEUTRAL')
-            if sig == 'BUY':
-                tech_score = 1
-            elif sig == 'SHORT':
-                tech_score = -1
-            else:
-                continue
-            
-            # 2. AI Confirmation
-            if analyst.client:
-                sentiment = analyst.check_market_sentiment(asset)
-                sent_score = sentiment.get('score', 0)
-                
-                # Congruence Check
-                total_score = 0
-                if sig == 'BUY' and sent_score > 0.2:
-                    total_score = 1 + sent_score
-                elif sig == 'SHORT' and sent_score < -0.2:
-                    total_score = 1 + abs(sent_score)
-                
-                if total_score > best_score:
-                    best_score = total_score
-                    best_candidate = {
-                        'asset': asset,
-                        'signal': sig,
-                        'price': res.get('metrics', {}).get('close', 0),
-                        'reason_tech': res.get('reason_futures', 'N/A'),
-                        'reason_ai': sentiment.get('reason', 'N/A'),
-                        'vol_risk': sentiment.get('volatility_risk', 'LOW')
-                    }
-        
-        if best_candidate and best_score > 0:
-            c = best_candidate
-            icon = "🚀" if c['signal'] == 'BUY' else "🩸"
-            
-            result = (
-                f"🎯 **BLANCO ENCONTRADO: {c['asset']}**\n"
-                f"{icon} Señal: **{c['signal']}** @ ${c['price']:,.2f}\n\n"
-                f"📊 **Técnico:** {c['reason_tech']}\n"
-                f"🧠 **AI:** {c['reason_ai']}\n"
-                f"⚠️ Riesgo: {c['vol_risk']}\n\n"
-                f"👇 Ejecutar con: `/{c['signal'].lower()} {c['asset']}`"
-            )
-            await msg.edit_text(result, parse_mode='Markdown')
-        else:
-            await msg.edit_text("🤷‍♂️ **Sin blancos claros.**\nEl mercado está mixto. Recomiendo esperar.")
-    
-    except Exception as e:
-        await msg.edit_text(f"❌ Error Sniper: {e}")
 
 
 @router.message(Command("news"))

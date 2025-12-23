@@ -16,7 +16,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
                 (
-                    "🇪🇸 **ANTIGRAVITY BOT v3.3**\n"
+                    "🇪🇸 **ANTIGRAVITY BOT v4.0**\n"
                     "Sistema de Trading Automatizado.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n\n"
                     "Bienvenido, **{user_name}**.\n"
@@ -94,7 +94,7 @@ class PersonalityManager:
                 "4. **Smart Filters**: ADX, RSI y Volumen confirman cada señal."
             ),
             'ABOUT_MSG': (
-                "ℹ️ **SOBRE ANTIGRAVITY BOT v3.3.2**\n\n"
+                "ℹ️ **SOBRE ANTIGRAVITY BOT v4.0**\n\n"
                 "Sistema algorítmico institucional diseñado para operar 24/7 en Crypto y Stocks (Alpaca).\n"
                 "• **Modos:** Watcher, Copilot y Pilot (100% Autónomo).\n"
                 "• **Tecnología:** Python, Pandas-TA, Docker & Telegram API.\n"
@@ -144,7 +144,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
             (
-                "🇬🇧 **ANTIGRAVITY BOT v3.3**\n"
+                "🇬🇧 **ANTIGRAVITY BOT v4.0**\n"
                 "Automated Trading System.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
                 "Welcome, **{user_name}**.\n"
@@ -251,7 +251,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
             (
-                "🇫🇷 **ANTIGRAVITY BOT v3.3**\n"
+                "🇫🇷 **ANTIGRAVITY BOT v4.0**\n"
                 "Système de Trading Automatisé.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
                 "Bienvenue, **{user_name}**.\n"

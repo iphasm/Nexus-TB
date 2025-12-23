@@ -6,24 +6,24 @@
 
 ### 🧠 Intelligence Engine (Quantum)
 - **Multi-Timeframe Logic (MTF):** Filters 15m signals against 1H macro trends.
-
 ## 🛠️ Configuration
 Commands to control the bot via Telegram:
 
 | Command | Description |
 | :--- | :--- |
-| `/start` | Bot status, main menu and connectivity check. |
-| `/status` | Market dashboard, active positions, and system health. |
-| `/config` | Interactive menu for leverage, margin, and personalities. |
+| `/start` | Unified Hub: Bot status, main menu and sync flow. |
+| `/dashboard` | Advanced market analytics, active positions, and balances (Aliased: `/status`, `/wallet`). |
+| `/sync` | Smart Order Sync: Applies breakeven to profits (>=10%) and refreshes SL/TP. |
+| `/config` | Interactive menu for leverage, margin, and asset groups. |
 | `/mode` | Switch risk profiles (`RONIN`, `GUARDIAN`, `QUANTUM`). |
 | `/pilot` | Enable autonomous trading mode. |
-| `/copilot` | Enable assisted trading mode. |
+| `/copilot` | Enable assisted trading mode (Manual confirmation). |
 | `/watcher` | Enable alert-only mode. |
-| `/price` | Real-time price and signal dashboard. |
+| `/price` | Real-time market scan (Price, RSI, 24h%, Sentiment). |
 | `/news` | AI-generated market briefing. |
 | `/sentiment` | Global market sentiment analysis (Crypto + Macro). |
-| `/sniper` | Scans for immediate high-probability opportunities. |
-| `/personality` | Change the bot's tone (e.g., Vader, Rick, Wolf of Wall St). |
+| `/personality` | Change bot character (Rick, Vader, Wolf, etc). |
+| `/analyze` | Per-symbol deep AI analysis. |
 
 ## 🚀 Deployment
 Designed for **Railway** (Dockerized).

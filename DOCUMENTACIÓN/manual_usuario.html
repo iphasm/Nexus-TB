@@ -48,12 +48,18 @@
                 <tbody>
                     <tr>
                         <td><code>/start</code></td>
-                        <td>Inicia el bot y muestra el panel de control interactivo.</td>
+                        <td>Inicia el bot y muestra el <strong>Centro de Mando</strong> unificado.</td>
                         <td>-</td>
                     </tr>
                     <tr>
-                        <td><code>/status</code></td>
-                        <td>Muestra el estado actual, PnL (Ganancias/Pérdidas), y exposición.</td>
+                        <td><code>/dashboard</code></td>
+                        <td>Muestra el estado actual, PnL, y balances (Alias: <code>/status</code>,
+                            <code>/wallet</code>).</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td><code>/sync</code></td>
+                        <td>Sincronización inteligente de órdenes (Breakeven + SL/TP).</td>
                         <td>-</td>
                     </tr>
                     <tr>
@@ -62,19 +68,14 @@
                         <td><code>/mode RONIN</code></td>
                     </tr>
                     <tr>
-                        <td><code>/wallet</code></td>
-                        <td>Muestra el balance detallado de tus cuentas (Spot, Futuros, Earn).</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
                         <td><code>/price [TICKER]</code></td>
-                        <td>Consulta el precio en tiempo real de un activo.</td>
+                        <td>Consulta el precio, RSI y sentimiento en tiempo real.</td>
                         <td><code>/price BTC</code></td>
                     </tr>
                     <tr>
-                        <td><code>/sniper [TICKER]</code></td>
-                        <td>Análisis técnico rápido para buscar entradas (Scalping).</td>
-                        <td><code>/sniper ETH</code></td>
+                        <td><code>/analyze [TICKER]</code></td>
+                        <td>Análisis profundo vía IA del activo especificado.</td>
+                        <td><code>/analyze BTC</code></td>
                     </tr>
                 </tbody>
             </table>

@@ -1620,7 +1620,16 @@ class AsyncTradingSession:
             earn_usdt = 0.0
             try:
                 # Fetch Simple Earn Flexible positions
-                earn_data = await self.client.get_simple_earn_flexible_position()
+                # V2: Use fallback to direct SAPI request if attribute missing
+                if hasattr(self.client, 'get_simple_earn_flexible_position'):
+                    earn_data = await self.client.get_simple_earn_flexible_position()
+                else:
+                    # Direct SAPI request fallback
+                    earn_data = await self.client._request(
+                        'get', 'simple-earn/flexible/position', signed=True,
+                        data={'recvWindow': 6000}
+                    )
+                
                 if earn_data and 'rows' in earn_data:
                     for row in earn_data['rows']:
                         if row.get('asset') == 'USDT':
