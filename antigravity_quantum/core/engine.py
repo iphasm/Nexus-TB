@@ -10,7 +10,7 @@ class QuantumEngine:
     """
     def __init__(self, assets=None):
         self.risk_guardian = RiskManager()
-        self.market_stream = MarketStream('binance')
+        self.market_stream = MarketStream()  # Use default (binanceusdm for futures)
         self.running = False
         
         # Determine Assets
