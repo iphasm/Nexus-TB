@@ -17,6 +17,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import TelegramObject
 from dotenv import load_dotenv
+from utils.db import get_user_name
 
 # Load Environment Variables
 load_dotenv()
@@ -261,6 +262,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
         try:
             mode = session.mode
             p_key = session.config.get('personality', 'STANDARD_ES')
+            user_name = get_user_name(session.chat_id)
             
             # Calculate SL/TP/TS preview
             sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
@@ -277,14 +279,16 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         p_key, 'TRADE_LONG',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote, strategy_name=strategy
+                        title=title, quote=quote, strategy_name=strategy,
+                        user_name=user_name
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote, strategy_name=strategy
+                        title=title, quote=quote, strategy_name=strategy,
+                        user_name=user_name
                     )
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
@@ -294,14 +298,16 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         p_key, 'TRADE_LONG',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote, strategy_name=strategy
+                        title=title, quote=quote, strategy_name=strategy,
+                        user_name=user_name
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                        title=title, quote=quote, strategy_name=strategy
+                        title=title, quote=quote, strategy_name=strategy,
+                        user_name=user_name
                     )
                     
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -348,14 +354,16 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                             p_key, 'TRADE_LONG',
                             asset=symbol, price=price, reason=reason,
                             tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                            title=title, quote=quote, strategy_name=strategy
+                            title=title, quote=quote, strategy_name=strategy,
+                            user_name=user_name
                         )
                     else:
                         pilot_msg = personality_manager.get_message(
                             p_key, 'TRADE_SHORT',
                             asset=symbol, price=price, reason=reason,
                             tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                            title=title, quote=quote, strategy_name=strategy
+                            title=title, quote=quote, strategy_name=strategy,
+                            user_name=user_name
                         )
                     
                     # Add execution confirmation + personality message with timestamp

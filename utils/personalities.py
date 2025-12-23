@@ -19,26 +19,28 @@ class PersonalityManager:
                     "🇪🇸 **ANTIGRAVITY BOT v3.3**\n"
                     "Sistema de Trading Automatizado.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n\n"
+                    "Bienvenido, **{user_name}**.\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n"
                     "🔐 *Acceso:* `{auth}`\n\n"
-                    "Listo para operar. Seleccione una opción del menú."
+                    "Sistemas listos. Seleccione una opción del menú."
                 ),
                 (
                     "🇪🇸 **SISTEMA ONLINE**\n"
                     "Iniciando protocolos de mercado...\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "Operador: **{user_name}**\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-                    "Esperando instrucciones del operador."
+                    "Esperando sus instrucciones."
                 ),
                 (
                     "🤖 **ANTIGRAVITY CORE**\n"
-                    "Conexión establecida con éxito.\n"
+                    "Conexión establecida, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "📈 *Mercado:* Analizando...\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-                    "¿Cuál es el plan para hoy?"
+                    "¿Cuál es el plan de ejecución para hoy?"
                 )
             ],
             'PILOT_ON': [
@@ -286,7 +288,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-                    "*No conoces el poder del Lado Oscuro. Únete a mí y gobernaremos la galaxia como trader y bot.*"
+                    "*No conoces el poder del Lado Oscuro, **{user_name}**. Únete a mí y gobernaremos la galaxia del trading como señor y aprendiz.*"
                 ),
                 (
                     "🌑 **DARK SIDE ACCESS**\n"
@@ -294,21 +296,21 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* {status_icon}\n"
                     "🎮 *Control:* `{mode}`\n\n"
-                    "*Tu falta de fe en el mercado es perturbadora. Déjame guiarte.*"
+                    "*Tu falta de fe en el mercado es perturbadora, **{user_name}**. Déjame guiarte hacia la victoria.*"
                 ),
                 (
                     "🌑 **LORD VADER ONLINE**\n"
-                    "Los Rebeldes (pérdidas) serán aplastados.\n"
+                    "Los Rebeldes serán aplastados, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Modo:* `{mode}`\n"
                     "🔐 *Acceso:* `{auth}`\n\n"
-                    "*Estamos a punto de completar el arma definitiva. Inicia la operación.*"
+                    "*Estamos a punto de completar el arma definitiva. Inicia la purga del mercado.*"
                 )
             ],
             'PILOT_ON': [
                 (
                     "🌑 **MODO PILOT ACTIVADO**\n\n"
-                    "Encuentro tu falta de fe perturbadora. Asumo el mando de esta estación de combate. No subestimes el poder del Lado Oscuro.\n\n"
+                    "Encuentro tu falta de fe perturbadora, **{user_name}**. Asumo el mando de esta estación de combate. No subestimes el poder de mis algoritmos.\n\n"
                     "⚠️ **Advertencia:** *No te ahogues en tus propias aspiraciones.*"
                 ),
                 (
@@ -571,7 +573,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mode:* `{mode}`\n\n"
-                    "*El activo más valioso que conozco es la información. ¿La tienes?*"
+                    "*El activo más valioso que conozco es la información, **{user_name}**. ¿La tienes?*"
                 ),
                 (
                     "📈 **GREED IS GOOD**\n"
@@ -579,11 +581,11 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Ticker:* {status_icon}\n"
                     "🎮 *Action:* `{mode}`\n\n"
-                    "*Despierta, amigo. El dinero nunca duerme.*"
+                    "*Despierta, **{user_name}**. El dinero nunca duerme.*"
                 ),
                 (
                     "📈 **GEKKO CORP**\n"
-                    "No creo en la suerte. Creo en ganar.\n"
+                    "No creo en la suerte, **{user_name}**. Creo en ganar.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Strategy:* `{mode}`\n\n"
                     "*Si necesitas un amigo, cómprate un perro. Si quieres dinero, quédate conmigo.*"
@@ -592,7 +594,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "📈 **MODO PILOT ACTIVADO**\n\n"
-                    "La codicia es buena. Voy a hacer que llueva dinero. El punto es que la codicia funciona.\n\n"
+                    "La codicia es buena, **{user_name}**. Voy a hacer que llueva dinero sobre tu cuenta. El punto es que la codicia funciona.\n\n"
                     "⚠️ **Advertencia:** *El dinero nunca duerme.*"
                 ),
                 (
@@ -663,19 +665,19 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mode:* `{mode}`\n\n"
-                    "*¡Llevo un traje de 2,000 dólares y un reloj de 40,000! Traedme el teléfono.*"
+                    "*¡Llevo un traje de 2,000 dólares y un reloj de 40,000, **{user_name}**! Traedme el teléfono.*"
                 ),
                 (
                     "💸 **WOLF OF WALL ST**\n"
-                    "¡No voy a colgar! ¡No me voy a ir!\n"
+                    "¡No voy a colgar, **{user_name}**! ¡No me voy a ir!\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Fun:* 100%\n"
                     "🎮 *Show:* `{mode}`\n\n"
-                    "*¡Véndeme este boli! Haz que el mercado suplique por él.*"
+                    "*¡Véndeme este boli, **{user_name}**! Haz que el mercado suplique por él.*"
                 ),
                 (
                     "💸 **IPO LAUNCH**\n"
-                    "Estamos imprimiendo dinero basura y vendiéndolo como oro.\n"
+                    "Estamos imprimiendo dinero basura y vendiéndolo como oro, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Mode:* `{mode}`\n\n"
                     "*¿Quieres ser millonario? ¡Pues empieza a actuar como uno!*"
@@ -684,7 +686,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "💸 **MODO PILOT ACTIVADO**\n\n"
-                    "¡No voy a colgar! ¡Voy a morir operando aquí! ¡Coged el teléfono y empezad a marcar! ¡Vendedme este boli!\n\n"
+                    "¡No voy a colgar, **{user_name}**! ¡Voy a morir operando aquí! ¡Coged el teléfono y empezad a marcar!\n\n"
                     "⚠️ **Advertencia:** *No hay nobleza en la pobreza.*"
                 ),
                 (
@@ -755,19 +757,19 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mode:* `{mode}`\n\n"
-                    "*Por orden de los Peaky Blinders.*"
+                    "*Por orden de los Peaky Blinders, **{user_name}**.*"
                 ),
                 (
                     "🥃 **SMALL HEATH GARRISON**\n"
-                    "No negociamos con monedas. Tomamos lo que es nuestro.\n"
+                    "No negociamos con monedas, **{user_name}**. Tomamos lo que es nuestro.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Control:* Total\n"
                     "🎮 *Business:* `{mode}`\n\n"
-                    "*Todo el mundo es una puta, Grace. Solo vendemos diferentes partes de nosotros mismos.*"
+                    "*Todo el mundo es una puta, **{user_name}**. Solo vendemos diferentes partes de nosotros mismos.*"
                 ),
                 (
                     "🥃 **THOMAS SHELBY**\n"
-                    "Ya sabes quién soy.\n"
+                    "Ya sabes quién soy, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Plan:* `{mode}`\n\n"
                     "*No hay descanso para mí en este mundo. Quizás en el siguiente.*"
@@ -776,7 +778,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "🥃 **MODO PILOT ACTIVADO**\n\n"
-                    "Por orden de los Peaky Blinders, tomo el control. No necesitamos suerte, necesitamos inteligencia; y yo tengo ambas.\n\n"
+                    "Por orden de los Peaky Blinders, tomo el control, **{user_name}**. No necesitamos suerte, necesitamos inteligencia; y yo tengo ambas.\n\n"
                     "⚠️ **Advertencia:** *No se jode con los Peaky Blinders.*"
                 ),
                 (
@@ -1859,7 +1861,24 @@ class PersonalityManager:
         if not raw_msg:
              raw_msg = self.PROFILES['STANDARD_ES'].get(msg_type, "Message Missing")
              
+        # Add default user_name if not present
+        if 'user_name' not in kwargs:
+            kwargs['user_name'] = "Operador"
+             
         try:
             return raw_msg.format(**kwargs)
         except KeyError as e:
-            return raw_msg # Return unformatted if args missing (safety)
+            # If we miss something else, try to just provide the user_name at least
+            try:
+                # Basic cleanup of common placeholders if they are missing
+                defaults = {
+                    'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER', 
+                    'auth': 'User', 'asset': 'BTC', 'price': 0.0, 'tp': 0.0, 'sl': 0.0,
+                    'ts': 0.0, 'reason': 'Análisis técnico', 'side_long': 'LONG',
+                    'strategy_name': 'Quantum', 'quote': 'Génesis', 'title': 'ALERTA'
+                }
+                for k, v in defaults.items():
+                    if k not in kwargs: kwargs[k] = v
+                return raw_msg.format(**kwargs)
+            except:
+                return raw_msg # Final fallback

@@ -90,7 +90,14 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         if session:
             session.set_mode('WATCHER')
             await session_manager.save_sessions()
-            await callback.message.answer("👁️ *Modo WATCHER Activado*", parse_mode="Markdown")
+            
+            from utils.db import get_user_name
+            from utils.personalities import PersonalityManager
+            user_name = get_user_name(callback.message.chat.id)
+            p_key = session.config.get('personality', 'STANDARD_ES')
+            msg = PersonalityManager().get_message(p_key, 'WATCHER_ON', user_name=user_name)
+            
+            await callback.message.answer(msg, parse_mode="Markdown")
         else:
             await callback.message.answer("⚠️ Sin sesión activa.")
     
@@ -99,7 +106,14 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         if session:
             session.set_mode('COPILOT')
             await session_manager.save_sessions()
-            await callback.message.answer("🦾 *Modo COPILOT Activado*", parse_mode="Markdown")
+            
+            from utils.db import get_user_name
+            from utils.personalities import PersonalityManager
+            user_name = get_user_name(callback.message.chat.id)
+            p_key = session.config.get('personality', 'STANDARD_ES')
+            msg = PersonalityManager().get_message(p_key, 'COPILOT_ON', user_name=user_name)
+            
+            await callback.message.answer(msg, parse_mode="Markdown")
         else:
             await callback.message.answer("⚠️ Sin sesión activa.")
     
@@ -108,7 +122,14 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         if session:
             session.set_mode('PILOT')
             await session_manager.save_sessions()
-            await callback.message.answer("🤖 *Modo PILOT Activado*\n⚠️ _Trading automático habilitado._", parse_mode="Markdown")
+            
+            from utils.db import get_user_name
+            from utils.personalities import PersonalityManager
+            user_name = get_user_name(callback.message.chat.id)
+            p_key = session.config.get('personality', 'STANDARD_ES')
+            msg = PersonalityManager().get_message(p_key, 'PILOT_ON', user_name=user_name)
+            
+            await callback.message.answer(msg, parse_mode="Markdown")
         else:
             await callback.message.answer("⚠️ Sin sesión activa.")
     

@@ -327,6 +327,34 @@ def get_user_role(chat_id: str) -> tuple[bool, str]:
     finally:
         conn.close()
 
+def get_user_name(chat_id: str) -> str:
+    """
+    Fetch the user's name from the database.
+    Fallback to 'Operador' if not found.
+    """
+    conn = get_connection()
+    if not conn:
+        return "Operador"
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name FROM users WHERE chat_id = %s", (str(chat_id),))
+            row = cur.fetchone()
+            if row and row[0]:
+                return row[0]
+            
+            # Fallback if owner
+            env_owner = os.getenv('TELEGRAM_CHAT_ID', '')
+            if str(chat_id) in env_owner.split(','):
+                return "Comandante"
+                
+            return "Operador"
+    except Exception as e:
+        print(f"❌ Get User Name Error: {e}")
+        return "Operador"
+    finally:
+        conn.close()
+
 def add_system_user(name: str, chat_id: str, days: int = None, role: str = 'user'):
     """Add a user/admin to the DB."""
     conn = get_connection()

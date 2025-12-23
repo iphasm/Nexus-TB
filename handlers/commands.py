@@ -11,6 +11,7 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 import os
 import requests
 from utils.auth import admin_only, is_authorized_admin, owner_only
+from utils.db import get_user_name
 
 router = Router(name="commands")
 
@@ -61,11 +62,13 @@ async def cmd_start(message: Message, **kwargs):
     # 2. Session Data
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id) if session_manager else None
+    user_name = get_user_name(chat_id)
     
     # Defaults
     mode = "WATCHER"
     p_name = "Estándar"
     risk_label = "Personalizado"
+    p_key = "STANDARD_ES"
     
     if session:
         # Mode
@@ -90,9 +93,19 @@ async def cmd_start(message: Message, **kwargs):
         'WATCHER': '👁️'
     }.get(mode, '❓')
     
-    # 4. Message Content
+    # 4. Message Content (Personalized)
+    from utils.personalities import PersonalityManager
+    pm = PersonalityManager()
+    
+    welcome_header = pm.get_message(p_key, 'WELCOME', 
+                                    user_name=user_name,
+                                    status_text="Nominal",
+                                    status_icon="🔋",
+                                    mode=mode,
+                                    auth=kwargs.get('auth_role', 'User'))
+    
     welcome = (
-        f"🌌 *ANTIGRAVITY BOT v4.0* | {mode_icon} *{mode}*\n"
+        f"{welcome_header}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎭 *Personalidad:* {p_name}\n"
         f"⚖️ *Riesgo:* {risk_label}\n"
