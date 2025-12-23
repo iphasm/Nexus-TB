@@ -338,6 +338,21 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_strategies
         await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
         return
+
+    # Special case: CIRCUIT BREAKER toggle
+    if strategy == "CIRCUIT_BREAKER":
+        current = session.config.get('circuit_breaker_enabled', True)
+        new_state = not current
+        await session.update_config('circuit_breaker_enabled', new_state)
+        await session_manager.save_sessions()
+        
+        status = "ACTIVO" if new_state else "DESACTIVADO"
+        await callback.answer(f"🔌 Circuit Breaker: {status}")
+        
+        # Refresh Config Menu (NOT Strategy Menu)
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
     
     # Normal strategy toggle
     try:
@@ -649,33 +664,3 @@ async def handle_sync_orders(callback: CallbackQuery, **kwargs):
         
     except Exception as e:
         await callback.message.answer(f"❌ Error: {e}")
-
-
-@router.callback_query(F.data == "TOGGLE|CIRCUIT_BREAKER")
-async def handle_cb_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle Circuit Breaker on/off"""
-    session_manager = kwargs.get('session_manager')
-    if not session_manager:
-        await callback.answer("⚠️ Error interno.")
-        return
-        
-    session = session_manager.get_session(str(callback.message.chat.id))
-    if not session:
-        await callback.answer("⚠️ Sin sesión.")
-        return
-    
-    try:
-        current = session.config.get('circuit_breaker_enabled', True)
-        new_val = not current
-        await session.update_config('circuit_breaker_enabled', new_val)
-        await session_manager.save_sessions()
-        
-        status = "ACTIVADO" if new_val else "DESACTIVADO"
-        await callback.answer(f"🔌 Circuit Breaker: {status}")
-        
-        # Reload config menu
-        from handlers.config import cmd_config
-        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
-        
-    except Exception as e:
-        await callback.answer(f"Error: {e}", show_alert=True)
