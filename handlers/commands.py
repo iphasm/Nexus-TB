@@ -92,7 +92,7 @@ async def cmd_start(message: Message, **kwargs):
     mode_icon = {
         'PILOT': '🤖',
         'COPILOT': '👨‍✈️',
-        'WATCHER': '👁️'
+        'WATCHER': '👀'
     }.get(mode, '❓')
     
     # 4. Message Content (Personalized)
@@ -103,8 +103,8 @@ async def cmd_start(message: Message, **kwargs):
     ai_enabled = True
     if session:
         ai_enabled = session.config.get('sentiment_filter', True)
-    ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
-    ai_header_suffix = " + 🧠" if ai_enabled else ""
+    ai_status = "🟢" if ai_enabled else "🔴"
+    ai_header_suffix = " + 🧠 AI Filter" if ai_enabled else ""
 
     # 4. Message Content (Custom Layout)
     from utils.personalities import PersonalityManager
@@ -133,7 +133,7 @@ async def cmd_start(message: Message, **kwargs):
     welcome = (
         f"🌌 **ANTIGRAVITY BOT v4.0** | {mode_icon} **{mode}{ai_header_suffix}**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎭 **Personalidad:** {p_name}\n"
+        f"🧠 **Personalidad:** {p_name}\n"
         f"{formatted_quote}\n"
         f"⚖️ **Riesgo:** {risk_label}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -177,7 +177,7 @@ async def menu_modes(callback: CallbackQuery, **kwargs):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
         [InlineKeyboardButton(text="👨‍✈️ COPILOT (Semi)", callback_data="CMD|copilot")],
-        [InlineKeyboardButton(text="👁️ WATCHER (Alertas)", callback_data="CMD|watcher")],
+        [InlineKeyboardButton(text="👀 WATCHER (Alertas)", callback_data="CMD|watcher")],
         [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
     ])
     
@@ -234,7 +234,7 @@ async def cmd_startup(message: Message):
         "🎮 **MODOS DE OPERACIÓN**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        "• 🔍 **Watcher**: Solo alertas (sin operaciones)\n"
+        "• 👀 **Watcher**: Solo alertas (sin operaciones)\n"
         "• 👨‍✈️ **Copilot**: Propuestas con botones Aceptar/Rechazar\n"
         "• 🤖 **Pilot**: Trading 100% automático\n\n"
         
