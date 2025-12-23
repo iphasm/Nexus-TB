@@ -932,46 +932,6 @@ class PersonalityManager:
             ),
             'CB_TRIGGER': "🌧️ **LLUVIA DE LA ALDEA OCULTA**\n\nDemasiado dolor (5 pérdidas). Debemos reagruparnos (Copilot)."
         },
-            'TRADE_LONG': (
-                "{title}\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: 🟢 **LONG (Apuesta)**\n"
-                "Estrategia: **{strategy_name}**\n"
-                "Precio Actual: ${price:,.2f}\n\n"
-                "💸 TS: **${ts:,.2f}**\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
-                "{reason}"
-            ),
-            'TRADE_SHORT': (
-                "{title}\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: 🔴 **SHORT (Vendetta)**\n"
-                "Estrategia: **{strategy_name}**\n"
-                "Precio Actual: ${price:,.2f}\n\n"
-                "💸 TS: **${ts:,.2f}**\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "\"{quote}\"\n"
-                "{reason}"
-            ),
-            'TRADE_CLOSE': "🏁 **Negocio Cerrado**\n{asset} liquidado. {reason}. Volvemos a Birmingham.",
-            'PILOT_ACTION': (
-                "🥃 **Peaky Blinders Business**\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: **{side_long}**\n"
-                "Entrada: ${price:,.2f}\n\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "Orden de la familia. {reason}"
-            ),
-            'CB_TRIGGER': "🔫 **VENDETTA**\n\nNos han golpeado duro (5 fallos). Retirada estratégica a Small Heath."
-        },
-
          'WHITE': {
             'NAME': "⚗️ Walter White",
             'GREETING': [
