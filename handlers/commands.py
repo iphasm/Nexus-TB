@@ -318,9 +318,28 @@ async def cmd_help(message: Message):
     )
     
     try:
-        await message.answer(help_text, parse_mode="Markdown")
-    except:
-        await message.answer(help_text.replace('*', '').replace('`', '').replace('_', '_'))
+        # Split if too long (Telegram limit ~4096 chars, be safe at 3500)
+        if len(help_text) > 3500:
+            # Split at a natural point (after INFO section)
+            split_point = help_text.find("💹 *TRADING")
+            if split_point > 0:
+                part1 = help_text[:split_point]
+                part2 = help_text[split_point:]
+                await message.answer(part1, parse_mode="Markdown")
+                await message.answer(part2, parse_mode="Markdown")
+            else:
+                await message.answer(help_text, parse_mode="Markdown")
+        else:
+            await message.answer(help_text, parse_mode="Markdown")
+    except Exception as e:
+        print(f"⚠️ Help Command Error: {e}")
+        # Fallback: Remove markdown and try again
+        clean_text = help_text.replace('*', '').replace('`', '')
+        try:
+            await message.answer(clean_text)
+        except Exception as e2:
+            print(f"⚠️ Help Fallback Error: {e2}")
+            await message.answer("❌ Error mostrando ayuda. Intenta /startup en su lugar.")
         
 
 
