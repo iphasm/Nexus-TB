@@ -97,27 +97,43 @@ async def cmd_start(message: Message, **kwargs):
     from utils.personalities import PersonalityManager
     pm = PersonalityManager()
     
-    welcome_header = pm.get_message(p_key, 'WELCOME', 
-                                    user_name=user_name,
-                                    status_text="Nominal",
-                                    status_icon="🔋",
-                                    mode=mode,
-                                    auth=kwargs.get('auth_role', 'User'))
-    
-    welcome = (
-        f"{welcome_header}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎭 *Personalidad:* {p_name}\n"
-        f"⚖️ *Riesgo:* {risk_label}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Selecciona un módulo operativo:"
-    )
-    
-    # AI Filter Status
+    # AI Filter Status (Moved up for header construction)
     ai_enabled = True
     if session:
         ai_enabled = session.config.get('sentiment_filter', True)
     ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
+    ai_header_suffix = " + 🧠" if ai_enabled else ""
+
+    # 4. Message Content (Custom Layout)
+    from utils.personalities import PersonalityManager
+    pm = PersonalityManager()
+    profile = pm.get_profile(p_key)
+    p_name = profile.get('NAME', p_name)
+    
+    # Get a greeting quote and format it with user_name
+    raw_greeting = profile.get('GREETING', ["Ready."])
+    if isinstance(raw_greeting, list):
+        quote = random.choice(raw_greeting)
+    else:
+        quote = raw_greeting
+        
+    try:
+        quote = quote.format(user_name=user_name)
+    except:
+        pass
+        
+    # Indent the quote for the UI
+    formatted_quote = f"      \"{quote}\""
+
+    welcome = (
+        f"🌌 **ANTIGRAVITY BOT v4.0** | {mode_icon} **{mode}{ai_header_suffix}**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎭 **Personalidad:** {p_name}\n"
+        f"{formatted_quote}\n"
+        f"⚖️ **Riesgo:** {risk_label}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Selecciona un módulo operativo:"
+    )
     
     # 5. v4 Interactive Keyboard
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

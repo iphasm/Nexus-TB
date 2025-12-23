@@ -801,6 +801,138 @@ class PersonalityManager:
             'STRATEGY_MSG': "🥃 **NEGOCIOS DE LA FAMILIA**\n\nTodo es legítimo:\n1. **Carreras**: Apostamos al caballo ganador.\n2. **Protección**: Cobramos nuestra parte en los mercados tranquilos.\n3. **Navajas**: Cortes rápidos y limpios.",
             'ABOUT_MSG': "🥃 **PEAKY BLINDERS LTD**\n\nSomos una empresa familiar. Hacemos apuestas, protegemos el territorio y cortamos a quien se interponga.",
             'TRADE_LONG': (
+                "{title}: \"{quote}\"\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: 🟢 **LONG (Apuesta)**\n"
+                "Estrategia: **{strategy_name}**\n"
+                "Precio Actual: ${price:,.2f}\n\n"
+                "💸 TS: **${ts:,.2f}**\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "{reason}"
+            ),
+            'TRADE_SHORT': (
+                "{title}: \"{quote}\"\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: 🔴 **SHORT (Corte)**\n"
+                "Estrategia: **{strategy_name}**\n"
+                "Precio Actual: ${price:,.2f}\n\n"
+                "💸 TS: **${ts:,.2f}**\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "{reason}"
+            ),
+            'TRADE_CLOSE': "🏁 **Orden de los Peaky Blinders**\n{asset} cerrado. {reason}.",
+            'PILOT_ACTION': (
+                "🥃 **Por orden de los Peaky Blinders**\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: **{side_long}**\n"
+                "Entrada: ${price:,.2f}\n\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "**Motivo:**\n"
+                "{reason}"
+            ),
+            'CB_TRIGGER': "🥃 **REUNIÓN FAMILIAR**\n\nHubo demasiada sangre (5 pérdidas). Nos retiramos a las sombras (Copilot)."
+        },
+
+        # --- ANIME / MANGA ---
+        'PAIN': {
+            'NAME': "☁️ Pain (Akatsuki)",
+            'GREETING': [
+                "El mundo conocerá el dolor.",
+                "Este mundo debe conocer el dolor.",
+                "Soy un dios. Y tú eres insignificante."
+            ],
+            'WELCOME': [
+                (
+                    "☁️ **AKATSUKI ORGANIZATION**\n"
+                    "Líder: Pain (Nagato)\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Chakra:* `{status_text}` {status_icon}\n"
+                    "🎮 *Path:* `{mode}`\n\n"
+                    "      \"El mundo conocerá el dolor, **{user_name}**.\n"
+                    "      Y a través del dolor, conocerá la paz.\""
+                ),
+                (
+                    "☁️ **ALMIGHTY PUSH**\n"
+                    "Shinra Tensei.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Status:* {status_icon}\n"
+                    "🎮 *Control:* `{mode}`\n\n"
+                    "      \"Aquellos que no entienden el dolor verdadero,\n"
+                    "      nunca entenderán la verdadera paz, **{user_name}**.\""
+                ),
+                (
+                    "☁️ **SIX PATHS OF PAIN**\n"
+                    "Nosotros somos Pain. Somos Dios.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🎮 *Mode:* `{mode}`\n\n"
+                    "      \"Siente el dolor, piensa en el dolor,\n"
+                    "      acepta el dolor, conoce el dolor, **{user_name}**.\""
+                )
+            ],
+            'PILOT_ON': [
+                (
+                    "☁️ **MODO PILOT: SHINRA TENSEI**\n\n"
+                    "El ciclo de odio ha comenzado, **{user_name}**. Destruiré el mercado para reconstruirlo a mi imagen. Shinra Tensei.\n\n"
+                    "⚠️ **Advertencia:** *El dolor es inevitable.*"
+                ),
+                (
+                    "☁️ **AKATSUKI MOVE**\n\n"
+                    "Akatsuki se está moviendo. Capturaremos todas las bestias con cola (ganancias).\n\n"
+                    "⚠️ *Conoce el dolor.*"
+                ),
+                (
+                    "⚡ **ESTRATEGIA DIVINA**\n\n"
+                    "Mis ojos ven lo que tú no puedes. Rinnegan activado.\n\n"
+                    "⚠️ *Yo nunca olvido el dolor de Yahiko.*"
+                )
+            ],
+            'COPILOT_ON': "🤝 **Copilot**: Tú y yo somos uno, pero yo soy el líder. Te guiaré hacia la paz.",
+            'WATCHER_ON': "👀 **Watcher (Rinnegan)**: Mis ojos lo ven todo. Nada escapa a mi visión divina.",
+            'STATUS_HEADER': "☁️ **AKATSUKI REPORT**",
+            'WALLET_HEADER': "💰 **WAR FUNDS**",
+            'STATUS_FOOTER': "\n*El mundo conocerá el dolor.*",
+            'RISK_MSG': "🛡️ **DEFENSA DIVINA**\nSL: `{sl_fixed}`. Nadie puede tocar a un Dios.",
+            'STRATEGY_MSG': "☁️ **SEN JU TSU**\n\nEl conocimiento es poder:\n1. **Shinra Tensei**: Repelamos el mercado (Reversión).\n2. **Bansho Ten'in**: Atraemos las ganancias (Tendencia).\n3. **Chibaku Tensei**: Atrapamos la volatilidad.",
+            'ABOUT_MSG': "☁️ **LÍDER DE AKATSUKI**\n\nSoy Pain. Traeré paz a este mundo maldito a través del sufrimiento absoluto en el mercado.",
+            'TRADE_LONG': (
+                "{title}: \"{quote}\"\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: 🟢 **LONG (Bansho Ten'in)**\n"
+                "Estrategia: **{strategy_name}**\n"
+                "Precio Actual: ${price:,.2f}\n\n"
+                "💸 TS: **${ts:,.2f}**\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "{reason}"
+            ),
+            'TRADE_SHORT': (
+                "{title}: \"{quote}\"\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: 🔴 **SHORT (Shinra Tensei)**\n"
+                "Estrategia: **{strategy_name}**\n"
+                "Precio Actual: ${price:,.2f}\n\n"
+                "💸 TS: **${ts:,.2f}**\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "{reason}"
+            ),
+            'TRADE_CLOSE': "🏁 **Juicio Divino**\n{asset} cerrado. {reason}.",
+            'PILOT_ACTION': (
+                "☁️ **Voluntad de Dios**\n\n"
+                "Activo: **{asset}**\n"
+                "Dirección: **{side_long}**\n"
+                "Entrada: ${price:,.2f}\n\n"
+                "🎯 TP: **${tp:,.2f}**\n"
+                "🛑 SL: **${sl:,.2f}**\n\n"
+                "**Motivo:**\n"
+                "{reason}"
+            ),
+            'CB_TRIGGER': "🌧️ **LLUVIA DE LA ALDEA OCULTA**\n\nDemasiado dolor (5 pérdidas). Debemos reagruparnos (Copilot)."
+        },
+            'TRADE_LONG': (
                 "{title}\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: 🟢 **LONG (Apuesta)**\n"
