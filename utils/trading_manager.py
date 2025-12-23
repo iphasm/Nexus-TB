@@ -859,33 +859,51 @@ class AsyncTradingSession:
     async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
         """
         Get open ALGO orders (conditional orders) for a symbol.
-        Uses GET /fapi/v1/algo/openOrders (Binance Algo Service - Dec 2024)
+        
+        NOTE: The Algo Service endpoint may not be available for all accounts.
+        After Dec 2024, conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, 
+        TRAILING_STOP_MARKET) should appear in regular futures_get_open_orders.
+        
+        This function checks both the Algo Service AND filters standard orders
+        for conditional types.
         """
         if not self.client: return []
         
+        conditional_orders = []
+        
+        # 1. First, check standard open orders for conditional types
+        # (This is the reliable fallback that always works)
         try:
-            params = {}
-            if symbol:
-                params['symbol'] = symbol
+            standard_orders = await self.client.futures_get_open_orders(symbol=symbol)
+            conditional_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 
+                                'STOP', 'TAKE_PROFIT', 'TRAILING_STOP']
             
-            # Correct endpoint path for Algo Service
+            for order in standard_orders:
+                if order.get('type', '') in conditional_types:
+                    conditional_orders.append(order)
+        except Exception as e:
+            print(f"⚠️ Standard order check error ({symbol}): {e}")
+        
+        # 2. Try Algo Service endpoint (may not be available for all accounts)
+        # Silently fail if not available - the standard orders check above is the fallback
+        try:
+            params = {'symbol': symbol} if symbol else {}
+            
+            # Try the algo endpoint - this may return 404 or error for some accounts
             result = await self.client._request(
                 'get', 'algo/openOrders', signed=True, data=params
             )
             
-            # Response format: {"orders": [...]} or just [...]
-            if isinstance(result, dict):
-                return result.get('orders', [])
+            if isinstance(result, dict) and 'orders' in result:
+                conditional_orders.extend(result['orders'])
             elif isinstance(result, list):
-                return result
-            return []
-            
-        except Exception as e:
-            error_str = str(e)
-            # -2011 = No orders found (normal), -4001 = Algo service not available
-            if "-2011" not in error_str and "-4001" not in error_str:
-                print(f"⚠️ Algo Query Error ({symbol}): {e}")
-            return []
+                conditional_orders.extend(result)
+                
+        except Exception:
+            # Algo endpoint not available - that's OK, standard orders fallback works
+            pass
+        
+        return conditional_orders
 
     async def wait_until_orders_cleared(self, symbol: str, timeout: float = 3.0) -> bool:
         """
