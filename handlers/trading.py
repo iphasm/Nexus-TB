@@ -4,6 +4,8 @@ Manual trading: /long, /short, /close, /closeall, /buy, /sell
 """
 
 from aiogram import Router
+from aiogram.types import FSInputFile
+import os
 from aiogram.filters import Command
 from aiogram.types import Message
 
@@ -67,7 +69,20 @@ async def cmd_long(message: Message, **kwargs):
         success, msg = await session.execute_long_position(symbol, atr=atr_val)
         
         if success:
+            img_path = None
+            if "[IMAGE]:" in msg:
+                parts = msg.split("[IMAGE]:")
+                msg = parts[0].strip()
+                img_path = parts[1].strip()
+
             await processing.edit_text(f"✅ *LONG EJECUTADO*\n{msg}", parse_mode="Markdown")
+            
+            if img_path and os.path.exists(img_path):
+                try:
+                    photo = FSInputFile(img_path)
+                    await message.answer_photo(photo, caption=f"📸 Análisis Visual: {symbol}")
+                except Exception as e:
+                    print(f"Failed to send photo: {e}")
         else:
             await processing.edit_text(f"❌ Error: {msg}")
             
@@ -103,7 +118,20 @@ async def cmd_short(message: Message, **kwargs):
         success, msg = await session.execute_short_position(symbol, atr=atr_val)
         
         if success:
+            img_path = None
+            if "[IMAGE]:" in msg:
+                parts = msg.split("[IMAGE]:")
+                msg = parts[0].strip()
+                img_path = parts[1].strip()
+
             await processing.edit_text(f"✅ *SHORT EJECUTADO*\n{msg}", parse_mode="Markdown")
+            
+            if img_path and os.path.exists(img_path):
+                try:
+                    photo = FSInputFile(img_path)
+                    await message.answer_photo(photo, caption=f"📸 Análisis Visual: {symbol}")
+                except Exception as e:
+                    print(f"Failed to send photo: {e}")
         else:
             await processing.edit_text(f"❌ Error: {msg}")
             

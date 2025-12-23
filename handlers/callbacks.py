@@ -6,6 +6,7 @@ EXACT REPLICA of main.py interface
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+import os
 
 router = Router(name="callbacks")
 
@@ -517,10 +518,24 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
             success, msg = await session.execute_short_position(symbol, strategy=strategy)
         
         if success:
+            img_path = None
+            if "[IMAGE]:" in msg:
+                parts = msg.split("[IMAGE]:")
+                msg = parts[0].strip()
+                img_path = parts[1].strip()
+
             await status_msg.edit_text(
                 f"✅ *{side} EJECUTADO*\n{msg}",
                 parse_mode="Markdown"
             )
+            
+            if img_path and os.path.exists(img_path):
+                from aiogram.types import FSInputFile
+                try:
+                    photo = FSInputFile(img_path)
+                    await callback.message.answer_photo(photo, caption=f"📸 Análisis Visual: {symbol}")
+                except Exception as e:
+                    print(f"Failed to send photo: {e}")
         else:
             await status_msg.edit_text(f"❌ Error: {msg}")
             

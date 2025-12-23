@@ -18,6 +18,8 @@ from binance import AsyncClient
 
 # AI Analyst
 from utils.ai_analyst import QuantumAnalyst
+from utils.charting import generate_trade_chart
+import pandas as pd
 
 # Alpaca (still sync, but wrapped)
 from alpaca.trading.client import TradingClient
@@ -301,6 +303,25 @@ class AsyncTradingSession:
         
         return 2, 2, 5.0
     
+    async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
+        """Fetch historical klines for chart generation."""
+        try:
+            klines = await self.client.futures_klines(symbol=symbol, interval='15m', limit=limit)
+            data = []
+            for k in klines:
+                data.append({
+                    'timestamp': int(k[0]),
+                    'open': float(k[1]),
+                    'high': float(k[2]),
+                    'low': float(k[3]),
+                    'close': float(k[4]),
+                    'volume': float(k[5])
+                })
+            return pd.DataFrame(data)
+        except Exception as e:
+            print(f"⚠️ Chart Data Fetch Error: {e}")
+            return None
+
     # --- TRADING METHODS ---
     
     async def _ensure_client(self) -> Tuple[bool, str]:
@@ -627,6 +648,20 @@ class AsyncTradingSession:
                     f"🎯 TP: {tp_msg}"
                 )
                 
+
+
+                # --- 8. Generate & Attach Chart ---
+                try:
+                    df = await self._fetch_ohlcv_for_chart(symbol)
+                    if df is not None:
+                        # Ensure indicators match those in strategies if possible, or use standard
+                        # Add HMA/BB if engine logic allows, but for now chart module does basics
+                        img_path = generate_trade_chart(symbol, df, 'LONG', entry_price, sl_price, tp_price)
+                        if img_path:
+                            success_msg += f"\n[IMAGE]: {img_path}"
+                except Exception as e:
+                    print(f"⚠️ Chart Gen Error: {e}")
+                
                 return True, success_msg
                 
             except Exception as e:
@@ -791,7 +826,7 @@ class AsyncTradingSession:
                     tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
 
                 
-                return True, (
+                success_msg = (
                     f"⚡ {symbol} (x{leverage})\n"
                     f"🧠 Estrategia: {strategy.replace('_', ' ')}\n\n"
                     f"📉 Entrada: {entry_price}\n"
@@ -799,6 +834,19 @@ class AsyncTradingSession:
                     f"🛑 SL: {sl_price}\n"
                     f"🎯 TP: {tp_msg}"
                 )
+                
+                # --- 7. Generate & Attach Chart ---
+                try:
+                    df = await self._fetch_ohlcv_for_chart(symbol)
+                    if df is not None:
+                        img_path = generate_trade_chart(symbol, df, 'SHORT', entry_price, sl_price, tp_price)
+                        if img_path:
+                            success_msg += f"\n[IMAGE]: {img_path}"
+                except Exception as e:
+                    print(f"⚠️ Chart Gen Error: {e}")
+
+                return True, success_msg
+
                 
             except Exception as e:
                 print(f"⚠️ SL/TP Failed: {e}. Closing position...")
