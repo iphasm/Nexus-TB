@@ -46,6 +46,10 @@ async def cmd_config(message: Message, **kwargs):
     lev = session.config.get('leverage', 5) if session else 5
     margin = (session.config.get('max_capital_pct', 0.1) * 100) if session else 10
     
+    # Circuit Breaker Status
+    cb_enabled = session.config.get('circuit_breaker_enabled', True) if session else True
+    cb_status = "🟢 ON" if cb_enabled else "🔴 OFF"
+    
     # Build keyboard (v4 Clean)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -57,6 +61,7 @@ async def cmd_config(message: Message, **kwargs):
             InlineKeyboardButton(text=f"💰 Margin: {margin:.0f}%", callback_data="CFG|MARGIN_MENU")
         ],
         [
+            InlineKeyboardButton(text=f"🔌 Circuit Breaker [{cb_status}]", callback_data="TOGGLE|CIRCUIT_BREAKER"),
             InlineKeyboardButton(text="🧠 Personalidad", callback_data="CMD|personality")
         ],
         [

@@ -1108,20 +1108,32 @@ class AsyncTradingSession:
                 # Get precision
                 qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
 
-                # Calculate standard SL/TP based on entry (or current if preferred, but usually entry for fixed SL)
-                # However, for TRAILING activation, we want to use ENTRY PRICE as per user request.
                 # Standard SL/TP logic:
-                stop_loss_pct = self.config['stop_loss_pct']
+                stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                
+                # BREAKEVEN LOGIC: If profit > 1%, Move SL to Entry
+                pnl_pct = (current_price - entry_price) / entry_price if side == 'LONG' else (entry_price - current_price) / entry_price
+                is_in_profit_1pct = pnl_pct >= 0.01
                 
                 if side == 'LONG':
-                    # SL is below entry
-                    sl_price = round(entry_price * (1 - stop_loss_pct), price_prec)
-                    # TP is above entry
+                    # If in 1% profit, SL = Entry. Else, SL = Entry - Default %
+                    if is_in_profit_1pct:
+                        sl_price = round(entry_price, price_prec)
+                        sl_label = "Breakeven"
+                    else:
+                        sl_price = round(entry_price * (1 - stop_loss_pct), price_prec)
+                        sl_label = f"{stop_loss_pct*100}%"
+                    
                     tp_price = round(entry_price * (1 + (stop_loss_pct * 3)), price_prec)
                 else:
-                    # SL is above entry
-                    sl_price = round(entry_price * (1 + stop_loss_pct), price_prec)
-                    # TP is below entry
+                    # Short: If in 1% profit, SL = Entry. Else, SL = Entry + Default %
+                    if is_in_profit_1pct:
+                        sl_price = round(entry_price, price_prec)
+                        sl_label = "Breakeven"
+                    else:
+                        sl_price = round(entry_price * (1 + stop_loss_pct), price_prec)
+                        sl_label = f"{stop_loss_pct*100}%"
+                        
                     tp_price = round(entry_price * (1 - (stop_loss_pct * 3)), price_prec)
 
                 # Execute Sync
@@ -1132,7 +1144,7 @@ class AsyncTradingSession:
                 status_icon = "✅" if success else "⚠️"
                 report.append(f"**{symbol}** ({side}) {status_icon}")
                 if success:
-                    report.append(f"   SL: {sl_price} | TP: {tp_price}")
+                    report.append(f"   SL: {sl_price} ({sl_label}) | TP: {tp_price}")
                     report.append(f"   TS Act: {entry_price} (Entry)")
                 else:
                     report.append(f"   Err: {msg}")
@@ -1748,6 +1760,10 @@ class AsyncTradingSession:
         Returns: (Triggered: bool, Message: str)
         """
         if self.mode != 'PILOT':
+            return False, ""
+        
+        # Check if enabled in config
+        if not self.config.get('circuit_breaker_enabled', True):
             return False, ""
         
         if not self.client:
