@@ -1738,3 +1738,76 @@ async def cmd_cancel(message: Message, **kwargs):
     success, result_msg = scheduler.cancel_task(user_id, task_id)
     
     await message.answer(result_msg, parse_mode="Markdown")
+
+
+# =================================================================
+# OWNER-ONLY OPEN CHAT (LLM with Personality)
+# =================================================================
+
+@router.message(F.text & ~F.text.startswith('/'))
+async def owner_chat_handler(message: Message, **kwargs):
+    """
+    Open chat with OpenAI LLM - OWNER ONLY.
+    Responses are conditioned by the user's selected personality.
+    """
+    # Owner-only check
+    admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').replace(' ', '').split(',')
+    if str(message.from_user.id) not in admin_ids:
+        # Silently ignore non-owner messages (let other handlers pick up)
+        return
+    
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        return
+    
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        return
+    
+    # Get personality
+    personality = session.config.get('personality', 'STANDARD_ES')
+    
+    # Get OpenAI client
+    from utils.ai_analyst import QuantumAnalyst
+    analyst = QuantumAnalyst()
+    
+    if not analyst.client:
+        await message.reply("⚠️ OpenAI no configurado. Verifica `OPENAI_API_KEY`.")
+        return
+    
+    # Get personality prompt
+    char_desc = analyst.PERSONALITY_PROMPTS.get(
+        personality, 
+        analyst.PERSONALITY_PROMPTS.get('STANDARD_ES')
+    )
+    
+    # System prompt for chat
+    system_prompt = f"""Eres un asistente de trading con la siguiente personalidad:
+{char_desc}
+
+REGLAS:
+1. SIEMPRE responde EN ESPAÑOL a menos que el usuario escriba en otro idioma.
+2. Mantén el tono y estilo del personaje en TODO momento.
+3. Si el usuario pregunta sobre trading, crypto, acciones o mercados, incorpora perspectiva de trading.
+4. Sé conciso pero útil (máximo 2-3 párrafos).
+5. Puedes usar emojis apropiados al personaje."""
+
+    try:
+        # Send typing action
+        await message.chat.do('typing')
+        
+        response = analyst.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message.text}
+            ],
+            max_tokens=500,
+            temperature=0.8
+        )
+        
+        reply = response.choices[0].message.content
+        await message.reply(reply)
+        
+    except Exception as e:
+        await message.reply(f"❌ Error LLM: {e}")
