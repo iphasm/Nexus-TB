@@ -360,6 +360,55 @@ class AsyncTradingSession:
                 raise e
         raise Exception("Max retries exceeded")
 
+    async def _place_conditional_with_tracking(
+        self, symbol: str, order_type: str, side: str, 
+        quantity: float, stop_price: float, **kwargs
+    ) -> Tuple[bool, str, Optional[str]]:
+        """
+        Place conditional order and track algoId for later cancellation.
+        
+        Args:
+            symbol: Trading pair
+            order_type: STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET
+            side: BUY or SELL
+            quantity: Order quantity
+            stop_price: Trigger price (or activation for trailing)
+            **kwargs: Additional params (callbackRate for trailing, etc)
+            
+        Returns: (success, message, algoId)
+        """
+        try:
+            result = await self._place_order_with_retry(
+                self.client.futures_create_order,
+                symbol=symbol, side=side, type=order_type,
+                stopPrice=stop_price, quantity=quantity,
+                reduceOnly=True, **kwargs
+            )
+            
+            # Extract algoId (or orderId for standard)
+            algo_id = str(result.get('algoId') or result.get('orderId', ''))
+            
+            # Store in tracking dict
+            if symbol not in self.active_algo_orders:
+                self.active_algo_orders[symbol] = {}
+            
+            # Determine key based on order type
+            if 'STOP' in order_type and 'TRAILING' not in order_type and 'TAKE_PROFIT' not in order_type:
+                type_key = 'sl_id'
+            elif 'TAKE_PROFIT' in order_type:
+                type_key = 'tp_id'
+            else:
+                type_key = 'trail_id'
+                
+            self.active_algo_orders[symbol][type_key] = algo_id
+            print(f"✅ {symbol}: Placed {order_type} @ {stop_price} (ID: {algo_id})")
+            
+            return True, f"{order_type} @ {stop_price}", algo_id
+            
+        except Exception as e:
+            print(f"⚠️ {symbol}: Failed to place {order_type}: {e}")
+            return False, str(e), None
+
     async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int, entry_price: float = 0.0, current_price: float = 0.0) -> Tuple[bool, str]:
         """
         Surgical SL/TP Synchronization (V2 - Anti-Spam):
