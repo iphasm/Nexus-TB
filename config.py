@@ -11,14 +11,13 @@ ASSET_GROUPS = {
     'CRYPTO': [
         # Major Caps
         'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
-        'AVAXUSDT', 'LTCUSDT', 'DOTUSDT', 'MATICUSDT', 'LINKUSDT',
         'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
         # Memes & AI
-        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', 'SHIBUSDT', 'SUIUSDT',
+        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
         'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
-        'BONKUSDT', 'FLOKIUSDT', 'TRBUSDT', 'ZECUSDT', 'EOSUSDT',
+        'BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
         # DeFi
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT'
+        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT'
     ],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
     'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG']
@@ -46,7 +45,7 @@ TICKER_MAP = {
     'AVAXUSDT': '🔺 Avalanche',
     'LTCUSDT': '🥈 Litecoin',
     'DOTUSDT': '⚫ Polkadot',
-    'MATICUSDT': '🟣 Polygon',
+    'POLUSDT': '🟣 Polygon (POL)',
     'LINKUSDT': '🔗 Chainlink',
     'NEARUSDT': '🌐 NEAR Protocol',
     'ATOMUSDT': '⚛️ Cosmos',
@@ -56,10 +55,10 @@ TICKER_MAP = {
     'WIFUSDT': '🐕 Dogwifhat',
     '1000PEPEUSDT': '🐸 Pepe',
     'DOGEUSDT': '🐶 Dogecoin',
-    'SHIBUSDT': '🐕‍🦺 Shiba Inu',
+    '1000SHIBUSDT': '🐕‍🦺 Shiba Inu',
     'SUIUSDT': '💧 Sui',
     'BONKUSDT': '🦴 Bonk',
-    'FLOKIUSDT': '🐕 Floki',
+    '1000FLOKIUSDT': '🐕 Floki',
     # AI & Tech
     'RENDERUSDT': '🖼️ Render',
     'FETUSDT': '🤖 Fetch.ai',
@@ -68,7 +67,6 @@ TICKER_MAP = {
     'SEIUSDT': '🌊 Sei',
     'TRBUSDT': '🔮 Tellor',
     'ZECUSDT': '🔐 Zcash',
-    'EOSUSDT': '🟣 EOS',
     # DeFi
     'UNIUSDT': '🦄 Uniswap',
     'AAVEUSDT': '👻 Aave',
