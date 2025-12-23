@@ -1188,7 +1188,26 @@ async def cmd_long(message: Message, **kwargs):
         
         # Execute with ATR
         success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
+        
+        # Parse and send image if present
+        img_path = None
+        if "[IMAGE]:" in res_msg:
+            parts = res_msg.split("[IMAGE]:")
+            res_msg = parts[0].strip()
+            img_path = parts[1].strip()
+        
         await message.reply(res_msg)
+        
+        # Send chart image
+        if img_path:
+            import os
+            from aiogram.types import FSInputFile
+            if os.path.exists(img_path):
+                try:
+                    photo = FSInputFile(img_path)
+                    await message.answer_photo(photo, caption=f"📸 Análisis Visual: {symbol}")
+                except Exception as e:
+                    print(f"Failed to send chart photo: {e}")
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
