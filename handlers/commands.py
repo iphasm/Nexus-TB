@@ -104,7 +104,7 @@ async def cmd_start(message: Message, **kwargs):
     if session:
         ai_enabled = session.config.get('sentiment_filter', True)
     ai_status = "🟢" if ai_enabled else "🔴"
-    ai_header_suffix = " + 🧠 AI Filter" if ai_enabled else ""
+    ai_header_suffix = " + ✨ AI Filter" if ai_enabled else ""
 
     # 4. Message Content (Custom Layout)
     from utils.personalities import PersonalityManager
@@ -155,7 +155,7 @@ async def cmd_start(message: Message, **kwargs):
         # Tools
         [
             InlineKeyboardButton(text="🔄 Sync", callback_data="SYNC_ORDERS"),
-            InlineKeyboardButton(text=f"🧠 AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
+            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
         ],
         # Info
         [
@@ -315,7 +315,7 @@ async def cmd_help(message: Message):
         "• /assets - Config activos\n"
         "• /personality - Cambiar voz\n\n"
         
-        "🧠 *AI & SENTIMIENTO*\n"
+        "✨ *AI & SENTIMIENTO*\n"
         "• /news - Boletín IA\n"
         "• /sentiment - Radar global\n"
         "• /sniper - Oportunidades\n"
@@ -904,7 +904,7 @@ async def cmd_sentiment(message: Message, **kwargs):
     """Global sentiment analysis"""
     from utils.ai_analyst import QuantumAnalyst
     
-    msg = await message.answer("🧠 *Escaneando Redes y Noticias...*", parse_mode='Markdown')
+    msg = await message.answer("✨ *Escaneando Redes y Noticias...*", parse_mode='Markdown')
     
     try:
         analyst = QuantumAnalyst()
@@ -924,7 +924,7 @@ async def cmd_sentiment(message: Message, **kwargs):
             return "⚪ NEUTRAL"
         
         result = (
-            "🧠 **SENTIMIENTO GLOBAL DEL MERCADO**\n"
+            "✨ **SENTIMIENTO GLOBAL DEL MERCADO**\n"
             "-----------------------------------\n"
             f"💎 **Cripto (BTC):** {score_btc:.2f} | {interpret(score_btc)}\n"
             f"_{res_btc.get('reason', 'N/A')}_\n\n"
@@ -1037,7 +1037,7 @@ async def cmd_analyze(message: Message, **kwargs):
             f"🔬 **ANÁLISIS: {symbol}**\n\n"
             f"💵 Precio: ${current_price:,.2f}\n"
             f"📊 RSI: {rsi:.1f}\n"
-            f"🎭 Personalidad: *{p_name}*\n\n"
+            f"🧠 Personalidad: *{p_name}*\n\n"
             f"{analysis}",
             parse_mode='Markdown'
         )
@@ -1530,7 +1530,7 @@ async def cmd_price(message: Message, **kwargs):
         msg = (
             "📡 **MARKET INTEL (Advanced)**\n"
             "━━━━━━━━━━━━━━━━\n"
-            f"🧠 **Sentimiento:** {fng}\n\n"
+            f"✨ **Sentimiento:** {fng}\n\n"
         )
         
         if crypto_str: msg += f"💎 **Crypto (4h RSI):**\n{crypto_str}\n"
