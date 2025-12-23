@@ -919,8 +919,11 @@ class AsyncTradingSession:
     
     async def cancel_algo_orders(self, symbol: str) -> int:
         """
-        Cancel ALL Algo orders (SL/TP/Trailing) for a symbol.
-        Uses Binance Algo Service endpoints (Dec 2024 migration).
+        Cancel ALL conditional orders (SL/TP/Trailing) for a symbol.
+        
+        After Dec 2024 Binance migration, conditional orders appear in standard
+        futures_get_open_orders endpoint with 'orderId', NOT in algo endpoint.
+        This method handles BOTH cases for maximum compatibility.
         
         Returns: Number of cancelled orders
         """
@@ -928,34 +931,42 @@ class AsyncTradingSession:
         
         cancelled = 0
         try:
-            # 1. Get all open algo orders for this symbol
-            algo_orders = await self.get_open_algo_orders(symbol)
+            # 1. Get all conditional orders for this symbol
+            orders = await self.get_open_algo_orders(symbol)
             
-            if not algo_orders:
+            if not orders:
                 return 0
             
-            # 2. Cancel each algo order individually using algoId
-            for order in algo_orders:
+            # 2. Cancel each order - try orderId first (standard), then algoId (algo service)
+            for order in orders:
+                order_id = order.get('orderId')
                 algo_id = order.get('algoId')
-                if algo_id:
-                    try:
-                        # DELETE /fapi/v1/algo/order - Cancel single algo order
+                
+                try:
+                    if order_id:
+                        # Standard cancel using orderId (works for post-Dec 2024 orders)
+                        await self.client.futures_cancel_order(symbol=symbol, orderId=order_id)
+                        cancelled += 1
+                        print(f"✅ Cancelled order {order_id} for {symbol}")
+                    elif algo_id:
+                        # Algo service cancel (legacy)
                         await self.client._request(
                             'delete', 'algo/order', signed=True,
                             data={'symbol': symbol, 'algoId': algo_id}
                         )
                         cancelled += 1
-                    except Exception as e:
-                        error_str = str(e)
-                        # -2011 = Already cancelled/filled, -1007 = Timeout
-                        if "-2011" not in error_str and "-1007" not in error_str:
-                            print(f"⚠️ Cancel Algo {algo_id}: {e}")
+                        print(f"✅ Cancelled algo {algo_id} for {symbol}")
+                except Exception as e:
+                    error_str = str(e)
+                    # -2011 = Already cancelled/filled, -1007 = Timeout
+                    if "-2011" not in error_str and "-1007" not in error_str and "Unknown order" not in error_str:
+                        print(f"⚠️ Cancel order error: {e}")
             
             if cancelled > 0:
-                print(f"✅ Cancelled {cancelled} algo orders for {symbol}")
+                print(f"✅ Total: Cancelled {cancelled} conditional orders for {symbol}")
                 
         except Exception as e:
-            print(f"⚠️ Algo Cancel Error ({symbol}): {e}")
+            print(f"⚠️ Cancel Orders Error ({symbol}): {e}")
         
         return cancelled
 
