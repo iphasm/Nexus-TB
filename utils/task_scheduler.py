@@ -106,7 +106,7 @@ class TaskScheduler:
         except:
             current_time = datetime.now().isoformat()
         
-                system_prompt = """You are a task scheduling assistant for a trading bot. Parse the user's natural language request into a JSON object.
+        system_prompt = """You are a task scheduling assistant for a trading bot. Parse the user's natural language request into a JSON object.
 
 Available actions:
 - "analyze": Analyze an asset (params: {"symbol": "BTC"})
