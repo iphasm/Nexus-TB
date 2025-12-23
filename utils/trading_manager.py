@@ -185,9 +185,10 @@ class AsyncTradingSession:
         return final_qty
     
     async def initialize_alpaca(self):
-        """Initialize Alpaca client from config or env."""
-        ak = self.config.get('alpaca_key') or os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
-        ask = self.config.get('alpaca_secret') or os.getenv('APCA_API_SECRET_KEY', '').strip().strip("'\"")
+        """Initialize Alpaca client from per-user config ONLY (no ENV fallback)."""
+        # SECURITY: Only use per-user keys. ENV keys are for owner's system operations only.
+        ak = self.config.get('alpaca_key', '').strip() if self.config.get('alpaca_key') else ''
+        ask = self.config.get('alpaca_secret', '').strip() if self.config.get('alpaca_secret') else ''
         base_url = os.getenv('APCA_API_BASE_URL', '').strip().strip("'\"")
         
         if ak and ask:
