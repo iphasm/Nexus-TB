@@ -10,7 +10,7 @@ from typing import Optional
 from utils.db import get_connection
 
 # Default timezone for all users
-DEFAULT_TIMEZONE = "UTC"
+DEFAULT_TIMEZONE = "GMT-4"
 
 
 def get_user_timezone(user_id: int) -> str:
