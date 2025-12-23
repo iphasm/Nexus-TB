@@ -548,21 +548,11 @@ class AsyncTradingSession:
             # 2. Set Leverage
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
             
-            # 3. Cancel Existing Orders (Robust with Retry)
-            try:
-                # Retry cancellation up to 3 times
-                for _ in range(3):
-                    try:
-                        await self.client.futures_cancel_all_open_orders(symbol=symbol)
-                        break
-                    except Exception as e:
-                        if "Unknown order" in str(e): break # Already clear
-                        await asyncio.sleep(0.5)
-                
-                # Wait for propagation (increased to prevent timeout)
-                await asyncio.sleep(0.6)
-            except Exception as e:
-                print(f"⚠️ Cancel Order Warning: {e}")
+            # 3. Cancel Existing Orders (Robust with Verification)
+            # Uses _cancel_all_robust to handle both standard and algo orders
+            cleared = await self._cancel_all_robust(symbol, verify=True)
+            if not cleared:
+                print(f"⚠️ {symbol}: Could not verify all orders cleared before entry")
             
             # 4. Get Account & Price Info
             acc_info = await self.client.futures_account()
@@ -624,14 +614,15 @@ class AsyncTradingSession:
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
             
-            # 7. Place SL/TP Orders (Using reduceOnly to avoid -4130)
+            # 7. Place SL/TP Orders (Using tracked helpers for anti-accumulation)
             try:
-                # Stop Loss with explicit quantity
+                # Stop Loss with tracking
                 if sl_price > 0:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='STOP_MARKET',
-                        stopPrice=sl_price, reduceOnly=True, quantity=quantity
+                    sl_ok, sl_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'STOP_MARKET', 'SELL', quantity, sl_price
                     )
+                    if not sl_ok:
+                        print(f"⚠️ SL placement issue: {sl_result}")
                 
                 # Logic: TP1 (50%) + Trailing Stop (50%)
                 qty_tp1 = float(round(quantity / 2, qty_precision))
@@ -641,22 +632,21 @@ class AsyncTradingSession:
                 is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
                 
                 if is_split:
-                    # TP1: Take 50% Prophet
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET',
-                        stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                    # TP1: Take 50% Profit with tracking
+                    tp1_ok, tp1_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TAKE_PROFIT_MARKET', 'SELL', qty_tp1, tp_price
                     )
                     # Trailing: Let the rest run (Activate at TP1, Callback 1.0%)
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=1.0, activationPrice=tp_price, reduceOnly=True
+                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TRAILING_STOP_MARKET', 'SELL', qty_trail, tp_price,
+                        callbackRate=1.0, activationPrice=tp_price
                     )
                     tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
                 else:
-                    # Capital too small: Full Trailing Stop
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=1.0, activationPrice=entry_price, reduceOnly=True
+                    # Capital too small: Full Trailing Stop with tracking
+                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TRAILING_STOP_MARKET', 'SELL', quantity, entry_price,
+                        callbackRate=1.0, activationPrice=entry_price
                     )
                     tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
 
@@ -744,19 +734,11 @@ class AsyncTradingSession:
             
             # 2. Set Leverage & Cancel Orders
             await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-            try:
-                # Retry cancellation up to 3 times
-                for _ in range(3):
-                    try:
-                        await self.client.futures_cancel_all_open_orders(symbol=symbol)
-                        break
-                    except Exception as e:
-                        if "Unknown order" in str(e): break
-                        await asyncio.sleep(0.5)
-                
-                await asyncio.sleep(0.6)
-            except Exception as e:
-                print(f"⚠️ Cancel Order Warning: {e}")
+            # 3. Cancel Existing Orders (Robust with Verification)
+            # Uses _cancel_all_robust to handle both standard and algo orders
+            cleared = await self._cancel_all_robust(symbol, verify=True)
+            if not cleared:
+                print(f"⚠️ {symbol}: Could not verify all orders cleared before entry")
             
             # 3. Get Info
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
@@ -814,13 +796,15 @@ class AsyncTradingSession:
             except Exception as e:
                 return False, f"❌ Failed to open position: {e}"
             
-            # 6. Place SL/TP (Using reduceOnly to avoid -4130)
+            # 6. Place SL/TP Orders (Using tracked helpers for anti-accumulation)
             try:
+                # Stop Loss with tracking
                 if sl_price > 0:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='STOP_MARKET',
-                        stopPrice=sl_price, reduceOnly=True, quantity=quantity
+                    sl_ok, sl_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'STOP_MARKET', 'BUY', quantity, sl_price
                     )
+                    if not sl_ok:
+                        print(f"⚠️ SL placement issue: {sl_result}")
                 
                 # Logic: TP1 (50%) + Trailing Stop (50%)
                 qty_tp1 = float(round(quantity / 2, qty_precision))
@@ -829,21 +813,21 @@ class AsyncTradingSession:
                 is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
                 
                 if is_split:
-                    # TP1 (50%)
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET',
-                        stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                    # TP1: Take 50% Profit with tracking
+                    tp1_ok, tp1_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TAKE_PROFIT_MARKET', 'BUY', qty_tp1, tp_price
                     )
-                    # Trailing Stop (50%)
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, callbackRate=1.0, activationPrice=tp_price, reduceOnly=True
+                    # Trailing: Let the rest run (Activate at TP1, Callback 1.0%)
+                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TRAILING_STOP_MARKET', 'BUY', qty_trail, tp_price,
+                        callbackRate=1.0, activationPrice=tp_price
                     )
                     tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
                 else:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='TRAILING_STOP_MARKET',
-                        quantity=quantity, callbackRate=1.0, activationPrice=entry_price, reduceOnly=True
+                    # Capital too small: Full Trailing Stop with tracking
+                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
+                        symbol, 'TRAILING_STOP_MARKET', 'BUY', quantity, entry_price,
+                        callbackRate=1.0, activationPrice=entry_price
                     )
                     tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
 
