@@ -4,88 +4,576 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Antigravity Bot - Documentación Oficial</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code&display=swap"
+    <title>Antigravity Bot v4.0 | Institutional Algorithm</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050a14;
+            --bg-card: rgba(15, 23, 42, 0.7);
+            --accent-blue: #0ea5e9;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #22d3ee;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --quantum-gradient: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            --header-height: 80px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Ambient Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(14, 165, 233, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
+            z-index: -1;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .gradient-text {
+            background: var(--quantum-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Header & Nav */
+        header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(5, 10, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-cyan);
+        }
+
+        .cta-btn {
+            background: var(--quantum-gradient);
+            padding: 0.6rem 1.5rem;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 10px 20px -5px rgba(139, 92, 246, 0.4);
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(139, 92, 246, 0.6);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding-top: calc(var(--header-height) + 4rem);
+            padding-bottom: 8rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: rgba(14, 165, 233, 0.1);
+            color: var(--accent-blue);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+        }
+
+        /* Floating Element Animation */
+        .floating-orb {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: var(--quantum-gradient);
+            filter: blur(100px);
+            opacity: 0.2;
+            border-radius: 50%;
+            z-index: -1;
+            animation: float 20s infinite alternate;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(50px, 100px);
+            }
+        }
+
+        /* Sections structure */
+        section {
+            padding: 8rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Card Grid */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(34, 211, 238, 0.4);
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .icon-box {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+        }
+
+        .glass-card h3 {
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .glass-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Visual Showcase Section */
+        .feature-showcase {
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+            flex-wrap: wrap;
+        }
+
+        .showcase-content {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .showcase-visual {
+            flex: 1.2;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .interface-visual {
+            background: #0f172a;
+            border: 4px solid #334155;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+        }
+
+        .cli-text {
+            font-family: 'Fira Code', monospace;
+            color: #6ee7b7;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Stats List */
+        .stats-list {
+            margin-top: 2rem;
+            list-style: none;
+        }
+
+        .stats-list li {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .check-icon {
+            color: var(--accent-cyan);
+            font-weight: 800;
+        }
+
+        /* Footer */
+        footer {
+            padding: 4rem 0;
+            border-top: 1px solid var(--glass-border);
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 800;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-deep);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-blue);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 3rem;
+            }
+
+            section {
+                padding: 4rem 0;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-    <nav class="nav-bar">
-        <ul class="nav-links">
-            <li><a href="index.html" class="active">Inicio</a></li>
-            <li><a href="manual_usuario.html">Manual de Usuario</a></li>
-            <li><a href="manual_tecnico.html">Documentación Técnica</a></li>
-            <li><a href="pilot_logic_visualization.html" target="_blank">Diagrama Lógico</a></li>
-        </ul>
-    </nav>
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">
+                    <span style="font-size: 1.8rem;">⚛️</span> ANTIGRAVITY
+                </div>
+                <ul class="nav-links">
+                    <li><a href="#vision">Visión</a></li>
+                    <li><a href="#intel">Inteligencia</a></li>
+                    <li><a href="#ops">Operaciones</a></li>
+                    <li><a href="#risk">Riesgo</a></li>
+                </ul>
+                <a href="https://t.me/iphas_bot" class="cta-btn">Acceso VIP</a>
+            </nav>
+        </div>
+    </header>
 
-    <div class="container">
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="floating-orb" style="top: 10%; left: 10%;"></div>
+            <div class="floating-orb" style="bottom: 10%; right: 10%; animation-delay: -5s;"></div>
 
-        <header style="text-align: center; padding: 4rem 0;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">⚛️</div>
-            <h1>Quantum Antigravity Bot</h1>
-            <p style="font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
-                Sistema de Trading Algorítmico Híbrido potenciado por Inteligencia Artificial y Lógica Cuántica.
-            </p>
-            <div style="margin-top: 2rem;">
-                <a href="manual_usuario.html" class="btn">Comenzar Ahora →</a>
-            </div>
-        </header>
+            <div class="container" style="position: relative;">
+                <span class="version-badge">REVOLUCIÓN V4.0 LIBERADA</span>
+                <h1>Domina los Mercados con <br> <span class="gradient-text">Lógica Cuántica</span></h1>
+                <p>El bot de trading de grado Hedge Fund que fusiona análisis multi-temporal, IA generativa y ejecución
+                    institucional en un solo ecosistema.</p>
 
-        <section>
-            <h2>Módulos Principales</h2>
-            <div class="card-grid">
-                <article class="card">
-                    <h3>🤖 Pilot Mode</h3>
-                    <p>Trading 100% autónomo. El bot analiza el mercado, calcula riesgos y ejecuta operaciones sin
-                        intervención humana.</p>
-                    <div style="margin-top: 1rem;"><span class="tag pilot">Autónomo</span></div>
-                </article>
-
-                <article class="card">
-                    <h3>🤝 Copilot Mode</h3>
-                    <p>Colaboración Hombre-Máquina. El bot encuentra oportunidades y propone operaciones que tú
-                        confirmas con un clic.</p>
-                    <div style="margin-top: 1rem;"><span class="tag copilot">Semiautomático</span></div>
-                </article>
-
-                <article class="card">
-                    <h3>👀 Watcher Mode</h3>
-                    <p>Vigilancia constante. Recibe alertas y análisis de mercado en tiempo real sin ejecutar
-                        operaciones automáticamente.</p>
-                    <div style="margin-top: 1rem;"><span class="tag watcher">Monitorización</span></div>
-                </article>
+                <div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                    <a href="#vision" class="cta-btn" style="background: white; color: var(--bg-deep);">Descubrir
+                        Sistema</a>
+                    <a href="manual_usuario.html" class="cta-btn">Manual de Operador</a>
+                </div>
             </div>
         </section>
 
-        <section>
-            <h2>Características Quantum</h2>
-            <div class="card-grid">
-                <article class="card">
-                    <h3>🧠 AI Analyst</h3>
-                    <p>Integración con LLMs (GPT-4o) para análisis de sentimiento, noticias macroeconómicas y factores
-                        geopolíticos en tiempo real.</p>
-                </article>
-                <article class="card">
-                    <h3>🛡️ Gestión de Riesgo Dinámica</h3>
-                    <p>Presets estratégicos (Ronin, Guardian, Quantum) que ajustan apalancamiento y Stop Loss según la
-                        volatilidad del mercado.</p>
-                </article>
-                <article class="card">
-                    <h3>🌌 Quantum Bridge</h3>
-                    <p>Arquitectura asíncrona que permite el procesamiento paralelo de señales de múltiples fuentes
-                        (Binance, Alpaca, Sentimiento).</p>
-                </article>
+        <!-- Vision Section -->
+        <section id="vision">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Ingeniería de Inversión</h2>
+                    <p>No operamos por suerte. Operamos por algoritmos diseñados para explotar ineficiencias matemáticas
+                        en cualquier condición de mercado.</p>
+                </div>
+
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="icon-box">🧠</div>
+                        <h3>Quantum Engine</h3>
+                        <p>Filtrado Multi-Timeframe (MTF) que valida señales de 15m contra la macro-tendencia de 1H y 4H
+                            para una precisión superior al 85%.</p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="icon-box">🌌</div>
+                        <h3>Híbrido Global</h3>
+                        <p>Interconectividad sin fronteras. Opera Criptomonedas en <strong>Binance</strong> y
+                            Acciones/Commodities en <strong>Alpaca</strong> simultáneamente.</p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="icon-box">🤖</div>
+                        <h3>AI Full-Spectrum</h3>
+                        <p>Integración con GPT-4o para escaneo de noticias, análisis de sentimiento FOMC y briefings de
+                            mercado automáticos cada mañana.</p>
+                    </div>
+                </div>
             </div>
         </section>
 
-    </div>
+        <!-- Feature Showcase -->
+        <section id="ops" style="background: rgba(14, 165, 233, 0.02);">
+            <div class="container">
+                <div class="feature-showcase">
+                    <div class="showcase-content">
+                        <h2 style="font-size: 2.5rem; margin-bottom: 1.5rem;">El Centro de Mando <br><span
+                                class="gradient-text">v4.0 de Próxima Gen</span></h2>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem;">Hemost simplificado la complejidad
+                            profesional en un panel interactivo potente dentro de Telegram.</p>
+
+                        <ul class="stats-list">
+                            <li><span class="check-icon">✓</span> <strong>Unified Dashboard:</strong> Analítica
+                                avanzada, balances y PnL en un solo clic.</li>
+                            <li><span class="check-icon">✓</span> <strong>Smart Sync:</strong> Gestión de órdenes que
+                                aplica breakeven automático y ajusta TP/SL.</li>
+                            <li><span class="check-icon">✓</span> <strong>Intel Radar:</strong> Escaneo constante de
+                                activos con RSI, Volumen y Sentimiento IA.</li>
+                        </ul>
+                    </div>
+
+                    <div class="showcase-visual">
+                        <div class="interface-visual">
+                            <div class="cli-text">> LOADING COMMAND CENTER...</div>
+                            <div class="cli-text">> CONNECTING TO QUANTUM_BRIDGE...</div>
+                            <div
+                                style="background: #1e293b; height: 300px; border-radius: 0.5rem; margin-top: 1rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; border: 1px dashed #475569;">
+                                <div style="font-weight: 800; font-size: 1.2rem; margin-bottom: 1rem;">📊 DASHBOARD v4.0
+                                </div>
+                                <div style="color: #6ee7b7; font-family: 'Fira Code', monospace; text-align: center;">
+                                    WALLET: 3.42 BTC <br>
+                                    ACTIVE POSITIONS: 4 <br>
+                                    MONTHLY PNL: +12.8%
+                                </div>
+                                <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                                    <div
+                                        style="background: #334155; padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.7rem;">
+                                        [ 🔄 SYNC ]</div>
+                                    <div
+                                        style="background: #0ea5e9; padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.7rem;">
+                                        [ 🎮 CONFIG ]</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Risk & Safety -->
+        <section id="risk">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Muralla de Seguridad</h2>
+                    <p>La preservación del capital es nuestra ley fundamental. Sistemas de defensa integrados que actúan
+                        antes que el pánico.</p>
+                </div>
+
+                <div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));">
+                    <div class="glass-card" style="display: flex; gap: 2rem; align-items: flex-start;">
+                        <div style="font-size: 3rem;">🦈</div>
+                        <div>
+                            <h3>Shark Sentinel</h3>
+                            <p>Monitoreo global de crash. Si el mercado líder (BTC) cae >3% instantáneamente, el bot
+                                activa el "Modo Refugio", congelando compras y protegiendo tus fondos.</p>
+                        </div>
+                    </div>
+                    <div class="glass-card" style="display: flex; gap: 2rem; align-items: flex-start;">
+                        <div style="font-size: 3rem;">⚡</div>
+                        <div>
+                            <h3>Circuit Breaker</h3>
+                            <p>Algoritmo de gestión emocional. Si se detecta una racha de pérdidas inusual, el bot
+                                desactiva el modo Pilot y solicita revisión manual del mercado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Personalities & AI -->
+        <section style="background: linear-gradient(to bottom, transparent, rgba(139, 92, 246, 0.05));">
+            <div class="container" style="text-align: center;">
+                <div class="section-header">
+                    <h2>Un Bot con Carácter</h2>
+                    <p>La IA no solo opera, también comunica. Selecciona la personalidad que mejor se adapte a tu estilo
+                        de inversión.</p>
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 80px; height: 80px; background: #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                            🤵</div>
+                        <span style="font-weight: 600;">Gekko</span>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Codicia & Eficiencia</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 80px; height: 80px; background: #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                            🌑</div>
+                        <span style="font-weight: 600;">Vader</span>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Disciplina Imperial</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 80px; height: 80px; background: #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                            🧪</div>
+                        <span style="font-weight: 600;">Rick</span>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Lógica Caótica</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 80px; height: 80px; background: #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                            🐺</div>
+                        <span style="font-weight: 600;">Wolf</span>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Agresividad Wall St</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section style="padding: 10rem 0;">
+            <div class="container" style="text-align: center;">
+                <div class="glass-card" style="padding: 5rem 2rem; background: var(--quantum-gradient); border: none;">
+                    <h2 style="font-size: 3rem; margin-bottom: 2rem;">¿Listo para el siguiente nivel?</h2>
+                    <p style="color: white; opacity: 0.9; margin-bottom: 3rem; font-size: 1.2rem;">Únete a la élite del
+                        trading algorítmico y deja que la matemática trabaje por ti.</p>
+                    <a href="https://t.me/iphas_bot" class="cta-btn"
+                        style="background: white; color: var(--accent-purple); padding: 1.2rem 3rem; font-size: 1.1rem;">DESPLEGAR
+                        ANTIGRAVITY v4.0</a>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <footer>
-        <p>Antigravity Bot v4.0 | Desarrollado con 💙 y ⚛️</p>
-        <p><small>Documentación actualizada: 23 Diciembre 2025</small></p>
+        <div class="container">
+            <span class="footer-logo">⚛️ ANTIGRAVITY BOT</span>
+            <p class="copyright">© 2025 Antigravity Intel Engine. Desarrollado con ⚛️ para el futuro financiero.</p>
+            <div style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="manual_usuario.html"
+                    style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">Documentación</a>
+                <a href="manual_tecnico.html"
+                    style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">Soporte Técnico</a>
+            </div>
+        </div>
     </footer>
 
 </body>
