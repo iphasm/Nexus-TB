@@ -8,10 +8,11 @@ class QuantumEngine:
     """
     Main Orchestrator for Antigravity Quantum.
     """
-    def __init__(self, assets=None):
+    def __init__(self, assets=None, alpaca_keys: dict = None):
         self.risk_guardian = RiskManager()
         self.market_stream = MarketStream()  # Use default (binanceusdm for futures)
         self.running = False
+        self.alpaca_keys = alpaca_keys or {}
         
         # Determine Assets
         if assets:
@@ -33,7 +34,11 @@ class QuantumEngine:
 
     async def initialize(self):
         print("🌌 QuantumEngine: Initializing Subsystems...")
-        await self.market_stream.initialize()
+        
+        # Pass Alpaca keys if available
+        ak = self.alpaca_keys.get('key')
+        asec = self.alpaca_keys.get('secret')
+        await self.market_stream.initialize(alpaca_key=ak, alpaca_secret=asec)
         
         # Simulating Async Config / DB Load
         await asyncio.sleep(0.5)

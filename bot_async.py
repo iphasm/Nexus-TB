@@ -635,7 +635,21 @@ async def main():
         try:
             from antigravity_quantum.core.engine import QuantumEngine
             
-            engine = QuantumEngine(assets=get_all_assets())
+            # --- KEY INJECTION FIX ---
+            # Try to get admin keys for Alpaca (background engine needs them)
+            admin_id = os.getenv('TELEGRAM_ADMIN_ID')
+            alpaca_keys = {}
+            
+            if admin_id and session_manager:
+                admin_session = session_manager.get_session(str(admin_id))
+                if admin_session:
+                    ak_key = admin_session.config.get('alpaca_key')
+                    ak_sec = admin_session.config.get('alpaca_secret')
+                    if ak_key and ak_sec:
+                        alpaca_keys = {'key': ak_key, 'secret': ak_sec}
+                        logger.info(f"🔑 QuantumEngine: Injected Alpaca keys from Admin ({admin_id})")
+            
+            engine = QuantumEngine(assets=get_all_assets(), alpaca_keys=alpaca_keys)
             
             # Set callback for signal dispatch
             async def on_signal(signal):

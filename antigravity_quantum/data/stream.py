@@ -38,29 +38,29 @@ class MarketStream:
         }
         self.alpaca = None
 
-    async def initialize(self):
+    async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None):
         """Load markets"""
         try:
-            print(f"🔌 Connecting to {self.exchange_id}...")
-            await self.exchange.load_markets()
             print(f"🔌 Connecting to {self.exchange_id}...")
             await self.exchange.load_markets()
             print(f"✅ Connected to {self.exchange_id} (Async).")
             
             # Initialize Alpaca Stream (Single Instance)
             import os
-            alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
-            alpaca_secret = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
+            # Prioritize passed keys, fallback to ENV
+            key = alpaca_key or os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
+            secret = alpaca_secret or os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
             
-            if alpaca_key and alpaca_secret:
+            if key and secret:
                 try:
                     from .alpaca_stream import AlpacaStream
-                    self.alpaca = AlpacaStream(api_key=alpaca_key, api_secret=alpaca_secret)
+                    self.alpaca = AlpacaStream(api_key=key, api_secret=secret)
                     await self.alpaca.initialize()
                     # Message printed by AlpacaStream.initialize()
                 except Exception as ex:
                     print(f"⚠️ Alpaca Stream Init Failed: {ex}")
             else:
+                print("⚠️ MarketStream: No Alpaca Keys found (Env or Passed). Stocks disabled.")
                 self.alpaca = None
         except Exception as e:
             print(f"❌ Connection Failed: {e}")
