@@ -337,21 +337,21 @@ class AsyncTradingSession:
         5. V3: Validate triggers against current price to avoid -2021.
         """
         try:
-            # 1. Fetch existing orders
-            orders = await self.client.futures_get_open_orders(symbol=symbol)
+            # 1. Fetch existing orders (BOTH standard AND algo)
+            standard_orders = await self.client.futures_get_open_orders(symbol=symbol)
+            algo_orders = await self.get_open_algo_orders(symbol)
+            orders = standard_orders + algo_orders
             
             existing_sl = None
             existing_tp_count = 0
-            to_cancel = []
             
             for o in orders:
-                order_type = o.get('type', '')
-                if order_type == 'STOP_MARKET':
-                    existing_sl = float(o.get('stopPrice', 0))
-                    to_cancel.append(o['orderId'])
-                elif order_type in ['TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET']:
+                # Handle both standard and algo order formats
+                order_type = o.get('type', '') or o.get('algoType', '')
+                if order_type in ['STOP_MARKET', 'STOP']:
+                    existing_sl = float(o.get('stopPrice', 0) or o.get('triggerPrice', 0))
+                elif order_type in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT', 'TRAILING_STOP_MARKET', 'TRAILING_STOP']:
                     existing_tp_count += 1
-                    to_cancel.append(o['orderId'])
             
             # 2. Check if existing SL is within 1% tolerance - SKIP UPDATE
             if existing_sl and sl_price > 0:
@@ -359,21 +359,14 @@ class AsyncTradingSession:
                 if tolerance < 0.01 and existing_tp_count >= 1:
                     return True, f"✅ SL/TP ya configurados (SL: {existing_sl:.2f}, TP count: {existing_tp_count}). Sin cambios."
             
-            # 3. Cancel existing SL/TP orders
-            # 3. Cancel existing SL/TP orders - FORCE CLEANUP
-            # If we reached here, tolerance check failed or forced update.
-            # We must clear ALL open orders for this symbol to prevent duplicates.
+            # 3. Cancel existing SL/TP orders - FORCE CLEANUP (Standard + Algo)
+            # Uses _cancel_all_robust which now includes verification
             try:
-                print(f"🔄 {symbol}: Cancelling ALL open orders (Robust) to refresh...")
-                await self._cancel_all_robust(symbol)
+                print(f"🔄 {symbol}: Cancelling ALL orders (Standard + Algo)...")
+                cleared = await self._cancel_all_robust(symbol, verify=True)
                 
-                # 4. VERIFY cancellation succeeded (Wait for propagation)
-                for _ in range(5): # Wait up to 2.5s
-                    await asyncio.sleep(0.5)
-                    remaining = await self.client.futures_get_open_orders(symbol=symbol)
-                    if not remaining:
-                        break
-                    print(f"⚠️ {symbol}: Waiting for cancellation... ({len(remaining)} left)")
+                if not cleared:
+                    print(f"⚠️ {symbol}: Some orders may remain after cancellation")
             except Exception as e:
                 print(f"⚠️ Error cancelling orders for {symbol}: {e}")
             
@@ -821,24 +814,52 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"[{symbol}] Error: {str(e)}"
     
-    async def cancel_algo_orders(self, symbol: str):
+    async def cancel_algo_orders(self, symbol: str) -> int:
         """
-        Explicitly cancel all ALGO orders (SL/TP/Trailing) for a symbol.
-        Note: Algo Service endpoint may not be available for all accounts.
-        Errors are silently ignored as they're not critical.
-        """
-        if not self.client: return
+        Cancel ALL Algo orders (SL/TP/Trailing) for a symbol.
+        Uses Binance Algo Service endpoints (Dec 2024 migration).
         
+        Returns: Number of cancelled orders
+        """
+        if not self.client: return 0
+        
+        cancelled = 0
         try:
-            # Try standard open orders cancel which covers most cases
-            await self.client.futures_cancel_all_open_orders(symbol=symbol)
-        except Exception:
-            pass  # Silently ignore - orders may not exist
+            # 1. Get all open algo orders for this symbol
+            algo_orders = await self.get_open_algo_orders(symbol)
+            
+            if not algo_orders:
+                return 0
+            
+            # 2. Cancel each algo order individually using algoId
+            for order in algo_orders:
+                algo_id = order.get('algoId')
+                if algo_id:
+                    try:
+                        # DELETE /fapi/v1/algo/order - Cancel single algo order
+                        await self.client._request(
+                            'delete', 'algo/order', signed=True,
+                            data={'symbol': symbol, 'algoId': algo_id}
+                        )
+                        cancelled += 1
+                    except Exception as e:
+                        error_str = str(e)
+                        # -2011 = Already cancelled/filled, -1007 = Timeout
+                        if "-2011" not in error_str and "-1007" not in error_str:
+                            print(f"⚠️ Cancel Algo {algo_id}: {e}")
+            
+            if cancelled > 0:
+                print(f"✅ Cancelled {cancelled} algo orders for {symbol}")
+                
+        except Exception as e:
+            print(f"⚠️ Algo Cancel Error ({symbol}): {e}")
+        
+        return cancelled
 
     async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
         """
         Get open ALGO orders (conditional orders) for a symbol.
-        Uses GET /fapi/v1/openAlgoOrders (Binance Algo Service - Dec 2025)
+        Uses GET /fapi/v1/algo/openOrders (Binance Algo Service - Dec 2024)
         """
         if not self.client: return []
         
@@ -846,18 +867,68 @@ class AsyncTradingSession:
             params = {}
             if symbol:
                 params['symbol'] = symbol
-            # Note: python-binance _request expects lowercase method
-            result = await self.client._request('get', '/fapi/v1/openAlgoOrders', signed=True, data=params)
-            return result.get('orders', []) if result else []
+            
+            # Correct endpoint path for Algo Service
+            result = await self.client._request(
+                'get', 'algo/openOrders', signed=True, data=params
+            )
+            
+            # Response format: {"orders": [...]} or just [...]
+            if isinstance(result, dict):
+                return result.get('orders', [])
+            elif isinstance(result, list):
+                return result
+            return []
+            
         except Exception as e:
-            if "-2011" not in str(e):
-                print(f"⚠️ Algo Query Error: {e}")
+            error_str = str(e)
+            # -2011 = No orders found (normal), -4001 = Algo service not available
+            if "-2011" not in error_str and "-4001" not in error_str:
+                print(f"⚠️ Algo Query Error ({symbol}): {e}")
             return []
 
-    async def _cancel_all_robust(self, symbol: str):
+    async def wait_until_orders_cleared(self, symbol: str, timeout: float = 3.0) -> bool:
+        """
+        Wait until ALL orders (standard + algo) are confirmed cleared.
+        Handles propagation latency after cancellation.
+        
+        Returns: True if cleared, False if timeout
+        """
+        import time
+        start = time.time()
+        
+        while (time.time() - start) < timeout:
+            try:
+                # Check standard orders
+                standard = await self.client.futures_get_open_orders(symbol=symbol)
+                # Check algo orders
+                algo = await self.get_open_algo_orders(symbol)
+                
+                if not standard and not algo:
+                    print(f"✅ {symbol}: All orders cleared")
+                    return True
+                
+                remaining = len(standard) + len(algo)
+                print(f"⏳ {symbol}: Waiting for {remaining} orders to clear...")
+                
+            except Exception as e:
+                print(f"⚠️ Order check error: {e}")
+            
+            await asyncio.sleep(0.5)
+        
+        print(f"⚠️ {symbol}: Timeout waiting for orders to clear")
+        return False
+
+    async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
         """
         Robust cancellation of ALL orders (Standard + Algo).
-        Handles -4120 (STOP_ORDER_SWITCH_ALGO) error after Dec 2025 migration.
+        Handles -4120 (STOP_ORDER_SWITCH_ALGO) error after Dec 2024 migration.
+        
+        Args:
+            symbol: Trading pair symbol
+            verify: If True, wait and confirm all orders cleared
+            
+        Returns: True if all orders confirmed cleared (or verify=False)
         """
         # 1. Cancel Standard Orders (Limit, Market)
         try:
@@ -867,10 +938,17 @@ class AsyncTradingSession:
             # -4120 = STOP_ORDER_SWITCH_ALGO (expected for conditional orders after migration)
             # -2011 = Unknown order (nothing to cancel)
             if "-4120" not in error_str and "-2011" not in error_str and "Unknown order" not in error_str:
-                print(f"⚠️ Standard Cancel Error ({symbol}): {e}")
+                print(f"⚠️ Standard Cancel ({symbol}): {e}")
         
         # 2. Cancel Algo Orders (Stop Loss, Take Profit, Trailing)
         await self.cancel_algo_orders(symbol)
+        
+        # 3. Verify all orders cleared (optional but recommended)
+        if verify:
+            return await self.wait_until_orders_cleared(symbol, timeout=3.0)
+        
+        return True
+
 
 
     async def execute_close_position(self, symbol: str) -> Tuple[bool, str]:
@@ -889,16 +967,16 @@ class AsyncTradingSession:
             return False, "No valid session."
         
         try:
-            # Cancel ALL orders (Standard + Algo)
-            # Retry up to 3 times
+            # 1. Cancel ALL orders BEFORE closing (Standard + Algo)
+            # Use verify=False here since we'll verify at the end
             for _ in range(3):
                 try:
-                    await self._cancel_all_robust(symbol)
+                    await self._cancel_all_robust(symbol, verify=False)
                     break
                 except Exception as e:
                     await asyncio.sleep(0.5)
             
-            # Get position
+            # 2. Get position
             positions = await self.client.futures_position_information(symbol=symbol)
             qty = 0.0
             for p in positions:
@@ -907,9 +985,11 @@ class AsyncTradingSession:
                     break
             
             if qty == 0:
+                # No position, but ensure all orders are cleared
+                await self.wait_until_orders_cleared(symbol, timeout=2.0)
                 return True, f"⚠️ No position found for {symbol}, orders canceled."
             
-            # Close (Retry Logic)
+            # 3. Close position (Retry Logic)
             side = 'SELL' if qty > 0 else 'BUY'
             
             for attempt in range(1, 4):
@@ -926,10 +1006,12 @@ class AsyncTradingSession:
                             continue
                     raise e
             
-            # Double check algo orders are gone (post-close cleanup)
-            # Sometimes closing triggers new algo fills if not fast enough, 
-            # so we cancel again to be safe.
-            await self._cancel_all_robust(symbol)
+            # 4. FINAL CLEANUP: Ensure all orders (including algo) are gone
+            # Sometimes closing triggers new algo fills, so cancel again with verification
+            cleared = await self._cancel_all_robust(symbol, verify=True)
+            
+            if not cleared:
+                print(f"⚠️ {symbol}: Some orders may remain after close")
             
             return True, f"✅ Closed {symbol} ({qty})."
             
