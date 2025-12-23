@@ -11,6 +11,7 @@ pyTelegramBotAPI
 # Data
 yfinance
 pandas
+mplfinance
 
 # Utilities
 python-dotenv
