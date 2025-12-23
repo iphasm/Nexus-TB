@@ -36,13 +36,32 @@ class MarketStream:
             'ADA': '1h',   # Grid/Swing
             'default': '15m'
         }
+        self.alpaca = None
 
     async def initialize(self):
         """Load markets"""
         try:
             print(f"🔌 Connecting to {self.exchange_id}...")
             await self.exchange.load_markets()
+            print(f"🔌 Connecting to {self.exchange_id}...")
+            await self.exchange.load_markets()
             print(f"✅ Connected to {self.exchange_id} (Async).")
+            
+            # Initialize Alpaca Stream (Single Instance)
+            import os
+            alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
+            alpaca_secret = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
+            
+            if alpaca_key and alpaca_secret:
+                try:
+                    from .alpaca_stream import AlpacaStream
+                    self.alpaca = AlpacaStream(api_key=alpaca_key, api_secret=alpaca_secret)
+                    await self.alpaca.initialize()
+                    # Message printed by AlpacaStream.initialize()
+                except Exception as ex:
+                    print(f"⚠️ Alpaca Stream Init Failed: {ex}")
+            else:
+                self.alpaca = None
         except Exception as e:
             print(f"❌ Connection Failed: {e}")
 
@@ -112,21 +131,13 @@ class MarketStream:
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
                 # Skip if US market is closed (avoid unnecessary API calls)
                 if not is_us_market_open():
-                    # Return empty data silently (market closed is expected, not an error)
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A", "market_closed": True}
                 
-                # Delegate to AlpacaStream
-                from .alpaca_stream import AlpacaStream
-                alpaca_key = os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
-                alpaca_secret = os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
-                
-                if not alpaca_key or not alpaca_secret:
-                    print(f"⚠️ Alpaca keys missing - cannot fetch {symbol}")
+                if not self.alpaca:
+                    # Silent fail if no keys (logged at init)
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
                 
-                alpaca = AlpacaStream(api_key=alpaca_key, api_secret=alpaca_secret)
-                await alpaca.initialize()
-                return await alpaca.get_candles(symbol, limit) # alpaca get_candles might not support timeframe override yet, keeping simple
+                return await self.alpaca.get_candles(symbol, limit)
         except Exception as e:
             print(f"⚠️ Alpaca routing error for {symbol}: {e}")
             return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
@@ -141,8 +152,9 @@ class MarketStream:
         
         try:
             # 2. Fetch (Async)
-            # NOTE: Binance USDM Futures uses symbols WITHOUT slash (e.g., BTCUSDT not BTC/USDT)
-            ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
+            formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
+            ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)
             
             # 3. Parse to DataFrame
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -210,7 +222,8 @@ class MarketStream:
         Fetches a large dataset for backtesting using pagination.
         """
         timeframe = self.tf_map.get(symbol.split('USDT')[0], '15m')
-        # NOTE: Binance USDM Futures uses symbols WITHOUT slash (e.g., BTCUSDT not BTC/USDT)
+        # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
+        formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
         
         # Calculate start time
         now = pd.Timestamp.now()
@@ -224,7 +237,7 @@ class MarketStream:
         
         for _ in range(10): # Safety limit 10 pages
             try:
-                ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, since=current_since, limit=1000)
+                ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, since=current_since, limit=1000)
                 if not ohlcv:
                     break
                 
