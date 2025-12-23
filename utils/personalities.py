@@ -571,7 +571,7 @@ class PersonalityManager:
         },
 
         'KURTZ': {
-            'NAME': "🌴 Coronel Kurtz",
+            'NAME': "Coronel Kurtz 👴🏻",
             'GREETING': [
                 "Estás en el río ahora. No puedes bajarte del barco.",
                 "Huelo a napalm por la mañana.",
