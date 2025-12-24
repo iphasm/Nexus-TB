@@ -25,6 +25,15 @@ data/sessions.json
 *.log
 backtest_results.txt
 
+# ML Model (too large for GitHub, regenerate with train_ml_model.py)
+antigravity_quantum/data/ml_model.pkl
+*.pkl
+
+# Test outputs
+test_output.txt
+test_live_output.txt
+training_output.txt
+
 # OS
 .DS_Store
 Thumbs.db

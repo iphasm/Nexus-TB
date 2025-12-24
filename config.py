@@ -15,7 +15,7 @@ ASSET_GROUPS = {
         # Memes & AI
         'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
         'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
-        'BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
+        '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
         # DeFi
         'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT'
     ],
@@ -57,7 +57,7 @@ TICKER_MAP = {
     'DOGEUSDT': '🐶 Dogecoin',
     '1000SHIBUSDT': '🐕‍🦺 Shiba Inu',
     'SUIUSDT': '💧 Sui',
-    'BONKUSDT': '🦴 Bonk',
+    '1000BONKUSDT': '🦴 Bonk',
     '1000FLOKIUSDT': '🐕 Floki',
     # AI & Tech
     'RENDERUSDT': '🖼️ Render',
