@@ -13,7 +13,7 @@ load_dotenv()
 async def test_alpaca_fetch():
     print("🧪 Starting Alpaca Data Fetch Test...")
     
-    from antigravity_quantum.data.stream import MarketStream
+    from antigravity_quantum.streams.stream import MarketStream
     stream = MarketStream()
     
     # Inject keys manually or via env

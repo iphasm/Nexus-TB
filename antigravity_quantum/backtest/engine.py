@@ -2,7 +2,7 @@ import asyncio
 import pandas as pd
 from typing import Dict, List
 from ..strategies.factory import StrategyFactory
-from ..data.stream import MarketStream
+from ..streams.stream import MarketStream
 
 class BacktestEngine:
     def __init__(self, assets: List[str], initial_capital: float = 1000.0, days: int = 30):

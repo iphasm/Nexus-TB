@@ -1,7 +1,7 @@
 import asyncio
 from ..strategies.factory import StrategyFactory
 from ..risk.manager import RiskManager
-from ..data.stream import MarketStream
+from ..streams.stream import MarketStream
 from ..config import DISABLED_ASSETS
 
 class QuantumEngine:

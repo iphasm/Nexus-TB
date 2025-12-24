@@ -660,16 +660,6 @@ async def main():
     
     if USE_QUANTUM_ENGINE:
         try:
-            # DEBUG: Check if the module file exists
-            import os as _os
-            _stream_path = _os.path.join('antigravity_quantum', 'data', 'stream.py')
-            _init_path = _os.path.join('antigravity_quantum', 'data', '__init__.py')
-            logger.info(f"🔍 DEBUG: stream.py exists: {_os.path.exists(_stream_path)}")
-            logger.info(f"🔍 DEBUG: data/__init__.py exists: {_os.path.exists(_init_path)}")
-            logger.info(f"🔍 DEBUG: Current working dir: {_os.getcwd()}")
-            logger.info(f"🔍 DEBUG: antigravity_quantum/ contents: {_os.listdir('antigravity_quantum') if _os.path.isdir('antigravity_quantum') else 'NOT FOUND'}")
-            logger.info(f"🔍 DEBUG: antigravity_quantum/data/ contents: {_os.listdir('antigravity_quantum/data') if _os.path.isdir('antigravity_quantum/data') else 'NOT FOUND'}")
-            
             from antigravity_quantum.core.engine import QuantumEngine
             
             # --- KEY INJECTION FIX ---
