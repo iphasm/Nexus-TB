@@ -181,7 +181,7 @@ async def cmd_retrain(message: Message):
         
         stdout, stderr = await asyncio.wait_for(
             process.communicate(), 
-            timeout=600  # 10 min max
+            timeout=6000  # 100 min max
         )
         
         if process.returncode == 0:
