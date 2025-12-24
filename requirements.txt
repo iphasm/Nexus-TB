@@ -27,3 +27,7 @@ APScheduler>=3.10.0
 
 # Database
 psycopg2-binary
+
+# ML
+scikit-learn
+joblib

@@ -113,3 +113,30 @@ async def cmd_subs(message: Message):
         msg += f"🆔 `{s['id']}` | {s['name']} | ⏳ {expiry}\n"
         
     await message.answer(msg, parse_mode="Markdown")
+
+import antigravity_quantum.config as qconfig
+
+@router.message(Command("ml_mode"))
+@admin_only
+async def cmd_ml_mode(message: Message):
+    """
+    Activa o desactiva el módulo de clasificación por Machine Learning.
+    """
+    args = message.text.split()
+    if len(args) < 2:
+        state = "✅ ACTIVADO" if qconfig.ML_CLASSIFIER_ENABLED else "❌ DESACTIVADO"
+        model_exists = "📦 (Modelo Encontrado)" if os.path.exists(os.path.join(os.getcwd(), 'antigravity_quantum', 'data', 'ml_model.pkl')) else "⚠️ (Modelo NO Encontrado)"
+        
+        await message.answer(f"🤖 **Estado ML Classifier**: {state} {model_exists}\n\nUso: `/ml_mode [on/off]`")
+        return
+
+    mode = args[1].lower()
+    if mode == 'on':
+        qconfig.ML_CLASSIFIER_ENABLED = True
+        await message.answer("🧠 **ML Classifier ACTIVADO**\nEl bot intentará usar el modelo predictivo para seleccionar estrategias.\n_Nota: Si no hay modelo, usará fallback a lógica clásica._")
+    elif mode == 'off':
+        qconfig.ML_CLASSIFIER_ENABLED = False
+        await message.answer("🛑 **ML Classifier DESACTIVADO**\nEl bot usará exclusivamente la lógica clásica basada en reglas.")
+    else:
+        await message.answer("⚠️ Uso: `/ml_mode [on/off]`")
+

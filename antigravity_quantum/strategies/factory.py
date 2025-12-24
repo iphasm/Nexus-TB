@@ -26,7 +26,22 @@ class StrategyFactory:
             market_data: Dictionary containing 'dataframe' with technical indicators
         """
         # 1. Classify Regime Logic
-        regime_result = MarketClassifier.classify(market_data)
+        regime_result = None
+        
+        # A. ML Classifier (If Enabled)
+        if qconfig.ML_CLASSIFIER_ENABLED:
+            try:
+                from .ml_classifier import MLClassifier
+                regime_result = MLClassifier.classify(market_data)
+                if regime_result:
+                    # Optional: Log usage
+                    pass
+            except Exception as e:
+                print(f"⚠️ ML Classifier Failed: {e}")
+        
+        # B. Fallback to Rule-Based if ML disabled or failed
+        if regime_result is None:
+            regime_result = MarketClassifier.classify(market_data)
         
         # 2. Assign Strategy based on Regime
         strategy = None
@@ -57,7 +72,8 @@ class StrategyFactory:
                 # Absolute panic fallback if MeanReversion is disabled too (Unlikely)
                 strategy = MeanReversionStrategy()
                 
-        # Optional: Attach regime metdata to strategy for logging?
-        # strategy.regime_meta = regime_result 
+        # Attach regime metdata to strategy for logging
+        if strategy and regime_result:
+             strategy.regime_meta = regime_result
         
         return strategy

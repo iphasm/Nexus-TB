@@ -1,4 +1,4 @@
-# Antigravity Bot v3.3.2 🚀
+# Antigravity Bot v4.0 🚀
 
 **Advanced Hedge Fund-Grade Trading Bot** combining Multi-Timeframe (MTF) analysis, institutional strategies (Squeeze, Velocity, Mean Reversion), and robust risk management. Now with **Quantum Engine** and **Alpaca** integration.
 

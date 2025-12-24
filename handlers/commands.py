@@ -108,7 +108,7 @@ async def cmd_start(message: Message, **kwargs):
     if session:
         ai_enabled = session.config.get('sentiment_filter', True)
     ai_status = "🟢" if ai_enabled else "🔴"
-    ai_header_suffix = " + ✨ AI Filter" if ai_enabled else ""
+    ai_header_suffix = " ✨" if ai_enabled else ""
 
     # 4. Message Content (Custom Layout)
     from utils.personalities import PersonalityManager
@@ -159,7 +159,7 @@ async def cmd_start(message: Message, **kwargs):
         # Settings
         [
             InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
-            InlineKeyboardButton(text=f"🧠 AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
+            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
         ],
         # Info
         [
@@ -180,7 +180,7 @@ async def menu_modes(callback: CallbackQuery, **kwargs):
     """Sub-menu for Mode Selection"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
-        [InlineKeyboardButton(text="👨‍✈️ COPILOT (Semi)", callback_data="CMD|copilot")],
+        [InlineKeyboardButton(text="👨‍✈️ COPILOT (Asist.)", callback_data="CMD|copilot")],
         [InlineKeyboardButton(text="👀 WATCHER (Alertas)", callback_data="CMD|watcher")],
         [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
     ])
@@ -301,6 +301,7 @@ async def cmd_help(message: Message):
         "• /pilot - Trading 100% autónomo\n"
         "• /copilot - Trading asistido (Confirmación)\n"
         "• /watcher - Solo alertas y monitorización\n"
+        "• /resetpilot - Reiniciar Circuit Breaker\n\n"
         "• /mode PRESET - Cambio riesgo (Ronin/Guardian/Quantum)\n\n"
         
         "⚙️ *CONFIGURACIÓN*\n"
@@ -314,7 +315,6 @@ async def cmd_help(message: Message):
         "• /set\\_binance - API Keys Binance\n"
         "• /set\\_alpaca - API Keys Alpaca\n"
         "• /delete\\_keys - Borrar sesión y llaves\n"
-        "• /resetpilot - Reiniciar Circuit Breaker\n\n"
         
         "💹 *TRADING MANUAL*\n"
         "• /long SYMBOL - Abrir LONG\n"

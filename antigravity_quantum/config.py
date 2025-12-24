@@ -62,3 +62,8 @@ DISABLED_ASSETS = set()
 
 # Global Settings
 USE_QUANTUM_ENGINE = True
+
+# --- ML CLASSIFIER MODULE ---
+# When ON: Uses scikit-learn model to predict best strategy
+# Requires trained model in data/ml_model.pkl
+ML_CLASSIFIER_ENABLED = False
