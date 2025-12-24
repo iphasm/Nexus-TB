@@ -45,6 +45,11 @@ if not os.path.exists(ML_MODEL_PATH):
 else:
     print(f"✅ ML Model found: {ML_MODEL_PATH}")
 
+# --- SUPPRESS NOISY WARNINGS ---
+import warnings
+warnings.filterwarnings('ignore', message='.*sklearn.utils.parallel.delayed.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+
 # --- CONFIGURATION ---
 # Set up logging (stream to stdout so Railway doesn't show as red/error)
 logging.basicConfig(
