@@ -140,3 +140,91 @@ async def cmd_ml_mode(message: Message):
     else:
         await message.answer("⚠️ Uso: `/ml_mode [on/off]`")
 
+
+@router.message(Command("retrain"))
+@owner_only
+async def cmd_retrain(message: Message):
+    """
+    Fuerza el reentrenamiento del modelo ML.
+    Solo disponible para el owner. Operación pesada (~3-5 min).
+    """
+    import subprocess
+    import sys
+    import asyncio
+    
+    await message.answer(
+        "🧠 **REENTRENAMIENTO ML INICIADO**\n\n"
+        "⏳ Este proceso toma ~3-5 minutos.\n"
+        "📊 Se elimina el modelo anterior y entrena uno nuevo.\n\n"
+        "_Recibirás un mensaje cuando termine..._"
+    )
+    
+    model_path = os.path.join(os.getcwd(), 'antigravity_quantum', 'data', 'ml_model.pkl')
+    
+    # 1. Delete old model
+    if os.path.exists(model_path):
+        try:
+            os.remove(model_path)
+            await message.answer("🗑️ Modelo anterior eliminado.")
+        except Exception as e:
+            await message.answer(f"⚠️ No se pudo eliminar modelo: {e}")
+    
+    # 2. Run training in background
+    try:
+        # Run training script asynchronously
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, 'train_ml_model.py',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=os.getcwd()
+        )
+        
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(), 
+            timeout=600  # 10 min max
+        )
+        
+        if process.returncode == 0:
+            # Parse output for key stats
+            output = stdout.decode('utf-8', errors='ignore')
+            
+            # Extract accuracy from output
+            accuracy = "N/A"
+            if "accuracy" in output.lower():
+                for line in output.split('\n'):
+                    if "accuracy" in line.lower() and "0." in line:
+                        parts = line.split()
+                        for p in parts:
+                            try:
+                                val = float(p)
+                                if 0 < val < 1:
+                                    accuracy = f"{val:.1%}"
+                                    break
+                            except:
+                                pass
+            
+            await message.answer(
+                "✅ **REENTRENAMIENTO COMPLETADO**\n\n"
+                f"📦 Modelo guardado en: `ml_model.pkl`\n"
+                f"📊 Accuracy: {accuracy}\n\n"
+                "🔄 El nuevo modelo ya está activo."
+            )
+            
+            # Force reload of model
+            try:
+                from antigravity_quantum.strategies.ml_classifier import MLClassifier
+                MLClassifier._model_loaded = False
+                MLClassifier._model = None
+                MLClassifier.load_model()
+            except:
+                pass
+                
+        else:
+            error_msg = stderr.decode('utf-8', errors='ignore')[-500:]
+            await message.answer(f"❌ **ERROR EN ENTRENAMIENTO**\n\n```\n{error_msg}\n```")
+            
+    except asyncio.TimeoutError:
+        await message.answer("❌ **TIMEOUT**: El entrenamiento tardó más de 10 minutos.")
+    except Exception as e:
+        await message.answer(f"❌ **ERROR**: {e}")
+
