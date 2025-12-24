@@ -39,10 +39,11 @@ class MLClassifier:
             pass
 
     @staticmethod
-    def _extract_features(df: pd.DataFrame) -> Optional[np.ndarray]:
+    def _extract_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
         """
         Extracts features from the dataframe for the model.
         MUST match the training feature set (v3.0 - 15 features).
+        Returns DataFrame with named columns to avoid sklearn warning.
         """
         if df is None or df.empty or len(df) < 26:
             return None
@@ -111,19 +112,30 @@ class MLClassifier:
             above_ema200 = 1 if close > ema_200 else 0
             ema_cross = 1 if ema_9 > ema_20 else 0
             
-            # Feature Vector - MUST MATCH TRAINING ORDER
-            features = np.array([[
+            # Feature names MUST match training order
+            feature_names = [
+                'rsi', 'adx', 'atr_pct', 'trend_str', 'vol_change',
+                'macd_hist_norm', 'bb_pct', 'bb_width',
+                'roc_5', 'roc_10', 'obv_change',
+                'price_position', 'body_pct',
+                'above_ema200', 'ema_cross'
+            ]
+            
+            feature_values = [
                 rsi, adx, atr_pct, trend_str, vol_change,
                 macd_hist_norm, bb_pct, bb_width,
                 roc_5, roc_10, obv_change,
                 price_position, body_pct,
                 above_ema200, ema_cross
-            ]])
+            ]
+            
+            # Return as DataFrame with named columns (fixes sklearn warning)
+            features_df = pd.DataFrame([feature_values], columns=feature_names)
             
             # Replace NaNs and Infs
-            features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
+            features_df = features_df.replace([np.inf, -np.inf], 0).fillna(0)
             
-            return features
+            return features_df
             
         except Exception as e:
             print(f"⚠️ ML Feature Extraction Error: {e}")
