@@ -22,6 +22,29 @@ from utils.db import get_user_name
 # Load Environment Variables
 load_dotenv()
 
+# --- AUTO-TRAIN ML MODEL IF MISSING ---
+# This ensures the ML model exists on Railway's persistent volume
+ML_MODEL_PATH = os.path.join('antigravity_quantum', 'data', 'ml_model.pkl')
+if not os.path.exists(ML_MODEL_PATH):
+    print("🧠 ML Model not found! Auto-training...")
+    print("   This may take 2-3 minutes on first deploy.")
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, 'train_ml_model.py'],
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 min max
+        )
+        if result.returncode == 0:
+            print("✅ ML Model trained and saved successfully!")
+        else:
+            print(f"⚠️ ML Training failed: {result.stderr[-500:]}")
+    except Exception as e:
+        print(f"⚠️ ML Auto-training error: {e}")
+else:
+    print(f"✅ ML Model found: {ML_MODEL_PATH}")
+
 # --- CONFIGURATION ---
 # Set up logging (stream to stdout so Railway doesn't show as red/error)
 logging.basicConfig(
