@@ -158,8 +158,7 @@ async def cmd_start(message: Message, **kwargs):
         ],
         # Settings
         [
-            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
-            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER") 
+            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
         ],
         # Info
         [

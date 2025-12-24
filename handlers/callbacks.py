@@ -329,9 +329,31 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
         await callback.answer(f"🧠 AI Filter {status}")
         
-        # Refresh /start menu
-        from handlers.commands import cmd_start
-        await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
+
+    # Special case: ML_MODE toggle
+    if strategy == "ML_MODE":
+        import antigravity_quantum.config as aq_config
+        current = aq_config.ML_CLASSIFIER_ENABLED
+        new_state = not current
+        aq_config.ML_CLASSIFIER_ENABLED = new_state
+        
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        
+        # Check model existence warning
+        import os
+        model_path = os.path.join("antigravity_quantum", "data", "ml_model.pkl")
+        if new_state and not os.path.exists(model_path):
+             status += " (⚠️ Sin Modelo)"
+             
+        await callback.answer(f"🤖 ML Mode {status}")
+        
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
         return
 
     # Special case: PREMIUM SIGNALS toggle

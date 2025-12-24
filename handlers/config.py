@@ -50,6 +50,17 @@ async def cmd_config(message: Message, **kwargs):
     cb_enabled = session.config.get('circuit_breaker_enabled', True) if session else True
     cb_status = "🟢 ON" if cb_enabled else "🔴 OFF"
     
+    # ML Classifier Status (Global)
+    try:
+        from antigravity_quantum.config import ML_CLASSIFIER_ENABLED
+        ml_status = "🟢 ON" if ML_CLASSIFIER_ENABLED else "🔴 OFF"
+    except ImportError:
+        ml_status = "❓ N/A"
+
+    # AI Filter Status (Session)
+    ai_enabled = session.config.get('sentiment_filter', True) if session else True
+    ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
+    
     # Build keyboard (v4 Clean)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -61,8 +72,12 @@ async def cmd_config(message: Message, **kwargs):
             InlineKeyboardButton(text=f"💰 Margin: {margin:.0f}%", callback_data="CFG|MARGIN_MENU")
         ],
         [
+            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER"),
+            InlineKeyboardButton(text=f"🧠 ML Mode [{ml_status}]", callback_data="TOGGLE|ML_MODE")
+        ],
+        [
             InlineKeyboardButton(text=f"🔌 Circuit Breaker [{cb_status}]", callback_data="TOGGLE|CIRCUIT_BREAKER"),
-            InlineKeyboardButton(text="🧠 Personalidad", callback_data="CMD|personality")
+            InlineKeyboardButton(text="🧩 Personalidad", callback_data="CMD|personality")
         ],
         [
             InlineKeyboardButton(text="⬅️ Volver al Hub", callback_data="CMD|start")
