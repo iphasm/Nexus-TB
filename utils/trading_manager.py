@@ -1884,6 +1884,7 @@ class AsyncTradingSession:
             # Get account
             acct = self.alpaca_client.get_account()
             equity = float(acct.equity)
+            buying_power = float(acct.buying_power)
             
             # Get price
             ticker = yf.Ticker(symbol)
@@ -1924,6 +1925,11 @@ class AsyncTradingSession:
             qty = risk_amt / dist_to_stop
             
             max_alloc = equity * 0.20
+            
+            # Cap at Buying Power (leave 2% buffer for fees/fluctuation)
+            if max_alloc > (buying_power * 0.98):
+                max_alloc = buying_power * 0.98
+                
             if (qty * current_price) > max_alloc:
                 qty = max_alloc / current_price
             
@@ -1959,6 +1965,9 @@ class AsyncTradingSession:
             )
             
         except Exception as e:
+            error_str = str(e)
+            if "insufficient buying power" in error_str:
+                return False, f"❌ Alpaca: Insufficient Buying Power (BP: {getattr(acct, 'buying_power', 'N/A')})"
             return False, f"Alpaca Error: {e}"
 
     # --- RESTORED METHODS FROM SYNC ---
