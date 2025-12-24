@@ -67,14 +67,28 @@ class AlpacaStream:
             import asyncio
             loop = asyncio.get_event_loop()
             bars = await loop.run_in_executor(None, self.client.get_stock_bars, request)
-            print(f"✅ AlpacaStream: Received {len(bars.get(symbol, []))} bars for {symbol}")
             
-            if symbol not in bars or len(bars[symbol]) == 0:
+            # BarSet can be accessed like bars[symbol] or bars.data[symbol]
+            # Handle both dict-like and object-like access patterns
+            symbol_bars = None
+            try:
+                # Try direct index access (newer alpaca-py versions)
+                if hasattr(bars, 'data') and symbol in bars.data:
+                    symbol_bars = bars.data[symbol]
+                elif symbol in bars:
+                    symbol_bars = bars[symbol]
+            except (TypeError, KeyError):
+                pass
+            
+            if not symbol_bars or len(symbol_bars) == 0:
+                print(f"⚠️ AlpacaStream: No bars returned for {symbol}")
                 return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "15m"}
+            
+            print(f"✅ AlpacaStream: Received {len(symbol_bars)} bars for {symbol}")
             
             # Convert to DataFrame
             data = []
-            for bar in bars[symbol]:
+            for bar in symbol_bars:
                 data.append({
                     'timestamp': bar.timestamp,
                     'open': float(bar.open),
