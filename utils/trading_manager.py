@@ -363,6 +363,92 @@ class AsyncTradingSession:
                 raise e
         raise Exception("Max retries exceeded")
 
+    async def get_open_algo_orders(self, symbol: str) -> list:
+        """
+        Fetch open algo orders (conditional orders like SL/TP/Trailing).
+        Binance uses futures_get_open_orders for both standard and algo orders.
+        """
+        try:
+            if not self.client:
+                return []
+            
+            # Binance Futures API returns all open orders including conditional ones
+            orders = await self.client.futures_get_open_orders(symbol=symbol)
+            
+            # Filter for algo-type orders (conditional orders)
+            algo_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 
+                         'STOP', 'TAKE_PROFIT', 'TRAILING_STOP']
+            algo_orders = [o for o in orders if o.get('type') in algo_types]
+            
+            return algo_orders
+        except Exception as e:
+            print(f"⚠️ Error fetching algo orders for {symbol}: {e}")
+            return []
+
+    async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
+        """
+        Robustly cancel all open orders for a symbol (standard + algo).
+        
+        Anti-Accumulation Logic:
+        1. Fetch all open orders
+        2. Cancel each order individually
+        3. Verify no orders remain (optional)
+        4. Clear tracked algo orders
+        
+        Returns: True if all orders cleared, False if some remain
+        """
+        if not self.client:
+            return True  # No client means no orders
+            
+        try:
+            # 1. Get all open orders
+            all_orders = await self.client.futures_get_open_orders(symbol=symbol)
+            
+            if not all_orders:
+                # Clear tracking dict
+                if symbol in self.active_algo_orders:
+                    del self.active_algo_orders[symbol]
+                return True
+                
+            print(f"🧹 {symbol}: Cancelling {len(all_orders)} existing orders...")
+            
+            # 2. Cancel each order
+            cancelled_count = 0
+            for order in all_orders:
+                try:
+                    order_id = order.get('orderId')
+                    if order_id:
+                        await self.client.futures_cancel_order(
+                            symbol=symbol, 
+                            orderId=order_id
+                        )
+                        cancelled_count += 1
+                except Exception as e:
+                    # Order might already be filled/cancelled
+                    if '-2011' not in str(e):  # Unknown order
+                        print(f"⚠️ Cancel failed for order {order_id}: {e}")
+                        
+            print(f"✅ {symbol}: Cancelled {cancelled_count}/{len(all_orders)} orders")
+            
+            # 3. Clear tracked algo orders
+            if symbol in self.active_algo_orders:
+                del self.active_algo_orders[symbol]
+            
+            # 4. Verify (optional, adds latency)
+            if verify:
+                await asyncio.sleep(0.3)  # Small delay for order state to propagate
+                remaining = await self.client.futures_get_open_orders(symbol=symbol)
+                if remaining:
+                    print(f"⚠️ {symbol}: {len(remaining)} orders still remain after cancel")
+                    return False
+                    
+            return True
+            
+        except Exception as e:
+            print(f"❌ _cancel_all_robust error for {symbol}: {e}")
+            return False
+
+
     async def _place_conditional_with_tracking(
         self, symbol: str, order_type: str, side: str, 
         quantity: float, stop_price: float, **kwargs
