@@ -411,7 +411,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
                     # Only log errors, don't spam user with cooldown messages
-                    ignore_phrases = ["Wait", "cooldown", "duplicate"]
+                    ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized"]
                     
                     # Special handling for "Insufficient capital" (Min Notional)
                     if "Insufficient capital" in result:
