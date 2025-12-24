@@ -63,7 +63,11 @@ class AlpacaStream:
                 feed="iex"  # Use IEX feed (free tier) instead of SIP (paid)
             )
             
-            bars = self.client.get_stock_bars(request)
+            print(f"📡 AlpacaStream: Requesting bars for {symbol}...")
+            import asyncio
+            loop = asyncio.get_event_loop()
+            bars = await loop.run_in_executor(None, self.client.get_stock_bars, request)
+            print(f"✅ AlpacaStream: Received {len(bars.get(symbol, []))} bars for {symbol}")
             
             if symbol not in bars or len(bars[symbol]) == 0:
                 return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "15m"}
