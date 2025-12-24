@@ -341,6 +341,13 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         new_state = not current
         aq_config.ML_CLASSIFIER_ENABLED = new_state
         
+        # Persist to DB
+        from utils.db import save_bot_state
+        from config import GROUP_CONFIG
+        gc_copy = dict(GROUP_CONFIG)
+        gc_copy['_ML_CLASSIFIER'] = new_state  # Store ML flag
+        save_bot_state(aq_config.ENABLED_STRATEGIES, gc_copy, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED)
+        
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
         
         # Check model existence warning

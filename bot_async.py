@@ -472,13 +472,17 @@ async def main():
             if bot_state.get('enabled_strategies'):
                 ENABLED_STRATEGIES.update(bot_state['enabled_strategies'])
             
-            # 2. Group Config (check for embedded AI_FILTER)
+            # 2. Group Config (check for embedded AI_FILTER and ML_CLASSIFIER)
             if bot_state.get('group_config'):
                 gc = bot_state['group_config']
                 
                 # Extract AI Filter state if present
                 if '_AI_FILTER' in gc:
                     aq_config.AI_FILTER_ENABLED = gc.pop('_AI_FILTER')
+                
+                # Extract ML Classifier state if present
+                if '_ML_CLASSIFIER' in gc:
+                    aq_config.ML_CLASSIFIER_ENABLED = gc.pop('_ML_CLASSIFIER')
                 
                 GROUP_CONFIG.update(gc)
                 
@@ -491,7 +495,7 @@ async def main():
                     for asset in assets:
                          DISABLED_ASSETS.add(asset)
             
-            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, {len(GROUP_CONFIG)} groups, AI Filter: {aq_config.AI_FILTER_ENABLED}")
+            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, AI Filter: {aq_config.AI_FILTER_ENABLED}, ML Mode: {aq_config.ML_CLASSIFIER_ENABLED}")
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")

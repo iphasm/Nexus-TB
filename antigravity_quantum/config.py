@@ -54,7 +54,7 @@ RISK_PER_TRADE_PCT = 0.01
 # Specific targets for Black Swan Defense (SharkSentinel)
 SHARK_TARGETS = [
     '1000PEPEUSDT', 'WIFUSDT', 'SOLUSDT', 'SUIUSDT', 
-    'BONKUSDT', 'FLOKIUSDT', 'DOGEUSDT'
+    '1000BONKUSDT', '1000FLOKIUSDT', 'DOGEUSDT'
 ]
 
 # Runtime Blacklist (Global - applies to main scanner)
