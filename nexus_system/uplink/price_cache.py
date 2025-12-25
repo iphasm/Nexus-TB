@@ -165,18 +165,29 @@ class PriceCache:
             candles: List of candle dicts (oldest first)
         """
         with self._lock:
+            # Normalize timestamps to integers for comparison
+            def normalize_ts(ts):
+                if ts is None:
+                    return 0
+                if hasattr(ts, 'timestamp'):  # pandas Timestamp
+                    return int(ts.timestamp() * 1000)
+                if isinstance(ts, (int, float)):
+                    return int(ts)
+                return 0
+            
             # Merge with existing, avoiding duplicates
-            existing_timestamps = {c.get('timestamp') for c in self._candles[symbol]}
+            existing_timestamps = {normalize_ts(c.get('timestamp')) for c in self._candles[symbol]}
             
             for candle in candles:
-                if candle.get('timestamp') not in existing_timestamps:
+                ts = normalize_ts(candle.get('timestamp'))
+                if ts not in existing_timestamps:
                     self._candles[symbol].append(candle)
-                    existing_timestamps.add(candle.get('timestamp'))
+                    existing_timestamps.add(ts)
             
-            # Sort by timestamp and trim
+            # Sort by timestamp (normalized) and trim
             self._candles[symbol] = sorted(
                 self._candles[symbol], 
-                key=lambda x: x.get('timestamp', 0)
+                key=lambda x: normalize_ts(x.get('timestamp'))
             )[-self.max_candles:]
             
             self._last_update[symbol] = datetime.now()
