@@ -748,16 +748,7 @@ async def main():
     except Exception as e:
         logger.error(f"❌ Failed to start Shark Sentinel: {e}")
 
-    # 8. Start Web Server (Docs Hosting)
-    try:
-        from servos.web_server import start_web_server
-        web_server = await start_web_server()
-        if web_server:
-            logger.info("🌍 Nexus Data Port (Web) is OPEN.")
-        else:
-            logger.warning("🌍 Nexus Data Port failed to open.")
-    except Exception as e:
-        logger.error(f"❌ Web Server Error: {e}")
+    # 8. Startup Message (Web Server removed - feature deprecated)
 
     # 9. Startup Message
     logger.info("🚀 Nexus Trading Bot (Model-7) starting...")
