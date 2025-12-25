@@ -59,19 +59,33 @@ class BinanceWSManager:
         return f"{self.BASE_URL}?streams={'/'.join(streams)}"
     
     async def connect(self) -> bool:
-        """Establish WebSocket connection."""
+        """Establish WebSocket connection (bypasses HTTP proxy)."""
         try:
             import websockets
+            import os
             
             url = self.build_stream_url()
             print(f"🔌 BinanceWS: Connecting to {len(self.symbols)} streams...")
             
-            self.ws = await websockets.connect(
-                url,
-                ping_interval=20,
-                ping_timeout=10,
-                close_timeout=5
-            )
+            # Temporarily bypass proxy for WebSocket
+            # HTTP proxies don't work with WebSocket, need direct connection
+            saved_proxies = {}
+            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'PROXY_URL']
+            for var in proxy_vars:
+                if var in os.environ:
+                    saved_proxies[var] = os.environ.pop(var)
+            
+            try:
+                self.ws = await websockets.connect(
+                    url,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=5
+                )
+            finally:
+                # Restore proxy settings
+                for var, val in saved_proxies.items():
+                    os.environ[var] = val
             
             self.running = True
             self._reconnect_attempts = 0
