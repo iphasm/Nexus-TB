@@ -125,7 +125,7 @@ class NexusCore:
                     # 6. Emit Signal
                     signal.strategy = strategy.name
                     signals_generated += 1
-                    print(f"💡 QUANTUM SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
+                    print(f"💡 NEXUS SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
                     
                     if self.signal_callback:
                         await self.signal_callback(signal)
