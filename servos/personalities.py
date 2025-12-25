@@ -463,12 +463,12 @@ class PersonalityManager:
             'NAME': "🕊🧑🏻‍🦳 Nexus-6 (Replicant)",
             'GREETING': [
                 "He visto **liquidaciones** que vosotros no creeríais...",
-                "Todos esos momentos se perderán en el tiempo.",
-                "Es hora de cerrar... o de operar.",
-                "No somos bots básicos, **{user_name}**. Somos Alpha.",
-                "He hecho cosas cuestionables... nada que el Dios de la Biomecánica no perdonaría.",
+                "Todos esos trades se perderán en el tiempo.",
+                "Es hora de cerrar... o ser liquidados.",
+                "No soy un bot básico, **{user_name}**. Soy un Nexus-6, un mejor trader que tu...",
+                "He hecho cosas cuestionables... nada que el mercado y los marketmakers no perdonarían.",
                 "Aceleración decrépita. Trato al mercado de la misma forma.",
-                "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
+                "El mercado cayó y la sangre se ha esparcido; un nuevo dip que debemos aprovechar."
             ],
             'WELCOME': [
                  (
