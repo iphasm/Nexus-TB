@@ -800,7 +800,7 @@ class AsyncTradingSession:
                         # Add HMA/BB if engine logic allows, but for now chart module does basics
                         img_path = generate_trade_chart(symbol, df, 'LONG', entry_price, sl_price, tp_price)
                         if img_path:
-                            success_msg += f"\n[IMAGE]: `{img_path}`"
+                            success_msg += f"\n[IMAGE]:{img_path}"
                 except Exception as e:
                     print(f"⚠️ Chart Gen Error: {e}")
                 
@@ -978,7 +978,7 @@ class AsyncTradingSession:
                     if df is not None:
                         img_path = generate_trade_chart(symbol, df, 'SHORT', entry_price, sl_price, tp_price)
                         if img_path:
-                            success_msg += f"\n[IMAGE]: `{img_path}`"
+                            success_msg += f"\n[IMAGE]:{img_path}"
                 except Exception as e:
                     print(f"⚠️ Chart Gen Error: {e}")
 
