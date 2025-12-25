@@ -1139,7 +1139,7 @@ async def cmd_long(message: Message, **kwargs):
 
     args = message.text.split()
     if len(args) < 2:
-        await message.reply("⚠️ Uso: `/long <SYMBOL>` (ej: `/long BTC`)", parse_mode="Markdown")
+        await message.reply("⚠️ Uso: /long <SYMBOL> (ej: /long BTC)")
         return
     
     # Smart Symbol Resolution
@@ -1148,7 +1148,7 @@ async def cmd_long(message: Message, **kwargs):
     symbol = resolve_symbol(raw_symbol)
     
     # Calculate ATR
-    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
+    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para {symbol}...")
     
     try:
         from servos.fetcher import get_market_data, calculate_atr
@@ -1157,9 +1157,9 @@ async def cmd_long(message: Message, **kwargs):
         df = get_market_data(symbol, timeframe='1h', limit=50)
         atr_value = calculate_atr(df, period=14)
         
-        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A, usando default)"
+        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A)"
         
-        await msg_wait.edit_text(f"🚀 Iniciando **LONG FUTURES** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
+        await msg_wait.edit_text(f"🚀 Iniciando LONG FUTURES en {symbol}{atr_msg}...")
         
         # Execute with ATR
         success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
@@ -1171,6 +1171,7 @@ async def cmd_long(message: Message, **kwargs):
             res_msg = parts[0].strip()
             img_path = parts[1].strip()
         
+        # Send result without parse_mode to avoid Markdown issues
         await message.reply(res_msg)
         
         # Send chart image
@@ -1185,7 +1186,6 @@ async def cmd_long(message: Message, **kwargs):
                     print(f"Failed to send chart photo: {e}")
         
     except Exception as e:
-        # No parse_mode to avoid any Markdown issues with error messages
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}")
 
 
@@ -1242,7 +1242,7 @@ async def cmd_short(message: Message, **kwargs):
 
     args = message.text.split()
     if len(args) < 2:
-        await message.reply("⚠️ Uso: `/short <SYMBOL>` (ej: `/short ETH`)", parse_mode="Markdown")
+        await message.reply("⚠️ Uso: /short <SYMBOL> (ej: /short ETH)")
         return
     
     # Smart Symbol Resolution
@@ -1251,7 +1251,7 @@ async def cmd_short(message: Message, **kwargs):
     symbol = resolve_symbol(raw_symbol)
     
     # Calculate ATR
-    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
+    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para {symbol}...")
     
     try:
         from servos.fetcher import get_market_data, calculate_atr
@@ -1260,9 +1260,9 @@ async def cmd_short(message: Message, **kwargs):
         df = get_market_data(symbol, timeframe='1h', limit=50)
         atr_value = calculate_atr(df, period=14)
         
-        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A, usando default)"
+        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A)"
         
-        await msg_wait.edit_text(f"🐻 Iniciando **SHORT** en `{symbol}`{atr_msg}...", parse_mode="Markdown")
+        await msg_wait.edit_text(f"🐻 Iniciando SHORT en {symbol}{atr_msg}...")
         
         # Execute with ATR
         success, res_msg = await session.execute_short_position(symbol, atr=atr_value)
