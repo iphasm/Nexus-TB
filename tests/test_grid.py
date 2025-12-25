@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import asyncio
-from antigravity_quantum.strategies.grid import GridTradingStrategy
+from nexus_system.cortex.grid import GridTradingStrategy
 
 @pytest.mark.asyncio
 async def test_grid_logic():
@@ -59,7 +59,7 @@ async def test_grid_params():
     strategy = GridTradingStrategy(ema_period=5)
     
     # Mock Signal
-    from antigravity_quantum.strategies.base import Signal
+    from nexus_system.cortex.base import Signal
     
     sig = Signal(
         symbol='BTC', action='BUY', confidence=0.8, price=100.0,

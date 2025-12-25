@@ -6,8 +6,8 @@ from typing import Dict, Any, Optional
 from .classifier import MarketClassifier, MarketRegime
 
 # Define paths to model artifacts
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'ml_model.pkl')
-SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'scaler.pkl')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
+SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'scaler.pkl')
 
 # Confidence threshold - below this, fallback to rule-based
 CONFIDENCE_THRESHOLD = 0.70
@@ -17,8 +17,8 @@ class MLClassifier:
     Advanced Classifier using Machine Learning (XGBoost) - v3.1
     
     Logic:
-    1. Loads pre-trained model from 'antigravity_quantum/data/ml_model.pkl'.
-    2. Loads scaler from 'antigravity_quantum/data/scaler.pkl'.
+    1. Loads pre-trained model from 'nexus_system/memory_archives/ml_model.pkl'.
+    2. Loads scaler from 'nexus_system/memory_archives/scaler.pkl'.
     3. Transforms market_data into feature vector and scales it.
     4. Predicts optimal strategy label with confidence threshold.
     5. Falls back to Rule-Based Classifier if model is missing, low confidence, or error.

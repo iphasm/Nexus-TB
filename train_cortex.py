@@ -22,13 +22,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import yfinance as yf
-from config import get_all_assets, is_crypto
+from system_directive import get_all_assets, is_crypto
 
 # Configuration
 SYMBOLS = get_all_assets()
 INTERVAL = '15m'
-MODEL_OUTPUT = os.path.join('antigravity_quantum', 'data', 'ml_model.pkl')
-SCALER_OUTPUT = os.path.join('antigravity_quantum', 'data', 'scaler.pkl')
+MODEL_OUTPUT = os.path.join('nexus_system', 'memory_archives', 'ml_model.pkl')
+SCALER_OUTPUT = os.path.join('nexus_system', 'memory_archives', 'scaler.pkl')
 
 # Strategy SL/TP configurations (matching real trading logic)
 STRATEGY_PARAMS = {
@@ -377,9 +377,15 @@ def label_data_v3(df):
 def train():
     all_data = []
     
-    print("=" * 60)
-    print("🧠 ML MODEL TRAINING v3.1 - XGBoost with Enhanced Features")
-    print("=" * 60)
+    # ANSI Colors
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    RESET = "\033[0m"
+
+    print(f"{CYAN}=" * 60)
+    print("🧠 NEXUS CORTEX TRAINING v3.1 - XGBoost with Enhanced Features")
+    print("=" * 60 + f"{RESET}")
     print(f"📊 Symbols: {len(SYMBOLS)}")
     print(f"⏰ Interval: {INTERVAL}")
     print()
@@ -393,9 +399,9 @@ def train():
             df = label_data_v3(df)
             if len(df) > 100:
                 all_data.append(df)
-                print(f"   ✓ {symbol}: {len(df)} samples")
+                print(f"   {GREEN}✓ {symbol}: {len(df)} samples{RESET}")
         except Exception as e:
-            print(f"   ✗ {symbol}: {e}")
+            print(f"   {RED}✗ {symbol}: {e}{RESET}")
             
     if not all_data:
         print("❌ No data collected.")

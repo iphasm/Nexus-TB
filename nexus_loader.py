@@ -1,8 +1,6 @@
 """
-Antigravity Bot - Async Entry Point
+Nexus Trading Bot (NTB) - System Loader
 Main bot application using aiogram 3.x with native async/await
-
-This replaces main.py for the async architecture migration.
 """
 
 import asyncio
@@ -17,33 +15,51 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import TelegramObject
 from dotenv import load_dotenv
-from utils.db import get_user_name
+from servos.db import get_user_name
 
 # Load Environment Variables
 load_dotenv()
 
-# --- AUTO-TRAIN ML MODEL IF MISSING ---
+# --- NEXUS BANNER ---
+def print_nexus_banner():
+    # ANSI Color Codes
+    CYAN = "\033[36m"
+    BLUE = "\033[94m"
+    RESET = "\033[0m"
+    
+    print(f"{CYAN}")
+    print(r"""
+    _   _______   ____  _______
+   / | / / ____| |  _ \|__   __|
+  /  |/ / __/    | |_) |  | |   
+ / /|  / /___    |  _ <   | |   
+/_/ |_/_____/    |_| \_\  |_|   
+     N E X U S   C O R E
+    """)
+    print(f"{BLUE}> SYSTEM INITIALIZED. LINK ESTABLISHED. AWAITING DIRECTIVES.{RESET}")
+
+# --- AUTO-TRAIN CORTEX (ML) IF MISSING ---
 # This ensures the ML model exists on Railway's persistent volume
-ML_MODEL_PATH = os.path.join('antigravity_quantum', 'data', 'ml_model.pkl')
+ML_MODEL_PATH = os.path.join('nexus_system', 'memory_archives', 'ml_model.pkl')
 if not os.path.exists(ML_MODEL_PATH):
-    print("🧠 ML Model not found! Auto-training...")
-    print("   This may take 2-3 minutes on first deploy.")
+    print("🧠 Cortex Model not found! Initializing training sequence...")
+    print("   This may take 2-3 minutes on first deployment.")
     try:
         import subprocess
         result = subprocess.run(
-            [sys.executable, 'train_ml_model.py'],
+            [sys.executable, 'train_cortex.py'],
             capture_output=True,
             text=True,
             timeout=600  # 10 min max
         )
         if result.returncode == 0:
-            print("✅ ML Model trained and saved successfully!")
+            print("✅ Cortex trained and synaptic weights saved successfully!")
         else:
-            print(f"⚠️ ML Training failed: {result.stderr[-500:]}")
+            print(f"⚠️ Cortex Training failed: {result.stderr[-500:]}")
     except Exception as e:
-        print(f"⚠️ ML Auto-training error: {e}")
+        print(f"⚠️ Cortex Auto-training error: {e}")
 else:
-    print(f"✅ ML Model found: {ML_MODEL_PATH}")
+    print(f"✅ Cortex Model found: {ML_MODEL_PATH}")
 
 # --- SUPPRESS NOISY WARNINGS ---
 import warnings
@@ -57,7 +73,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stdout
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('NTB_Loader')
 
 # Suppress noisy loggers
 logging.getLogger('httpx').setLevel(logging.WARNING)
@@ -70,7 +86,7 @@ TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 # --- DIAGNOSTICS: LOG ENV VARS (Masked) ---
 # Debugging Railway Env Var Issues
 _vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
-logger.info("🔧 ENVIRONMENT VARIABLE CHECK:")
+logger.info("🔧 SYSTEM DIRECTIVE CHECK (Env Vars):")
 for v in _vars_to_log:
     val = os.getenv(v, '').strip().strip("'\"")
     status = "✅ FOUND" if val else "❌ MISSING"
@@ -81,7 +97,7 @@ for v in _vars_to_log:
 
 
 # --- ASSET CONFIGURATION (Centralized) ---
-from config import ASSET_GROUPS, GROUP_CONFIG, get_all_assets, get_display_name
+from system_directive import ASSET_GROUPS, GROUP_CONFIG, get_all_assets, get_display_name
 
 
 # --- MIDDLEWARE ---
@@ -106,7 +122,7 @@ class SessionMiddleware(BaseMiddleware):
 
 
 # --- GATEKEEPER MIDDLEWARE (Auth) ---
-from utils.db import get_user_role
+from servos.db import get_user_role
 
 class GatekeeperMiddleware(BaseMiddleware):
     """
@@ -136,7 +152,7 @@ class GatekeeperMiddleware(BaseMiddleware):
             
             if not allowed:
                 # REJECTION LOGIC
-                logger.warning(f"⛔ Access Denied: {chat_id} ({user.first_name}) - Role: {role}")
+                logger.warning(f"⛔ Shield Protocol Activated: Access Denied for {chat_id} ({user.first_name}) - Role: {role}")
                 
                 # Get owner contact from env (username link preferred, fallback to chat_id)
                 owner_contact = os.getenv('OWNER_CONTACT', '').strip()
@@ -148,18 +164,18 @@ class GatekeeperMiddleware(BaseMiddleware):
                 if isinstance(event, Message) and event.chat.type == 'private':
                     try:
                         await event.answer(
-                            f"⛔ **ACCESO DENEGADO**\n\n"
-                            f"No tienes autorización para utilizar este Bot.\n\n"
-                            f"📋 **Tu ID:** `{chat_id}`\n"
-                            f"👤 **Owner:** {owner_contact}\n\n"
-                            f"_Contacta al Owner para solicitar acceso._",
+                            f"⛔ **SHIELD PROTOCOL: ACTIVE**\n\n"
+                            f"Acceso al Nexus System denegado.\n\n"
+                            f"📋 **ID de Unidad:** `{chat_id}`\n"
+                            f"👤 **Admin:** {owner_contact}\n\n"
+                            f"_Solicite autorización manual._",
                             parse_mode="Markdown"
                         )
                     except:
                         pass
                 elif isinstance(event, CallbackQuery):
                      try:
-                         await event.answer("⛔ Acceso Denegado", show_alert=True)
+                         await event.answer("⛔ Access Denied by Shield", show_alert=True)
                      except:
                          pass
                          
@@ -174,12 +190,12 @@ class GatekeeperMiddleware(BaseMiddleware):
 # --- SIGNAL DISPATCH ---
 
 # Global Personality Manager instance
-from utils.personalities import PersonalityManager
+from servos.personalities import PersonalityManager
 personality_manager = PersonalityManager()
 
 # === DYNAMIC COOLDOWN MANAGER ===
 # Intelligent per-symbol cooldown with frequency and volatility tracking
-from utils.cooldown_manager import DynamicCooldownManager
+from servos.cooldown_manager import DynamicCooldownManager
 import time
 
 cooldown_manager = DynamicCooldownManager(default_cooldown=300)  # 5 min default
@@ -206,11 +222,10 @@ STRATEGY_NAME_TO_CONFIG_KEY = {
     'SHARK': 'SHARK',
 }
 
-async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
+async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     """
-    Dispatch trading signals from QuantumEngine to all active sessions.
-    This runs in the same event loop as the bot.
-    Includes DYNAMIC TEMPORAL FILTER to prevent spam.
+    Dispatch trading signals from NexusCore to all active sessions.
+    The 'Synapse' dispatch system.
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
@@ -257,10 +272,10 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
     params_str = " | ".join(meta_params)
     reason = f"[{strategy} | Conf: {confidence:.0%} | {params_str}]"
     
-    logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy} -> Key: {strategy_config_key})")
+    logger.info(f"📡 Nexus Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy} -> Key: {strategy_config_key})")
     
     # Dispatch to all sessions
-    from config import ASSET_GROUPS
+    from system_directive import ASSET_GROUPS
     
     # Determine Asset Group
     asset_group = None
@@ -277,7 +292,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
         # --- FILTER: Strategy Enabled? ---
         # Use mapped config key instead of raw strategy name
         if not session.is_strategy_enabled(strategy_config_key):
-            logger.debug(f"  ⏭️ {session.chat_id}: Strategy {strategy_config_key} disabled")
+            logger.debug(f"  ⏭️ {session.chat_id}: Strategy {strategy_config_key} disabled in Synapse")
             continue
             
         # --- FILTER: Group Enabled? ---
@@ -298,8 +313,8 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
             
             # Fetch Personality Data
             profile = personality_manager.PROFILES.get(p_key, personality_manager.PROFILES.get('STANDARD_ES'))
-            title = profile.get('NAME', 'Antigravity Bot')
-            quote = random.choice(profile.get('GREETING', ["Ready."]))
+            title = profile.get('NAME', 'Nexus Bot')
+            quote = random.choice(profile.get('GREETING', ["Online."]))
             
             if mode == 'WATCHER':
                 # Use personality message
@@ -342,11 +357,11 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="✅ Aceptar",
+                            text="✅ Execute Protocol",
                             callback_data=f"TRADE|ACCEPT|{symbol}|{side}|{strategy}"
                         ),
                         InlineKeyboardButton(
-                            text="❌ Rechazar",
+                            text="❌ Abort",
                             callback_data=f"TRADE|REJECT|{symbol}|{side}|{strategy}"
                         )
                     ]
@@ -365,7 +380,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     
                     if has_position:
                         # Position exists - skip to prevent SL/TP spam from repeated signals
-                        logger.debug(f"⏭️ {symbol}: Position exists, skipping (cooldown handles updates)")
+                        logger.debug(f"⏭️ {symbol}: Active position detected in Memory. Skipping redundancy.")
                         continue  # Skip this session's signal processing
                 except:
                     pass  # If check fails, proceed with trade attempt
@@ -400,7 +415,7 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     await bot.send_message(
                         session.chat_id,
-                        f"✅ *AUTOPILOT EJECUTÓ {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}",
+                        f"✅ *AUTOPILOT ENGAGED: {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}",
                         parse_mode="Markdown"
                     )
                     
@@ -421,22 +436,22 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
                         # 2. Notify User only once (Cooldown matches)
                         await bot.send_message(
                             session.chat_id,
-                            f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
-                            f"El tamaño de la posición es menor al mínimo del exchange ($5-10).\n"
-                            f"❄️ **Acción:** {symbol} pausado por 1 hora.",
+                            f"⚠️ **INSUFFICIENT CAPITAL: {symbol}**\n\n"
+                            f"Position size below exchange minimum.\n"
+                            f"❄️ **Action:** {symbol} frozen for 1 hour.",
                             parse_mode="Markdown"
                         )
                     
                     elif not any(x in result for x in ignore_phrases):
                         await bot.send_message(
                             session.chat_id,
-                            f"❌ Error: {result}",
+                            f"❌ Effector Error: {result}",
                             parse_mode="Markdown"
                         )
                     
             signal_processed = True
         except Exception as e:
-            logger.error(f"Signal dispatch error for {session.chat_id}: {e}")
+            logger.error(f"Synapse dispatch error for {session.chat_id}: {e}")
     
     # Set cooldown ONLY if at least one session processed the signal
     if signal_processed:
@@ -448,6 +463,9 @@ async def dispatch_quantum_signal(bot: Bot, signal, session_manager):
 # --- MAIN APPLICATION ---
 async def main():
     """Main entry point for the async bot."""
+    
+    # Print Banner
+    print_nexus_banner()
     
     if not TELEGRAM_TOKEN:
         logger.error("❌ TELEGRAM_TOKEN not found in environment!")
@@ -464,14 +482,14 @@ async def main():
     
     # 3. Initialize Database (PostgreSQL)
     try:
-        from utils.db import init_db, load_bot_state
+        from servos.db import init_db, load_bot_state
         init_db()
         
         # Load persisted strategies from DB
         bot_state = load_bot_state()
         if bot_state:
-            from antigravity_quantum.config import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
-            import antigravity_quantum.config as aq_config
+            from system_directive import ENABLED_STRATEGIES, GROUP_CONFIG, DISABLED_ASSETS
+            import system_directive as system_directive
             
             # 1. Strategies
             if bot_state.get('enabled_strategies'):
@@ -483,11 +501,11 @@ async def main():
                 
                 # Extract AI Filter state if present
                 if '_AI_FILTER' in gc:
-                    aq_config.AI_FILTER_ENABLED = gc.pop('_AI_FILTER')
+                    system_directive.AI_FILTER_ENABLED = gc.pop('_AI_FILTER')
                 
                 # Extract ML Classifier state if present
                 if '_ML_CLASSIFIER' in gc:
-                    aq_config.ML_CLASSIFIER_ENABLED = gc.pop('_ML_CLASSIFIER')
+                    system_directive.ML_CLASSIFIER_ENABLED = gc.pop('_ML_CLASSIFIER')
                 
                 GROUP_CONFIG.update(gc)
                 
@@ -500,28 +518,28 @@ async def main():
                     for asset in assets:
                          DISABLED_ASSETS.add(asset)
             
-            logger.info(f"✅ Loaded Bot State: {len(DISABLED_ASSETS)} disabled assets, AI Filter: {aq_config.AI_FILTER_ENABLED}, ML Mode: {aq_config.ML_CLASSIFIER_ENABLED}")
+            logger.info(f"✅ Loaded System State: {len(DISABLED_ASSETS)} disabled assets, AI Filter: {system_directive.AI_FILTER_ENABLED}, ML Cortex: {system_directive.ML_CLASSIFIER_ENABLED}")
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")
     
     # 4. Initialize Session Manager
-    from utils.trading_manager import AsyncSessionManager
+    from servos.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
     
     # 5. Initialize Task Scheduler
     scheduler = None
     try:
-        from utils.task_scheduler import get_scheduler
+        from servos.task_scheduler import get_scheduler
         scheduler = get_scheduler()
         await scheduler.initialize(bot)
         
         # Register action handlers for scheduled tasks
         async def handle_analyze(user_id, params, bot_instance):
             symbol = params.get('symbol', 'BTC')
-            from utils.ai_analyst import QuantumAnalyst
-            from data.fetcher import get_market_data
+            from servos.ai_analyst import QuantumAnalyst
+            from nexus_system.memory_archives.fetcher import get_market_data
             
             analyst = QuantumAnalyst()
             df = get_market_data(f"{symbol}USDT", timeframe='4h', limit=50)
@@ -535,16 +553,16 @@ async def main():
                 analysis = await asyncio.get_event_loop().run_in_executor(
                     None, analyst.analyze_signal, symbol, '4h', indicators, p_key
                 )
-                await bot_instance.send_message(user_id, f"📊 **Análisis Programado: {symbol}**\n\n{analysis}", parse_mode="Markdown")
+                await bot_instance.send_message(user_id, f"📊 **Nexus Analysis: {symbol}**\n\n{analysis}", parse_mode="Markdown")
         
         async def handle_news(user_id, params, bot_instance):
-            from utils.ai_analyst import QuantumAnalyst
+            from servos.ai_analyst import QuantumAnalyst
             analyst = QuantumAnalyst()
             briefing = await asyncio.get_event_loop().run_in_executor(None, analyst.generate_market_briefing)
-            await bot_instance.send_message(user_id, f"📰 **Briefing Programado**\n\n{briefing}", parse_mode="Markdown")
+            await bot_instance.send_message(user_id, f"📰 **Nexus Intelligence Briefing**\n\n{briefing}", parse_mode="Markdown")
         
         async def handle_sniper(user_id, params, bot_instance):
-            await bot_instance.send_message(user_id, "🎯 **Sniper Scan Ejecutándose...**\nUsa /sniper para ver resultados.", parse_mode="Markdown")
+            await bot_instance.send_message(user_id, "🎯 **Sniper Scan Initiated...**\n/sniper to view results.", parse_mode="Markdown")
         
         async def handle_dashboard(user_id, params, bot_instance):
             session = session_manager.get_session(str(user_id))
@@ -552,10 +570,10 @@ async def main():
                 data = await session.get_dashboard_summary()
                 wallet = data.get('wallet', {})
                 net = wallet.get('total', 0)
-                await bot_instance.send_message(user_id, f"📊 **Dashboard Programado**\n💰 Net Worth: `${net:,.2f}`", parse_mode="Markdown")
+                await bot_instance.send_message(user_id, f"📊 **System Status Report**\n💰 Capital: `${net:,.2f}`", parse_mode="Markdown")
         
         async def handle_sentiment(user_id, params, bot_instance):
-            from utils.ai_analyst import QuantumAnalyst
+            from servos.ai_analyst import QuantumAnalyst
             analyst = QuantumAnalyst()
             symbol = params.get('symbol', 'BTC')
             if analyst.client:
@@ -563,7 +581,7 @@ async def main():
                 score = sent.get('score', 0)
                 reason = sent.get('reason', 'N/A')
                 icon = "🟢" if score > 0.2 else "🔴" if score < -0.2 else "🟡"
-                await bot_instance.send_message(user_id, f"🧠 **Sentimiento: {symbol}**\n{icon} Score: `{score:.2f}`\n📝 {reason}", parse_mode="Markdown")
+                await bot_instance.send_message(user_id, f"🧠 **Sentiment Analysis: {symbol}**\n{icon} Score: `{score:.2f}`\n📝 {reason}", parse_mode="Markdown")
 
         async def handle_price_alert(user_id, params, bot_instance):
             """Check if price target is met, notify, and cancel task."""
@@ -592,10 +610,10 @@ async def main():
                 # 3. Notify and Cancel if Triggered
                 if triggered:
                     msg = (
-                        f"🚨 **ALERTA DE PRECIO: {symbol}**\n\n"
-                        f"Target alcanzado: `${target:,.2f}`\n"
-                        f"Precio actual: `${current_price:,.2f}`\n"
-                        f"📈 Condición: {condition.upper()}"
+                        f"🚨 **NEXUS ALERT: {symbol}**\n\n"
+                        f"Target hit: `${target:,.2f}`\n"
+                        f"Current: `${current_price:,.2f}`\n"
+                        f"📈 Cond: {condition.upper()}"
                     )
                     await bot_instance.send_message(user_id, msg, parse_mode="Markdown")
                     
@@ -613,7 +631,7 @@ async def main():
                             float(t_params.get('target', 0)) == target):
                             
                             scheduler.cancel_task(user_id, t['id'])
-                            await bot_instance.send_message(user_id, f"✅ Tarea de alerta para {symbol} completada y eliminada.", parse_mode="Markdown")
+                            await bot_instance.send_message(user_id, f"✅ Alert Directive for {symbol} executed and archived.", parse_mode="Markdown")
                             break
 
             except Exception as e:
@@ -630,7 +648,7 @@ async def main():
         scheduler.register_action('alert', handle_price_alert) # Fallback alias
         
         scheduler.start()
-        logger.info("📅 Task Scheduler initialized and started.")
+        logger.info("📅 Task Scheduler (Servos) initialized.")
         
     except Exception as e:
         logger.warning(f"⚠️ Task Scheduler init skipped: {e}")
@@ -657,15 +675,15 @@ async def main():
     dp.include_router(trading_router)
     dp.include_router(callbacks_router)
     
-    logger.info("✅ Routers and Middleware registered.")
+    logger.info("✅ Neural Pathways (Routers) registered.")
 
-    # 6. Initialize Quantum Engine (Optional)
+    # 6. Initialize Nexus Core (formerly Quantum Engine)
     engine_task = None
     USE_QUANTUM_ENGINE = os.getenv('USE_QUANTUM_ENGINE', 'true').lower() == 'true'
     
     if USE_QUANTUM_ENGINE:
         try:
-            from antigravity_quantum.core.engine import QuantumEngine
+            from nexus_system.core.engine import NexusCore
             
             # --- KEY INJECTION FIX ---
             # Try to get admin keys for Alpaca (background engine needs them)
@@ -679,31 +697,31 @@ async def main():
                     ak_sec = admin_session.config.get('alpaca_secret')
                     if ak_key and ak_sec:
                         alpaca_keys = {'key': ak_key, 'secret': ak_sec}
-                        logger.info(f"🔑 QuantumEngine: Injected Alpaca keys from Admin ({admin_id})")
+                        logger.info(f"🔑 NexusCore: Injected Alpaca keys from Admin ({admin_id})")
             
-            engine = QuantumEngine(assets=get_all_assets(), alpaca_keys=alpaca_keys)
+            engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys)
             
             # Set callback for signal dispatch
             async def on_signal(signal):
-                await dispatch_quantum_signal(bot, signal, session_manager)
+                await dispatch_nexus_signal(bot, signal, session_manager)
             
             engine.set_callback(on_signal)
             
-            logger.info("🌌 Quantum Engine initialized and ready.")
+            logger.info("🌌 Nexus Core initialized and standing by.")
             
             # Wrapper to catch and log exceptions from engine task
             async def run_engine_with_logging():
                 try:
-                    logger.info("🚀 Starting Quantum Engine core loop...")
+                    logger.info("🚀 Engaging Nexus Core loop...")
                     await engine.run()
                 except Exception as e:
-                    logger.error(f"❌ Quantum Engine crashed: {e}", exc_info=True)
+                    logger.error(f"❌ Nexus Core critical failure: {e}", exc_info=True)
             
             # Create engine task (will run concurrently with bot)
             engine_task = asyncio.create_task(run_engine_with_logging())
             
         except Exception as e:
-            logger.warning(f"⚠️ Quantum Engine init failed: {e}", exc_info=True)
+            logger.warning(f"⚠️ Nexus Core init failed: {e}", exc_info=True)
 
     # 7. Start Shark Sentinel (Black Swan Defense)
     try:
@@ -716,7 +734,7 @@ async def main():
 
         # Check function for Sentinel
         def is_shark_enabled():
-             from antigravity_quantum.config import ENABLED_STRATEGIES
+             from system_directive import ENABLED_STRATEGIES
              return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
 
         sentinel = SharkSentinel(
@@ -725,24 +743,24 @@ async def main():
             enabled_check_callback=is_shark_enabled
         )
         sentinel.start()
-        logger.info("🦈 Shark Sentinel (Black Swan Defense) STARTED.")
+        logger.info("🦈 Shark Sentinel (Shield Protocol) STARTED.")
         
     except Exception as e:
         logger.error(f"❌ Failed to start Shark Sentinel: {e}")
 
     # 8. Start Web Server (Docs Hosting)
     try:
-        from utils.web_server import start_web_server
+        from servos.web_server import start_web_server
         web_server = await start_web_server()
         if web_server:
-            logger.info("🌍 Web Docs Server is RUNNING.")
+            logger.info("🌍 Nexus Data Port (Web) is OPEN.")
         else:
-            logger.warning("🌍 Web Docs Server failed to start.")
+            logger.warning("🌍 Nexus Data Port failed to open.")
     except Exception as e:
         logger.error(f"❌ Web Server Error: {e}")
 
     # 9. Startup Message
-    logger.info("🚀 Antigravity Bot (Async) starting...")
+    logger.info("🚀 Nexus Trading Bot (Model-7) starting...")
     
     raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
     if raw_admin_ids:
@@ -752,10 +770,10 @@ async def main():
             try:
                 await bot.send_message(
                     admin_id,
-                    "🟢 *Antigravity Bot Online*\n\n"
-                    f"Sesiones: {len(session_manager.sessions)}\n"
-                    f"Activos: {len(get_all_assets())}\n"
-                    f"Quantum: {'✅' if USE_QUANTUM_ENGINE else '❌'}",
+                    "🟢 *Nexus Systems Online*\n\n"
+                    f"Links: {len(session_manager.sessions)}\n"
+                    f"Assets: {len(get_all_assets())}\n"
+                    f"Core: {'✅' if USE_QUANTUM_ENGINE else '❌'}",
                     parse_mode="Markdown"
                 )
             except Exception as e:
@@ -766,7 +784,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         # Cleanup
-        logger.info("🛑 Shutting down...")
+        logger.info("🛑 Nexus Core Shutdown Sequence Initiated...")
         
         # Shutdown scheduler
         if scheduler:
@@ -774,8 +792,8 @@ async def main():
         
         if engine_task:
             # Signal engine to stop gracefullly first
-            if 'quantum_engine' in globals() and quantum_engine:
-                 await quantum_engine.stop()
+            if 'engine' in locals() and engine:
+                 await engine.stop()
             
             engine_task.cancel()
             try:

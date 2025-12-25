@@ -12,13 +12,13 @@ import requests
 from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from utils.auth import admin_only, is_authorized_admin, owner_only
-from utils.db import get_user_name
+from servos.auth import admin_only, is_authorized_admin, owner_only
+from servos.db import get_user_name
 
 router = Router(name="commands")
 
 # --- ASSET CONFIGURATION (Centralized) ---
-from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP, get_display_name
+from system_directive import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP, get_display_name
 
 
 def get_fear_and_greed_index() -> str:
@@ -82,7 +82,7 @@ async def cmd_start(message: Message, **kwargs):
         
         # Personality
         p_key = session.config.get('personality', 'STANDARD_ES')
-        from utils.personalities import PersonalityManager
+        from servos.personalities import PersonalityManager
         p_name = PersonalityManager().get_profile(p_key).get('NAME', p_key)
         
         # Risk
@@ -100,7 +100,7 @@ async def cmd_start(message: Message, **kwargs):
     }.get(mode, '❓')
     
     # 4. Message Content (Personalized)
-    from utils.personalities import PersonalityManager
+    from servos.personalities import PersonalityManager
     pm = PersonalityManager()
     
     # AI Filter Status (Moved up for header construction)
@@ -111,7 +111,7 @@ async def cmd_start(message: Message, **kwargs):
     ai_header_suffix = " ✨" if ai_enabled else ""
 
     # 4. Message Content (Custom Layout)
-    from utils.personalities import PersonalityManager
+    from servos.personalities import PersonalityManager
     pm = PersonalityManager()
     profile = pm.get_profile(p_key)
     p_name = profile.get('NAME', p_name)
@@ -599,7 +599,7 @@ async def cmd_pnl(message: Message, **kwargs):
 async def cmd_debug(message: Message, **kwargs):
     """System diagnostics - Full Network Report (User-Specific)"""
     # Import locally to avoid circular deps if any
-    from utils.diagnostics import run_diagnostics
+    from servos.diagnostics import run_diagnostics
     from functools import partial
     
     msg = await message.answer("⏳ Ejecutando diagnóstico de red y sistema...")
@@ -632,7 +632,7 @@ async def cmd_debug(message: Message, **kwargs):
 @admin_only
 async def cmd_migrate_security(message: Message, **kwargs):
     """Forces encryption of all database entries."""
-    from utils.force_encrypt import force_encrypt_all
+    from servos.force_encrypt import force_encrypt_all
     
     msg = await message.answer("🔐 **Iniciando Migración de Seguridad...**\nLeyendo DB y re-encriptando todo...")
     
@@ -794,7 +794,7 @@ async def cmd_risk(message: Message, **kwargs):
 @router.message(Command("news"))
 async def cmd_news(message: Message, **kwargs):
     """AI market briefing"""
-    from utils.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import QuantumAnalyst
     
     msg = await message.answer("🗞️ *Leyendo las noticias...* (Consultando via AI)", parse_mode='Markdown')
     

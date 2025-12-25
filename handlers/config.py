@@ -52,7 +52,7 @@ async def cmd_config(message: Message, **kwargs):
     
     # ML Classifier Status (Global)
     try:
-        from antigravity_quantum.config import ML_CLASSIFIER_ENABLED
+        from system_directive import ML_CLASSIFIER_ENABLED
         ml_status = "🟢 ON" if ML_CLASSIFIER_ENABLED else "🔴 OFF"
     except ImportError:
         ml_status = "❓ N/A"
@@ -110,7 +110,7 @@ async def cmd_strategies(message: Message, **kwargs):
     # Default fallback if no session (should not happen usually)
     if not session_strategies:
         try:
-             from antigravity_quantum.config import ENABLED_STRATEGIES
+             from system_directive import ENABLED_STRATEGIES
              session_strategies = ENABLED_STRATEGIES.copy()
         except ImportError:
              session_strategies = {'TREND': True, 'SCALPING': True, 'GRID': True, 'MEAN_REVERSION': True, 'BLACK_SWAN': True, 'SHARK': False}
@@ -125,7 +125,7 @@ async def cmd_strategies(message: Message, **kwargs):
     
     # Premium Signal State
     try:
-        from antigravity_quantum.config import PREMIUM_SIGNALS_ENABLED
+        from system_directive import PREMIUM_SIGNALS_ENABLED
         ps_state = "✅" if PREMIUM_SIGNALS_ENABLED else "❌"
     except ImportError:
         ps_state = "❌"

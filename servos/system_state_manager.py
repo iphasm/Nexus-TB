@@ -86,7 +86,7 @@ class SystemStateManager:
             return
             
         try:
-            import antigravity_quantum.config as cfg
+            import system_directive as cfg
             ma = state["module_assets"]
             
             # Clear and update each list
@@ -130,7 +130,7 @@ class SystemStateManager:
         # Collect module assets from config.py
         module_assets = {}
         try:
-            import antigravity_quantum.config as cfg
+            import system_directive as cfg
             module_assets = {
                 "SHARK_TARGETS": list(cfg.SHARK_TARGETS),
                 "SCALPING_ASSETS": list(cfg.SCALPING_ASSETS),

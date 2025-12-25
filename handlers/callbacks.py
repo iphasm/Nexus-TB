@@ -88,8 +88,8 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
             session.set_mode('WATCHER')
             await session_manager.save_sessions()
             
-            from utils.db import get_user_name
-            from utils.personalities import PersonalityManager
+            from servos.db import get_user_name
+            from servos.personalities import PersonalityManager
             user_name = get_user_name(callback.message.chat.id)
             p_key = session.config.get('personality', 'STANDARD_ES')
             msg = PersonalityManager().get_message(p_key, 'WATCHER_ON', user_name=user_name)
@@ -104,8 +104,8 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
             session.set_mode('COPILOT')
             await session_manager.save_sessions()
             
-            from utils.db import get_user_name
-            from utils.personalities import PersonalityManager
+            from servos.db import get_user_name
+            from servos.personalities import PersonalityManager
             user_name = get_user_name(callback.message.chat.id)
             p_key = session.config.get('personality', 'STANDARD_ES')
             msg = PersonalityManager().get_message(p_key, 'COPILOT_ON', user_name=user_name)
@@ -120,8 +120,8 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
             session.set_mode('PILOT')
             await session_manager.save_sessions()
             
-            from utils.db import get_user_name
-            from utils.personalities import PersonalityManager
+            from servos.db import get_user_name
+            from servos.personalities import PersonalityManager
             user_name = get_user_name(callback.message.chat.id)
             p_key = session.config.get('personality', 'STANDARD_ES')
             msg = PersonalityManager().get_message(p_key, 'PILOT_ON', user_name=user_name)
@@ -323,7 +323,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         
         # SYNC with global config
-        import antigravity_quantum.config as aq_config
+        import system_directive as aq_config
         aq_config.AI_FILTER_ENABLED = new_state
         
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
@@ -336,14 +336,14 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
 
     # Special case: ML_MODE toggle
     if strategy == "ML_MODE":
-        import antigravity_quantum.config as aq_config
+        import system_directive as aq_config
         current = aq_config.ML_CLASSIFIER_ENABLED
         new_state = not current
         aq_config.ML_CLASSIFIER_ENABLED = new_state
         
         # Persist to DB
-        from utils.db import save_bot_state
-        from config import GROUP_CONFIG
+        from servos.db import save_bot_state
+        from system_directive import GROUP_CONFIG
         gc_copy = dict(GROUP_CONFIG)
         gc_copy['_ML_CLASSIFIER'] = new_state  # Store ML flag
         save_bot_state(aq_config.ENABLED_STRATEGIES, gc_copy, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED)
@@ -352,7 +352,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         
         # Check model existence warning
         import os
-        model_path = os.path.join("antigravity_quantum", "data", "ml_model.pkl")
+        model_path = os.path.join("nexus_system", "memory_archives", "ml_model.pkl")
         if new_state and not os.path.exists(model_path):
              status += " (⚠️ Sin Modelo)"
              
@@ -365,14 +365,14 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
 
     # Special case: PREMIUM SIGNALS toggle
     if strategy == "PREMIUM":
-        import antigravity_quantum.config as aq_config
+        import system_directive as aq_config
         current = aq_config.PREMIUM_SIGNALS_ENABLED
         new_state = not current
         aq_config.PREMIUM_SIGNALS_ENABLED = new_state
         
         # Persist to DB
-        from utils.db import save_bot_state
-        from config import GROUP_CONFIG
+        from servos.db import save_bot_state
+        from system_directive import GROUP_CONFIG
         save_bot_state(aq_config.ENABLED_STRATEGIES, GROUP_CONFIG, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED, new_state)
         
         status = "💎 ACTIVADO (MTF + Volume)" if new_state else "❌ DESACTIVADO"
@@ -405,7 +405,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         
         # === CRITICAL: Sync with Global ENABLED_STRATEGIES ===
         # This ensures StrategyFactory respects user preferences
-        import antigravity_quantum.config as aq_config
+        import system_directive as aq_config
         aq_config.ENABLED_STRATEGIES[strategy] = new_val
         print(f"🔄 Strategy Sync: {strategy} = {new_val}")
         
@@ -575,14 +575,14 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
     
     # Build asset list for selected module
     try:
-        from antigravity_quantum.config import SHARK_TARGETS, DISABLED_ASSETS
+        from system_directive import SHARK_TARGETS, DISABLED_ASSETS
         
         if module == "SHARK":
             assets = SHARK_TARGETS
             title = "🦈 SHARK TARGETS"
         else:
             # Global scanner - Import from root config to ensure all groups are present
-            from config import ASSET_GROUPS
+            from system_directive import ASSET_GROUPS
             assets = []
             for group in ASSET_GROUPS.values():
                 assets.extend(group)
@@ -648,10 +648,10 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         
         # ALSO update GLOBAL DISABLED_ASSETS (used by QuantumEngine)
-        from antigravity_quantum.config import DISABLED_ASSETS
-        from config import ASSET_GROUPS, GROUP_CONFIG
-        from utils.db import save_bot_state
-        import antigravity_quantum.config as aq_config
+        from system_directive import DISABLED_ASSETS
+        from system_directive import ASSET_GROUPS, GROUP_CONFIG
+        from servos.db import save_bot_state
+        import system_directive as aq_config
         
         if is_now_disabled:
             DISABLED_ASSETS.add(asset)
@@ -659,7 +659,7 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
             DISABLED_ASSETS.discard(asset)
         
         # Persist to database so it survives restarts
-        from antigravity_quantum.config import ENABLED_STRATEGIES
+        from system_directive import ENABLED_STRATEGIES
         save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED)
         
         if is_now_disabled:

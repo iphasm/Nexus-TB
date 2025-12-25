@@ -2,12 +2,9 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.types import Message
 import os
-from utils.db import add_system_user, remove_system_user, get_all_system_users, get_user_role
+from servos.db import add_system_user, remove_system_user, get_all_system_users, get_user_role
 from datetime import datetime
-
-router = Router()
-
-from utils.auth import admin_only, owner_only
+from servos.auth import admin_only, owner_only
 
 
 @router.message(Command("addsub"))
@@ -114,7 +111,7 @@ async def cmd_subs(message: Message):
         
     await message.answer(msg, parse_mode="Markdown")
 
-import antigravity_quantum.config as qconfig
+import system_directive as qconfig
 
 @router.message(Command("ml_mode"))
 @admin_only
@@ -125,7 +122,7 @@ async def cmd_ml_mode(message: Message):
     args = message.text.split()
     if len(args) < 2:
         state = "✅ ACTIVADO" if qconfig.ML_CLASSIFIER_ENABLED else "❌ DESACTIVADO"
-        model_exists = "📦 (Modelo Encontrado)" if os.path.exists(os.path.join(os.getcwd(), 'antigravity_quantum', 'data', 'ml_model.pkl')) else "⚠️ (Modelo NO Encontrado)"
+        model_exists = "📦 (Modelo Encontrado)" if os.path.exists(os.path.join(os.getcwd(), 'nexus_system', 'memory_archives', 'ml_model.pkl')) else "⚠️ (Modelo NO Encontrado)"
         
         await message.answer(f"🤖 **Estado ML Classifier**: {state} {model_exists}\n\nUso: `/ml_mode [on/off]`")
         return
@@ -159,7 +156,7 @@ async def cmd_retrain(message: Message):
         "_Recibirás un mensaje cuando termine..._"
     )
     
-    model_path = os.path.join(os.getcwd(), 'antigravity_quantum', 'data', 'ml_model.pkl')
+    model_path = os.path.join(os.getcwd(), 'nexus_system', 'memory_archives', 'ml_model.pkl')
     
     # 1. Delete old model
     if os.path.exists(model_path):
@@ -173,7 +170,7 @@ async def cmd_retrain(message: Message):
     try:
         # Run training script asynchronously
         process = await asyncio.create_subprocess_exec(
-            sys.executable, 'train_ml_model.py',
+            sys.executable, 'train_cortex.py',
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=os.getcwd()
@@ -212,7 +209,7 @@ async def cmd_retrain(message: Message):
             
             # Force reload of model
             try:
-                from antigravity_quantum.strategies.ml_classifier import MLClassifier
+                from nexus_system.cortex.ml_classifier import MLClassifier
                 MLClassifier._model_loaded = False
                 MLClassifier._model = None
                 MLClassifier.load_model()

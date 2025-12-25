@@ -10,7 +10,7 @@ print("DEBUG: Root added to path")
 
 # MOCK CONFIGURATION
 print("DEBUG: Importing config...")
-import antigravity_quantum.config as aq_config
+import system_directive as aq_config
 aq_config.PREMIUM_SIGNALS_ENABLED = True
 print("DEBUG: Config imported and mocked.")
 
@@ -18,9 +18,9 @@ print("--- INITIALIZING TEST ENVIRONMENT ---")
 
 # Import strategies
 print("DEBUG: Importing TrendStrategy...")
-from antigravity_quantum.strategies.trend import TrendFollowingStrategy
+from nexus_system.cortex.trend import TrendFollowingStrategy
 print("DEBUG: Importing ScalpingStrategy...")
-from antigravity_quantum.strategies.scalping import ScalpingStrategy
+from nexus_system.cortex.scalping import ScalpingStrategy
 print("DEBUG: Strategies imported.")
 
 async def test_trend_logic():

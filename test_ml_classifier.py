@@ -143,12 +143,12 @@ def main():
     
     # Load classifier
     try:
-        from antigravity_quantum.strategies.ml_classifier import MLClassifier, CONFIDENCE_THRESHOLD
+        from nexus_system.cortex.ml_classifier import MLClassifier, CONFIDENCE_THRESHOLD
         MLClassifier.load_model()
         
         if MLClassifier._model is None:
             print("❌ ERROR: Model not loaded!")
-            print("   Run: python train_ml_model.py")
+            print("   Run: python train_cortex.py")
             return
             
         print("✅ Model loaded successfully!")

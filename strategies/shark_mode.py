@@ -34,7 +34,7 @@ class SharkSentinel(threading.Thread):
 
         # Panic Targets (Loaded from config)
         try:
-            from antigravity_quantum.config import SHARK_TARGETS
+            from system_directive import SHARK_TARGETS
             self.sniper_targets = SHARK_TARGETS
         except:
             self.sniper_targets = ['1000PEPEUSDT', 'SOLUSDT', 'WIFUSDT', 'RENDERUSDT', 'SUIUSDT']
@@ -88,7 +88,7 @@ class SharkSentinel(threading.Thread):
             # 1. PANIC CLOSE LONGS (BLACK SWAN - The Shield)
             # This runs if 'BLACK_SWAN' is enabled (or implied by default as 'safe mode')
             # Currently we use the global ENABLED_STRATEGIES via import inside function to avoid circular dep at top level logic
-            from antigravity_quantum.config import ENABLED_STRATEGIES
+            from system_directive import ENABLED_STRATEGIES
             
             if ENABLED_STRATEGIES.get('BLACK_SWAN', True):
                 for session_id, session in sessions.items():

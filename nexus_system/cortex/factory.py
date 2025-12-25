@@ -7,7 +7,8 @@ from .scalping import ScalpingStrategy
 from .classifier import MarketClassifier
 
 # Import the config MODULE (not individual vars) for runtime access
-import antigravity_quantum.config as qconfig
+# Import the system directive (formerly config)
+import system_directive as qconfig
 
 class StrategyFactory:
     """

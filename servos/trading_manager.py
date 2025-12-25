@@ -17,8 +17,8 @@ from typing import Optional, Dict, Any, Tuple, List
 from binance import AsyncClient
 
 # AI Analyst
-from utils.ai_analyst import QuantumAnalyst
-from utils.charting import generate_trade_chart
+from servos.ai_analyst import QuantumAnalyst
+from servos.charting import generate_trade_chart
 import pandas as pd
 
 # Alpaca (still sync, but wrapped)
@@ -156,7 +156,7 @@ class AsyncTradingSession:
         Calculates position size based on Risk Per Trade (e.g. 1% of Equity).
         Formula: Risk Amount / Distance to SL
         """
-        from antigravity_quantum.config import RISK_PER_TRADE_PCT
+        from system_directive import RISK_PER_TRADE_PCT
         
         # 1. Calculate Risk Amount ($)
         risk_amount = equity * RISK_PER_TRADE_PCT
@@ -644,7 +644,7 @@ class AsyncTradingSession:
         
         # --- AI SENTIMENT & MACRO FILTER ---
         vol_risk = 'LOW'  # Default for later use
-        from antigravity_quantum.config import AI_FILTER_ENABLED
+        from system_directive import AI_FILTER_ENABLED
         if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
             try:
                 print(f"🧠 Checking Sentiment for {symbol}...")
