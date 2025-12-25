@@ -279,97 +279,100 @@ async def cmd_help(message: Message):
     
     is_admin = is_authorized_admin(str(message.chat.id))
     
-    # Base Help (For everyone)
-    help_text = (
-        "🤖 *NEXUS TRADING BOT*\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
+    # Part 1: Core Commands
+    help_part1 = (
+        "🤖 *NEXUS TRADING BOT v7*\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        "📊 *MERCADO & DASHBOARD*\n"
-        "• /start - Centro de Mando principal\n"
-        "• /dashboard - Analítica avanzada, posiciones y balances (Alias: /status, /wallet)\n"
-        "• /sync - Sincronización inteligente (Breakeven + SL/TP)\n"
-        "• /price - Escáner de mercado (Precio, RSI, Sentimiento)\n"
-        "• /analyze SYMBOL - Análisis profundo vía IA\n\n"
+        "📊 *DASHBOARD & MERCADO*\n"
+        "├ /start - Centro de mando\n"
+        "├ /dashboard - Balance, posiciones, PnL\n"
+        "├ /price - Scanner (RSI, tendencia)\n"
+        "├ /pnl - Historial de ganancias\n"
+        "└ /sync - Sincronizar SL/TP\n\n"
         
-        "✨ *AI & SENTIMIENTO*\n"
-        "• /news - Boletín de mercado IA\n"
-        "• /sentiment - Análisis sentimiento (Crypto + Macro)\n"
-        "• /fomc - Análisis de la FED\n\n"
+        "🎯 *TRADING MANUAL*\n"
+        "├ /long SYMBOL - Abrir LONG\n"
+        "├ /short SYMBOL - Abrir SHORT\n"
+        "├ /buy SYMBOL - Compra SPOT\n"
+        "├ /close SYMBOL - Cerrar posición\n"
+        "└ /closeall - Cierre de emergencia\n\n"
         
         "🕹️ *MODOS OPERATIVOS*\n"
-        "• /pilot - Trading 100% autónomo\n"
-        "• /copilot - Trading asistido (Confirmación)\n"
-        "• /watcher - Solo alertas y monitorización\n"
-        "• /resetpilot - Reiniciar Circuit Breaker\n\n"
-        "• /mode PRESET - Cambio riesgo (Ronin/Guardian/Quantum)\n\n"
-        
-        "⚙️ *CONFIGURACIÓN*\n"
-        "• /config - Panel interactivo de ajustes\n"
-        "• /strategies - Control de motores dinámicos\n"
-        "• /assets - Configuración de activos\n"
-        "• /personality - Cambiar personalidad/voz\n"
-        "• /togglegroup - Filtrar grupos activos\n\n"
-        
-        "🔐 *SEGURIDAD & LLAVES*\n"
-        "• /set\\_binance - API Keys Binance\n"
-        "• /set\\_alpaca - API Keys Alpaca\n"
-        "• /delete\\_keys - Borrar sesión y llaves\n"
-        
-        "💹 *TRADING MANUAL*\n"
-        "• /long SYMBOL - Abrir LONG\n"
-        "• /short SYMBOL - Abrir SHORT\n"
-        "• /buy SYMBOL - Compra SPOT\n"
-        "• /close SYMBOL - Cerrar posición\n"
-        "• /closeall - Cierre TOTAL de emergencia\n\n"
-        
-        "📅 *UTILIDADES*\n"
-        "• /schedule - Programar tareas/alarmas\n"
-        "• /tasks - Ver tareas programadas\n"
-        "• /timezone - Ajustar zona horaria\n"
+        "├ /pilot - Trading 100% autónomo\n"
+        "├ /copilot - Confirmación manual\n"
+        "├ /watcher - Solo alertas\n"
+        "├ /mode PRESET - Ronin/Guardian/Quantum\n"
+        "└ /resetpilot - Reset Circuit Breaker\n"
     )
     
-    # Admin Section (Only if admin)
+    # Part 2: AI & Config
+    help_part2 = (
+        "✨ *INTELIGENCIA ARTIFICIAL*\n"
+        "├ /analyze SYMBOL - Análisis IA profundo\n"
+        "├ /news - Boletín de mercado\n"
+        "├ /sentiment - Sentimiento crypto/macro\n"
+        "└ /fomc - Análisis de la FED\n\n"
+        
+        "⚙️ *CONFIGURACIÓN*\n"
+        "├ /config - Panel interactivo\n"
+        "├ /strategies - Motores de señales\n"
+        "├ /assets - Gestión de activos\n"
+        "├ /togglegroup - Filtrar grupos\n"
+        "├ /personality - Cambiar voz del bot\n"
+        "├ /set\\_leverage - Apalancamiento\n"
+        "└ /set\\_margin - Margen por trade\n\n"
+        
+        "🔐 *SEGURIDAD*\n"
+        "├ /set\\_binance - API Keys Binance\n"
+        "├ /set\\_alpaca - API Keys Alpaca\n"
+        "└ /delete\\_keys - Borrar sesión\n\n"
+        
+        "📅 *UTILIDADES*\n"
+        "├ /schedule - Programar alertas\n"
+        "├ /tasks - Ver tareas activas\n"
+        "├ /cancel ID - Cancelar tarea\n"
+        "├ /timezone - Zona horaria\n"
+        "└ /cooldowns - Ver cooldowns\n"
+    )
+    
+    # Part 3: Admin + Info
+    help_part3 = ""
+    
     if is_admin:
-        help_text += (
+        help_part3 += (
             "\n👑 *ADMINISTRACIÓN*\n"
-            "• /subs - Listar usuarios\n"
-            "• /addsub - Agregar suscriptor\n"
-            "• /remsub - Eliminar usuario\n"
-            "• /reset\\_assets - Limpiar assets\n"
-            "• /debug - Diagnóstico Sistema\n"
+            "├ /subs - Listar usuarios\n"
+            "├ /addsub - Agregar suscriptor\n"
+            "├ /addadmin - Agregar admin\n"
+            "├ /remsub - Eliminar usuario\n"
+            "├ /wsstatus - Estado WebSocket\n"
+            "├ /ml\\_mode - Toggle ML Classifier\n"
+            "├ /retrain - Reentrenar modelo\n"
+            "├ /reset\\_assets - Limpiar assets\n"
+            "└ /debug - Diagnóstico sistema\n"
         )
-
-    help_text += (
-        "\n📖 *DOCS*\n"
-        "• /about - Sobre el bot\n"
-        "• /strategy - Lógica Dinámica\n"
-        "• /startup - Guía de inicio rápido\n"
-        "• /cooldowns - Ver cooldowns activos"
+    
+    help_part3 += (
+        "\n📖 *INFORMACIÓN*\n"
+        "├ /about - Sobre Nexus\n"
+        "├ /strategy - Lógica de señales\n"
+        "└ /startup - Guía de inicio\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 _Tip: Usa /config para ajustes rápidos_"
     )
     
     try:
-        # Split if too long (Telegram limit ~4096 chars, be safe at 3500)
-        if len(help_text) > 3500:
-            # Split at a natural point (after INFO section)
-            split_point = help_text.find("💹 *TRADING")
-            if split_point > 0:
-                part1 = help_text[:split_point]
-                part2 = help_text[split_point:]
-                await message.answer(part1, parse_mode="Markdown")
-                await message.answer(part2, parse_mode="Markdown")
-            else:
-                await message.answer(help_text, parse_mode="Markdown")
-        else:
-            await message.answer(help_text, parse_mode="Markdown")
+        await message.answer(help_part1, parse_mode="Markdown")
+        await message.answer(help_part2 + help_part3, parse_mode="Markdown")
     except Exception as e:
         print(f"⚠️ Help Command Error: {e}")
-        # Fallback: Remove markdown and try again
-        clean_text = help_text.replace('*', '').replace('`', '')
+        # Fallback without markdown
+        clean = (help_part1 + help_part2 + help_part3).replace('*', '').replace('`', '').replace('\\', '')
         try:
-            await message.answer(clean_text)
-        except Exception as e2:
-            print(f"⚠️ Help Fallback Error: {e2}")
-            await message.answer("❌ Error mostrando ayuda. Intenta /startup en su lugar.")
+            await message.answer(clean[:4000])
+        except:
+            await message.answer("❌ Error mostrando ayuda. Intenta /startup")
         
 
 
