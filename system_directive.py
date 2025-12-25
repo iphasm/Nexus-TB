@@ -52,6 +52,7 @@ SHARK_TARGETS = [
 # --- AI & ML MODULES ---
 AI_FILTER_ENABLED = True
 ML_CLASSIFIER_ENABLED = False
+PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
 
 # =================================================================
 # TICKER MAP - Human-readable names for all assets
