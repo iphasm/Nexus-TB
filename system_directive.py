@@ -43,6 +43,12 @@ ENABLED_STRATEGIES = {
 # Runtime Blacklist (Global)
 DISABLED_ASSETS = set()
 
+# --- SHARK TARGETS (High Volatility Assets) ---
+SHARK_TARGETS = [
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WIFUSDT', '1000PEPEUSDT',
+    'DOGEUSDT', 'SUIUSDT', 'SEIUSDT', 'INJUSDT', 'FTMUSDT'
+]
+
 # --- AI & ML MODULES ---
 AI_FILTER_ENABLED = True
 ML_CLASSIFIER_ENABLED = False

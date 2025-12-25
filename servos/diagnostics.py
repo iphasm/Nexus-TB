@@ -10,7 +10,7 @@ def get_asset_diagnostics(symbol: str) -> dict:
     Returns a dict with all indicator values.
     """
     try:
-        from data.fetcher import get_market_data
+        from servos.fetcher import get_market_data
         from strategies.engine import StrategyEngine
         
         # Fetch data (needs 200+ candles for EMA200)

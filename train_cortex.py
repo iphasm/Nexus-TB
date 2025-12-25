@@ -12,6 +12,8 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
+import argparse
+from tqdm import tqdm
 from xgboost import XGBClassifier
 from sklearn.preprocessing import RobustScaler, LabelEncoder
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
@@ -24,11 +26,13 @@ warnings.filterwarnings('ignore')
 import yfinance as yf
 from system_directive import get_all_assets, is_crypto
 
+
 # Configuration
 SYMBOLS = get_all_assets()
 INTERVAL = '15m'
-MODEL_OUTPUT = os.path.join('nexus_system', 'memory_archives', 'ml_model.pkl')
-SCALER_OUTPUT = os.path.join('nexus_system', 'memory_archives', 'scaler.pkl')
+# Local output (same directory as script)
+MODEL_OUTPUT = 'ml_model.pkl'
+SCALER_OUTPUT = 'scaler.pkl'
 
 # Strategy SL/TP configurations (matching real trading logic)
 STRATEGY_PARAMS = {
@@ -41,7 +45,7 @@ STRATEGY_PARAMS = {
 
 def fetch_data(symbol, max_candles=35000):
     """Fetches historical data from Binance (Crypto) or YFinance (Stocks)."""
-    print(f"📥 Fetching data for {symbol}...")
+    # print(f"📥 Fetching data for {symbol}...")
     
     if is_crypto(symbol):
         try:
@@ -375,8 +379,6 @@ def label_data_v3(df):
 
 
 def train():
-    all_data = []
-    
     # ANSI Colors
     CYAN = "\033[36m"
     GREEN = "\033[32m"
@@ -384,27 +386,48 @@ def train():
     RESET = "\033[0m"
 
     print(f"{CYAN}=" * 60)
-    print("🧠 NEXUS CORTEX TRAINING v3.1 - XGBoost with Enhanced Features")
+    print("🧠 NEXUS CORTEX TRAINING v3.1 - Interactive Mode")
     print("=" * 60 + f"{RESET}")
+    
+    # Interactive Input
+    try:
+        user_input = input(f"⚡ Cantidad de velas a analizar? [Default 35000]: ").strip()
+        max_candles = int(user_input) if user_input else 35000
+    except ValueError:
+        print(f"{RED}⚠️ Entrada inválida, usando default 35000.{RESET}")
+        max_candles = 35000
+
     print(f"📊 Symbols: {len(SYMBOLS)}")
+    print(f"🕯️ Candles: {max_candles}")
     print(f"⏰ Interval: {INTERVAL}")
     print()
     
-    for symbol in SYMBOLS:
-        try:
-            df = fetch_data(symbol)
-            if df is None or df.empty:
-                continue
-            df = add_indicators(df)
-            df = label_data_v3(df)
-            if len(df) > 100:
-                all_data.append(df)
-                print(f"   {GREEN}✓ {symbol}: {len(df)} samples{RESET}")
-        except Exception as e:
-            print(f"   {RED}✗ {symbol}: {e}{RESET}")
+    all_data = []
+    
+    # Progress bar for downloading
+    with tqdm(total=len(SYMBOLS), desc="Downloading Data", unit="sym") as pbar:
+        for symbol in SYMBOLS:
+            try:
+                # Use interactive max_candles
+                df = fetch_data(symbol, max_candles=max_candles)
+                
+                if df is not None and not df.empty:
+                    df = add_indicators(df)
+                    df = label_data_v3(df)
+                    if len(df) > 100:
+                        all_data.append(df)
+                        pbar.set_postfix_str(f"{GREEN}✓ {symbol}{RESET}")
+                    else:
+                        pbar.set_postfix_str(f"{RED}⚠ {symbol} (No Data){RESET}")
+                else:
+                    pbar.set_postfix_str(f"{RED}✗ {symbol}{RESET}")
+            except Exception as e:
+                pbar.set_postfix_str(f"{RED}Error {symbol}{RESET}")
+            
+            pbar.update(1)
             
     if not all_data:
-        print("❌ No data collected.")
+        print(f"\n{RED}❌ No data collected.{RESET}")
         return
 
     full_df = pd.concat(all_data, ignore_index=True)
@@ -475,7 +498,9 @@ def train():
     # TimeSeriesSplit Cross-Validation (manual to support sample_weight)
     cv_scores = []
     print("   Running 5-fold TimeSeriesSplit CV...")
-    for fold, (train_idx, val_idx) in enumerate(tscv.split(X_scaled)):
+    
+    # Progress bar for CV
+    for fold, (train_idx, val_idx) in enumerate(tqdm(tscv.split(X_scaled), total=5, desc="Cross-Validation", unit="fold")):
         X_cv_train, X_cv_val = X_scaled[train_idx], X_scaled[val_idx]
         y_cv_train, y_cv_val = y_encoded[train_idx], y_encoded[val_idx]
         weights_cv = sample_weights[train_idx]
@@ -497,7 +522,7 @@ def train():
         cv_model.fit(X_cv_train, y_cv_train, sample_weight=weights_cv)
         score = cv_model.score(X_cv_val, y_cv_val)
         cv_scores.append(score)
-        print(f"      Fold {fold+1}: {score:.3f}")
+        # print(f"      Fold {fold+1}: {score:.3f}")
     
     cv_scores = np.array(cv_scores)
     print(f"   CV Accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
@@ -552,5 +577,15 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    try:
+        train()
+    except KeyboardInterrupt:
+        print("\n👋 Operación cancelada por el usuario.")
+    except Exception as e:
+        print(f"\n❌ Ocurrió un error inesperado:\n{e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        print()
+        input("🔴 Presione ENTER para salir...")
 

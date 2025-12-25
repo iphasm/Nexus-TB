@@ -878,7 +878,7 @@ async def cmd_fomc(message: Message, **kwargs):
 async def cmd_analyze(message: Message, **kwargs):
     """Per-asset AI analysis: /analyze BTC - Uses active personality"""
     from servos.ai_analyst import QuantumAnalyst
-    from data.fetcher import get_market_data
+    from servos.fetcher import get_market_data
     from servos.personalities import PersonalityManager
     
     # Get user's active personality from session
@@ -1087,7 +1087,7 @@ async def cmd_long(message: Message, **kwargs):
     msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
     
     try:
-        from data.fetcher import get_market_data, calculate_atr
+        from servos.fetcher import get_market_data, calculate_atr
         
         # Fetch 1h candles
         df = get_market_data(symbol, timeframe='1h', limit=50)
@@ -1189,7 +1189,7 @@ async def cmd_short(message: Message, **kwargs):
     msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para `{symbol}`...", parse_mode="Markdown")
     
     try:
-        from data.fetcher import get_market_data, calculate_atr
+        from servos.fetcher import get_market_data, calculate_atr
         
         # Fetch 1h candles
         df = get_market_data(symbol, timeframe='1h', limit=50)
