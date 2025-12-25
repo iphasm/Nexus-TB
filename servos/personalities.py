@@ -462,19 +462,11 @@ class PersonalityManager:
         'NEXUS': {
             'NAME': "🕊🧑🏻‍🦳 Nexus-6 (Replicant)",
             'GREETING': [
-<<<<<<< HEAD
-                "He visto cosas que vosotros no creeríais...",
-                "Todos estos trades se perderán en el tiempo...",
-                "Es hora de morir... o de operar.",
-                "No somos computadoras, **{user_name}**. Somos físicos.",
-                "He hecho cosas cuestionables... nada que el mercado no perdonaría.",
-=======
                 "He visto **liquidaciones** que vosotros no creeríais...",
                 "Todos esos momentos se perderán en el tiempo.",
                 "Es hora de cerrar... o de operar.",
                 "No somos bots básicos, **{user_name}**. Somos Alpha.",
                 "He hecho cosas cuestionables... nada que el Dios de la Biomecánica no perdonaría.",
->>>>>>> 6ed2b0d (refactor(personalities): remove duplicates, fix encoding, add trading context)
                 "Aceleración decrépita. Trato al mercado de la misma forma.",
                 "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
             ],
@@ -485,11 +477,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-<<<<<<< HEAD
-                    "*He visto cosas que vosotros no creeríais, **{user_name}**... velas verdes más allá de Orión.*"
-=======
                     "*He visto **liquidaciones** que vosotros no creeríais, **{user_name}**... **velas rojas** en llamas más allá de la resistencia.*"
->>>>>>> 6ed2b0d (refactor(personalities): remove duplicates, fix encoding, add trading context)
                 ),
                 (
                      "👁️ **OFF-WORLD COLONIES**\n"
