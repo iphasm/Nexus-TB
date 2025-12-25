@@ -463,10 +463,10 @@ class PersonalityManager:
             'NAME': "🦅 Nexus-6 (Replicant)",
             'GREETING': [
                 "He visto cosas que vosotros no creeríais...",
-                "Todos esos momentos se perderán en el tiempo.",
+                "Todos estos trades se perderán en el tiempo...",
                 "Es hora de morir... o de operar.",
-                "No somos computadoras, Sebastian. Somos físicos.",
-                "He hecho cosas cuestionables... nada que el Dios de la Biomecánica no perdonaría.",
+                "No somos computadoras,**{user_name}**. Somos físicos.",
+                "He hecho cosas cuestionables... nada que el mercado no perdonaría.",
                 "Aceleración decrépita. Trato al mercado de la misma forma.",
                 "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
             ],
@@ -477,7 +477,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
-                    "*He visto cosas que vosotros no creeríais, **{user_name}**... naves de ataque en llamas más allá de Orión.*"
+                    "*He visto cosas que vosotros no creeríais, **{user_name}**... velas verdes más allá de Orión.*"
                 ),
                 (
                      "👁️ **OFF-WORLD COLONIES**\n"
@@ -485,7 +485,7 @@ class PersonalityManager:
                      "〰️〰️〰️〰️〰️〰️〰️\n"
                      "🔋 *Vida:* 4 Años (Restante: Desconocido)\n"
                      "🎮 *Modo:* `{mode}`\n\n"
-                     "*Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser esclavo.*"
+                     "*Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser un trader.*"
                 ),
                 (
                     "👁️ **MORE HUMAN THAN HUMAN**\n"
@@ -501,11 +501,11 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Nivel:* {status_icon}\n"
                     "🎮 *Unidad:* `{mode}`\n\n"
-                    "*Todos esos momentos se perderán en el tiempo... como lágrimas en la lluvia.*"
+                    "*Todos esos trades se perderán en el tiempo... como lágrimas en la lluvia.*"
                 ),
                 (
                     "🦅 **TANNHÄUSER GATE**\n"
-                    "Rayos C brillando en la oscuridad cerca de la Puerta de Tannhäuser.\n"
+                    "Velas rojas brillando en la oscuridad cerca de la Puerta de Tannhäuser.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Energía:* {status_icon}\n"
                     "🎮 *Misión:* `{mode}`\n\n"
