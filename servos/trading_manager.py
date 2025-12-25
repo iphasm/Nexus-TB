@@ -108,20 +108,27 @@ class AsyncTradingSession:
         # 1. Initialize Binance Async Client
         if self.api_key and self.api_secret:
             try:
-                # Build requests params with proxy if available
-                requests_params = {}
+                # Set environment variables BEFORE creating client
+                # This ensures aiohttp session picks them up with trust_env=True
                 if self._proxy:
-                    requests_params['proxy'] = self._proxy
-                    print(f"🔄 [Chat {self.chat_id}] Using Proxy: {self._proxy[:30]}...")
+                    os.environ['HTTPS_PROXY'] = self._proxy
+                    os.environ['HTTP_PROXY'] = self._proxy
+                    print(f"🔄 [Chat {self.chat_id}] Proxy configured: {self._proxy[:30]}...")
                 
-                # Create client with proxy in requests_params
-                self.client = await AsyncClient.create(
-                    self.api_key, 
-                    self.api_secret,
-                    requests_params=requests_params if requests_params else None
-                )
+                # Create client - use https_proxy parameter if available
+                if self._proxy:
+                    self.client = await AsyncClient.create(
+                        self.api_key, 
+                        self.api_secret,
+                        https_proxy=self._proxy
+                    )
+                else:
+                    self.client = await AsyncClient.create(
+                        self.api_key, 
+                        self.api_secret
+                    )
                 
-                proxy_status = "✅ Proxy Active" if self._proxy else "⚠️ Direct"
+                proxy_status = "✅ Proxy" if self._proxy else "⚠️ Direct"
                 print(f"✅ [Chat {self.chat_id}] Binance Client Init ({proxy_status}, Key: ...{self.api_key[-4:]})")
             except Exception as e:
                 self._init_error = str(e)
