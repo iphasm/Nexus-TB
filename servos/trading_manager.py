@@ -2198,13 +2198,13 @@ class AsyncSessionManager:
         async with self._lock:
             # Try PostgreSQL first
             try:
-                from utils.db import load_all_sessions
+                from servos.db import load_all_sessions
                 db_sessions = load_all_sessions()
                 
                 if db_sessions is not None:
                     for chat_id, info in db_sessions.items():
                         # SANITIZE: Check authorization
-                        from utils.db import get_user_role
+                        from servos.db import get_user_role
                         allowed, role = get_user_role(str(chat_id))
                         
                         config = info.get('config', {})
@@ -2252,7 +2252,7 @@ class AsyncSessionManager:
                 
                 for chat_id, info in data.items():
                     # SANITIZE: Check authorization
-                    from utils.db import get_user_role
+                    from servos.db import get_user_role
                     allowed, role = get_user_role(str(chat_id))
                     
                     config = info.get('config', {})
@@ -2330,7 +2330,7 @@ class AsyncSessionManager:
             
             # 1. Save to PostgreSQL
             try:
-                from utils.db import save_all_sessions
+                from servos.db import save_all_sessions
                 if save_all_sessions(data):
                     print(f"🐘 Saved {len(data)} sessions to PostgreSQL")
             except Exception as e:

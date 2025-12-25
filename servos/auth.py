@@ -5,7 +5,7 @@ Centralized Role-Based Access Control (RBAC) Module
 import os
 from functools import wraps
 from aiogram.types import Message, CallbackQuery
-from utils.db import get_user_role
+from servos.db import get_user_role
 
 # --- HELPERS ---
 

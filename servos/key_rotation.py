@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.db import get_connection
+from servos.db import get_connection
 
 def decrypt_with_cipher(cipher, text):
     if not text: return text

@@ -345,7 +345,7 @@ async def cmd_delete_keys(message: Message, **kwargs):
 @router.message(Command("personality"))
 async def cmd_personality(message: Message, **kwargs):
     """Personality selector menu - DYNAMICALLY loaded from PersonalityManager"""
-    from utils.personalities import PersonalityManager
+    from servos.personalities import PersonalityManager
     
     pm = PersonalityManager()
     

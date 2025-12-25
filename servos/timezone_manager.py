@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timezone as tz
 from zoneinfo import ZoneInfo
 from typing import Optional
-from utils.db import get_connection
+from servos.db import get_connection
 
 # Default timezone for all users
 DEFAULT_TIMEZONE = "GMT-4"

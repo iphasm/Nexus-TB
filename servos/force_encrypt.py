@@ -4,8 +4,8 @@ import sys
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.db import load_all_sessions, save_all_sessions
-from utils.security import get_cipher
+from servos.db import load_all_sessions, save_all_sessions
+from servos.security import get_cipher
 import dotenv
 
 def force_encrypt_all():

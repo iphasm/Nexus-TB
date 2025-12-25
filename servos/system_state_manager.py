@@ -41,7 +41,7 @@ class SystemStateManager:
         """Loads state from PostgreSQL first, then JSON fallback."""
         # Try PostgreSQL first
         try:
-            from utils.db import load_bot_state
+            from servos.db import load_bot_state
             db_state = load_bot_state()
             if db_state is not None:
                 merged = self.default_state.copy()
@@ -121,7 +121,7 @@ class SystemStateManager:
 
         # Try PostgreSQL first
         try:
-            from utils.db import save_bot_state
+            from servos.db import save_bot_state
             if save_bot_state(enabled_strategies, group_config, disabled_assets):
                 return  # Success
         except Exception as e:

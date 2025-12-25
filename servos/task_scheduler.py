@@ -101,7 +101,7 @@ class TaskScheduler:
             return {"error": "IA no disponible. Configura OPENAI_API_KEY."}
         
         try:
-            from utils.timezone_manager import get_current_time_str
+            from servos.timezone_manager import get_current_time_str
             current_time = get_current_time_str(user_id)
         except:
             current_time = datetime.now().isoformat()
@@ -194,7 +194,7 @@ Respond with JSON:
             return False, f"❌ Acción desconocida: `{action}`", None
         
         # Check task limit
-        from utils.db import get_scheduled_tasks
+        from servos.db import get_scheduled_tasks
         existing = get_scheduled_tasks(user_id)
         if len(existing) >= MAX_TASKS_PER_USER:
             return False, f"❌ Límite alcanzado ({MAX_TASKS_PER_USER} tareas máximo)", None
@@ -256,7 +256,7 @@ Respond with JSON:
             job = self.scheduler.add_job(**job_kwargs)
             
             # Save to database
-            from utils.db import save_scheduled_task
+            from servos.db import save_scheduled_task
             task_data = {
                 "job_id": job.id,
                 "action": action,
@@ -294,7 +294,7 @@ Respond with JSON:
         
         try:
             # Get task from DB to verify ownership
-            from utils.db import get_scheduled_tasks, delete_scheduled_task
+            from servos.db import get_scheduled_tasks, delete_scheduled_task
             tasks = get_scheduled_tasks(user_id)
             
             task = None
@@ -325,7 +325,7 @@ Respond with JSON:
     def list_tasks(self, user_id: int) -> List[Dict[str, Any]]:
         """List all scheduled tasks for a user."""
         try:
-            from utils.db import get_scheduled_tasks
+            from servos.db import get_scheduled_tasks
             return get_scheduled_tasks(user_id)
         except Exception as e:
             print(f"⚠️ Error listing tasks: {e}")

@@ -813,7 +813,7 @@ async def cmd_news(message: Message, **kwargs):
 @router.message(Command("sentiment"))
 async def cmd_sentiment(message: Message, **kwargs):
     """Global sentiment analysis"""
-    from utils.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import QuantumAnalyst
     
     msg = await message.answer("✨ *Escaneando Redes y Noticias...*", parse_mode='Markdown')
     
@@ -852,7 +852,7 @@ async def cmd_sentiment(message: Message, **kwargs):
 @router.message(Command("fomc"))
 async def cmd_fomc(message: Message, **kwargs):
     """Federal Reserve (FED) analysis"""
-    from utils.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import QuantumAnalyst
     
     session_manager = kwargs.get('session_manager')
     chat_id = str(message.chat.id)
@@ -877,9 +877,9 @@ async def cmd_fomc(message: Message, **kwargs):
 @router.message(Command("analyze"))
 async def cmd_analyze(message: Message, **kwargs):
     """Per-asset AI analysis: /analyze BTC - Uses active personality"""
-    from utils.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import QuantumAnalyst
     from data.fetcher import get_market_data
-    from utils.personalities import PersonalityManager
+    from servos.personalities import PersonalityManager
     
     # Get user's active personality from session
     session_manager = kwargs.get('session_manager')
@@ -912,7 +912,7 @@ async def cmd_analyze(message: Message, **kwargs):
         current_price = float(df['close'].iloc[-1])
         
         # Calculate RSI from close prices using the utility function
-        from utils.indicators import calculate_rsi
+        from servos.indicators import calculate_rsi
         closes = df['close'].tolist()
         rsi = calculate_rsi(closes, period=14)
         
@@ -1041,7 +1041,7 @@ async def cmd_reset_assets(message: Message, **kwargs):
     """Clear all disabled assets (Admin only)."""
     from antigravity_quantum.config import DISABLED_ASSETS, ENABLED_STRATEGIES
     from config import GROUP_CONFIG
-    from utils.db import save_bot_state
+    from servos.db import save_bot_state
     import antigravity_quantum.config as aq_config
     
     count = len(DISABLED_ASSETS)
@@ -1330,7 +1330,7 @@ async def cmd_price(message: Message, **kwargs):
         # 2. Build dynamic target lists
         from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
         from antigravity_quantum.config import DISABLED_ASSETS
-        from utils.indicators import calculate_rsi
+        from servos.indicators import calculate_rsi
         import numpy as np
         
         crypto_targets = []
@@ -1469,7 +1469,7 @@ async def cmd_price(message: Message, **kwargs):
 @router.message(Command("timezone"))
 async def cmd_timezone(message: Message, **kwargs):
     """View or set user timezone: /timezone [ZONE]"""
-    from utils.timezone_manager import (
+    from servos.timezone_manager import (
         get_user_timezone, set_user_timezone, resolve_timezone,
         get_current_time_str, TIMEZONE_ALIASES
     )
@@ -1517,8 +1517,8 @@ async def cmd_schedule(message: Message, **kwargs):
     Create a scheduled task using natural language.
     Example: /schedule analyze BTC every day at 9am
     """
-    from utils.task_scheduler import get_scheduler
-    from utils.timezone_manager import get_user_timezone, get_current_time_str
+    from servos.task_scheduler import get_scheduler
+    from servos.timezone_manager import get_user_timezone, get_current_time_str
     
     user_id = message.from_user.id
     args = message.text.split(maxsplit=1)
@@ -1571,8 +1571,8 @@ async def cmd_schedule(message: Message, **kwargs):
 @router.message(Command("tasks"))
 async def cmd_tasks(message: Message, **kwargs):
     """List all scheduled tasks for the user."""
-    from utils.task_scheduler import get_scheduler
-    from utils.timezone_manager import convert_from_utc, get_user_timezone
+    from servos.task_scheduler import get_scheduler
+    from servos.timezone_manager import convert_from_utc, get_user_timezone
     from datetime import datetime
     
     user_id = message.from_user.id
@@ -1631,7 +1631,7 @@ async def cmd_tasks(message: Message, **kwargs):
 @router.message(Command("cancel"))
 async def cmd_cancel(message: Message, **kwargs):
     """Cancel a scheduled task: /cancel <TASK_ID>"""
-    from utils.task_scheduler import get_scheduler
+    from servos.task_scheduler import get_scheduler
     
     user_id = message.from_user.id
     args = message.text.split()
@@ -1679,7 +1679,7 @@ async def owner_chat_handler(message: Message, **kwargs):
     personality = session.config.get('personality', 'STANDARD_ES')
     
     # Get OpenAI client
-    from utils.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import QuantumAnalyst
     analyst = QuantumAnalyst()
     
     if not analyst.client:

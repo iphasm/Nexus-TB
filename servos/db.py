@@ -121,7 +121,7 @@ def init_db():
         conn.close()
 
 # --- SESSION FUNCTIONS ---
-from utils.security import encrypt_value, decrypt_value
+from servos.security import encrypt_value, decrypt_value
 
 def load_all_sessions():
     """Load all sessions from PostgreSQL. Returns dict {chat_id: session_data}."""
