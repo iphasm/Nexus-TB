@@ -1185,7 +1185,12 @@ async def cmd_long(message: Message, **kwargs):
                     print(f"Failed to send chart photo: {e}")
         
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
+        # Remove parse_mode to avoid Markdown issues with error messages
+        error_msg = str(e).replace('_', '\\_').replace('*', '\\*')
+        try:
+            await msg_wait.edit_text(f"❌ Error iniciando operación: {error_msg}", parse_mode="Markdown")
+        except:
+            await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}")
 
 
 @router.message(Command("buy"))
@@ -1225,7 +1230,11 @@ async def cmd_buy_spot(message: Message, **kwargs):
              await msg_wait.edit_text(f"❌ Falló Compra: {res_msg}")
              
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error crítico: {e}")
+        error_msg = str(e).replace('_', '\\_').replace('*', '\\*')
+        try:
+            await msg_wait.edit_text(f"❌ Error crítico: {error_msg}", parse_mode="Markdown")
+        except:
+            await msg_wait.edit_text(f"❌ Error crítico: {str(e)}")
 
 
 @router.message(Command("short", "sell"))
@@ -1268,7 +1277,11 @@ async def cmd_short(message: Message, **kwargs):
         await message.reply(res_msg)
         
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error iniciando operación: {e}")
+        error_msg = str(e).replace('_', '\\_').replace('*', '\\*')
+        try:
+            await msg_wait.edit_text(f"❌ Error iniciando operación: {error_msg}", parse_mode="Markdown")
+        except:
+            await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}")
 
 
 @router.message(Command("sync"))
