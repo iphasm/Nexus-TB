@@ -6,9 +6,22 @@ EXACT REPLICA of main.py interface
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest
 import os
 
 router = Router(name="callbacks")
+
+
+async def safe_answer(callback: CallbackQuery, text: str = None, show_alert: bool = False):
+    """Safely answer a callback query, handling expired/stale queries gracefully."""
+    try:
+        await safe_answer(callback, text, show_alert=show_alert)
+    except TelegramBadRequest as e:
+        if "query is too old" in str(e) or "query ID is invalid" in str(e):
+            # Query expired (>30s) - ignore silently
+            pass
+        else:
+            raise
 
 
 @router.callback_query(F.data.startswith("MENU|"))
@@ -64,7 +77,7 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     cmd = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
-    await callback.answer()
+    await safe_answer(callback)
     
     # Dashboard (Unified Status + Wallet)
     if cmd == "dashboard":
@@ -229,7 +242,7 @@ async def handle_config_callback(callback: CallbackQuery, **kwargs):
     parts = callback.data.split("|")
     action = parts[1]
     
-    await callback.answer()
+    await safe_answer(callback)
     
     if action == "LEV_MENU":
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -307,12 +320,12 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
     session_manager = kwargs.get('session_manager')
     
     if not session_manager:
-        await callback.answer("⚠️ Error: No session manager", show_alert=True)
+        await safe_answer(callback, "⚠️ Error: No session manager", show_alert=True)
         return
         
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.answer("⚠️ No hay sesión activa.", show_alert=True)
+        await safe_answer(callback, "⚠️ No hay sesión activa.", show_alert=True)
         return
     
     # Special case: AI_FILTER toggle (mapped to sentiment_filter)
@@ -327,7 +340,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         aq_config.AI_FILTER_ENABLED = new_state
         
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
-        await callback.answer(f"🧠 AI Filter {status}")
+        await safe_answer(callback, f"🧠 AI Filter {status}")
         
         # Refresh Config Menu
         from handlers.config import cmd_config
@@ -356,7 +369,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         if new_state and not os.path.exists(model_path):
              status += " (⚠️ Sin Modelo)"
              
-        await callback.answer(f"🤖 ML Mode {status}")
+        await safe_answer(callback, f"🤖 ML Mode {status}")
         
         # Refresh Config Menu
         from handlers.config import cmd_config
@@ -376,7 +389,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         save_bot_state(aq_config.ENABLED_STRATEGIES, GROUP_CONFIG, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED, new_state)
         
         status = "💎 ACTIVADO (MTF + Volume)" if new_state else "❌ DESACTIVADO"
-        await callback.answer(f"Premium Signals: {status}")
+        await safe_answer(callback, f"Premium Signals: {status}")
         
         # Refresh Strategy Menu
         from handlers.config import cmd_strategies
@@ -391,7 +404,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         
         status = "ACTIVO" if new_state else "DESACTIVADO"
-        await callback.answer(f"🔌 Circuit Breaker: {status}")
+        await safe_answer(callback, f"🔌 Circuit Breaker: {status}")
         
         # Refresh Config Menu (NOT Strategy Menu)
         from handlers.config import cmd_config
@@ -410,7 +423,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         print(f"🔄 Strategy Sync: {strategy} = {new_val}")
         
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
-        await callback.answer(f"{strategy}: {new_state}")
+        await safe_answer(callback, f"{strategy}: {new_state}")
         
         # Rebuild keyboard
         strategies = session.config.get('strategies', {})
@@ -436,7 +449,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await callback.message.edit_reply_markup(reply_markup=keyboard)
         
     except Exception as e:
-        await callback.answer(f"Error: {e}", show_alert=True)
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
 
 
 
@@ -447,12 +460,12 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
     session_manager = kwargs.get('session_manager')
     
     if not session_manager:
-        await callback.answer("⚠️ Error interno", show_alert=True)
+        await safe_answer(callback, "⚠️ Error interno", show_alert=True)
         return
         
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.answer("⚠️ Sin sesión", show_alert=True)
+        await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
         return
     
     try:
@@ -460,7 +473,7 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
-        await callback.answer(f"{group}: {new_state}")
+        await safe_answer(callback, f"{group}: {new_state}")
         
         # Rebuild buttons + Volver
         # Use simple reload of cmd_assets to update view properly
@@ -468,7 +481,7 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
         await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
         
     except Exception as e:
-        await callback.answer(f"Error: {e}", show_alert=True)
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("PERSONALITY|"))
@@ -482,11 +495,11 @@ async def handle_personality_select(callback: CallbackQuery, **kwargs):
         if session:
             await session.update_config('personality', personality)
             await session_manager.save_sessions()
-            await callback.answer(f"Personalidad: {personality}")
+            await safe_answer(callback, f"Personalidad: {personality}")
             await callback.message.edit_text(f"🧠 Personalidad cambiada a *{personality}*", parse_mode="Markdown")
             return
     
-    await callback.answer("⚠️ Sin sesión activa", show_alert=True)
+    await safe_answer(callback, "⚠️ Sin sesión activa", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("TRADE|"))
@@ -497,7 +510,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     parts = callback.data.split("|")
     
     if len(parts) < 4:
-        await callback.answer("❌ Datos inválidos", show_alert=True)
+        await safe_answer(callback, "❌ Datos inválidos", show_alert=True)
         return
     
     action = parts[1]
@@ -505,7 +518,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
     side = parts[3]
     strategy = parts[4] if len(parts) > 4 else "Manual"
     
-    await callback.answer()
+    await safe_answer(callback)
     
     # Delete the proposal message
     try:
@@ -571,7 +584,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
     module = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
-    await callback.answer()
+    await safe_answer(callback)
     
     # Build asset list for selected module
     try:
@@ -634,12 +647,12 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
     
     session_manager = kwargs.get('session_manager')
     if not session_manager:
-        await callback.answer("⚠️ Error interno", show_alert=True)
+        await safe_answer(callback, "⚠️ Error interno", show_alert=True)
         return
         
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.answer("⚠️ Sin sesión", show_alert=True)
+        await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
         return
     
     try:
@@ -663,15 +676,15 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED)
         
         if is_now_disabled:
-            await callback.answer(f"❌ {asset} desactivado (Global + Session)")
+            await safe_answer(callback, f"❌ {asset} desactivado (Global + Session)")
         else:
-            await callback.answer(f"✅ {asset} activado (Global + Session)")
+            await safe_answer(callback, f"✅ {asset} activado (Global + Session)")
         
         # Refresh menu
         await handle_assets_menu(callback, **kwargs)
         
     except Exception as e:
-        await callback.answer(f"Error: {e}", show_alert=True)
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
 
 
 @router.callback_query(F.data == "MENU|INTEL")
@@ -704,15 +717,15 @@ async def handle_sync_orders(callback: CallbackQuery, **kwargs):
     """Handle Sync Orders button"""
     session_manager = kwargs.get('session_manager')
     if not session_manager:
-        await callback.answer("⚠️ Error interno.")
+        await safe_answer(callback, "⚠️ Error interno.")
         return
         
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
-        await callback.answer("⚠️ Sin sesión.")
+        await safe_answer(callback, "⚠️ Sin sesión.")
         return
     
-    await callback.answer("⏳ Sincronizando órdenes...")
+    await safe_answer(callback, "⏳ Sincronizando órdenes...")
     
     try:
         report = await session.execute_refresh_all_orders()
