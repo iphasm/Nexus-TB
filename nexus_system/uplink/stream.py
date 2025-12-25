@@ -23,10 +23,10 @@ def is_us_market_open() -> bool:
 class MarketStream:
     """
     Async Market Data Provider.
-    Currently uses REST Polling via CCXT (Async).
+    Hybrid mode: WebSocket for real-time updates, REST for fallback.
     Uses Binance USD-M Futures for crypto.
     """
-    def __init__(self, exchange_id='binanceusdm'):  # Changed to USD-M Futures
+    def __init__(self, exchange_id='binanceusdm', use_websocket: bool = True):
         self.exchange_id = exchange_id
         self.exchange = getattr(ccxt, exchange_id)()
         self.tf_map = {
@@ -37,9 +37,15 @@ class MarketStream:
             'default': '15m'
         }
         self.alpaca = None
+        
+        # WebSocket Integration
+        self.use_websocket = use_websocket
+        self.ws_manager = None
+        self.price_cache = None
+        self._ws_task = None
 
-    async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None):
-        """Load markets"""
+    async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
+        """Load markets and optionally start WebSocket streams."""
         try:
             print(f"🔌 Connecting to {self.exchange_id}...")
             await self.exchange.load_markets()
@@ -62,8 +68,50 @@ class MarketStream:
             else:
                 print("⚠️ MarketStream: No Alpaca Keys found (Env or Passed). Stocks disabled.")
                 self.alpaca = None
+            
+            # Initialize WebSocket for crypto (if enabled)
+            if self.use_websocket and crypto_symbols:
+                await self._init_websocket(crypto_symbols)
+                
         except Exception as e:
             print(f"❌ Connection Failed: {e}")
+    
+    async def _init_websocket(self, symbols: list):
+        """Initialize WebSocket connection for crypto symbols."""
+        try:
+            from .ws_manager import BinanceWSManager
+            from .price_cache import PriceCache
+            
+            # Filter crypto symbols only
+            crypto_symbols = [s for s in symbols if 'USDT' in s]
+            
+            if not crypto_symbols:
+                print("⚠️ WebSocket: No crypto symbols to subscribe")
+                return
+            
+            self.price_cache = PriceCache()
+            self.ws_manager = BinanceWSManager(crypto_symbols, timeframe='15m')
+            
+            # Register callback to update cache
+            async def on_candle(symbol: str, candle: dict):
+                self.price_cache.update_candle(symbol, candle)
+            
+            self.ws_manager.add_callback(on_candle)
+            
+            # Connect and start listening in background
+            if await self.ws_manager.connect():
+                self._ws_task = asyncio.create_task(self.ws_manager.listen())
+                print(f"📡 WebSocket: Streaming {len(crypto_symbols)} crypto symbols")
+            else:
+                print("⚠️ WebSocket: Failed to connect, using REST fallback")
+                self.use_websocket = False
+                
+        except ImportError as e:
+            print(f"⚠️ WebSocket: Module not available ({e}), using REST")
+            self.use_websocket = False
+        except Exception as e:
+            print(f"⚠️ WebSocket: Init failed ({e}), using REST fallback")
+            self.use_websocket = False
 
     def _add_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add Technical Indicators (Standard + Premium Volume)"""
@@ -122,7 +170,7 @@ class MarketStream:
 
     async def get_candles(self, symbol: str, limit: int = 100, timeframe: str = None) -> Dict[str, Any]:
         """
-        Fetches OHLCV data. Support override timeframe.
+        Fetches OHLCV data. Uses WebSocket cache when available, REST fallback otherwise.
         """
         # ROUTING: Non-crypto symbols go to Alpaca
         try:
@@ -150,23 +198,44 @@ class MarketStream:
         if not timeframe:
             timeframe = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
         
+        # 2. Try WebSocket cache first (if enabled and fresh)
+        if self.use_websocket and self.price_cache and not self.price_cache.is_stale(symbol, max_age_seconds=90):
+            cached_df = self.price_cache.get_dataframe(symbol)
+            if not cached_df.empty and len(cached_df) >= 50:  # Need enough for indicators
+                # Add indicators to cached data
+                df = self._add_indicators(cached_df)
+                return {
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "dataframe": df,
+                    "source": "websocket"
+                }
+        
+        # 3. REST Fallback
         try:
-            # 2. Fetch (Async)
             # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
             formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
             ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)
             
-            # 3. Parse to DataFrame
+            # Parse to DataFrame
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             
-            # 4. Add Indicators (Unified)
+            # Add Indicators (Unified)
             df = self._add_indicators(df)
+            
+            # Backfill WebSocket cache with REST data
+            if self.price_cache:
+                candles = df.to_dict('records')
+                for c in candles:
+                    c['is_closed'] = True
+                self.price_cache.backfill(symbol, candles)
             
             return {
                 "symbol": symbol,
                 "timeframe": timeframe,
-                "dataframe": df
+                "dataframe": df,
+                "source": "rest"
             }
             
         except Exception as e:
@@ -295,5 +364,13 @@ class MarketStream:
         return df
 
     async def close(self):
+        """Close all connections (REST + WebSocket)."""
+        # Close WebSocket
+        if self._ws_task:
+            self._ws_task.cancel()
+        if self.ws_manager:
+            await self.ws_manager.close()
+        
+        # Close REST
         await self.exchange.close()
 

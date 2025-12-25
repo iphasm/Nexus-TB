@@ -35,10 +35,18 @@ class NexusCore:
     async def initialize(self):
         print("🌌 NexusCore: Initializing Subsystems...")
         
-        # Pass Alpaca keys if available
+        # Pass Alpaca keys and crypto symbols for WebSocket
         ak = self.alpaca_keys.get('key')
         asec = self.alpaca_keys.get('secret')
-        await self.market_stream.initialize(alpaca_key=ak, alpaca_secret=asec)
+        
+        # Filter crypto symbols for WebSocket subscription
+        crypto_symbols = [a for a in self.assets if 'USDT' in a]
+        
+        await self.market_stream.initialize(
+            alpaca_key=ak, 
+            alpaca_secret=asec,
+            crypto_symbols=crypto_symbols
+        )
         
         # Simulating Async Config / DB Load
         await asyncio.sleep(0.5)
