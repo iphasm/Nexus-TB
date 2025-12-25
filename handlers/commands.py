@@ -1026,7 +1026,7 @@ async def cmd_analyze(message: Message, **kwargs):
 @router.message(Command("cooldown"))
 async def cmd_cooldown(message: Message, **kwargs):
     """Configure or view signal alert cooldown using DynamicCooldownManager."""
-    from bot_async import cooldown_manager
+    from nexus_loader import cooldown_manager
     
     args = message.text.split()
     
@@ -1068,7 +1068,7 @@ async def cmd_cooldown(message: Message, **kwargs):
 @router.message(Command("cooldowns"))
 async def cmd_cooldowns(message: Message, **kwargs):
     """Show all active symbol cooldowns."""
-    from bot_async import cooldown_manager
+    from nexus_loader import cooldown_manager
     
     # Get all symbols with active cooldowns
     active = []
@@ -1325,7 +1325,7 @@ async def cmd_about(message: Message, **kwargs):
     p_key = session.config.get('personality', 'STANDARD_ES') if session else 'STANDARD_ES'
     
     # Import personality manager from bot_async
-    from bot_async import personality_manager
+    from nexus_loader import personality_manager
     msg = personality_manager.get_message(p_key, 'ABOUT_MSG')
     
     await message.answer(msg, parse_mode="Markdown")
