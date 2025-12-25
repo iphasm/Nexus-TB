@@ -108,38 +108,21 @@ class AsyncTradingSession:
         # 1. Initialize Binance Async Client
         if self.api_key and self.api_secret:
             try:
+                # Build requests params with proxy if available
+                requests_params = {}
+                if self._proxy:
+                    requests_params['proxy'] = self._proxy
+                    print(f"🔄 [Chat {self.chat_id}] Using Proxy: {self._proxy[:30]}...")
+                
+                # Create client with proxy in requests_params
                 self.client = await AsyncClient.create(
                     self.api_key, 
-                    self.api_secret
+                    self.api_secret,
+                    requests_params=requests_params if requests_params else None
                 )
                 
-                # Direct proxy assignment to avoid kwargs conflict
-                # This ensures python-binance uses the proxy param internally
-                if self._proxy:
-                    print(f"🔄 [Chat {self.chat_id}] Configuring Proxy Session...")
-                    
-                    # 1. Preserve Defaults (User-Agent, potentially others)
-                    headers = self.client.session._default_headers
-                    if not headers:
-                        headers = {"User-Agent": "binance-connector-python/1.0.0"} # Fallback
-
-                    # 2. Close default session
-                    await self.client.close_connection()
-                    
-                    # 3. Set Env Vars
-                    os.environ['HTTPS_PROXY'] = self._proxy
-                    os.environ['HTTP_PROXY'] = self._proxy
-                    
-                    # 4. Create NEW session with trust_env=True AND preserved headers
-                    # Increase timeout to 45s for slow proxies
-                    timeout = aiohttp.ClientTimeout(total=45)
-                    self.client.session = aiohttp.ClientSession(
-                        timeout=timeout,
-                        headers=headers,
-                        trust_env=True
-                    )
-                
-                print(f"✅ [Chat {self.chat_id}] Binance Client Init (Proxy: Forced, Key: ...{self.api_key[-4:]})")
+                proxy_status = "✅ Proxy Active" if self._proxy else "⚠️ Direct"
+                print(f"✅ [Chat {self.chat_id}] Binance Client Init ({proxy_status}, Key: ...{self.api_key[-4:]})")
             except Exception as e:
                 self._init_error = str(e)
                 print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
