@@ -80,7 +80,7 @@ class MarketStream:
         """Initialize WebSocket connection for crypto symbols."""
         try:
             from .ws_manager import BinanceWSManager
-            from .price_cache import PriceCache
+            from .price_cache import get_price_cache  # Use global singleton
             
             # Filter crypto symbols only
             crypto_symbols = [s for s in symbols if 'USDT' in s]
@@ -89,7 +89,7 @@ class MarketStream:
                 print("⚠️ WebSocket: No crypto symbols to subscribe")
                 return
             
-            self.price_cache = PriceCache()
+            self.price_cache = get_price_cache()  # Use singleton for shared access
             self.ws_manager = BinanceWSManager(crypto_symbols, timeframe='15m')
             
             # Register callback to update cache

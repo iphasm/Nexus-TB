@@ -631,6 +631,69 @@ async def cmd_debug(message: Message, **kwargs):
         await msg.edit_text(f"❌ Error en diagnóstico: {e}")
 
 
+@router.message(Command("diag"))
+async def cmd_diag(message: Message, **kwargs):
+    """Per-symbol diagnostic: /diag SYMBOL"""
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Uso: `/diag SYMBOL` (ej: `/diag BTC`)", parse_mode="Markdown")
+        return
+    
+    symbol = args[1].upper()
+    if not symbol.endswith('USDT'):
+        symbol = f"{symbol}USDT"
+    
+    msg = await message.answer(f"🔍 Diagnosticando `{symbol}`...", parse_mode="Markdown")
+    
+    try:
+        from nexus_system.uplink.price_cache import get_price_cache
+        
+        report = f"📊 **DIAGNÓSTICO: {symbol}**\n━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # 1. WebSocket Cache Status
+        cache = get_price_cache()
+        cached_df = cache.get_dataframe(symbol)
+        last_update = cache.get_last_update(symbol)
+        is_stale = cache.is_stale(symbol, max_age_seconds=120)
+        
+        if not cached_df.empty:
+            last_price = cached_df['close'].iloc[-1] if 'close' in cached_df.columns else 0
+            candle_count = len(cached_df)
+            report += f"📡 **WebSocket Cache**\n"
+            report += f"├ Candles: `{candle_count}`\n"
+            report += f"├ Último precio: `${last_price:,.2f}`\n"
+            report += f"├ Última actualización: `{last_update.strftime('%H:%M:%S') if last_update else 'N/A'}`\n"
+            report += f"└ Estado: {'🟢 Fresco' if not is_stale else '🟡 Stale'}\n\n"
+        else:
+            report += f"📡 **WebSocket Cache**: ❌ Sin datos\n\n"
+        
+        # 2. Try REST fetch
+        session_manager = kwargs.get('session_manager')
+        if session_manager:
+            session = session_manager.get_session(str(message.chat.id))
+            if session and session.client:
+                try:
+                    ticker = await asyncio.get_event_loop().run_in_executor(
+                        None, session.client.futures_symbol_ticker, symbol
+                    )
+                    rest_price = float(ticker.get('price', 0))
+                    report += f"🌐 **REST API**\n"
+                    report += f"└ Precio actual: `${rest_price:,.2f}`\n\n"
+                except Exception as e:
+                    report += f"🌐 **REST API**: ⚠️ {e}\n\n"
+        
+        # 3. Strategy info
+        report += f"⚙️ **Configuración**\n"
+        from system_directive import DISABLED_ASSETS
+        is_disabled = symbol in DISABLED_ASSETS
+        report += f"└ Estado: {'🔴 Deshabilitado' if is_disabled else '🟢 Activo'}\n"
+        
+        await msg.edit_text(report, parse_mode="Markdown")
+        
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {e}")
+
+
 @router.message(Command("migrate_security"))
 @admin_only
 async def cmd_migrate_security(message: Message, **kwargs):
