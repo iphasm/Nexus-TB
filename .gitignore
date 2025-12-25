@@ -25,9 +25,11 @@ data/sessions.json
 *.log
 backtest_results.txt
 
-# ML Model (too large for GitHub, regenerate with train_ml_model.py)
+# ML Model (old path - too large for GitHub)
 antigravity_quantum/data/ml_model.pkl
-*.pkl
+# Allow nexus_system ML models to be committed
+!nexus_system/memory_archives/ml_model.pkl
+!nexus_system/memory_archives/scaler.pkl
 
 # Test outputs
 test_output.txt
