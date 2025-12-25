@@ -229,3 +229,4 @@ def run_diagnostics(api_key: str = None, api_secret: str = None):
 if __name__ == "__main__":
     print(run_diagnostics())
 
+

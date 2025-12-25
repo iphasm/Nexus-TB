@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Centralized Configuration
+NEXUS TRADING BOT - Centralized Configuration
 Single source of truth for asset groups and ticker mappings.
 """
 
@@ -157,3 +157,4 @@ def resolve_symbol(text: str) -> str:
         return s_usdt
     
     return s
+

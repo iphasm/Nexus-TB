@@ -71,3 +71,4 @@ async def test_grid_params():
     # SL = Price - 4*ATR = 100 - 8 = 92
     assert params['stop_loss_price'] == 92.0
     assert params['leverage'] == 3
+

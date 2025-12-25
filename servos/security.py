@@ -69,3 +69,4 @@ def decrypt_value(text: str) -> str:
 def generate_key() -> str:
     """Generates a new valid Fernet key."""
     return Fernet.generate_key().decode('utf-8')
+

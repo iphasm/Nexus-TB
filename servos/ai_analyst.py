@@ -7,18 +7,18 @@ load_dotenv()
 
 class QuantumAnalyst:
     def __init__(self):
-        """Initializes the Quantum Analyst with OpenAI API."""
+        """Initializes the Nexus Analyst with OpenAI API."""
         self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")
         self.client = None
         
         if self.api_key:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                print("🧠 Quantum Analyst: CONNECTED.")
+                print("🧠 Nexus Analyst: CONNECTED.")
             except Exception as e:
-                print(f"❌ Quantum Analyst Error: {e}")
+                print(f"❌ Nexus Analyst Error: {e}")
         else:
-            print("⚠️ Quantum Analyst: No OPENAI_API_KEY found.")
+            print("⚠️ Nexus Analyst: No OPENAI_API_KEY found.")
 
     # Character descriptions for personality-aware analysis
     PERSONALITY_PROMPTS = {
@@ -354,3 +354,4 @@ class QuantumAnalyst:
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"❌ Error generando briefing: {e}"
+

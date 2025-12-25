@@ -110,3 +110,4 @@ def generate_trade_chart(symbol: str, df: pd.DataFrame, side: str, entry: float,
     except Exception as e:
         print(f"❌ Chart Generation Error: {e}")
         return ""
+

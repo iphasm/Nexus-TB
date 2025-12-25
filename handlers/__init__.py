@@ -1,4 +1,4 @@
-# Antigravity Bot - Async Handlers Package
+# NEXUS TRADING BOT - Async Handlers Package
 # This package contains modular routers for aiogram 3.x
 
 from .commands import router as commands_router
@@ -14,3 +14,4 @@ __all__ = [
     'callbacks_router',
     'admin_router'
 ]
+

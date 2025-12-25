@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Configuration Handlers
+NEXUS TRADING BOT - Configuration Handlers
 Config commands: /config, /strategies, /assets, /toggle, /set_keys, /set_alpaca
 """
 
@@ -417,3 +417,4 @@ async def cmd_set_margin(message: Message, **kwargs):
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
+

@@ -136,3 +136,4 @@ def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int =
     
     return {'k': k, 'd': d}
 
+

@@ -121,3 +121,4 @@ class GridTradingStrategy(IStrategy):
             "stop_loss_price": sl_price,
             "take_profit_price": tp_price
         }
+

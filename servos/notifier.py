@@ -32,3 +32,4 @@ def send_telegram_alert(message: str):
         except requests.exceptions.RequestException as e:
             print(f"Error sending Telegram alert to {chat_id}: {e}")
 
+

@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Timezone Manager
+NEXUS TRADING BOT - Timezone Manager
 Handles user timezone preferences and time conversions.
 """
 
@@ -139,3 +139,4 @@ def resolve_timezone(tz_input: str) -> str:
     if upper in TIMEZONE_ALIASES:
         return TIMEZONE_ALIASES[upper]
     return tz_input
+

@@ -1,5 +1,5 @@
 """
-Antigravity Quantum - Alpaca Market Data Stream
+Nexus System - Alpaca Market Data Stream
 Fetches OHLCV data for Stocks and Commodities (ETFs) via Alpaca Data API.
 """
 
@@ -153,3 +153,4 @@ class AlpacaStream:
     async def close(self):
         """Cleanup (no persistent connection for REST API)."""
         self.client = None
+

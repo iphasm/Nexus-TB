@@ -1,2 +1,3 @@
 # Nexus System Package
-# Core trading infrastructure (formerly Antigravity Quantum)
+# Core trading infrastructure (formerly Nexus System)
+

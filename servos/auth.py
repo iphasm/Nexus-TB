@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Authentication & Authorization
+NEXUS TRADING BOT - Authentication & Authorization
 Centralized Role-Based Access Control (RBAC) Module
 """
 import os
@@ -75,3 +75,4 @@ def owner_only(func):
             
         return await func(event, *args, **kwargs)
     return wrapper
+

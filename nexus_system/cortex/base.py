@@ -35,3 +35,4 @@ class IStrategy(abc.ABC):
     def name(self) -> str:
         """Strategy Name"""
         pass
+

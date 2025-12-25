@@ -126,3 +126,4 @@ class BacktestEngine:
 
         await self.market_stream.close()
         return results
+

@@ -227,3 +227,4 @@ async def cmd_retrain(message: Message):
     except Exception as e:
         await message.answer(f"❌ **ERROR**: {e}")
 
+

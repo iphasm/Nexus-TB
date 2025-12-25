@@ -17,14 +17,23 @@ async def start_web_server():
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         docs_dir = os.path.join(base_dir, 'DOCUMENTACIÓN')
         
-        # Route to serve index.html at root
-        async def handle_index(request):
-            return web.FileResponse(os.path.join(docs_dir, 'index.html'))
+        # Graceful handling if docs folder doesn't exist
+        if not os.path.exists(docs_dir):
+            logger.info("📁 DOCUMENTACIÓN folder not found, web server running minimal mode.")
             
-        app.router.add_get('/', handle_index)
-        
-        # Serve static files from DOCUMENTACIÓN for CSS, images
-        app.router.add_static('/', docs_dir, show_index=True)
+            async def handle_health(request):
+                return web.Response(text="Nexus Trading Bot - Online", content_type="text/plain")
+            
+            app.router.add_get('/', handle_health)
+        else:
+            # Route to serve index.html at root
+            async def handle_index(request):
+                return web.FileResponse(os.path.join(docs_dir, 'index.html'))
+                
+            app.router.add_get('/', handle_index)
+            
+            # Serve static files from DOCUMENTACIÓN for CSS, images
+            app.router.add_static('/', docs_dir, show_index=True)
         
         # Get port from env (Railway provides PORT)
         port = int(os.environ.get("PORT", 8080))
@@ -42,3 +51,4 @@ async def start_web_server():
     except Exception as e:
         logger.error(f"❌ Failed to start Web Server: {e}")
         return None
+

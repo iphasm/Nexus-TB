@@ -677,7 +677,7 @@ async def main():
     
     logger.info("✅ Neural Pathways (Routers) registered.")
 
-    # 6. Initialize Nexus Core (formerly Quantum Engine)
+    # 6. Initialize Nexus Core (formerly Nexus Core)
     engine_task = None
     USE_QUANTUM_ENGINE = os.getenv('USE_QUANTUM_ENGINE', 'true').lower() == 'true'
     
@@ -812,3 +812,4 @@ if __name__ == "__main__":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     asyncio.run(main())
+

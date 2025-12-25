@@ -106,3 +106,4 @@ class MarketClassifier:
             confidence=0.5,
             reason=f"Normal Market (ADX: {adx:.1f})"
         )
+

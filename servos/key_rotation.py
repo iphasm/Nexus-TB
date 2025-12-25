@@ -111,3 +111,4 @@ if __name__ == "__main__":
         sys.exit(1)
         
     rotate_database_keys(new_key)
+

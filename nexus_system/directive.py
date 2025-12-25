@@ -1,5 +1,5 @@
 
-# Dynamic configuration for the Quantum Engine
+# Dynamic configuration for the Nexus Core
 # This file is imported by both the Engine (background) and Main (foreground).
 
 # --- STRATEGY CONFIG ---
@@ -67,3 +67,4 @@ USE_QUANTUM_ENGINE = True
 # When ON: Uses scikit-learn model to predict best strategy
 # Requires trained model in data/ml_model.pkl
 ML_CLASSIFIER_ENABLED = False
+

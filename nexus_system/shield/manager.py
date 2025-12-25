@@ -42,3 +42,4 @@ class RiskManager:
             print("🚨 SYSTEM ALERT: BTC CRASH DETECTED. TRIGGERING HEDGE SHORTS.")
             return True
         return False
+

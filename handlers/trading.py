@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Trading Handlers
+NEXUS TRADING BOT - Trading Handlers
 Manual trading: /long, /short, /close, /closeall, /buy, /sell
 """
 
@@ -250,3 +250,4 @@ async def cmd_buy_spot(message: Message, **kwargs):
             
     except Exception as e:
         await processing.edit_text(f"❌ Error crítico: {e}")
+

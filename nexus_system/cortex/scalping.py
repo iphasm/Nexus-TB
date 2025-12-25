@@ -131,3 +131,4 @@ class ScalpingStrategy(IStrategy):
             "take_profit_price": signal.price * (1.015 if signal.action == "BUY" else 0.985) # 1.5% TP
         }
 
+

@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Task Scheduler
+NEXUS TRADING BOT - Task Scheduler
 LLM-powered task scheduling using APScheduler and OpenAI.
 """
 
@@ -342,3 +342,4 @@ def get_scheduler() -> TaskScheduler:
     if _scheduler is None:
         _scheduler = TaskScheduler()
     return _scheduler
+

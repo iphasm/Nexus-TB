@@ -296,3 +296,4 @@ class MarketStream:
 
     async def close(self):
         await self.exchange.close()
+

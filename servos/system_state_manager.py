@@ -156,3 +156,4 @@ class SystemStateManager:
         except Exception as e:
             print(f"❌ Error saving state: {e}")
 
+

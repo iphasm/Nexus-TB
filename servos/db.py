@@ -520,3 +520,4 @@ def update_task_next_run(task_id: int, next_run: str) -> bool:
         return False
     finally:
         conn.close()
+

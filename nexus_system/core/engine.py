@@ -4,9 +4,9 @@ from ..shield.manager import RiskManager
 from ..uplink.stream import MarketStream
 from ..directive import DISABLED_ASSETS
 
-class QuantumEngine:
+class NexusCore:
     """
-    Main Orchestrator for Antigravity Quantum.
+    Main Orchestrator for Nexus System.
     """
     def __init__(self, assets=None, alpaca_keys: dict = None):
         self.risk_guardian = RiskManager()
@@ -17,11 +17,11 @@ class QuantumEngine:
         # Determine Assets
         if assets:
             self.assets = list(set(assets)) # Remove duplicates
-            print(f"🌌 QuantumEngine: Loaded {len(self.assets)} assets from Main Configuration.")
+            print(f"🌌 NexusCore: Loaded {len(self.assets)} assets from Main Configuration.")
         else:
             # Fallback for isolated testing
             self.assets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
-            print("⚠️ QuantumEngine: Using Default Fallback Assets.")
+            print("⚠️ NexusCore: Using Default Fallback Assets.")
 
         self.signal_callback = None
         
@@ -33,7 +33,7 @@ class QuantumEngine:
         self.signal_callback = callback
 
     async def initialize(self):
-        print("🌌 QuantumEngine: Initializing Subsystems...")
+        print("🌌 NexusCore: Initializing Subsystems...")
         
         # Pass Alpaca keys if available
         ak = self.alpaca_keys.get('key')
@@ -47,7 +47,7 @@ class QuantumEngine:
 
     async def core_loop(self):
         """Main Decision Loop with Diagnostic Logging"""
-        print("🚀 Quantum Core Loop Started.")
+        print("🚀 Nexus Core Loop Started.")
         cycle_count = 0
         while self.running:
             cycle_count += 1
@@ -135,3 +135,4 @@ class QuantumEngine:
 
 # Alias for new naming convention
 NexusCore = QuantumEngine
+

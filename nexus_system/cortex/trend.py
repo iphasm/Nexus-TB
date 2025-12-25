@@ -124,3 +124,4 @@ class TrendFollowingStrategy(IStrategy):
             "take_profit_price": signal.price + (atr * 4) if signal.action == "BUY" else signal.price - (atr * 4)
         }
 
+

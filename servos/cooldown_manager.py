@@ -1,5 +1,5 @@
 """
-Dynamic Cooldown Manager for Antigravity Bot
+Dynamic Cooldown Manager for NEXUS TRADING BOT
 Intelligently adjusts signal cooldown based on frequency and market volatility
 """
 
@@ -206,3 +206,4 @@ class DynamicCooldownManager:
         self._signal_history.clear()
         self._atr_history.clear()
         self._cooldowns.clear()
+

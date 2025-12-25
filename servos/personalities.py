@@ -16,7 +16,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
                 (
-                    "🇪🇸 **ANTIGRAVITY BOT v4.0**\n"
+                    "🇪🇸 **NEXUS TRADING BOT**\n"
                     "Sistema de Trading Automatizado.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n\n"
                     "Bienvenido, **{user_name}**.\n"
@@ -35,7 +35,7 @@ class PersonalityManager:
                     "Esperando sus instrucciones."
                 ),
                 (
-                    "🤖 **ANTIGRAVITY CORE**\n"
+                    "🤖 **NEXUS CORE**\n"
                     "Conexión establecida, **{user_name}**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "📈 *Mercado:* Analizando...\n"
@@ -86,7 +86,7 @@ class PersonalityManager:
                 "4. **Margen Máximo**: Límite global del **{margin}** de la cuenta."
             ),
             'STRATEGY_MSG': (
-                "🧠 **ESTRATEGIA QUANTUM ENGINE**\n\n"
+                "🧠 **ESTRATEGIA Nexus Core**\n\n"
                 "El sistema opera fusionando múltiples motores:\n"
                 "1. **Trend Focus**: Captura tendencias MTF (15m + 1H).\n"
                 "2. **Squeeze Momentum**: Entra tras contracciones de volatilidad.\n"
@@ -94,7 +94,7 @@ class PersonalityManager:
                 "4. **Smart Filters**: ADX, RSI y Volumen confirman cada señal."
             ),
             'ABOUT_MSG': (
-                "ℹ️ **SOBRE ANTIGRAVITY BOT v4.0**\n\n"
+                "ℹ️ **SOBRE NEXUS TRADING BOT**\n\n"
                 "Sistema algorítmico institucional diseñado para operar 24/7 en Crypto y Stocks (Alpaca).\n"
                 "• **Modos:** Watcher, Copilot y Pilot (100% Autónomo).\n"
                 "• **Tecnología:** Python, Pandas-TA, Docker & Telegram API.\n"
@@ -144,7 +144,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
             (
-                "🇬🇧 **ANTIGRAVITY BOT v4.0**\n"
+                "🇬🇧 **NEXUS TRADING BOT**\n"
                 "Automated Trading System.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
                 "Welcome, **{user_name}**.\n"
@@ -170,7 +170,7 @@ class PersonalityManager:
                  "Awaiting critical instructions."
             ),
             (
-                 "🤖 **ANTIGRAVITY CORE**\n"
+                 "🤖 **NEXUS CORE**\n"
                  "Uplink established, **{user_name}**.\n"
                  "〰️〰️〰️〰️〰️〰️〰️\n"
                  "🔋 *Power:* {status_icon}\n"
@@ -251,7 +251,7 @@ class PersonalityManager:
             ],
             'WELCOME': [
             (
-                "🇫🇷 **ANTIGRAVITY BOT v4.0**\n"
+                "🇫🇷 **NEXUS TRADING BOT**\n"
                 "Système de Trading Automatisé.\n"
                 "〰️〰️〰️〰️〰️〰️〰️\n\n"
                 "Bienvenue, **{user_name}**.\n"
@@ -277,7 +277,7 @@ class PersonalityManager:
                  "Quel est le plan pour aujourd'hui?"
             ),
             (
-                 "🤖 **ANTIGRAVITY CORE**\n"
+                 "🤖 **NEXUS CORE**\n"
                  "Connexion établie, **{user_name}**.\n"
                  "〰️〰️〰️〰️〰️〰️〰️\n"
                  "🔋 *Puissance:* {status_icon}\n"
@@ -2133,3 +2133,4 @@ class PersonalityManager:
                 return raw_msg.format(**kwargs)
             except:
                 return raw_msg # Final fallback
+

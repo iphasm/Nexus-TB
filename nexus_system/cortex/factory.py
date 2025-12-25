@@ -78,3 +78,4 @@ class StrategyFactory:
              strategy.regime_meta = regime_result
         
         return strategy
+

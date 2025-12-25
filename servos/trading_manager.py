@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Async Trading Manager
+NEXUS TRADING BOT - Async Trading Manager
 Async version of TradingSession using python-binance AsyncClient
 
 NOTE: This is a wrapper that provides async interfaces while maintaining 
@@ -840,7 +840,7 @@ class AsyncTradingSession:
             return False, "No valid API Keys provided."
         
         # --- AI SENTIMENT FILTER (Inverse for Shorts) ---
-        from antigravity_quantum.config import AI_FILTER_ENABLED
+        from nexus_system.directive import AI_FILTER_ENABLED
         if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
             try:
                 print(f"🧠 Checking Sentiment for {symbol} (SHORT)...")
@@ -1376,7 +1376,7 @@ class AsyncTradingSession:
             return False, "No session."
         
         # PERSISTENT COOLDOWN: Check global per-symbol cooldown
-        from antigravity_quantum.config import SLTP_UPDATE_COOLDOWN, SLTP_LAST_UPDATE
+        from nexus_system.directive import SLTP_UPDATE_COOLDOWN, SLTP_LAST_UPDATE
         now = time.time()
         last_update = SLTP_LAST_UPDATE.get(symbol, 0)
         
@@ -2379,3 +2379,4 @@ class AsyncSessionManager:
         for session in self.sessions.values():
             await session.close()
         self.sessions.clear()
+

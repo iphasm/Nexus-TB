@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Command Handlers
+NEXUS TRADING BOT - Command Handlers
 Basic commands: /start, /help, /status, /wallet, /price, /pnl
 EXACT REPLICA of main.py interface
 """
@@ -135,7 +135,7 @@ async def cmd_start(message: Message, **kwargs):
     formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
     welcome = (
-        f"🌌 **ANTIGRAVITY BOT v4.0** | {mode_icon} **{mode}{ai_header_suffix}**\n"
+        f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_header_suffix}**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🧠 **Personalidad:** {p_name}\n"
         f"{formatted_quote}\n"
@@ -204,7 +204,7 @@ async def cmd_startup(message: Message):
         "🚀 **GUÍA DE INICIO RÁPIDO**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        "🤖 **¿Qué es Antigravity Bot?**\n"
+        "🤖 **¿Qué es NEXUS TRADING BOT?**\n"
         "Un sistema de trading automatizado que opera en Binance (Crypto) y Alpaca (Stocks/ETFs) "
         "usando algoritmos avanzados de análisis técnico y sentimiento de mercado.\n\n"
         
@@ -281,7 +281,7 @@ async def cmd_help(message: Message):
     
     # Base Help (For everyone)
     help_text = (
-        "🤖 *ANTIGRAVITY BOT v4.0*\n"
+        "🤖 *NEXUS TRADING BOT*\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         
         "📊 *MERCADO & DASHBOARD*\n"
@@ -1039,10 +1039,10 @@ async def cmd_cooldowns(message: Message, **kwargs):
 @router.message(Command("reset_assets"))
 async def cmd_reset_assets(message: Message, **kwargs):
     """Clear all disabled assets (Admin only)."""
-    from antigravity_quantum.config import DISABLED_ASSETS, ENABLED_STRATEGIES
+    from nexus_system.directive import DISABLED_ASSETS, ENABLED_STRATEGIES
     from config import GROUP_CONFIG
     from servos.db import save_bot_state
-    import antigravity_quantum.config as aq_config
+    import nexus_system.directive as aq_config
     
     count = len(DISABLED_ASSETS)
     DISABLED_ASSETS.clear()
@@ -1329,7 +1329,7 @@ async def cmd_price(message: Message, **kwargs):
         
         # 2. Build dynamic target lists
         from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
-        from antigravity_quantum.config import DISABLED_ASSETS
+        from nexus_system.directive import DISABLED_ASSETS
         from servos.indicators import calculate_rsi
         import numpy as np
         
@@ -1722,3 +1722,4 @@ REGLAS:
         
     except Exception as e:
         await message.reply(f"❌ Error LLM: {e}")
+

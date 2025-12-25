@@ -1,5 +1,5 @@
 """
-Antigravity Bot - Callback Query Handlers
+NEXUS TRADING BOT - Callback Query Handlers
 Handles all inline keyboard button presses
 EXACT REPLICA of main.py interface
 """
@@ -720,3 +720,4 @@ async def handle_sync_orders(callback: CallbackQuery, **kwargs):
         
     except Exception as e:
         await callback.message.answer(f"❌ Error: {e}")
+

@@ -93,3 +93,4 @@ class MeanReversionStrategy(IStrategy):
             "take_profit_price": signal.price * 1.03 if signal.action == "BUY" else signal.price * 0.97
         }
 
+
