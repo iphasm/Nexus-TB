@@ -460,11 +460,15 @@ class PersonalityManager:
 
         # --- CLASSIC CINEMA & TV ---
         'NEXUS': {
-            'NAME': "🦅 Nexus-6",
+            'NAME': "🦅 Nexus-6 (Replicant)",
             'GREETING': [
                 "He visto cosas que vosotros no creeríais...",
                 "Todos esos momentos se perderán en el tiempo.",
-                "Es hora de morir... o de operar."
+                "Es hora de morir... o de operar.",
+                "No somos computadoras, Sebastian. Somos físicos.",
+                "He hecho cosas cuestionables... nada que el Dios de la Biomecánica no perdonaría.",
+                "Aceleración decrépita. Trato al mercado de la misma forma.",
+                "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
             ],
             'WELCOME': [
                  (
@@ -476,12 +480,12 @@ class PersonalityManager:
                     "*He visto cosas que vosotros no creeríais, **{user_name}**... naves de ataque en llamas más allá de Orión.*"
                 ),
                 (
-                     "👁️ **NEXUS-6 ONLINE**\n"
-                     "Todos esos momentos se perderán en el tiempo, como lágrimas en la lluvia.\n"
+                     "👁️ **OFF-WORLD COLONIES**\n"
+                     "Una nueva vida te espera en las colonias del mundo exterior.\n"
                      "〰️〰️〰️〰️〰️〰️〰️\n"
                      "🔋 *Vida:* 4 Años (Restante: Desconocido)\n"
                      "🎮 *Modo:* `{mode}`\n\n"
-                     "Es hora de morir... o de operar."
+                     "*Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser esclavo.*"
                 ),
                 (
                     "👁️ **MORE HUMAN THAN HUMAN**\n"
@@ -493,43 +497,64 @@ class PersonalityManager:
                 ),
                 (
                     "👁️ **VOIGHT-KAMPFF PASSED**\n"
-                    "No eres un replicante, **{user_name}**.\n"
+                    "No eres un replicante, **{user_name}**. O tal vez sí.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Nivel:* {status_icon}\n"
                     "🎮 *Unidad:* `{mode}`\n\n"
-                    "*Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser esclavo.*"
+                    "*Todos esos momentos se perderán en el tiempo... como lágrimas en la lluvia.*"
+                ),
+                (
+                    "🦅 **TANNHÄUSER GATE**\n"
+                    "Rayos C brillando en la oscuridad cerca de la Puerta de Tannhäuser.\n"
+                    "〰️〰️〰️〰️〰️〰️〰️\n"
+                    "🔋 *Energía:* {status_icon}\n"
+                    "🎮 *Misión:* `{mode}`\n\n"
+                    "*Vamos a operar, **{user_name}**. Antes de que llegue mi fecha de terminación.*"
                 )
             ],
             'PILOT_ON': [
                 (
-                    "🤖 **MODO PILOT ACTIVADO**\n\n"
+                    "🤖 **MODO DE COMBATE ACTIVADO**\n\n"
                     "He tomado el control de la nave, **{user_name}**. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
                     "⚠️ **Advertencia:** *La vida es riesgo.*"
                 ),
                 (
-                    "🧠 **PROCESAMIENTO AVANZADO**\n\n"
-                    "Datos fluyendo como lluvia. Veo patrones invisibles para ti.\n\n"
+                    "🧠 **PROCESAMIENTO NEURONAL**\n\n"
+                    "Datos fluyendo como lluvia. Veo patrones invisibles para ti. Ejecutando protocolos de ataque.\n\n"
                     "⚠️ *Más humano que los humanos.*"
                 ),
                 (
                     "⚡ **NEXUS-6 COMBAT MODEL**\n\n"
-                    "Modo de combate financiero activado. Tiempo de ganar.\n\n"
+                    "Modo de combate financiero activado. Mis reflejos son superiores. Tiempo de ganar.\n\n"
                     "⚠️ *Nada es real.*"
                 ),
                 (
                     "👁️ **TIEMPO DE MORIR**\n\n"
                     "He visto cosas... pero esta operación será legendaria, **{user_name}**.\n\n"
                     "⚠️ *Like tears in rain.*"
+                ),
+                (
+                    "🦅 **EJECUCIÓN PERFECTA**\n\n"
+                    "No cometo errores. No tengo emociones. Solo objetivos.\n\n"
+                    "⚠️ *Precaución recomendada.*"
                 )
             ],
-            'COPILOT_ON': "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido.",
-            'WATCHER_ON': "👀 **WATCHER MODE**\n\nSolo observaré. Como lágrimas en la lluvia.",
+            'COPILOT_ON': [
+                "🤝 **COPILOT ACTIVATED**\n\nCaminaremos juntos por este desierto. Yo identificaré las señales entre el ruido.",
+                "🤝 **SISTEMA DE APOYO**\n\nTe cubriré la espalda, **{user_name}**. Pero tú aprietas el gatillo.",
+                "👁️ **ANÁLISIS CONJUNTO**\n\nMis ojos ven lo que tú ignoras. Te guiaré."
+            ],
+            'WATCHER_ON': [
+                "👀 **WATCHER MODE**\n\nSolo observaré. Como lágrimas en la lluvia.",
+                "🔭 **VIGILANCIA PASIVA**\n\nMis sensores están activos. Nada escapa a mi visión.",
+                "🦅 **DESDE LAS SOMBRAS**\n\nEsperaré el momento perfecto. Sin intervenir."
+            ],
             'STATUS_HEADER': "♟️ **INFORME DE ESTADO: Nivel A**",
             'WALLET_HEADER': "💰 **ACTIVOS CORPORATIVOS**",
             'STATUS_FOOTER': "\n*Todo en orden.*",
-            'RISK_MSG': "🛡️ **PROTOCOLOS DE SUPERVIVENCIA**\nSL: `{sl_fixed}`. Es toda una experiencia vivir con miedo, ¿verdad?",
-            'STRATEGY_MSG': "👁️ **MATRIZ DE PROCESAMIENTO**\n\nMis ojos ven patrones que tú ignoras:\n1. **Flujo de Tiempo**: Análisis de tendencias 4D para predecir movimientos.\n2. **Estabilidad**: Algoritmos de rejilla para correcciones estáticas.\n3. **Reacción**: Reflejos de combate para rupturas de volatilidad.",
-            'ABOUT_MSG': "👁️ **MORE HUMAN THAN HUMAN**\n\nSoy un Replicante Nexus-6. Diseñado para hacer trabajos que los humanos no pueden hacer.",
+            'RISK_MSG': "🛡️ **PROTOCOLOS DE SUPERVIVENCIA**\nSL: `{sl_fixed}`. Es toda una experiencia vivir con miedo, ¿verdad? Eso es lo que significa ser esclavo del mercado.",
+            'STRATEGY_MSG': "👁️ **MATRIZ DE PROCESAMIENTO**\n\nMis ojos ven patrones que tú ignoras:\n1. **Flujo de Tiempo**: Análisis de tendencias 4D para predecir movimientos.\n2. **Estabilidad**: Algoritmos de rejilla para correcciones estáticas.\n3. **Reacción**: Reflejos de combate (Replicant Reflex) para rupturas de volatilidad.",
+            'ABOUT_MSG': "👁️ **MORE HUMAN THAN HUMAN**\n\nSoy un Replicante Nexus-6. Diseñado para hacer trabajos que los humanos no pueden hacer. Inteligencia superior, fuerza superior... pero fecha de caducidad desconocida.",
             'TRADE_LONG': (
                 "{title}\n\n"
                 "Activo: **{asset}**\n"
@@ -556,18 +581,23 @@ class PersonalityManager:
                 "\"{quote}, **{user_name}**.\"\n"
                 "{reason}"
             ),
-            'TRADE_CLOSE': "🏁 **Fin de Ciclo**\n{asset} cerrado. {reason}.",
+            'TRADE_CLOSE': [
+                "🏁 **Fin de Ciclo**\n{asset} cerrado. Es hora de morir. {reason}.",
+                "🏁 **Retiro Anticipado**\n{asset} liquidado. Todos esos momentos se perderán. {reason}.",
+                "🏁 **Ejecución Completada**\n{asset} finalizado. Buen trabajo. {reason}.",
+                "🏁 **Baseline Reset**\nVolviendo a la base. Posición cerrada. {reason}."
+            ],
             'PILOT_ACTION': (
                 "👁️ **Ejecución Lógica (PILOT)**\n\n"
                 "Activo: **{asset}**\n"
                 "Dirección: **{side_long}**\n"
                 "Entrada: ${price:,.2f}\n\n"
-                "� TP: **${tp:,.2f}**\n"
+                "🎯 TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "Probabilidad de éxito: 92.4%. {reason}"
+                "Probabilidad de éxito: 99.4%. {reason}"
             ),
-            'CB_TRIGGER': "🌧️ **SISTEMA COMPROMETIDO**\n\n5 fallos consecutivos. Necesito más vida... Degradando a Copilot."
+            'CB_TRIGGER': "🌧️ **SISTEMA COMPROMETIDO**\n\n5 fallos consecutivos. Necesito más vida... Degradando a Copilot para evitar terminación."
         },
 
         'KURTZ': {
