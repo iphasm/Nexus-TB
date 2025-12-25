@@ -1,1 +1,1 @@
-worker: python bot_async.py
+worker: python nexus_loader.py

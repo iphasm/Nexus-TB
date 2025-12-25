@@ -26,4 +26,4 @@ COPY . .
 # ENV PYTHONUNBUFFERED=1
 
 # Command to run the bot (Async version)
-CMD ["python", "bot_async.py"]
+CMD ["python", "nexus_loader.py"]
