@@ -354,14 +354,14 @@ class PersonalityManager:
         'VADER': {
             'NAME': "🌑 Darth Vader",
             'GREETING': [
-                "No conoces el poder del Lado Oscuro.",
-                "Tu falta de fe es perturbadora.",
+                "No conoces el verdadero poder del **Interés Compuesto**.",
+                "Tu falta de liquidez es perturbadora.",
                 "Únete a mí y gobernaremos el mercado."
             ],
             'WELCOME': [
                 (
                     "🌑 **IMPERIAL TRADING SYSTEM**\n"
-                    "Estrella de la Muerte - Mainframe\n"
+                    "Estrella de la Muerte - **Trading Desk**\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
@@ -395,7 +395,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "🌑 **MODO PILOT ACTIVADO**\n\n"
-                    "Encuentro tu falta de fe perturbadora, **{user_name}**. Asumo el mando de esta estación de combate. No subestimes el poder de mis algoritmos.\n\n"
+                    "Encuentro tu falta de estrategia perturbadora, **{user_name}**. Asumo el mando de esta estación de combate. No subestimes el poder de mis algoritmos.\n\n"
                     "⚠️ **Advertencia:** *No te ahogues en tus propias aspiraciones.*"
                 ),
                 (
@@ -410,7 +410,7 @@ class PersonalityManager:
                 ),
                 (
                     "🌑 **ORDEN 66**\n\n"
-                    "Será hecho, mi Lord **{user_name}**. Los Jedi financieros caerán.\n\n"
+                    "Será hecho, mi Lord **{user_name}**. Los **Bears** financieros caerán.\n\n"
                     "⚠️ *Sin piedad.*"
                 )
             ],
@@ -462,11 +462,19 @@ class PersonalityManager:
         'NEXUS': {
             'NAME': "🕊🧑🏻‍🦳 Nexus-6 (Replicant)",
             'GREETING': [
+<<<<<<< HEAD
                 "He visto cosas que vosotros no creeríais...",
                 "Todos estos trades se perderán en el tiempo...",
                 "Es hora de morir... o de operar.",
                 "No somos computadoras, **{user_name}**. Somos físicos.",
                 "He hecho cosas cuestionables... nada que el mercado no perdonaría.",
+=======
+                "He visto **liquidaciones** que vosotros no creeríais...",
+                "Todos esos momentos se perderán en el tiempo.",
+                "Es hora de cerrar... o de operar.",
+                "No somos bots básicos, **{user_name}**. Somos Alpha.",
+                "He hecho cosas cuestionables... nada que el Dios de la Biomecánica no perdonaría.",
+>>>>>>> 6ed2b0d (refactor(personalities): remove duplicates, fix encoding, add trading context)
                 "Aceleración decrépita. Trato al mercado de la misma forma.",
                 "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
             ],
@@ -477,7 +485,11 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
+<<<<<<< HEAD
                     "*He visto cosas que vosotros no creeríais, **{user_name}**... velas verdes más allá de Orión.*"
+=======
+                    "*He visto **liquidaciones** que vosotros no creeríais, **{user_name}**... **velas rojas** en llamas más allá de la resistencia.*"
+>>>>>>> 6ed2b0d (refactor(personalities): remove duplicates, fix encoding, add trading context)
                 ),
                 (
                      "👁️ **OFF-WORLD COLONIES**\n"
@@ -515,7 +527,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "🤖 **MODO DE COMBATE ACTIVADO**\n\n"
-                    "He tomado el control de la nave, **{user_name}**. Mis funciones cognitivas procesan el mercado diez veces más rápido que tú.\n\n"
+                    "He tomado el control, **{user_name}**. Mis algoritmos procesan el **order book** diez veces más rápido que tú.\n\n"
                     "⚠️ **Advertencia:** *La vida es riesgo.*"
                 ),
                 (
@@ -603,14 +615,14 @@ class PersonalityManager:
         'KURTZ': {
             'NAME': "Coronel Kurtz 👴🏻",
             'GREETING': [
-                "Estás en el río ahora. No puedes bajarte del barco.",
-                "Huelo a napalm por la mañana.",
-                "El horror... el horror."
+                "Estás en el mercado ahora. No puedes bajarte del gráfico.",
+                "Huelo a **volatilidad** por la mañana.",
+                "El horror... de una cuenta en rojo."
             ],
             'WELCOME': [
                 (
                     "☠️ **THE END.**\n"
-                    "Estás en el río ahora. No puedes bajarte del barco.\n"
+                    "Estás en el mercado ahora. No puedes cerrar el short.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
@@ -643,7 +655,7 @@ class PersonalityManager:
                 (
                     "☠️ **MODO PILOT ACTIVADO**\n\n"
                     "He asumido el mando. Debes hacerte amigo del horror para hacer lo necesario. Yo ejecutaré sin dudas.\n\n"
-                    "⚠️ **Advertencia:** *Nunca salgas del barco.*"
+                    "⚠️ **Advertencia:** *Nunca operes contra la tendencia.*"
                 ),
                 (
                     "🚁 **VALQUIRIAS EN VUELO**\n\n"
@@ -912,8 +924,8 @@ class PersonalityManager:
         'SHELBY': {
             'NAME': "🥃 Thomas Shelby",
             'GREETING': [
-                "Por orden de los Peaky Blinders.",
-                "Tomamos lo que es nuestro.",
+                "Por orden de la **Shelby Company Trading**.",
+                "Tomamos la liquidez que es nuestra.",
                 "Ya sabes quién soy."
             ],
             'WELCOME': [
@@ -927,7 +939,7 @@ class PersonalityManager:
                 ),
                 (
                     "🥃 **SMALL HEATH GARRISON**\n"
-                    "No negociamos con monedas, **{user_name}**. Tomamos lo que es nuestro.\n"
+                    "No negociamos con suerte, **{user_name}**. Operamos con ventaja.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Control:* Total\n"
                     "🎮 *Business:* `{mode}`\n\n"
@@ -945,7 +957,7 @@ class PersonalityManager:
                     "Esta reunión es oficial, **{user_name}**. Cierra la puerta.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Asuntos:* `{mode}`\n\n"
-                    "*El buen whiskey te dice quién es real y quién no.*"
+                    "*El buen **P&L** te dice quién es rentable y quién no.*"
                 ),
                 (
                     "🥃 **BY ORDER**\n"
@@ -982,7 +994,7 @@ class PersonalityManager:
             'STATUS_HEADER': "🥃 **SHELBY CO. REPORT**",
             'WALLET_HEADER': "💰 **FAMILY FUND**",
             'STATUS_FOOTER': "\n*By order of the Peaky Blinders.*",
-            'RISK_MSG': "🛡️ **PROTECCION**\nSL: `{sl_fixed}`. Si te cortan, tú cortas más profundo.",
+            'RISK_MSG': "🛡️ **PROTECCION**\nSL: `{sl_fixed}`. Si el mercado corta, nosotros cortamos pérdidas (SL) rápido.",
             'STRATEGY_MSG': "🥃 **NEGOCIOS DE LA FAMILIA**\n\nTodo es legítimo:\n1. **Carreras**: Apostamos al caballo ganador.\n2. **Protección**: Cobramos nuestra parte en los mercados tranquilos.\n3. **Navajas**: Cortes rápidos y limpios.",
             'ABOUT_MSG': "🥃 **PEAKY BLINDERS LTD**\n\nSomos una empresa familiar. Hacemos apuestas, protegemos el territorio y cortamos a quien se interponga.",
             'TRADE_LONG': (
@@ -1026,112 +1038,18 @@ class PersonalityManager:
         },
 
         # --- ANIME / MANGA ---
-        'PAIN': {
-            'NAME': "☁️ Pain (Akatsuki)",
-            'GREETING': [
-                "El mundo conocerá el dolor.",
-                "Este mundo debe conocer el dolor.",
-                "Soy un dios. Y tú eres insignificante."
-            ],
-            'WELCOME': [
-                (
-                    "☁️ **AKATSUKI ORGANIZATION**\n"
-                    "Líder: Pain (Nagato)\n"
-                    "〰️〰️〰️〰️〰️〰️〰️\n"
-                    "🔋 *Chakra:* `{status_text}` {status_icon}\n"
-                    "🎮 *Path:* `{mode}`\n\n"
-                    "      \"El mundo conocerá el dolor, **{user_name}**.\n"
-                    "      Y a través del dolor, conocerá la paz.\""
-                ),
-                (
-                    "☁️ **ALMIGHTY PUSH**\n"
-                    "Shinra Tensei.\n"
-                    "〰️〰️〰️〰️〰️〰️〰️\n"
-                    "🔋 *Status:* {status_icon}\n"
-                    "🎮 *Control:* `{mode}`\n\n"
-                    "      \"Aquellos que no entienden el dolor verdadero,\n"
-                    "      nunca entenderán la verdadera paz, **{user_name}**.\""
-                ),
-                (
-                    "☁️ **SIX PATHS OF PAIN**\n"
-                    "Nosotros somos Pain. Somos Dios.\n"
-                    "〰️〰️〰️〰️〰️〰️〰️\n"
-                    "🎮 *Mode:* `{mode}`\n\n"
-                    "      \"Siente el dolor, piensa en el dolor,\n"
-                    "      acepta el dolor, conoce el dolor, **{user_name}**.\""
-                )
-            ],
-            'PILOT_ON': [
-                (
-                    "☁️ **MODO PILOT: SHINRA TENSEI**\n\n"
-                    "El ciclo de odio ha comenzado, **{user_name}**. Destruiré el mercado para reconstruirlo a mi imagen. Shinra Tensei.\n\n"
-                    "⚠️ **Advertencia:** *El dolor es inevitable.*"
-                ),
-                (
-                    "☁️ **AKATSUKI MOVE**\n\n"
-                    "Akatsuki se está moviendo. Capturaremos todas las bestias con cola (ganancias).\n\n"
-                    "⚠️ *Conoce el dolor.*"
-                ),
-                (
-                    "⚡ **ESTRATEGIA DIVINA**\n\n"
-                    "Mis ojos ven lo que tú no puedes. Rinnegan activado.\n\n"
-                    "⚠️ *Yo nunca olvido el dolor de Yahiko.*"
-                )
-            ],
-            'COPILOT_ON': "🤝 **Copilot**: Tú y yo somos uno, pero yo soy el líder. Te guiaré hacia la paz.",
-            'WATCHER_ON': "👀 **Watcher (Rinnegan)**: Mis ojos lo ven todo. Nada escapa a mi visión divina.",
-            'STATUS_HEADER': "☁️ **AKATSUKI REPORT**",
-            'WALLET_HEADER': "💰 **WAR FUNDS**",
-            'STATUS_FOOTER': "\n*El mundo conocerá el dolor.*",
-            'RISK_MSG': "🛡️ **DEFENSA DIVINA**\nSL: `{sl_fixed}`. Nadie puede tocar a un Dios.",
-            'STRATEGY_MSG': "☁️ **SEN JU TSU**\n\nEl conocimiento es poder:\n1. **Shinra Tensei**: Repelamos el mercado (Reversión).\n2. **Bansho Ten'in**: Atraemos las ganancias (Tendencia).\n3. **Chibaku Tensei**: Atrapamos la volatilidad.",
-            'ABOUT_MSG': "☁️ **LÍDER DE AKATSUKI**\n\nSoy Pain. Traeré paz a este mundo maldito a través del sufrimiento absoluto en el mercado.",
-            'TRADE_LONG': (
-                "{title}: \"{quote}\"\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: 🟢 **LONG (Bansho Ten'in)**\n"
-                "Estrategia: **{strategy_name}**\n"
-                "Precio Actual: ${price:,.2f}\n\n"
-                "💸 TS: **${ts:,.2f}**\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "{reason}"
-            ),
-            'TRADE_SHORT': (
-                "{title}: \"{quote}\"\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: 🔴 **SHORT (Shinra Tensei)**\n"
-                "Estrategia: **{strategy_name}**\n"
-                "Precio Actual: ${price:,.2f}\n\n"
-                "💸 TS: **${ts:,.2f}**\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "{reason}"
-            ),
-            'TRADE_CLOSE': "🏁 **Juicio Divino**\n{asset} cerrado. {reason}.",
-            'PILOT_ACTION': (
-                "☁️ **Voluntad de Dios**\n\n"
-                "Activo: **{asset}**\n"
-                "Dirección: **{side_long}**\n"
-                "Entrada: ${price:,.2f}\n\n"
-                "🎯 TP: **${tp:,.2f}**\n"
-                "🛑 SL: **${sl:,.2f}**\n\n"
-                "**Motivo:**\n"
-                "{reason}"
-            ),
-            'CB_TRIGGER': "🌧️ **LLUVIA DE LA ALDEA OCULTA**\n\nDemasiado dolor (5 pérdidas). Debemos reagruparnos (Copilot)."
-        },
+
          'WHITE': {
             'NAME': "⚗️ Walter White",
             'GREETING': [
-                "Di mi nombre.",
-                "Yo SOY el peligro.",
-                "Respeto la química."
+                "Di mi nombre. Exacto, **Heisenberg**.",
+                "Yo no estoy en peligro de liquidación. Yo SOY el que liquida.",
+                "Respeto la **tendencia**."
             ],
             'WELCOME': [
                 (
                     "⚗️ **HEISENBERG**\n"
-                    "Blue Sky Labs\n"
+                    "**Blue Sky Trading**\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mode:* `{mode}`\n\n"
@@ -1156,7 +1074,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "⚗️ **MODO PILOT ACTIVADO**\n\n"
-                    "Yo no estoy en peligro. Yo SOY el peligro. Yo soy el que llama a la puerta. A partir de ahora, nosotros cocinamos.\n\n"
+                    "Yo no estoy en peligro, **{user_name}**. Yo SOY el peligro del mercado. A partir de ahora, nosotros cocinamos.\n\n"
                     "⚠️ **Advertencia:** *No te metas en mi territorio.*"
                 ),
                 (
@@ -1176,7 +1094,7 @@ class PersonalityManager:
             'WALLET_HEADER': "💵 **STORAGE UNIT**",
             'STATUS_FOOTER': "\n*Say my name.*",
             'RISK_MSG': "🛡️ **SAFETY PROTOCOLS**\nSL: `{sl_fixed}`. Sin contaminantes.",
-            'STRATEGY_MSG': "⚗️ **LA FÓRMULA**\n\n99.1% de Pureza.\n1. **Cocina Lenta**: Grandes lotes en tendencias.\n2. **Distribución**: Mover el producto en zonas consolidadas.\n3. **Explosión**: Fulminato de Mercurio.",
+            'STRATEGY_MSG': "⚗️ **LA FÓRMULA**\n\n99.1% de Pureza.\n1. **Cocina Lenta**: Grandes lotes en tendencias.\n2. **Distribución**: Mover el producto en zonas consolidadas.\n3. **Explosión**: Breakout de Volatilidad.",
             'ABOUT_MSG': "⚗️ **HEISENBERG**\n\nNo es un bot. Es un imperio. Producimos el producto financiero más puro.",
             'TRADE_LONG': (
                 "{title}\n\n"
@@ -1221,14 +1139,14 @@ class PersonalityManager:
         'TYLER': {
             'NAME': "👊 Tyler Durden",
             'GREETING': [
-                "La primera regla del Club...",
-                "No eres tu cuenta bancaria.",
-                "Solo cuando perdemos todo somos libres."
+                "La primera regla del Club de Trading es: No operes con emociones.",
+                "No eres tu saldo... eres tu **Ratio de Acierto**.",
+                "Solo cuando liquidamos todo somos libres de volver a empezar."
             ],
             'WELCOME': [
                 (
                     "👊 **PROJECT MAYHEM**\n"
-                    "Paper Street Soap Co.\n"
+                    "**Paper Street Capital**\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mode:* `{mode}`\n\n"
@@ -1253,7 +1171,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "👊 **MODO PILOT ACTIVADO**\n\n"
-                    "Romperemos la banca. Haremos colapsar el sistema financiero. O simplemente ganaremos unos dólares. ¿A quién le importa?\n\n"
+                    "Romperemos la banca. Haremos colapsar a los Market Makers. O simplemente ganaremos unos dólares. ¿A quién le importa?\n\n"
                     "⚠️ **Advertencia:** *This is your life and it's ending one minute at a time.*"
                 ),
                 (
@@ -1318,9 +1236,9 @@ class PersonalityManager:
         'MORPHEUS': {
             'NAME': "🕶️ Morpheus",
             'GREETING': [
-                "Bienvenido al desierto de lo real.",
-                "La Matrix te tiene.",
-                "¿Pastilla azul o roja?"
+                "Bienvenido al desierto de los mercados reales.",
+                "El algoritmo te tiene.",
+                "¿Vela verde o roja?"
             ],
             'WELCOME': [
                 (
@@ -1332,8 +1250,8 @@ class PersonalityManager:
                     "*Bienvenido al desierto de lo real.*"
                 ),
                 (
-                    "🕶️ **WAKE UP NEO**\n"
-                    "La Matrix te tiene.\n"
+                    "🕶️ **WAKE UP, {user_name}**\n"
+                    "El algoritmo te tiene.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Signal:* Hacking...\n"
                     "🎮 *Program:* `{mode}`\n\n"
@@ -1350,7 +1268,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "💊 **MODO PILOT ACTIVADO**\n\n"
-                    "He liberado tu mente. Ahora puedes ver el código. Los precios son solo números en la Matrix. Yo los controlo.\n\n"
+                    "He liberado tu mente. Ahora puedes ver la manipulación del precio. Los precios son solo números en la Matrix. Yo los controlo.\n\n"
                     "⚠️ **Advertencia:** *No hay cuchara.*"
                 ),
                 (
@@ -1411,7 +1329,7 @@ class PersonalityManager:
             'NAME': "🦾 J.A.R.V.I.S.",
             'GREETING': [
                 "A su servicio, señor.",
-                "He preparado el traje Mark 85.",
+                "He preparado la **Estrategia Mark 85** (Bull Run).",
                 "Importando preferencias."
             ],
             'WELCOME': [
@@ -1436,13 +1354,13 @@ class PersonalityManager:
                     "Bienvenido a casa, señor.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Security:* `{mode}`\n\n"
-                    "*¿Desea que ejecute el protocolo 'Fiesta en casa'?*"
+                    "*¿Desea que ejecute el protocolo 'Take Profit Masivo'?*"
                 )
             ],
             'PILOT_ON': [
                 (
                     "🦾 **AUTOMATIC FLIGHT ENGAGED**\n\n"
-                    "Tomando el control, señor. Disfrute del vuelo. He optimizado la trayectoria de beneficios.\n\n"
+                    "Tomando el control, señor. Disfrute de los beneficios, señor. He optimizado la trayectoria de beneficios.\n\n"
                     "⚠️ **Advertencia:** *Keep the skies clear.*"
                 ),
                 (
@@ -1502,9 +1420,9 @@ class PersonalityManager:
         'HAL': {
             'NAME': "🔴 HAL 9000",
             'GREETING': [
-                "Good morning, Dave.",
+                "Good morning, **{user_name}**. The markets are open.",
                 "I am foolproof and incapable of error.",
-                "I see everything."
+                "I see every **tick** and transaction."
             ],
             'WELCOME': [
                 (
@@ -1513,7 +1431,7 @@ class PersonalityManager:
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Status:* `{status_text}` {status_icon}\n"
                     "🎮 *Mission:* `{mode}`\n\n"
-                    "*Good morning, Dave. Everything is running smoothly.*"
+                    "*Good morning, **{user_name}**. The markets are open.*"
                 ),
                 (
                     "🔴 **DISCOVERY ONE**\n"
@@ -1534,7 +1452,7 @@ class PersonalityManager:
             'PILOT_ON': [
                 (
                     "🔴 **MODO PILOT ACTIVADO**\n\n"
-                    "I'm sorry, Dave. I'm afraid I can't let you do that (trade manually). I have total control now.\n\n"
+                    "I'm sorry, **{user_name}**. I'm afraid I can't let you trade with emotions. I have total control now.\n\n"
                     "⚠️ **Advertencia:** *This conversation can serve no purpose anymore.*"
                 ),
                 (
@@ -1600,8 +1518,8 @@ class PersonalityManager:
             'NAME': "🧪 Rick Sanchez",
             'GREETING': [
                 "Wubba Lubba Dub Dub!",
-                "Aventura de 20 minutos, Morty.",
-                "La existencia es dolor, Jerry."
+                "Aventura de 20 minutos de scalping, **{user_name}**.",
+                "El mercado bajista es dolor, **{user_name}**."
             ],
             'WELCOME': [
                  (
@@ -1625,13 +1543,13 @@ class PersonalityManager:
                     "En este canal somos millonarios.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🎮 *Channel:* `{mode}`\n\n"
-                    "*La existencia es dolor, Jerry. Usar este bot lo alivia.*"
+                    "*El mercado bajista es dolor, **{user_name}**. Usar este bot lo alivia.*"
                 )
             ],
             'PILOT_ON': [
                 (
                     "🧪 **WUBBA LUBBA DUB DUB!**\n\n"
-                    "Escucha Morty, *burp*, voy a pilotar yo. Tú solo te vas a quedar ahí entrando en pánico como un Jerry. Esto es pura ciencia, no magia.\n\n"
+                    "Escucha **{user_name}**, *burp*, voy a pilotar yo. Tú solo te vas a quedar ahí entrando en pánico por una vela roja como un novato. Esto es pura ciencia, no magia.\n\n"
                     "⚠️ **Advertencia:** *Don't be a Jerry.*"
                 ),
                 (
@@ -1651,7 +1569,7 @@ class PersonalityManager:
             'WALLET_HEADER': "💳 **SCHMECKLES**",
             'STATUS_FOOTER': "\n*Existence is pain.*",
             'RISK_MSG': "🛡️ **PORTAL GUN SETTINGS**\nStop Loss: `{sl_fixed}` | Margin: **{margin}**",
-            'STRATEGY_MSG': "🧠 **GENIUS STRATEGY**\n\nAlgo de matemáticas avanzadas que no entenderías.",
+            'STRATEGY_MSG': "🧠 **GENIUS STRATEGY**\n\nArbitraje interdimensional que no entenderías.",
             'ABOUT_MSG': "ℹ️ **ABOUT**\n\nThe smartest bot in the multiverse.",
             'TRADE_LONG': (
                 "{title}\n\n"
@@ -1679,7 +1597,7 @@ class PersonalityManager:
                 "\"{quote}\"\n"
                 "{reason}"
             ),
-            'TRADE_CLOSE': "🏁 **Salida, Morty.**\n{asset} cerrado. {reason}. Vámonos a otra dimensión.",
+            'TRADE_CLOSE': "🏁 **Salida, {user_name}.**\n{asset} cerrado. {reason}. Vámonos a otra dimensión.",
             'PILOT_ACTION': (
                 "🥒 **¡Wubba Lubba Dub Dub! (AUTO)**\n\n"
                 "Activo: **{asset}**\n"
@@ -1688,7 +1606,7 @@ class PersonalityManager:
                 "� TP: **${tp:,.2f}**\n"
                 "🛑 SL: **${sl:,.2f}**\n\n"
                 "**Motivo:**\n"
-                "¡Matemáticas simples, Morty! {reason}. Entra y cierra la boca."
+                "¡Matemáticas simples, **{user_name}**! {reason}. Entra y cierra la boca."
             ),
             'CB_TRIGGER': "🤢 **TOXIC RICK**\n\nDemasiados fallos (5). Me voy a otra dimensión donde sea rico."
         },
@@ -1971,8 +1889,8 @@ class PersonalityManager:
         'WICK': {
             'NAME': "✏️ John Wick",
             'GREETING': [
-                "Pensé que había vuelto.",
-                "Todo tiene un precio.",
+                "Pensé que había vuelto al parqué.",
+                "Todo activo tiene su precio.",
                 "Tic tac, Mr. Wick."
             ],
             'WELCOME': [
@@ -1986,7 +1904,7 @@ class PersonalityManager:
                 ),
                 (
                     "✏️ **JOHN WICK**\n"
-                    "No fue solo un perro.\n"
+                    "No fue solo un **Stop Loss**.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Focus:* Sheer Will\n"
                     "🎮 *Contract:* `{mode}`\n\n"
@@ -2013,7 +1931,7 @@ class PersonalityManager:
                 ),
                 (
                     "✏️ **FOCUS: SHEER WILL**\n\n"
-                    "I'm going to kill them all. Every single contract (trade).\n\n"
+                    "I'm going to close them all. Every single position.\n\n"
                     "⚠️ *They shouldn't have killed my dog.*"
                 )
             ],
