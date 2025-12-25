@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-# Importar cálculos vectorizados desde indicadores (Principio DRY)
-from strategies.indicators import (
+# Import from consolidated indicators module (Nexus Protocol)
+from servos.indicators import (
     calculate_hma,
     calculate_bollinger_bands,
     calculate_keltner_channels,

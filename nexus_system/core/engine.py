@@ -1,8 +1,8 @@
 import asyncio
-from ..strategies.factory import StrategyFactory
-from ..risk.manager import RiskManager
-from ..streams.stream import MarketStream
-from ..config import DISABLED_ASSETS
+from ..cortex.factory import StrategyFactory
+from ..shield.manager import RiskManager
+from ..uplink.stream import MarketStream
+from ..directive import DISABLED_ASSETS
 
 class QuantumEngine:
     """
@@ -66,7 +66,7 @@ class QuantumEngine:
             for asset in active_assets:
                 try:
                     # 1. Fetch Market Data
-                    from ..config import PREMIUM_SIGNALS_ENABLED
+                    from ..directive import PREMIUM_SIGNALS_ENABLED
                     
                     if PREMIUM_SIGNALS_ENABLED:
                         mtf_data = await self.market_stream.get_multiframe_candles(asset)
