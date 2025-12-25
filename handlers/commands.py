@@ -1372,7 +1372,8 @@ async def cmd_price(message: Message, **kwargs):
                     
                     # RSI Calc
                     closes = [float(k[4]) for k in k_resp] # Index 4 is Close
-                    rsi = calculate_rsi(closes)
+                    rsi_series = calculate_rsi(closes)
+                    rsi = float(rsi_series.iloc[-1]) if hasattr(rsi_series, 'iloc') else float(rsi_series)
                     
                     # Indicators
                     sym = symbol.replace('USDT', '').replace('1000', '')
@@ -1416,9 +1417,9 @@ async def cmd_price(message: Message, **kwargs):
                         # Calcs
                         pct_change = ((price - prev_close) / prev_close) * 100
                         closes = indicators.get('close', [])
-                        # Filter None values
                         clean_closes = [c for c in closes if c is not None]
-                        rsi = calculate_rsi(clean_closes)
+                        rsi_series = calculate_rsi(clean_closes)
+                        rsi = float(rsi_series.iloc[-1]) if hasattr(rsi_series, 'iloc') else float(rsi_series)
                         
                         name = TICKER_MAP.get(sym, sym)
                         
