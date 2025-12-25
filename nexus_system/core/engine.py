@@ -54,9 +54,14 @@ class NexusCore:
         print("✅ Strategy Factory: Online")
 
     async def core_loop(self):
-        """Main Decision Loop with Diagnostic Logging"""
+        """Main Decision Loop with WebSocket Integration"""
         print("🚀 Nexus Core Loop Started.")
         cycle_count = 0
+        
+        # Adaptive cycle time: faster when WebSocket is active
+        base_cycle_time = 60  # Default: 60 seconds
+        ws_cycle_time = 30    # WebSocket mode: 30 seconds (data is real-time)
+        
         while self.running:
             cycle_count += 1
             # DYNAMIC FILTER: Remove disabled assets each cycle
@@ -70,6 +75,7 @@ class NexusCore:
             signals_generated = 0
             assets_scanned = 0
             skip_reasons = {"no_data": 0, "hold": 0, "error": 0}
+            data_sources = {"websocket": 0, "rest": 0}
             
             for asset in active_assets:
                 try:
@@ -88,6 +94,10 @@ class NexusCore:
                     if market_data.get('dataframe') is None or market_data['dataframe'].empty:
                         skip_reasons["no_data"] += 1
                         continue
+                    
+                    # Track data source
+                    source = market_data.get('source', 'rest')
+                    data_sources[source] = data_sources.get(source, 0) + 1
                     
                     assets_scanned += 1
                     df = market_data['dataframe']
@@ -125,10 +135,15 @@ class NexusCore:
                     print(f"⚠️ Error processing {asset}: {e}")
                     continue
             
-            # Diagnostic: Log cycle summary every cycle (verbose mode)
-            print(f"📊 Cycle {cycle_count}: Scanned {assets_scanned}/{len(active_assets)} | Signals: {signals_generated} | Skips: data={skip_reasons['no_data']} hold={skip_reasons['hold']} err={skip_reasons['error']}")
-                
-            await asyncio.sleep(60)  # 1 Minute Cycle
+            # Diagnostic: Log cycle summary with data source info
+            ws_count = data_sources.get('websocket', 0)
+            rest_count = data_sources.get('rest', 0)
+            source_str = f"📡WS:{ws_count} 🌐REST:{rest_count}" if ws_count > 0 else f"🌐REST:{rest_count}"
+            print(f"📊 Cycle {cycle_count}: {assets_scanned}/{len(active_assets)} | {source_str} | Signals:{signals_generated} | Skip: data={skip_reasons['no_data']} hold={skip_reasons['hold']} err={skip_reasons['error']}")
+            
+            # Adaptive sleep: faster when using WebSocket
+            cycle_time = ws_cycle_time if ws_count > rest_count else base_cycle_time
+            await asyncio.sleep(cycle_time)
 
 
     async def run(self):

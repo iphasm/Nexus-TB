@@ -228,3 +228,52 @@ async def cmd_retrain(message: Message):
         await message.answer(f"❌ **ERROR**: {e}")
 
 
+@router.message(Command("wsstatus"))
+@admin_only
+async def cmd_wsstatus(message: Message, **kwargs):
+    """
+    Muestra el estado del WebSocket de datos de mercado.
+    """
+    try:
+        # Try to get the engine instance from the session manager
+        session_manager = kwargs.get('session_manager')
+        
+        msg = "📡 **WEBSOCKET STATUS**\n━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # Check if ws_manager module exists
+        try:
+            from nexus_system.uplink.ws_manager import BinanceWSManager
+            from nexus_system.uplink.price_cache import get_price_cache
+            
+            cache = get_price_cache()
+            stats = cache.get_stats()
+            
+            if stats['symbols'] > 0:
+                msg += f"✅ **Cache Activo**\n"
+                msg += f"📊 Símbolos: `{stats['symbols']}`\n"
+                msg += f"🕯️ Candles totales: `{stats['total_candles']}`\n\n"
+                
+                msg += "**Últimas actualizaciones:**\n"
+                for symbol, details in list(stats['symbols_detail'].items())[:5]:
+                    count = details['count']
+                    last = details.get('last_update', 'N/A')
+                    if hasattr(last, 'strftime'):
+                        last = last.strftime('%H:%M:%S')
+                    msg += f"• `{symbol}`: {count} candles | {last}\n"
+            else:
+                msg += "⚠️ **Cache Vacío**\n"
+                msg += "_El WebSocket puede no estar conectado o aún no ha recibido datos._\n"
+                
+        except ImportError:
+            msg += "❌ **Módulo WebSocket no disponible**\n"
+            msg += "_Ejecuta: pip install websockets_\n"
+        except Exception as e:
+            msg += f"⚠️ Error obteniendo stats: {e}\n"
+        
+        msg += "\n━━━━━━━━━━━━━━━━━━\n"
+        msg += "💡 Usa `/diag [SYMBOL]` para diagnóstico completo."
+        
+        await message.answer(msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await message.answer(f"❌ Error: {e}")
