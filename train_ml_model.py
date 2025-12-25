@@ -1,9 +1,10 @@
 """
-ML Model Training Script v3.0 - Enhanced with Trade Simulation
-- Trade-based labeling (simulates actual SL/TP outcomes)
-- Extended feature set (MACD, BB%, Momentum, OBV, etc.)
-- Proper ADX calculation
-- Cross-validation with stratified splits
+ML Model Training Script v3.1 - XGBoost with Enhanced Features
+- XGBoost Classifier with proper regularization
+- RobustScaler for crypto outlier handling
+- TimeSeriesSplit for chronological validation
+- compute_sample_weight for class balancing (fixes scalp 1.5% imbalance)
+- New features: ema20_slope, mfi, dist_50_high/low, hour_of_day, day_of_week
 """
 
 import asyncio
@@ -11,8 +12,10 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score
+from xgboost import XGBClassifier
+from sklearn.preprocessing import RobustScaler, LabelEncoder
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score
+from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.metrics import classification_report
 from binance.client import Client
 import warnings
@@ -25,6 +28,7 @@ from config import get_all_assets, is_crypto
 SYMBOLS = get_all_assets()
 INTERVAL = '15m'
 MODEL_OUTPUT = os.path.join('antigravity_quantum', 'data', 'ml_model.pkl')
+SCALER_OUTPUT = os.path.join('antigravity_quantum', 'data', 'scaler.pkl')
 
 # Strategy SL/TP configurations (matching real trading logic)
 STRATEGY_PARAMS = {
@@ -123,10 +127,31 @@ def calculate_adx(df, period=14):
     return adx.fillna(0).clip(0, 100)
 
 
+def calculate_mfi(df, period=14):
+    """Calculate Money Flow Index (volume-weighted RSI alternative)"""
+    typical_price = (df['high'] + df['low'] + df['close']) / 3
+    raw_money_flow = typical_price * df['volume']
+    
+    # Positive and negative money flow
+    price_change = typical_price.diff()
+    positive_flow = np.where(price_change > 0, raw_money_flow, 0)
+    negative_flow = np.where(price_change < 0, raw_money_flow, 0)
+    
+    # Rolling sums
+    positive_sum = pd.Series(positive_flow).rolling(period).sum()
+    negative_sum = pd.Series(negative_flow).rolling(period).sum()
+    
+    # Money flow ratio and MFI
+    mfr = positive_sum / (negative_sum + 1e-10)
+    mfi = 100 - (100 / (1 + mfr))
+    
+    return mfi.fillna(50).clip(0, 100)
+
+
 def add_indicators(df):
     """
     Calculate ALL technical indicators for training.
-    EXTENDED FEATURE SET for v3.0
+    EXTENDED FEATURE SET for v3.1
     """
     close = df['close']
     high = df['high']
@@ -166,7 +191,7 @@ def add_indicators(df):
     df['vol_ma_20'] = volume.rolling(20).mean()
     df['vol_change'] = (df['vol_ma_5'] - df['vol_ma_20']) / (df['vol_ma_20'] + 1e-10)
     
-    # === NEW FEATURES FOR v3.0 ===
+    # === v3.0 FEATURES ===
     
     # MACD
     ema_12 = close.ewm(span=12, adjust=False).mean()
@@ -193,7 +218,7 @@ def add_indicators(df):
     obv = (np.sign(close.diff()) * volume).cumsum()
     df['obv_change'] = obv.diff(5) / (obv.rolling(20).mean() + 1e-10)
     
-    # Price position in range (0-1)
+    # Price position in range (0-1), using 20 period
     df['price_position'] = (close - low.rolling(20).min()) / (
         high.rolling(20).max() - low.rolling(20).min() + 1e-10
     )
@@ -206,6 +231,28 @@ def add_indicators(df):
     # Trend direction binary
     df['above_ema200'] = (close > df['ema_200']).astype(int)
     df['ema_cross'] = (df['ema_9'] > df['ema_20']).astype(int)
+    
+    # === NEW v3.1 FEATURES ===
+    
+    # EMA20 Slope (momentum direction) - change over 5 periods
+    df['ema20_slope'] = (df['ema_20'] - df['ema_20'].shift(5)) / close * 100
+    
+    # MFI (Money Flow Index) - volume-weighted RSI alternative
+    df['mfi'] = calculate_mfi(df, period=14)
+    
+    # Distance to 50-period High/Low (structure)
+    high_50 = high.rolling(50).max()
+    low_50 = low.rolling(50).min()
+    df['dist_50_high'] = (close - high_50) / close * 100  # Negative = below high
+    df['dist_50_low'] = (close - low_50) / close * 100    # Positive = above low
+    
+    # Time-based features (seasonality)
+    if 'timestamp' in df.columns:
+        df['hour_of_day'] = df['timestamp'].dt.hour
+        df['day_of_week'] = df['timestamp'].dt.dayofweek
+    else:
+        df['hour_of_day'] = 12  # Default to noon
+        df['day_of_week'] = 2   # Default to Wednesday
     
     df.dropna(inplace=True)
     return df
@@ -271,7 +318,7 @@ def simulate_trade(df, idx, strategy, lookforward=24):
 
 def label_data_v3(df):
     """
-    IMPROVED LABELING v3.0 - Trade Simulation Based
+    IMPROVED LABELING v3.1 - Trade Simulation Based
     
     For each row, simulates what would happen if each strategy was used.
     Labels with the strategy that would have been most profitable.
@@ -331,7 +378,7 @@ def train():
     all_data = []
     
     print("=" * 60)
-    print("🧠 ML MODEL TRAINING v3.0 - Trade Simulation")
+    print("🧠 ML MODEL TRAINING v3.1 - XGBoost with Enhanced Features")
     print("=" * 60)
     print(f"📊 Symbols: {len(SYMBOLS)}")
     print(f"⏰ Interval: {INTERVAL}")
@@ -356,15 +403,18 @@ def train():
 
     full_df = pd.concat(all_data, ignore_index=True)
     
-    # EXTENDED FEATURE SET for v3.0
+    # EXTENDED FEATURE SET for v3.1 (21 features)
     X_cols = [
         # Core (original)
         'rsi', 'adx', 'atr_pct', 'trend_str', 'vol_change',
-        # New features
+        # v3.0 features
         'macd_hist_norm', 'bb_pct', 'bb_width',
         'roc_5', 'roc_10', 'obv_change',
         'price_position', 'body_pct',
-        'above_ema200', 'ema_cross'
+        'above_ema200', 'ema_cross',
+        # NEW v3.1 features (reduce ATR dependence)
+        'ema20_slope', 'mfi', 'dist_50_high', 'dist_50_low',
+        'hour_of_day', 'day_of_week'
     ]
     
     X = full_df[X_cols]
@@ -380,49 +430,117 @@ def train():
         print(f"   • {label}: {count} ({pct:.1f}%)")
     print()
     
-    # Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    # Encode labels for XGBoost
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y)
+    class_names = label_encoder.classes_
     
-    # Train with tuned hyperparameters
-    print("🔧 Training RandomForest (15 features)...")
-    model = RandomForestClassifier(
+    # Apply RobustScaler (handles crypto outliers better than StandardScaler)
+    print("🔧 Applying RobustScaler...")
+    scaler = RobustScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # TimeSeriesSplit for proper chronological validation
+    print("🔄 TimeSeriesSplit Cross-Validation (5-fold)...")
+    tscv = TimeSeriesSplit(n_splits=5)
+    
+    # Calculate sample weights for class balancing (fixes scalp 1.5% imbalance)
+    print("⚖️ Computing sample weights for class balance...")
+    sample_weights = compute_sample_weight('balanced', y_encoded)
+    
+    # XGBoost Classifier
+    print("🚀 Training XGBoost Classifier...")
+    model = XGBClassifier(
+        objective='multi:softprob',
+        num_class=len(class_names),
+        max_depth=5,
         n_estimators=300,
-        max_depth=18,
-        min_samples_split=8,
-        min_samples_leaf=4,
-        class_weight='balanced',
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        reg_alpha=0.1,  # L1 regularization
+        reg_lambda=1.0, # L2 regularization
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1,
+        use_label_encoder=False,
+        eval_metric='mlogloss'
     )
-    model.fit(X_train, y_train)
     
-    # Cross-validation
-    print("🔄 Cross-Validation (5-fold)...")
-    cv_scores = cross_val_score(model, X, y, cv=5, scoring='accuracy')
+    # TimeSeriesSplit Cross-Validation (manual to support sample_weight)
+    cv_scores = []
+    print("   Running 5-fold TimeSeriesSplit CV...")
+    for fold, (train_idx, val_idx) in enumerate(tscv.split(X_scaled)):
+        X_cv_train, X_cv_val = X_scaled[train_idx], X_scaled[val_idx]
+        y_cv_train, y_cv_val = y_encoded[train_idx], y_encoded[val_idx]
+        weights_cv = sample_weights[train_idx]
+        
+        cv_model = XGBClassifier(
+            objective='multi:softprob',
+            num_class=len(class_names),
+            max_depth=5,
+            n_estimators=300,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
+            random_state=42,
+            n_jobs=-1,
+            verbosity=0
+        )
+        cv_model.fit(X_cv_train, y_cv_train, sample_weight=weights_cv)
+        score = cv_model.score(X_cv_val, y_cv_val)
+        cv_scores.append(score)
+        print(f"      Fold {fold+1}: {score:.3f}")
+    
+    cv_scores = np.array(cv_scores)
     print(f"   CV Accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
     
-    # Evaluate
+    # Final training on full data with sample weights
+    print("🏋️ Final training on full dataset...")
+    model.fit(X_scaled, y_encoded, sample_weight=sample_weights)
+    
+    # Evaluate on last 20% (time-respecting split)
+    split_idx = int(len(X_scaled) * 0.8)
+    X_test = X_scaled[split_idx:]
+    y_test = y_encoded[split_idx:]
+    
     print()
-    print("📈 Test Set Evaluation:")
+    print("📈 Test Set Evaluation (last 20% chronologically):")
     print("-" * 60)
     preds = model.predict(X_test)
-    print(classification_report(y_test, preds))
+    print(classification_report(y_test, preds, target_names=class_names))
     
-    # Feature Importance (top 10)
-    print("🔑 Top 10 Feature Importance:")
+    # Feature Importance (top 15)
+    print("🔑 Top 15 Feature Importance:")
     importance_pairs = sorted(zip(X_cols, model.feature_importances_), key=lambda x: -x[1])
-    for feat, imp in importance_pairs[:10]:
+    for feat, imp in importance_pairs[:15]:
         bar = "█" * int(imp * 50)
         print(f"   {feat:18} {imp:.3f} {bar}")
     
-    # Save
+    # Check ATR dependence reduction
+    atr_importance = dict(importance_pairs).get('atr_pct', 0)
+    if atr_importance < 0.25:
+        print(f"\n✅ ATR dependence reduced: {atr_importance:.1%} (target <25%)")
+    else:
+        print(f"\n⚠️ ATR still high: {atr_importance:.1%} (consider adding more features)")
+    
+    # Save model and scaler
     os.makedirs(os.path.dirname(MODEL_OUTPUT), exist_ok=True)
-    joblib.dump(model, MODEL_OUTPUT)
+    
+    # Store class names with model for proper decoding
+    model_data = {
+        'model': model,
+        'label_encoder': label_encoder,
+        'feature_names': X_cols
+    }
+    joblib.dump(model_data, MODEL_OUTPUT)
+    joblib.dump(scaler, SCALER_OUTPUT)
+    
     print()
     print("=" * 60)
     print(f"✅ Model saved to: {MODEL_OUTPUT}")
+    print(f"✅ Scaler saved to: {SCALER_OUTPUT}")
     print("👉 To enable, restart bot or run: /ml_mode on")
     print("=" * 60)
 

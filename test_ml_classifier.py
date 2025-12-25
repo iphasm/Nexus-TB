@@ -1,6 +1,6 @@
 """
-ML Classifier Test Script v2.0
-Tests the trained model with REAL market data from Binance
+ML Classifier Test Script v3.1
+Tests the trained XGBoost model with REAL market data from Binance
 """
 
 import sys
@@ -138,12 +138,12 @@ def get_market_context(df):
 
 def main():
     print("=" * 60)
-    print("🧠 ML CLASSIFIER LIVE TEST")
+    print("🧠 ML CLASSIFIER LIVE TEST v3.1")
     print("=" * 60)
     
     # Load classifier
     try:
-        from antigravity_quantum.strategies.ml_classifier import MLClassifier
+        from antigravity_quantum.strategies.ml_classifier import MLClassifier, CONFIDENCE_THRESHOLD
         MLClassifier.load_model()
         
         if MLClassifier._model is None:
@@ -153,10 +153,15 @@ def main():
             
         print("✅ Model loaded successfully!")
         print(f"   Type: {type(MLClassifier._model).__name__}")
+        print(f"   Scaler: {'✅ Loaded' if MLClassifier._scaler else '⚠️ Not found'}")
+        print(f"   Features: {len(MLClassifier._feature_names) if MLClassifier._feature_names else '15 (legacy)'}")
+        print(f"   Confidence Threshold: {CONFIDENCE_THRESHOLD:.0%}")
         print()
         
     except Exception as e:
         print(f"❌ Failed to load MLClassifier: {e}")
+        import traceback
+        traceback.print_exc()
         return
     
     # Test with real symbols
@@ -198,7 +203,7 @@ def main():
             print(f"   Confidence: {result.confidence:.1%}")
             print(f"   Reason: {result.reason}")
         else:
-            print("⚠️ ML returned None (would fallback to rules)")
+            print(f"⚠️ ML returned None (confidence < {CONFIDENCE_THRESHOLD:.0%} - fallback to rules)")
     
     print("\n" + "=" * 60)
     print("✅ LIVE TEST COMPLETE")
