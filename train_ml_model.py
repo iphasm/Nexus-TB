@@ -39,7 +39,7 @@ STRATEGY_PARAMS = {
 }
 
 
-def fetch_data(symbol, max_candles=4500):
+def fetch_data(symbol, max_candles=35000):
     """Fetches historical data from Binance (Crypto) or YFinance (Stocks)."""
     print(f"📥 Fetching data for {symbol}...")
     
