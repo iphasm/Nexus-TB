@@ -603,7 +603,7 @@ class PersonalityManager:
         'KURTZ': {
             'NAME': "Coronel Kurtz 👴🏻",
             'GREETING': [
-                "Estás en el mercado ahora. No puedes bajarte del gráfico.",
+                "Estás en el río del mercado ahora. No puedes bajarte del barco.",
                 "Huelo a **volatilidad** por la mañana.",
                 "El horror... de una cuenta en rojo."
             ],
