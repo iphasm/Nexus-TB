@@ -460,12 +460,12 @@ class PersonalityManager:
 
         # --- CLASSIC CINEMA & TV ---
         'NEXUS': {
-            'NAME': "🦅 Nexus-6 (Replicant)",
+            'NAME': "🕊🧑🏻‍🦳 Nexus-6 (Replicant)",
             'GREETING': [
                 "He visto cosas que vosotros no creeríais...",
                 "Todos estos trades se perderán en el tiempo...",
                 "Es hora de morir... o de operar.",
-                "No somos computadoras,**{user_name}**. Somos físicos.",
+                "No somos computadoras, **{user_name}**. Somos físicos.",
                 "He hecho cosas cuestionables... nada que el mercado no perdonaría.",
                 "Aceleración decrépita. Trato al mercado de la misma forma.",
                 "El fuego de los ángeles cayó; un profundo trueno resonó en sus costas."
