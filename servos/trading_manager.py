@@ -46,6 +46,7 @@ class AsyncTradingSession:
             "leverage": 5,
             "max_capital_pct": 0.10,
             "stop_loss_pct": 0.02,
+            "tp_ratio": 1.5,  # TP Distance = SL Distance * tp_ratio
             "spot_allocation_pct": 0.20,
             "personality": "STANDARD_ES",
             "sentiment_filter": False,
@@ -702,11 +703,12 @@ class AsyncTradingSession:
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
             
             # 5. Calculate Position Size (Dynamic Risk)
+            tp_ratio = self.config.get('tp_ratio', 1.5)
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price - sl_dist, price_precision)
-                tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
                 
                 # Use Helper for Risk Sizing
                 raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
@@ -714,7 +716,7 @@ class AsyncTradingSession:
                 margin_assignment = total_equity * max_capital_pct
                 raw_quantity = (margin_assignment * leverage) / current_price
                 sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                tp_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision)
+                tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
             
             quantity = float(round(raw_quantity, qty_precision))
             
@@ -887,16 +889,17 @@ class AsyncTradingSession:
             equity = float(acc['totalWalletBalance'])
             
             # 4. Calculate Size (Dynamic Risk)
+            tp_ratio = self.config.get('tp_ratio', 1.5)
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price + sl_dist, price_precision)
-                tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+                tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
                 
                 raw_quantity = self.calculate_dynamic_size(equity, current_price, sl_price, leverage, min_notional)
             else:
                 sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
+                tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
                 
                 max_alloc = equity * max_capital_pct
                 raw_quantity = max_alloc / current_price

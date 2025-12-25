@@ -54,7 +54,7 @@ class StrategyFactory:
                 
         # SCALPING (Volatile)
         elif regime_result.suggested_strategy == "Scalping":
-            if qconfig.ENABLED_STRATEGIES.get('SCALPING', False):
+            if qconfig.ENABLED_STRATEGIES.get('SCALPING', True):
                 strategy = ScalpingStrategy()
                 
         # GRID (Tight Range)
