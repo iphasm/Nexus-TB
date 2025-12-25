@@ -6,6 +6,8 @@ from servos.db import add_system_user, remove_system_user, get_all_system_users,
 from datetime import datetime
 from servos.auth import admin_only, owner_only
 
+router = Router()
+
 
 @router.message(Command("addsub"))
 @admin_only
