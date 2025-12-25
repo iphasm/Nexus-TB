@@ -673,7 +673,7 @@ async def cmd_diag(message: Message, **kwargs):
             session = session_manager.get_session(str(message.chat.id))
             if session and session.client:
                 try:
-                    ticker = session.client.futures_symbol_ticker(symbol=symbol)
+                    ticker = await session.client.futures_symbol_ticker(symbol=symbol)
                     rest_price = float(ticker.get('price', 0))
                     report += f"🌐 **REST API**\n"
                     report += f"└ Precio actual: `${rest_price:,.2f}`\n\n"
