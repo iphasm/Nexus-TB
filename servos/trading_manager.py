@@ -1731,27 +1731,6 @@ class AsyncTradingSession:
                     spot_usdt = float(asset['free']) + float(asset['locked'])
                     break
             
-            # Earn (Flexible Savings)
-            earn_usdt = 0.0
-            try:
-                # Fetch Simple Earn Flexible positions
-                # V2: Use fallback to direct SAPI request if attribute missing
-                if hasattr(self.client, 'get_simple_earn_flexible_position'):
-                    earn_data = await self.client.get_simple_earn_flexible_position()
-                else:
-                    # Direct SAPI request fallback
-                    earn_data = await self.client._request(
-                        'get', 'simple-earn/flexible/position', signed=True,
-                        data={'recvWindow': 6000}
-                    )
-                
-                if earn_data and 'rows' in earn_data:
-                    for row in earn_data['rows']:
-                        if row.get('asset') == 'USDT':
-                            earn_usdt += float(row.get('totalAmount', 0))
-            except Exception as e:
-                print(f"⚠️ Earn fetch warning: {e}")
-            
             # Alpaca Equity
             alpaca_equity = 0.0
             if self.alpaca_client:
@@ -1762,11 +1741,11 @@ class AsyncTradingSession:
                 except Exception as e:
                     print(f"⚠️ Alpaca equity warning: {e}")
             
-            total = spot_usdt + futures_balance + earn_usdt + alpaca_equity
+            total = spot_usdt + futures_balance + alpaca_equity
             
             return {
                 "spot_usdt": spot_usdt,
-                "earn_usdt": earn_usdt,
+                "earn_usdt": 0.0,  # Deprecated
                 "futures_balance": futures_balance,
                 "futures_pnl": futures_pnl,
                 "alpaca_equity": alpaca_equity,
