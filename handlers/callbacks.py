@@ -15,7 +15,7 @@ router = Router(name="callbacks")
 async def safe_answer(callback: CallbackQuery, text: str = None, show_alert: bool = False):
     """Safely answer a callback query, handling expired/stale queries gracefully."""
     try:
-        await safe_answer(callback, text, show_alert=show_alert)
+        await callback.answer(text, show_alert=show_alert)
     except TelegramBadRequest as e:
         if "query is too old" in str(e) or "query ID is invalid" in str(e):
             # Query expired (>30s) - ignore silently
