@@ -673,14 +673,12 @@ async def cmd_diag(message: Message, **kwargs):
             session = session_manager.get_session(str(message.chat.id))
             if session and session.client:
                 try:
-                    ticker = await asyncio.get_event_loop().run_in_executor(
-                        None, session.client.futures_symbol_ticker, symbol
-                    )
+                    ticker = session.client.futures_symbol_ticker(symbol=symbol)
                     rest_price = float(ticker.get('price', 0))
                     report += f"🌐 **REST API**\n"
                     report += f"└ Precio actual: `${rest_price:,.2f}`\n\n"
                 except Exception as e:
-                    report += f"🌐 **REST API**: ⚠️ {e}\n\n"
+                    report += f"🌐 **REST API**: ⚠️ {str(e)[:50]}\n\n"
         
         # 3. Strategy info
         report += f"⚙️ **Configuración**\n"
