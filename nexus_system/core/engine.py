@@ -132,3 +132,6 @@ class QuantumEngine:
         self.running = False
         print("🛑 Engine Stopping...")
         await self.market_stream.close()
+
+# Alias for new naming convention
+NexusCore = QuantumEngine

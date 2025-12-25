@@ -1,6 +1,5 @@
 # Use lightweight Python 3.11
 FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm
-# Cache bust: 2025-12-25
 
 # Set working directory
 WORKDIR /app

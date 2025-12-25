@@ -30,6 +30,23 @@ GROUP_CONFIG = {
     'COMMODITY': True
 }
 
+# --- STRATEGY CONFIG ---
+ENABLED_STRATEGIES = {
+    'SCALPING': True,
+    'GRID': True,
+    'MEAN_REVERSION': True,
+    'BLACK_SWAN': True,
+    'SHARK': False,
+    'TREND': True
+}
+
+# Runtime Blacklist (Global)
+DISABLED_ASSETS = set()
+
+# --- AI & ML MODULES ---
+AI_FILTER_ENABLED = True
+ML_CLASSIFIER_ENABLED = False
+
 # =================================================================
 # TICKER MAP - Human-readable names for all assets
 # =================================================================
