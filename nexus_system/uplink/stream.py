@@ -115,7 +115,7 @@ class MarketStream:
     def _is_alpaca_symbol(self, symbol: str) -> bool:
         """Check if symbol should be routed to Alpaca (stocks/commodities)."""
         try:
-            from config import ASSET_GROUPS
+            from system_directive import ASSET_GROUPS
             return symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', [])
         except Exception:
             return False
@@ -126,7 +126,7 @@ class MarketStream:
         """
         # ROUTING: Non-crypto symbols go to Alpaca
         try:
-            from config import ASSET_GROUPS
+            from system_directive import ASSET_GROUPS
             import os
             if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
                 # Skip if US market is closed (avoid unnecessary API calls)

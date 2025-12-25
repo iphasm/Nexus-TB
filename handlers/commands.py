@@ -1040,7 +1040,7 @@ async def cmd_cooldowns(message: Message, **kwargs):
 async def cmd_reset_assets(message: Message, **kwargs):
     """Clear all disabled assets (Admin only)."""
     from nexus_system.directive import DISABLED_ASSETS, ENABLED_STRATEGIES
-    from config import GROUP_CONFIG
+    from system_directive import GROUP_CONFIG
     from servos.db import save_bot_state
     import nexus_system.directive as aq_config
     
@@ -1079,7 +1079,7 @@ async def cmd_long(message: Message, **kwargs):
         return
     
     # Smart Symbol Resolution
-    from config import resolve_symbol
+    from system_directive import resolve_symbol
     raw_symbol = args[1]
     symbol = resolve_symbol(raw_symbol)
     
@@ -1141,7 +1141,7 @@ async def cmd_buy_spot(message: Message, **kwargs):
         return
     
     # Smart Symbol Resolution
-    from config import resolve_symbol
+    from system_directive import resolve_symbol
     raw_symbol = args[1]
     symbol = resolve_symbol(raw_symbol)
     
@@ -1181,7 +1181,7 @@ async def cmd_short(message: Message, **kwargs):
         return
     
     # Smart Symbol Resolution
-    from config import resolve_symbol
+    from system_directive import resolve_symbol
     raw_symbol = args[1]
     symbol = resolve_symbol(raw_symbol)
     
@@ -1328,7 +1328,7 @@ async def cmd_price(message: Message, **kwargs):
         fng = get_fear_and_greed_index()
         
         # 2. Build dynamic target lists
-        from config import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
+        from system_directive import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
         from nexus_system.directive import DISABLED_ASSETS
         from servos.indicators import calculate_rsi
         import numpy as np
