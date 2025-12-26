@@ -20,15 +20,26 @@ ASSET_GROUPS = {
         # DeFi
         'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT'
     ],
-    'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
-    'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG']
+    'STOCKS': [
+        # High Liquidity Day Trading Workhorses
+        'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN',
+        'META', 'GOOGL', 'AMD', 'JPM', 'BAC'
+    ],
+    'ETFS': [
+        # Core ETFs for Market Operations
+        'SPY',   # S&P 500
+        'QQQ',   # Nasdaq 100
+        'IWM',   # Russell 2000
+        'TLT',   # Long-Term Bonds
+        'GLD'    # Gold
+    ]
 }
 
-# Toggle groups on/off
+# Toggle groups on/off (Global Defaults)
 GROUP_CONFIG = {
     'CRYPTO': True,
     'STOCKS': True,
-    'COMMODITY': True
+    'ETFS': True
 }
 
 # --- STRATEGY CONFIG ---
@@ -102,18 +113,23 @@ TICKER_MAP = {
     'LDOUSDT': '🏝️ Lido DAO',
     
     # === STOCKS (Alpaca) ===
-    'TSLA': '🚗 Tesla',
-    'NVDA': '🎮 NVIDIA',
-    'MSFT': '🪟 Microsoft',
     'AAPL': '🍎 Apple',
+    'MSFT': '🪟 Microsoft',
+    'NVDA': '🎮 NVIDIA',
+    'TSLA': '🚗 Tesla',
+    'AMZN': '📦 Amazon',
+    'META': '👤 Meta',
+    'GOOGL': '🔍 Google',
     'AMD': '🔴 AMD',
+    'JPM': '🏦 JPMorgan',
+    'BAC': '🏦 Bank of America',
     
-    # === COMMODITIES (Alpaca ETFs) ===
-    'GLD': '🥇 ORO',
-    'USO': '🛢️ PETRÓLEO',
-    'SLV': '🥈 PLATA',
-    'CPER': '🟤 COBRE',
-    'UNG': '🔥 GAS NATURAL'
+    # === ETFs (Alpaca) ===
+    'SPY': '📈 S&P 500',
+    'QQQ': '💻 Nasdaq 100',
+    'IWM': '🐻 Russell 2000',
+    'TLT': '📜 Long Bonds',
+    'GLD': '🥇 Gold'
 }
 
 
@@ -144,6 +160,17 @@ def get_broker(symbol: str) -> str:
     if is_crypto(symbol):
         return 'BINANCE'
     return 'ALPACA'
+
+
+def get_asset_group(symbol: str) -> str:
+    """
+    Determine which asset group a symbol belongs to.
+    Returns: 'CRYPTO', 'STOCKS', 'ETFS', or 'UNKNOWN'.
+    """
+    for group_name, symbols in ASSET_GROUPS.items():
+        if symbol in symbols:
+            return group_name
+    return 'UNKNOWN'
 
 
 def resolve_symbol(text: str) -> str:

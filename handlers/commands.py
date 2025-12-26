@@ -1839,3 +1839,76 @@ REGLAS:
     except Exception as e:
         await message.reply(f"❌ Error LLM: {e}")
 
+
+# ========================================================
+# ASSET GROUP MANAGEMENT (/assets)
+# ========================================================
+
+from servos.db import get_user_enabled_groups, set_user_enabled_groups
+
+def _build_assets_keyboard(chat_id: str) -> InlineKeyboardMarkup:
+    """Build inline keyboard showing current asset group toggles."""
+    groups = get_user_enabled_groups(chat_id)
+    
+    def icon(enabled: bool) -> str:
+        return "✅" if enabled else "❌"
+    
+    keyboard = [
+        [InlineKeyboardButton(
+            text=f"{icon(groups.get('CRYPTO', True))} Crypto (Binance)",
+            callback_data="toggle_group:CRYPTO"
+        )],
+        [InlineKeyboardButton(
+            text=f"{icon(groups.get('STOCKS', True))} Stocks (Alpaca)",
+            callback_data="toggle_group:STOCKS"
+        )],
+        [InlineKeyboardButton(
+            text=f"{icon(groups.get('ETFS', True))} ETFs (Alpaca)",
+            callback_data="toggle_group:ETFS"
+        )],
+        [InlineKeyboardButton(text="🔙 Volver", callback_data="back_to_start")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+@router.message(Command("assets"))
+async def cmd_assets(message: Message, **kwargs):
+    """
+    Show asset group configuration menu.
+    Allows users to enable/disable scanning for Crypto, Stocks, or ETFs.
+    """
+    chat_id = str(message.chat.id)
+    keyboard = _build_assets_keyboard(chat_id)
+    
+    await message.answer(
+        "⚙️ **Configuración de Activos**\n\n"
+        "Selecciona los grupos de activos que deseas escanear.\n"
+        "Las señales solo se generarán para los grupos habilitados.\n",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+
+@router.callback_query(F.data.startswith("toggle_group:"))
+async def callback_toggle_group(callback: CallbackQuery, **kwargs):
+    """Handle toggle of asset groups."""
+    chat_id = str(callback.message.chat.id)
+    group_name = callback.data.split(":")[1]
+    
+    # Get current settings
+    groups = get_user_enabled_groups(chat_id)
+    
+    # Toggle
+    groups[group_name] = not groups.get(group_name, True)
+    
+    # Save
+    set_user_enabled_groups(chat_id, groups)
+    
+    # Update keyboard
+    keyboard = _build_assets_keyboard(chat_id)
+    
+    status = "✅ Habilitado" if groups[group_name] else "❌ Deshabilitado"
+    await callback.answer(f"{group_name}: {status}")
+    
+    await callback.message.edit_reply_markup(reply_markup=keyboard)
+

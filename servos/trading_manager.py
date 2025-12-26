@@ -280,7 +280,16 @@ class AsyncTradingSession:
         return groups[group]
 
     def is_group_enabled(self, group: str) -> bool:
-        """Check if group is enabled. Default TRUE for all groups."""
+        """
+        Check if group is enabled FOR THIS USER.
+        Fetches from DB (per-user preferences) first, falls back to session config.
+        """
+        # Try DB first (per-user preferences)
+        from servos.db import get_user_enabled_groups
+        user_groups = get_user_enabled_groups(self.chat_id)
+        if user_groups:
+            return user_groups.get(group, True)
+        # Fallback to session config (legacy)
         return self.config.get('groups', {}).get(group, True)
 
     def toggle_asset_blacklist(self, symbol: str) -> bool:

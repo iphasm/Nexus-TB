@@ -94,6 +94,11 @@ def init_db():
                 UPDATE users SET telegram_id = chat_id::BIGINT WHERE telegram_id IS NULL AND chat_id ~ '^[0-9]+$'
             """)
             
+            # Add enabled_groups column if not exists (migration for per-user asset preferences)
+            cur.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_groups JSONB DEFAULT '{"CRYPTO": true, "STOCKS": true, "ETFS": true}'::jsonb
+            """)
+            
             # Scheduled tasks table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS scheduled_tasks (
@@ -420,6 +425,50 @@ def get_all_system_users():
             return cur.fetchall()
     except:
         return []
+    finally:
+        conn.close()
+
+
+# --- USER ENABLED GROUPS FUNCTIONS ---
+
+def get_user_enabled_groups(chat_id: str) -> dict:
+    """
+    Get user's enabled asset groups.
+    Returns dict like {"CRYPTO": True, "STOCKS": True, "ETFS": True}.
+    """
+    default = {"CRYPTO": True, "STOCKS": True, "ETFS": True}
+    conn = get_connection()
+    if not conn: return default
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT enabled_groups FROM users WHERE chat_id = %s", (str(chat_id),))
+            row = cur.fetchone()
+            if row and row[0]:
+                return row[0] if isinstance(row[0], dict) else json.loads(row[0])
+            return default
+    except:
+        return default
+    finally:
+        conn.close()
+
+
+def set_user_enabled_groups(chat_id: str, groups: dict) -> bool:
+    """
+    Update user's enabled asset groups.
+    groups: dict like {"CRYPTO": True, "STOCKS": False, "ETFS": True}
+    """
+    conn = get_connection()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET enabled_groups = %s WHERE chat_id = %s",
+                (json.dumps(groups), str(chat_id))
+            )
+            conn.commit()
+            return cur.rowcount > 0
+    except:
+        return False
     finally:
         conn.close()
 

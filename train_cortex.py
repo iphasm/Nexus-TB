@@ -9,6 +9,7 @@ ML Model Training Script v3.1 - XGBoost with Enhanced Features
 
 import asyncio
 import os
+import sys
 import joblib
 import pandas as pd
 import numpy as np
@@ -389,18 +390,26 @@ def train():
     print("🧠 NEXUS CORTEX TRAINING v3.1 - Interactive Mode")
     print("=" * 60 + f"{RESET}")
     
-    # Interactive Input
-    try:
-        user_input = input(f"⚡ Cantidad de velas a analizar? [Default 35000]: ").strip()
-        max_candles = int(user_input) if user_input else 35000
-    except ValueError:
-        print(f"{RED}⚠️ Entrada inválida, usando default 35000.{RESET}")
-        max_candles = 35000
+    # Parse Arguments
+    parser = argparse.ArgumentParser(description='Nexus Cortex Trainer')
+    parser.add_argument('--candles', type=str, default='35000', help='Number of candles to analyze')
+    parser.add_argument('--auto', action='store_true', help='Run in non-interactive mode (skip pauses)')
+    args = parser.parse_args()
+
+    # Interactive Input (Only if not auto and candles default)
+    if not args.auto:
+        try:
+            user_input = input(f"⚡ Cantidad de velas a analizar? [Default {args.candles}]: ").strip()
+            max_candles = int(user_input) if user_input else int(args.candles)
+        except ValueError:
+            print(f"{RED}⚠️ Entrada inválida, usando default {args.candles}.{RESET}")
+            max_candles = int(args.candles)
+    else:
+        max_candles = int(args.candles)
 
     print(f"📊 Symbols: {len(SYMBOLS)}")
     print(f"🕯️ Candles: {max_candles}")
     print(f"⏰ Interval: {INTERVAL}")
-    print()
     
     all_data = []
     
@@ -587,5 +596,6 @@ if __name__ == "__main__":
         traceback.print_exc()
     finally:
         print()
-        input("🔴 Presione ENTER para salir...")
+        if '--auto' not in str(sys.argv):
+             input("🔴 Presione ENTER para salir...")
 
