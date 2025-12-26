@@ -80,17 +80,26 @@ class AlpacaWSManager:
             
             print(f"🔌 AlpacaWS: Connecting to {len(self.symbols)} symbols...")
             
+            # Try to use DataFeed enum (newer alpaca-py versions)
+            try:
+                from alpaca.data.enums import DataFeed
+                feed_param = DataFeed.IEX
+            except ImportError:
+                # Fallback to string for older versions
+                feed_param = "iex"
+            
             # Create stream with IEX feed (free tier)
             self.stream = StockDataStream(
                 self.api_key,
                 self.api_secret,
-                feed="iex"  # Free tier
+                feed=feed_param
             )
             
-            # Register bar handler
-            @self.stream.on_bar(*self.symbols)
-            async def on_bar(bar):
+            # Register bar handler for each symbol
+            async def on_bar_handler(bar):
                 await self._process_bar(bar)
+            
+            self.stream.subscribe_bars(on_bar_handler, *self.symbols)
             
             self.running = True
             self._reconnect_attempts = 0
