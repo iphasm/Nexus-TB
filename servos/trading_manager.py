@@ -2299,13 +2299,13 @@ class AsyncSessionManager:
                 alpaca_users.append(s.chat_id)
         
         if proxied_users:
-            print(f"🔄 Proxy configured: {proxy_url_display[:30]}... {proxied_users}")
+            print(f"🔄 Proxy configured: [{len(proxied_users):02d} Users]")
         
         if binance_users:
-            print(f"✅ Binance Client Init (✅ Proxy) {binance_users}")
+            print(f"✅ Binance Client Init (✅ Proxy): [{len(binance_users):02d} Users]")
             
         if alpaca_users:
-            print(f"✅ Alpaca Client Initialized (Paper: Mixed) {alpaca_users}")
+            print(f"✅ Alpaca Client Initialized (Paper: Mixed): [{len(alpaca_users):02d} Users]")
     
 
     async def _ensure_admin_session(self, verbose: bool = True):

@@ -83,16 +83,17 @@ logging.getLogger('aiogram').setLevel(logging.INFO)
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
-# --- DIAGNOSTICS: LOG ENV VARS (Masked) ---
-# Debugging Railway Env Var Issues
+# --- DIAGNOSTICS: LOG ENV VARS (Masked, One-Liner) ---
 _vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
 logger.info("🔧 SYSTEM DIRECTIVE CHECK (Env Vars):")
+status_parts = []
 for v in _vars_to_log:
     val = os.getenv(v, '').strip().strip("'\"")
-    status = "✅ FOUND" if val else "❌ MISSING"
-    masked = f"{val[:4]}...{val[-4:]}" if val and len(val) > 8 else "N/A"
-    if v == 'PROXY_URL' and val: masked = "CONFIGURED"
-    logger.info(f"   - {v}: {status} [{masked}]")
+    found = "✅" if val else "❌"
+    short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
+    if v == 'PROXY_URL': short_name = "PROXY"
+    status_parts.append(f"{short_name}:{found}")
+logger.info(" | ".join(status_parts))
 # ------------------------------------------
 
 
