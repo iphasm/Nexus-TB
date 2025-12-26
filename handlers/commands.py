@@ -698,7 +698,7 @@ async def cmd_migrate_security(message: Message, **kwargs):
     """Forces encryption of all database entries."""
     from servos.force_encrypt import force_encrypt_all
     
-    msg = await message.answer("🔐 **Iniciando Migración de Seguridad...**\nLeyendo DB y re-encriptando todo...")
+    msg = await message.answer("🔐 Iniciando Migración de Seguridad...\nLeyendo DB y re-encriptando todo...")
     
     try:
         # Run in executor to avoid blocking
@@ -706,9 +706,9 @@ async def cmd_migrate_security(message: Message, **kwargs):
         success = await loop.run_in_executor(None, force_encrypt_all)
         
         if success:
-            await msg.edit_text("✅ **Migración Completa**\nTodas las claves en la base de datos han sido encriptadas exitosamente con AES-256.")
+            await msg.edit_text("✅ Migración Completa\nTodas las claves en la base de datos han sido encriptadas exitosamente con AES-256.")
         else:
-            await msg.edit_text("❌ **Error en Migración**\nRevisa los logs del servidor.")
+            await msg.edit_text("❌ Error en Migración\nRevisa los logs del servidor.")
             
     except Exception as e:
         await msg.edit_text(f"❌ Error crítico: {e}")

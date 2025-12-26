@@ -16,7 +16,7 @@ async def cmd_addsub(message: Message):
     try:
         args = message.text.split()
         if len(args) < 4:
-            await message.answer("⚠️ Uso: `/addsub [Nombre] [ChatID] [Días]`")
+            await message.answer("⚠️ Uso: /addsub [Nombre] [ChatID] [Días]")
             return
             
         name = args[1]
@@ -28,7 +28,7 @@ async def cmd_addsub(message: Message):
         if success:
             expiry = datetime.now().timestamp() + (days * 86400)
             date_str = datetime.fromtimestamp(expiry).strftime('%d/%m/%Y')
-            await message.answer(f"✅ **Suscriptor Agregado**\n👤 {name} (ID: `{res}`)\n⏳ Vence: {date_str}")
+            await message.answer(f"✅ Suscriptor Agregado\n👤 {name} (ID: {res})\n⏳ Vence: {date_str}")
         else:
             await message.answer(f"❌ Error: {res}")
             
@@ -44,7 +44,7 @@ async def cmd_addadmin(message: Message):
     try:
         args = message.text.split()
         if len(args) < 3:
-            await message.answer("⚠️ Uso: `/addadmin [Nombre] [ChatID]`")
+            await message.answer("⚠️ Uso: /addadmin [Nombre] [ChatID]")
             return
             
         name = args[1]
@@ -53,7 +53,7 @@ async def cmd_addadmin(message: Message):
         success, res = add_system_user(name, target_chat_id, None, 'admin')
         
         if success:
-            await message.answer(f"✅ **Admin Agregado**\n🛡️ {name} (ID: `{res}`)\n♾️ Acceso Permanente")
+            await message.answer(f"✅ Admin Agregado\n🛡️ {name} (ID: {res})\n♾️ Acceso Permanente")
         else:
             await message.answer(f"❌ Error: {res}")
             
@@ -67,7 +67,7 @@ async def cmd_remsub(message: Message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            await message.answer("⚠️ Uso: `/remsub [ID_Numerico]`")
+            await message.answer("⚠️ Uso: /remsub [ID_Numerico]")
             return
             
         user_id = int(args[1])
@@ -126,18 +126,18 @@ async def cmd_ml_mode(message: Message):
         state = "✅ ACTIVADO" if qconfig.ML_CLASSIFIER_ENABLED else "❌ DESACTIVADO"
         model_exists = "📦 (Modelo Encontrado)" if os.path.exists(os.path.join(os.getcwd(), 'nexus_system', 'memory_archives', 'ml_model.pkl')) else "⚠️ (Modelo NO Encontrado)"
         
-        await message.answer(f"🤖 **Estado ML Classifier**: {state} {model_exists}\n\nUso: `/ml_mode [on/off]`")
+        await message.answer(f"🤖 Estado ML Classifier: {state} {model_exists}\n\nUso: /ml_mode [on/off]")
         return
 
     mode = args[1].lower()
     if mode == 'on':
         qconfig.ML_CLASSIFIER_ENABLED = True
-        await message.answer("🧠 **ML Classifier ACTIVADO**\nEl bot intentará usar el modelo predictivo para seleccionar estrategias.\n_Nota: Si no hay modelo, usará fallback a lógica clásica._")
+        await message.answer("🧠 ML Classifier ACTIVADO\nEl bot intentará usar el modelo predictivo para seleccionar estrategias.\nNota: Si no hay modelo, usará fallback a lógica clásica.")
     elif mode == 'off':
         qconfig.ML_CLASSIFIER_ENABLED = False
-        await message.answer("🛑 **ML Classifier DESACTIVADO**\nEl bot usará exclusivamente la lógica clásica basada en reglas.")
+        await message.answer("🛑 ML Classifier DESACTIVADO\nEl bot usará exclusivamente la lógica clásica basada en reglas.")
     else:
-        await message.answer("⚠️ Uso: `/ml_mode [on/off]`")
+        await message.answer("⚠️ Uso: /ml_mode [on/off]")
 
 
 @router.message(Command("retrain"))
@@ -220,12 +220,12 @@ async def cmd_retrain(message: Message):
                 
         else:
             error_msg = stderr.decode('utf-8', errors='ignore')[-500:]
-            await message.answer(f"❌ **ERROR EN ENTRENAMIENTO**\n\n```\n{error_msg}\n```")
+            await message.answer(f"❌ ERROR EN ENTRENAMIENTO\n\n{error_msg}")
             
     except asyncio.TimeoutError:
-        await message.answer("❌ **TIMEOUT**: El entrenamiento tardó más de 10 minutos.")
+        await message.answer("❌ TIMEOUT: El entrenamiento tardó más de 10 minutos.")
     except Exception as e:
-        await message.answer(f"❌ **ERROR**: {e}")
+        await message.answer(f"❌ ERROR: {e}")
 
 
 @router.message(Command("wsstatus"))
