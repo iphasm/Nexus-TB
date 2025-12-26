@@ -580,45 +580,102 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("ASSETS|"))
 async def handle_assets_menu(callback: CallbackQuery, **kwargs):
-    """Handle asset module selection"""
+    """Handle asset module selection - Now grouped by category"""
     module = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
     await safe_answer(callback)
     
-    # Build asset list for selected module
     try:
-        from system_directive import SHARK_TARGETS, DISABLED_ASSETS
+        from system_directive import SHARK_TARGETS, DISABLED_ASSETS, ASSET_GROUPS, TICKER_MAP
         
         if module == "SHARK":
             assets = SHARK_TARGETS
             title = "🦈 SHARK TARGETS"
-        else:
-            # Global scanner - Import from root config to ensure all groups are present
-            from system_directive import ASSET_GROUPS
-            assets = []
-            for group in ASSET_GROUPS.values():
-                assets.extend(group)
-            title = "📡 SCANNER GLOBAL"
+            
+            # Build simple flat list for Shark
+            buttons = []
+            if not session_manager:
+                await callback.message.edit_text("⚠️ Error interno")
+                return
+                 
+            session = session_manager.get_session(str(callback.message.chat.id))
+            
+            for asset in assets[:80]:
+                is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
+                icon = "❌" if is_disabled else "✅"
+                display = TICKER_MAP.get(asset, asset)
+                buttons.append([InlineKeyboardButton(
+                    text=f"{icon} {display}",
+                    callback_data=f"ASSET_TOGGLE|{module}|{asset}"
+                )])
+            
+            buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+            
+            await callback.message.edit_text(
+                f"📦 *{title}*\n\n"
+                f"Activos: {len(assets)}\n"
+                "Toca para activar/desactivar:",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            return
         
-        # Build keyboard with toggle buttons
-        buttons = []
+        # Global Scanner - GROUPED BY CATEGORY
+        title = "📡 SCANNER GLOBAL"
+        
         if not session_manager:
-             await callback.message.edit_text("⚠️ Error interno")
-             return
+            await callback.message.edit_text("⚠️ Error interno")
+            return
              
         session = session_manager.get_session(str(callback.message.chat.id))
-        is_disabled = False
         
-        for asset in assets[:80]:
-            if session:
-                is_disabled = session.is_asset_disabled(asset)
-            else:
-                 is_disabled = asset in DISABLED_ASSETS
-                 
+        buttons = []
+        
+        # Helper to format display name
+        def get_display(asset: str) -> str:
+            name = TICKER_MAP.get(asset, asset)
+            # For stocks/ETFs, show "Full Name (TICKER)"
+            if asset in ASSET_GROUPS.get('STOCKS', []) or asset in ASSET_GROUPS.get('ETFS', []):
+                # Strip emoji for cleaner format
+                clean_name = ''.join(c for c in name if c.isalnum() or c.isspace() or c == '&').strip()
+                return f"{clean_name} ({asset})"
+            return name
+        
+        # === CRYPTO ===
+        buttons.append([InlineKeyboardButton(text="━━ 🪙 CRYPTO ━━", callback_data="noop")])
+        crypto_assets = ASSET_GROUPS.get('CRYPTO', [])[:15]  # Limit for UI
+        for asset in crypto_assets:
+            is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
             icon = "❌" if is_disabled else "✅"
+            display = TICKER_MAP.get(asset, asset)
             buttons.append([InlineKeyboardButton(
-                text=f"{icon} {asset}",
+                text=f"{icon} {display}",
+                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
+            )])
+        
+        # === STOCKS ===
+        buttons.append([InlineKeyboardButton(text="━━ 📊 STOCKS ━━", callback_data="noop")])
+        stock_assets = ASSET_GROUPS.get('STOCKS', [])
+        for asset in stock_assets:
+            is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
+            icon = "❌" if is_disabled else "✅"
+            display = get_display(asset)
+            buttons.append([InlineKeyboardButton(
+                text=f"{icon} {display}",
+                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
+            )])
+        
+        # === ETFs ===
+        buttons.append([InlineKeyboardButton(text="━━ 📈 ETFs ━━", callback_data="noop")])
+        etf_assets = ASSET_GROUPS.get('ETFS', [])
+        for asset in etf_assets:
+            is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
+            icon = "❌" if is_disabled else "✅"
+            display = get_display(asset)
+            buttons.append([InlineKeyboardButton(
+                text=f"{icon} {display}",
                 callback_data=f"ASSET_TOGGLE|{module}|{asset}"
             )])
         
@@ -626,9 +683,10 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         
+        total = len(crypto_assets) + len(stock_assets) + len(etf_assets)
         await callback.message.edit_text(
             f"📦 *{title}*\n\n"
-            f"Activos: {len(assets)}\n"
+            f"Activos: {total}\n"
             "Toca para activar/desactivar:",
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -636,6 +694,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
     except Exception as e:
         await callback.message.edit_text(f"❌ Error: {e}")
+
 
 
 @router.callback_query(F.data.startswith("ASSET_TOGGLE|"))
