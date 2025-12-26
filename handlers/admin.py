@@ -111,7 +111,9 @@ async def cmd_subs(message: Message):
             
         msg += f"🆔 `{s['id']}` | {s['name']} | ⏳ {expiry}\n"
         
-    await message.answer(msg, parse_mode="Markdown")
+    # Clean up potential Markdown issues in names for safe display
+    msg = msg.replace('*', '').replace('`', '').replace('_', '')
+    await message.answer(msg)
 
 import system_directive as qconfig
 
@@ -273,7 +275,9 @@ async def cmd_wsstatus(message: Message, **kwargs):
         msg += "\n━━━━━━━━━━━━━━━━━━\n"
         msg += "💡 Usa `/diag [SYMBOL]` para diagnóstico completo."
         
-        await message.answer(msg, parse_mode="Markdown")
+        # Clean potential Markdown issues
+        msg = msg.replace('**', '').replace('`', '').replace('_', '')
+        await message.answer(msg)
         
     except Exception as e:
         await message.answer(f"❌ Error: {e}")
