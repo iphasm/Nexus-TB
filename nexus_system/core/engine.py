@@ -42,6 +42,9 @@ class NexusCore:
         # Filter crypto symbols for WebSocket subscription
         crypto_symbols = [a for a in self.assets if 'USDT' in a]
         
+        # Register Event Listener BEFORE initializing stream
+        self.market_stream.add_callback(self._on_price_update)
+        
         await self.market_stream.initialize(
             alpaca_key=ak, 
             alpaca_secret=asec,
@@ -50,101 +53,93 @@ class NexusCore:
         
         # Simulating Async Config / DB Load
         await asyncio.sleep(0.5)
+        self.last_analysis_time = {}
         print("✅ Risk Manager: Online")
         print("✅ Strategy Factory: Online")
+        print("⚡ NexusCore: Event-Driven Engine Ready")
+
+    async def _on_price_update(self, symbol: str, candle: dict):
+        """
+        Real-time Event Handler.
+        Triggered immediately when a candle closes (or updates).
+        """
+        # Only analyze on candle CLOSE (signals are based on confirmed candles)
+        if not candle.get('is_closed', False):
+            return
+
+        # Rate Limiting: Max 1 analysis per symbol per second (prevent double triggers)
+        now = asyncio.get_running_loop().time()
+        if now - self.last_analysis_time.get(symbol, 0) < 1.0:
+            return
+        self.last_analysis_time[symbol] = now
+        
+        # Check if asset is disabled
+        from ..directive import DISABLED_ASSETS
+        if symbol in DISABLED_ASSETS:
+            return
+
+        # Run Analysis Task (Fire and Forget)
+        asyncio.create_task(self._process_symbol_event(symbol))
+
+    async def _process_symbol_event(self, asset: str):
+        """Execute strategy analysis for a single symbol."""
+        try:
+            # 1. Fetch Market Data (From Cache - instantaneous)
+            # Use get_candles which checks cache first
+            # Ideally we pass different params for event driven? 
+            # For now, standard flow works as it hits cache.
+            
+            from ..directive import PREMIUM_SIGNALS_ENABLED
+            
+            if PREMIUM_SIGNALS_ENABLED:
+                mtf_data = await self.market_stream.get_multiframe_candles(asset)
+                market_data = mtf_data['main']
+                if not mtf_data['macro']['dataframe'].empty:
+                    market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
+            else:
+                market_data = await self.market_stream.get_candles(asset)
+            
+            if market_data.get('dataframe') is None or market_data['dataframe'].empty:
+                return
+
+            # 2. Get Strategy via Factory
+            strategy = StrategyFactory.get_strategy(asset, market_data)
+            
+            # 3. Analyze
+            signal = await strategy.analyze(market_data)
+            
+            # 4. Actionable Filter
+            if signal is None or signal.action == 'HOLD':
+                return
+            
+            # 5. Emit Signal
+            signal.strategy = strategy.name
+            print(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
+            
+            if self.signal_callback:
+                await self.signal_callback(signal)
+
+        except Exception as e:
+            print(f"⚠️ Event Error ({asset}): {e}")
 
     async def core_loop(self):
-        """Main Decision Loop with WebSocket Integration"""
-        print("🚀 Nexus Core Loop Started.")
-        cycle_count = 0
-        
-        # Adaptive cycle time: faster when WebSocket is active
-        base_cycle_time = 60  # Default: 60 seconds
-        ws_cycle_time = 30    # WebSocket mode: 30 seconds (data is real-time)
+        """
+        Main Loop is now a Maintenance Loop.
+        Trading is driven by _on_price_update events.
+        """
+        print("🚀 Nexus Core: Entering Maintenance Mode (Event-Driven Active).")
         
         while self.running:
-            cycle_count += 1
-            # DYNAMIC FILTER: Remove disabled assets each cycle
-            active_assets = [a for a in self.assets if a not in DISABLED_ASSETS]
+            # Periodic cleanup / health check / logging
+            timestamp = asyncio.get_running_loop().time()
             
-            if not active_assets:
-                print(f"⚠️ Cycle {cycle_count}: No active assets (all disabled)")
-                await asyncio.sleep(60)
-                continue
+            # TODO: Add periodic cache cleanup or stats logging here
             
-            signals_generated = 0
-            assets_scanned = 0
-            skip_reasons = {"no_data": 0, "hold": 0, "error": 0}
-            data_sources = {"websocket": 0, "rest": 0}
+            # If no WebSockets are active (fallback mode), we might want to poll manually?
+            # For now, we assume WS is primary. If WS fails, we might need a fallback poller.
+            # But MarketStream handles WS reconnection.
             
-            for asset in active_assets:
-                try:
-                    # 1. Fetch Market Data
-                    from ..directive import PREMIUM_SIGNALS_ENABLED
-                    
-                    if PREMIUM_SIGNALS_ENABLED:
-                        mtf_data = await self.market_stream.get_multiframe_candles(asset)
-                        market_data = mtf_data['main']
-                        # Attach macro data for logic that needs it
-                        if not mtf_data['macro']['dataframe'].empty:
-                            market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
-                    else:
-                        market_data = await self.market_stream.get_candles(asset)
-                    
-                    if market_data.get('dataframe') is None or market_data['dataframe'].empty:
-                        skip_reasons["no_data"] += 1
-                        continue
-                    
-                    # Track data source
-                    source = market_data.get('source', 'rest')
-                    data_sources[source] = data_sources.get(source, 0) + 1
-                    
-                    assets_scanned += 1
-                    df = market_data['dataframe']
-                    last = df.iloc[-1]
-                    
-                    # 2. Get Strategy via Factory (Dynamic Classification)
-                    strategy = StrategyFactory.get_strategy(asset, market_data)
-                    
-                    # 3. Analyze Market & Generate Signal
-                    signal = await strategy.analyze(market_data)
-                    
-                    # 4. Filter: Only actionable signals
-                    if signal is None or signal.action == 'HOLD':
-                        skip_reasons["hold"] += 1
-                        # Verbose: Log why this asset was skipped (every 10 cycles)
-                        if cycle_count % 10 == 0:
-                            adx = last.get('adx', 0)
-                            rsi = last.get('rsi', 50)
-                            print(f"   📊 {asset} ({strategy.name}): HOLD | ADX={adx:.1f} RSI={rsi:.1f}")
-                        continue
-                    
-                    # 5. Risk Check (Optional - basic exposure check)
-                    # approved = await self.risk_guardian.check_trade_approval(signal, 0.0)
-                    
-                    # 6. Emit Signal
-                    signal.strategy = strategy.name
-                    signals_generated += 1
-                    print(f"💡 NEXUS SIGNAL: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
-                    
-                    if self.signal_callback:
-                        await self.signal_callback(signal)
-                        
-                except Exception as e:
-                    skip_reasons["error"] += 1
-                    print(f"⚠️ Error processing {asset}: {e}")
-                    continue
-            
-            # Diagnostic: Log cycle summary with data source info
-            ws_count = data_sources.get('websocket', 0)
-            rest_count = data_sources.get('rest', 0)
-            source_str = f"📡WS:{ws_count} 🌐REST:{rest_count}" if ws_count > 0 else f"🌐REST:{rest_count}"
-            print(f"📊 Cycle {cycle_count}: {assets_scanned}/{len(active_assets)} | {source_str} | Signals:{signals_generated} | Skip: data={skip_reasons['no_data']} hold={skip_reasons['hold']} err={skip_reasons['error']}")
-            
-            # Adaptive sleep: faster when using WebSocket
-            cycle_time = ws_cycle_time if ws_count > rest_count else base_cycle_time
-            await asyncio.sleep(cycle_time)
-
+            await asyncio.sleep(60)  # Sleep long, just keep process alive
 
     async def run(self):
         self.running = True
@@ -155,3 +150,5 @@ class NexusCore:
         self.running = False
         print("🛑 Engine Stopping...")
         await self.market_stream.close()
+
+

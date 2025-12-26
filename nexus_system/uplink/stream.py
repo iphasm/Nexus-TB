@@ -48,6 +48,18 @@ class MarketStream:
         self.alpaca_ws_manager = None
         self.alpaca_price_cache = None
         self._alpaca_ws_task = None
+        
+        # Unified Callbacks
+        self._callbacks = []
+
+    def add_callback(self, callback):
+        """Register callback for price updates (async def callback(symbol, candle))."""
+        self._callbacks.append(callback)
+        # Add to existing managers if already running
+        if self.ws_manager:
+            self.ws_manager.add_callback(callback)
+        if self.alpaca_ws_manager:
+            self.alpaca_ws_manager.add_callback(callback)
 
     async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
         """Load markets and optionally start WebSocket streams."""
@@ -110,6 +122,10 @@ class MarketStream:
             
             self.ws_manager.add_callback(on_candle)
             
+            # Register user callbacks
+            for cb in self._callbacks:
+                self.ws_manager.add_callback(cb)
+            
             # Connect and start listening in background
             if await self.ws_manager.connect():
                 self._ws_task = asyncio.create_task(self.ws_manager.listen())
@@ -143,6 +159,10 @@ class MarketStream:
                 self.alpaca_price_cache.update_candle(symbol, candle)
             
             self.alpaca_ws_manager.add_callback(on_alpaca_candle)
+            
+            # Register user callbacks
+            for cb in self._callbacks:
+                self.alpaca_ws_manager.add_callback(cb)
             
             # Connect and start listening in background
             if await self.alpaca_ws_manager.connect():
