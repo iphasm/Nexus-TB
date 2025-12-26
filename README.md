@@ -19,6 +19,8 @@
 - **GPT-4 Integration**: Market sentiment, news analysis, trade recommendations
 - **XGBoost Classifier**: Dynamic strategy selection based on market regime
 - **Feature Engineering**: 15+ technical indicators + time-based features
+- **NexusLogger**: Centralized, debounced logging for clean diagnostics
+
 
 ### 🎯 Multi-Strategy Engine
 | Strategy | Trigger | Best For |
@@ -26,6 +28,7 @@
 | **Trend Following** | EMA crossovers + ADX | Directional moves |
 | **Scalping** | RSI extremes + Volume | High volatility |
 | **Mean Reversion** | Bollinger touches | Range-bound markets |
+| **Grid Trading** | EMA Mean Reversion | Sideways/Chop |
 | **Black Swan** | -5% in 15min | Crash protection |
 
 ### 🛡️ Risk Management

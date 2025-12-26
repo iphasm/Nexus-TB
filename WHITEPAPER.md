@@ -92,10 +92,17 @@ Nexus Trading Bot addresses these challenges through:
 - **Best For**: Range-bound markets
 - **Risk**: 2x ATR stop loss
 
-### 3.4 Black Swan Defense
-- **Trigger**: Sudden price drops > 5% in 15 minutes
-- **Action**: Immediate position exit and notifications
-- **Purpose**: Capital preservation during market crashes
+### 3.4 Grid Trading
+- **Trigger**: Price mean reversion relative to EMA200
+- **Mechanism**: Buy Low / Sell High within ATR-defined bands
+- **Best For**: Sideways or choppy markets
+- **Risk**: Dynamic stop loss below grid range
+
+### 3.5 Black Swan Defense (Shield Protocol)
+- **Executor**: Shark Sentinel (Daemon Thread)
+- **Trigger**: Sudden price drops > 3-5% in <60 seconds
+- **Action**: Panic Close ALL Long positions immediately
+- **Purpose**: Capital preservation during flash crashes; NOT a profit-generating strategy.
 
 ---
 
@@ -140,14 +147,36 @@ Nexus Trading Bot addresses these challenges through:
 - ATR-adjusted duration
 - Prevents overtrading
 
-### 5.4 Shark Mode (Black Swan)
-- Background monitoring thread
-- Detects sudden market crashes
-- Auto-exits all positions
+### 5.4 Shark Sentinel (The Guardian)
+The **Shark Sentinel** is a specialized background daemon that operates independently of the main trading loop. It manages two protocols:
+
+1.  **Shield Protocol (Black Swan)**:
+    - **Defensive**: Monitors BTC for flash crashes.
+    - **Action**: If triggered, strictly closes all Long positions to preserve capital.
+    
+2.  **Sword Protocol (Shark Mode)**:
+    - **Offensive**: Identifies assets with high downside beta.
+    - **Action**: Opens "Sniper Short" positions on specific targets (e.g., SOL, PEPE) to profit from the crash.
 
 ---
 
-## 6. Operational Modes
+## 6. Logging & Diagnostics
+
+Nexus employs a centralized **NexusLogger** to maintain system health without saturating storage or API quotas.
+
+### 6.1 Log Architecture
+- **Centralized**: All modules feed into `NexusLogger`.
+- **Debounced**: Repetitive errors (e.g., connection retries) are suppressed (logged once every N seconds).
+- **Aggregated Startup**: Initialization logs are condensed into single-line summaries with user counts.
+
+### 6.2 Operational Modes
+- **INFO**: Standard production level (Events + Signals).
+- **DEBUG**: Verbose trace for development.
+- **ERROR**: Critical failures only.
+
+---
+
+## 7. Operational Modes
 
 | Mode | Description | User Action |
 |------|-------------|-------------|
@@ -157,7 +186,7 @@ Nexus Trading Bot addresses these challenges through:
 
 ---
 
-## 7. Supported Markets
+## 8. Supported Markets
 
 ### 7.1 Cryptocurrency (Binance Futures)
 - BTC, ETH, SOL, BNB, XRP, ADA
@@ -171,7 +200,7 @@ Nexus Trading Bot addresses these challenges through:
 
 ---
 
-## 8. Technical Specifications
+## 9. Technical Specifications
 
 | Component | Technology |
 |-----------|------------|
@@ -185,7 +214,7 @@ Nexus Trading Bot addresses these challenges through:
 
 ---
 
-## 9. Security
+## 10. Security
 
 - **API Key Encryption**: Fernet AES-256
 - **Session Isolation**: Per-user encrypted sessions
@@ -194,7 +223,7 @@ Nexus Trading Bot addresses these challenges through:
 
 ---
 
-## 10. Future Roadmap
+## 11. Future Roadmap
 
 ### Phase 1 (Current)
 - ✅ Multi-strategy engine
@@ -214,7 +243,7 @@ Nexus Trading Bot addresses these challenges through:
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 Nexus Trading Bot represents growing algorithmic trading platform. By combining real-time data processing, machine learning, and proven trading strategies, Nexus empowers traders to participate in markets with institutional-grade tools while maintaining full control over their risk parameters.
 
