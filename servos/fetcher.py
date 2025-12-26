@@ -1,18 +1,26 @@
 """
 Nexus Trading Bot - Market Data Fetcher
-Synchronous wrapper for fetching market data from Binance.
+Synchronous wrapper for fetching market data from Binance (Crypto) or YFinance (Stocks/ETFs).
 """
 import os
 import pandas as pd
 from binance.client import Client
+from system_directive import is_crypto
+
+# Timeframe mapping for yfinance
+YF_INTERVAL_MAP = {
+    '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+    '1h': '1h', '4h': '1h',  # yfinance doesn't support 4h directly
+    '1d': '1d', '1w': '1wk'
+}
 
 
 def get_market_data(symbol: str, timeframe: str = '1h', limit: int = 100) -> pd.DataFrame:
     """
-    Fetch OHLCV data from Binance Futures.
+    Fetch OHLCV data from Binance Futures (Crypto) or YFinance (Stocks/ETFs).
     
     Args:
-        symbol: Trading pair (e.g., 'BTCUSDT')
+        symbol: Trading pair (e.g., 'BTCUSDT', 'TSLA')
         timeframe: Candle interval ('1m', '5m', '15m', '1h', '4h', '1d')
         limit: Number of candles to fetch
         
@@ -20,6 +28,42 @@ def get_market_data(symbol: str, timeframe: str = '1h', limit: int = 100) -> pd.
         DataFrame with columns: timestamp, open, high, low, close, volume
     """
     try:
+        # === ROUTE: Stocks/ETFs -> YFinance ===
+        if not is_crypto(symbol):
+            import yfinance as yf
+            
+            yf_interval = YF_INTERVAL_MAP.get(timeframe, '1h')
+            # Determine period based on interval
+            if yf_interval in ['1m', '5m']:
+                period = '7d'
+            elif yf_interval in ['15m', '30m', '1h']:
+                period = '60d'
+            else:
+                period = '1y'
+            
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period=period, interval=yf_interval)
+            
+            if df.empty:
+                return pd.DataFrame()
+            
+            df.reset_index(inplace=True)
+            df.rename(columns={
+                'Date': 'timestamp', 'Datetime': 'timestamp',
+                'Open': 'open', 'High': 'high', 'Low': 'low',
+                'Close': 'close', 'Volume': 'volume'
+            }, inplace=True)
+            
+            # Ensure we only have the columns we need
+            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].tail(limit)
+            
+            # Localize timestamp if needed
+            if df['timestamp'].dt.tz is not None:
+                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+            
+            return df
+        
+        # === ROUTE: Crypto -> Binance Futures ===
         # Get proxy settings if configured
         proxy_url = os.getenv('PROXY_URL')
         request_params = {'proxies': {'https': proxy_url}} if proxy_url else None
@@ -54,6 +98,7 @@ def get_market_data(symbol: str, timeframe: str = '1h', limit: int = 100) -> pd.
     except Exception as e:
         print(f"[fetcher] Error fetching {symbol}: {e}")
         return pd.DataFrame()
+
 
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
