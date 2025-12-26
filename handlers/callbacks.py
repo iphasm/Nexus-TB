@@ -580,7 +580,7 @@ async def handle_trade_proposal(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("ASSETS|"))
 async def handle_assets_menu(callback: CallbackQuery, **kwargs):
-    """Handle asset module selection - Now grouped by category"""
+    """Handle asset module selection - Show category selector for GLOBAL"""
     module = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
@@ -622,8 +622,49 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
             )
             return
         
-        # Global Scanner - GROUPED BY CATEGORY
-        title = "📡 SCANNER GLOBAL"
+        # === GLOBAL SCANNER: Show Category Selector ===
+        crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
+        stocks_count = len(ASSET_GROUPS.get('STOCKS', []))
+        etfs_count = len(ASSET_GROUPS.get('ETFS', []))
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"🪙 Crypto ({crypto_count})", callback_data="ASSETS_CAT|CRYPTO")],
+            [InlineKeyboardButton(text=f"📊 Stocks ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
+            [InlineKeyboardButton(text=f"📈 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
+            [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
+        ])
+        
+        await callback.message.edit_text(
+            "📡 *SCANNER GLOBAL*\n\n"
+            f"Total: {crypto_count + stocks_count + etfs_count} activos\n\n"
+            "Selecciona una categoría:",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Error: {e}")
+
+
+@router.callback_query(F.data.startswith("ASSETS_CAT|"))
+async def handle_assets_category(callback: CallbackQuery, **kwargs):
+    """Handle category-specific asset list"""
+    category = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
+    
+    await safe_answer(callback)
+    
+    try:
+        from system_directive import DISABLED_ASSETS, ASSET_GROUPS, TICKER_MAP
+        
+        assets = ASSET_GROUPS.get(category, [])
+        
+        titles = {
+            'CRYPTO': '🪙 CRYPTO',
+            'STOCKS': '📊 STOCKS',
+            'ETFS': '📈 ETFs'
+        }
+        title = titles.get(category, category)
         
         if not session_manager:
             await callback.message.edit_text("⚠️ Error interno")
@@ -633,60 +674,31 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
         buttons = []
         
-        # Helper to format display name
+        # Helper to format display name for stocks/ETFs
         def get_display(asset: str) -> str:
             name = TICKER_MAP.get(asset, asset)
-            # For stocks/ETFs, show "Full Name (TICKER)"
-            if asset in ASSET_GROUPS.get('STOCKS', []) or asset in ASSET_GROUPS.get('ETFS', []):
-                # Strip emoji for cleaner format
+            if category in ['STOCKS', 'ETFS']:
+                # Strip emoji and show "Full Name (TICKER)"
                 clean_name = ''.join(c for c in name if c.isalnum() or c.isspace() or c == '&').strip()
                 return f"{clean_name} ({asset})"
             return name
         
-        # === CRYPTO ===
-        buttons.append([InlineKeyboardButton(text="━━ 🪙 CRYPTO ━━", callback_data="noop")])
-        crypto_assets = ASSET_GROUPS.get('CRYPTO', [])[:15]  # Limit for UI
-        for asset in crypto_assets:
-            is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
-            icon = "❌" if is_disabled else "✅"
-            display = TICKER_MAP.get(asset, asset)
-            buttons.append([InlineKeyboardButton(
-                text=f"{icon} {display}",
-                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
-            )])
-        
-        # === STOCKS ===
-        buttons.append([InlineKeyboardButton(text="━━ 📊 STOCKS ━━", callback_data="noop")])
-        stock_assets = ASSET_GROUPS.get('STOCKS', [])
-        for asset in stock_assets:
+        for asset in assets:
             is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
             icon = "❌" if is_disabled else "✅"
             display = get_display(asset)
             buttons.append([InlineKeyboardButton(
                 text=f"{icon} {display}",
-                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
+                callback_data=f"ASSET_TOGGLE|{category}|{asset}"
             )])
         
-        # === ETFs ===
-        buttons.append([InlineKeyboardButton(text="━━ 📈 ETFs ━━", callback_data="noop")])
-        etf_assets = ASSET_GROUPS.get('ETFS', [])
-        for asset in etf_assets:
-            is_disabled = session.is_asset_disabled(asset) if session else asset in DISABLED_ASSETS
-            icon = "❌" if is_disabled else "✅"
-            display = get_display(asset)
-            buttons.append([InlineKeyboardButton(
-                text=f"{icon} {display}",
-                callback_data=f"ASSET_TOGGLE|{module}|{asset}"
-            )])
-        
-        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+        buttons.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|GLOBAL")])
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         
-        total = len(crypto_assets) + len(stock_assets) + len(etf_assets)
         await callback.message.edit_text(
             f"📦 *{title}*\n\n"
-            f"Activos: {total}\n"
+            f"Activos: {len(assets)}\n"
             "Toca para activar/desactivar:",
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -694,6 +706,8 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
     except Exception as e:
         await callback.message.edit_text(f"❌ Error: {e}")
+
+
 
 
 
