@@ -566,7 +566,10 @@ def train():
         print(f"\n⚠️ ATR still high: {atr_importance:.1%} (consider adding more features)")
     
     # Save model and scaler
-    os.makedirs(os.path.dirname(MODEL_OUTPUT), exist_ok=True)
+    model_dir = os.path.dirname(MODEL_OUTPUT)
+    if model_dir:  # Only create directory if path specified
+        os.makedirs(model_dir, exist_ok=True)
+
     
     # Store class names with model for proper decoding
     model_data = {
