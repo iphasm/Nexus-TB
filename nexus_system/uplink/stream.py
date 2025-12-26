@@ -5,6 +5,9 @@ from typing import Dict, Any, List
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+
+from ..utils.logger import get_logger
+
 def is_us_market_open() -> bool:
     """Check if US stock market is currently open (9:30 AM - 4:00 PM ET, Mon-Fri)."""
     et = ZoneInfo("America/New_York")
@@ -27,6 +30,7 @@ class MarketStream:
     Uses Binance USD-M Futures for crypto.
     """
     def __init__(self, exchange_id='binanceusdm', use_websocket: bool = True):
+        self.logger = get_logger("MarketStream")
         self.exchange_id = exchange_id
         self.exchange = getattr(ccxt, exchange_id)()
         self.tf_map = {
@@ -64,9 +68,9 @@ class MarketStream:
     async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
         """Load markets and optionally start WebSocket streams."""
         try:
-            print(f"🔌 Connecting to {self.exchange_id}...")
+            self.logger.info(f"Connecting to {self.exchange_id}...")
             await self.exchange.load_markets()
-            print(f"✅ Connected to {self.exchange_id} (Async).")
+            self.logger.info(f"Connected to {self.exchange_id} (Async).")
             
             # Initialize Alpaca Stream (Single Instance)
             import os
@@ -88,9 +92,9 @@ class MarketStream:
                         if stock_symbols:
                             await self._init_alpaca_websocket(stock_symbols, key, secret)
                 except Exception as ex:
-                    print(f"⚠️ Alpaca Stream Init Failed: {ex}")
+                    self.logger.warning(f"Alpaca Stream Init Failed: {ex}")
             else:
-                print("⚠️ MarketStream: No Alpaca Keys found (Env or Passed). Stocks disabled.")
+                self.logger.warning("No Alpaca Keys found (Env or Passed). Stocks disabled.")
                 self.alpaca = None
             
             # Initialize WebSocket for crypto (if enabled)
@@ -98,7 +102,7 @@ class MarketStream:
                 await self._init_websocket(crypto_symbols)
                 
         except Exception as e:
-            print(f"❌ Connection Failed: {e}")
+            self.logger.error(f"Connection Failed: {e}")
     
     async def _init_websocket(self, symbols: list):
         """Initialize WebSocket connection for crypto symbols."""
@@ -110,7 +114,7 @@ class MarketStream:
             crypto_symbols = [s for s in symbols if 'USDT' in s]
             
             if not crypto_symbols:
-                print("⚠️ WebSocket: No crypto symbols to subscribe")
+                self.logger.info("WebSocket: No crypto symbols to subscribe")
                 return
             
             self.price_cache = get_price_cache()  # Use singleton for shared access
@@ -129,16 +133,16 @@ class MarketStream:
             # Connect and start listening in background
             if await self.ws_manager.connect():
                 self._ws_task = asyncio.create_task(self.ws_manager.listen())
-                print(f"📡 WebSocket: Streaming {len(crypto_symbols)} crypto symbols")
+                self.logger.info(f"WebSocket: Streaming {len(crypto_symbols)} crypto symbols")
             else:
-                print("⚠️ WebSocket: Failed to connect, using REST fallback")
+                self.logger.warning("WebSocket: Failed to connect, using REST fallback")
                 self.use_websocket = False
                 
         except ImportError as e:
-            print(f"⚠️ WebSocket: Module not available ({e}), using REST")
+            self.logger.warning(f"WebSocket: Module not available ({e}), using REST")
             self.use_websocket = False
         except Exception as e:
-            print(f"⚠️ WebSocket: Init failed ({e}), using REST fallback")
+            self.logger.warning(f"WebSocket: Init failed ({e}), using REST fallback")
             self.use_websocket = False
     
     async def _init_alpaca_websocket(self, symbols: list, api_key: str, api_secret: str):
@@ -148,7 +152,7 @@ class MarketStream:
             from .price_cache import get_alpaca_price_cache
             
             if not symbols:
-                print("⚠️ AlpacaWS: No stock symbols to subscribe")
+                self.logger.info("AlpacaWS: No stock symbols to subscribe")
                 return
             
             self.alpaca_price_cache = get_alpaca_price_cache()
@@ -167,14 +171,14 @@ class MarketStream:
             # Connect and start listening in background
             if await self.alpaca_ws_manager.connect():
                 self._alpaca_ws_task = asyncio.create_task(self.alpaca_ws_manager.listen())
-                print(f"📡 AlpacaWS: Streaming {len(symbols)} stock/ETF symbols")
+                self.logger.info(f"AlpacaWS: Streaming {len(symbols)} stock/ETF symbols")
             else:
-                print("⚠️ AlpacaWS: Not connected (market may be closed), using REST fallback")
+                self.logger.warning("AlpacaWS: Not connected (market may be closed), using REST fallback")
                 
         except ImportError as e:
-            print(f"⚠️ AlpacaWS: Module not available ({e}), using REST")
+            self.logger.warning(f"AlpacaWS: Module not available ({e}), using REST")
         except Exception as e:
-            print(f"⚠️ AlpacaWS: Init failed ({e}), using REST fallback")
+            self.logger.warning(f"AlpacaWS: Init failed ({e}), using REST fallback")
 
     def _add_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add Technical Indicators (Standard + Premium Volume)"""
@@ -272,7 +276,7 @@ class MarketStream:
                 
                 return result
         except Exception as e:
-            print(f"⚠️ Alpaca routing error for {symbol}: {e}")
+            self.logger.warning_debounced(f"Alpaca routing error for {symbol}: {e}", interval=300)
             return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
         
         # Only process crypto
@@ -324,7 +328,7 @@ class MarketStream:
             }
             
         except Exception as e:
-            print(f"⚠️ Data Fetch Error ({symbol}): {e}")
+            self.logger.warning_debounced(f"Data Fetch Error ({symbol}): {e}", interval=300)
             return {"dataframe": pd.DataFrame()}
 
     async def get_multiframe_candles(self, symbol: str, limit: int = 100) -> Dict[str, Any]:
@@ -357,9 +361,9 @@ class MarketStream:
             
             # Check for errors (empty frames)
             if res_main['dataframe'].empty:
-                 print(f"⚠️ MTF Fetch Failed for Main ({symbol})")
+                 self.logger.debug(f"MTF Fetch Failed for Main ({symbol})")
             if res_macro['dataframe'].empty:
-                 print(f"⚠️ MTF Fetch Failed for Macro ({symbol})")
+                 self.logger.debug(f"MTF Fetch Failed for Macro ({symbol})")
                  
             return {
                 'main': res_main,
@@ -367,7 +371,7 @@ class MarketStream:
             }
             
         except Exception as e:
-            print(f"❌ MTF Execution Error: {e}")
+            self.logger.error(f"MTF Execution Error: {e}")
             return {'main': {"dataframe": pd.DataFrame()}, 'macro': {"dataframe": pd.DataFrame()}}
 
 
@@ -387,7 +391,7 @@ class MarketStream:
         all_ohlcv = []
         current_since = start_ts
         
-        print(f"⏳ Fetching history for {symbol} ({days} days)...")
+        self.logger.info(f"Fetching history for {symbol} ({days} days)...")
         
         for _ in range(10): # Safety limit 10 pages
             try:
@@ -405,7 +409,7 @@ class MarketStream:
                 await asyncio.sleep(0.2) # Rate limit protection
                 
             except Exception as e:
-                print(f"⚠️ History Fetch Error: {e}")
+                self.logger.warning(f"History Fetch Error: {e}")
                 break
                 
         if not all_ohlcv:

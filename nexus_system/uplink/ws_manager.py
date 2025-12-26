@@ -12,6 +12,9 @@ from datetime import datetime
 WS_STATE_OPEN = 1
 
 
+
+from ..utils.logger import get_logger
+
 class BinanceWSManager:
     """
     Manages WebSocket connections to Binance Futures for real-time kline updates.
@@ -30,6 +33,7 @@ class BinanceWSManager:
             symbols: List of symbols to subscribe (e.g., ['BTCUSDT', 'ETHUSDT'])
             timeframe: Kline interval (e.g., '1m', '5m', '15m', '1h')
         """
+        self.logger = get_logger("BinanceWS")
         self.symbols = [s.lower() for s in symbols]
         self.timeframe = timeframe
         self.ws = None
@@ -54,7 +58,7 @@ class BinanceWSManager:
         # Split into chunks if too many symbols
         if len(streams) > self.MAX_STREAMS_PER_CONNECTION:
             streams = streams[:self.MAX_STREAMS_PER_CONNECTION]
-            print(f"⚠️ BinanceWS: Truncated to {self.MAX_STREAMS_PER_CONNECTION} streams")
+            self.logger.warning(f"Truncated to {self.MAX_STREAMS_PER_CONNECTION} streams")
             
         return f"{self.BASE_URL}?streams={'/'.join(streams)}"
     
@@ -65,7 +69,7 @@ class BinanceWSManager:
             import os
             
             url = self.build_stream_url()
-            print(f"🔌 BinanceWS: Connecting to {len(self.symbols)} streams...")
+            self.logger.info(f"Connecting to {len(self.symbols)} streams...")
             
             # Temporarily bypass proxy for WebSocket
             # HTTP proxies don't work with WebSocket, need direct connection
@@ -89,7 +93,7 @@ class BinanceWSManager:
             
             self.running = True
             self._reconnect_attempts = 0
-            print(f"✅ BinanceWS: Connected ({len(self.symbols)} kline streams @ {self.timeframe})")
+            self.logger.info(f"Connected ({len(self.symbols)} kline streams @ {self.timeframe})")
             
             # Start ping task to keep connection alive
             if self._ping_task:
@@ -99,10 +103,10 @@ class BinanceWSManager:
             return True
             
         except ImportError:
-            print("❌ BinanceWS: 'websockets' package not installed. Run: pip install websockets")
+            self.logger.error("'websockets' package not installed. Run: pip install websockets")
             return False
         except Exception as e:
-            print(f"❌ BinanceWS: Connection failed - {e}")
+            self.logger.error(f"Connection failed - {e}")
             return False
     
     async def _ping_loop(self):
@@ -131,7 +135,7 @@ class BinanceWSManager:
             try:
                 if not self._is_connected():
                     if not await self._reconnect():
-                        print("❌ BinanceWS: Max reconnection attempts reached")
+                        self.logger.error("Max reconnection attempts reached")
                         break
                     continue
                 
@@ -149,10 +153,10 @@ class BinanceWSManager:
             except Exception as e:
                 error_str = str(e).lower()
                 if "closed" in error_str or "connection" in error_str:
-                    print(f"⚠️ BinanceWS: Disconnected - {e}")
+                    self.logger.warning(f"Disconnected - {e}")
                     await self._reconnect()
                 else:
-                    print(f"⚠️ BinanceWS: Error - {e}")
+                    self.logger.warning_debounced(f"Error - {e}", interval=60)
                     await asyncio.sleep(1)
     
     async def _reconnect(self) -> bool:
@@ -163,7 +167,7 @@ class BinanceWSManager:
             return False
             
         wait_time = min(2 ** self._reconnect_attempts, 60)
-        print(f"🔄 BinanceWS: Reconnecting in {wait_time}s (attempt {self._reconnect_attempts})")
+        self.logger.warning(f"Reconnecting in {wait_time}s (attempt {self._reconnect_attempts})")
         await asyncio.sleep(wait_time)
         
         return await self.connect()
@@ -201,12 +205,12 @@ class BinanceWSManager:
                 try:
                     await callback(symbol, candle)
                 except Exception as e:
-                    print(f"⚠️ BinanceWS: Callback error for {symbol} - {e}")
+                    self.logger.error_debounced(f"Callback error for {symbol} - {e}", interval=300)
                     
         except json.JSONDecodeError:
             pass
         except Exception as e:
-            print(f"⚠️ BinanceWS: Parse error - {e}")
+            self.logger.warning_debounced(f"Parse error - {e}", interval=300)
     
     async def close(self):
         """Close WebSocket connection."""
@@ -221,7 +225,7 @@ class BinanceWSManager:
             except Exception:
                 pass
                 
-        print("🔌 BinanceWS: Disconnected")
+        self.logger.info("Disconnected")
     
     def get_status(self) -> Dict[str, Any]:
         """Get current connection status."""

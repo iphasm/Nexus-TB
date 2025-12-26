@@ -4,11 +4,15 @@ from ..shield.manager import RiskManager
 from ..uplink.stream import MarketStream
 from ..directive import DISABLED_ASSETS
 
+
+from ..utils.logger import get_logger
+
 class NexusCore:
     """
     Main Orchestrator for Nexus System.
     """
     def __init__(self, assets=None, alpaca_keys: dict = None):
+        self.logger = get_logger("NexusCore")
         self.risk_guardian = RiskManager()
         self.market_stream = MarketStream()  # Use default (binanceusdm for futures)
         self.running = False
@@ -17,11 +21,11 @@ class NexusCore:
         # Determine Assets
         if assets:
             self.assets = list(set(assets)) # Remove duplicates
-            print(f"🌌 NexusCore: Loaded {len(self.assets)} assets from Main Configuration.")
+            self.logger.info(f"Loaded {len(self.assets)} assets from Main Configuration.")
         else:
             # Fallback for isolated testing
             self.assets = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
-            print("⚠️ NexusCore: Using Default Fallback Assets.")
+            self.logger.warning("Using Default Fallback Assets.")
 
         self.signal_callback = None
         
@@ -33,7 +37,7 @@ class NexusCore:
         self.signal_callback = callback
 
     async def initialize(self):
-        print("🌌 NexusCore: Initializing Subsystems...")
+        self.logger.info("Initializing Subsystems...")
         
         # Pass Alpaca keys and crypto symbols for WebSocket
         ak = self.alpaca_keys.get('key')
@@ -54,9 +58,9 @@ class NexusCore:
         # Simulating Async Config / DB Load
         await asyncio.sleep(0.5)
         self.last_analysis_time = {}
-        print("✅ Risk Manager: Online")
-        print("✅ Strategy Factory: Online")
-        print("⚡ NexusCore: Event-Driven Engine Ready")
+        self.logger.info("Risk Manager: Online")
+        self.logger.info("Strategy Factory: Online")
+        self.logger.info("⚡ Event-Driven Engine Ready")
 
     async def _on_price_update(self, symbol: str, candle: dict):
         """
@@ -114,20 +118,20 @@ class NexusCore:
             
             # 5. Emit Signal
             signal.strategy = strategy.name
-            print(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
+            self.logger.info(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
             
             if self.signal_callback:
                 await self.signal_callback(signal)
 
         except Exception as e:
-            print(f"⚠️ Event Error ({asset}): {e}")
+            self.logger.error_debounced(f"Event Error ({asset}): {e}", interval=300)
 
     async def core_loop(self):
         """
         Main Loop is now a Maintenance Loop.
         Trading is driven by _on_price_update events.
         """
-        print("🚀 Nexus Core: Entering Maintenance Mode (Event-Driven Active).")
+        self.logger.info("Entering Maintenance Mode (Event-Driven Active).")
         
         while self.running:
             # Periodic cleanup / health check / logging

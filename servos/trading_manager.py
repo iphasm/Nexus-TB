@@ -101,8 +101,12 @@ class AsyncTradingSession:
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
     
-    async def initialize(self) -> bool:
+
+
+    async def initialize(self, verbose: bool = True) -> bool:
         """Async initialization of exchange clients."""
+        if verbose:
+            print("🧠 Nexus Analyst: CONNECTED.")
         success = True
         
         # 1. Initialize Binance Async Client
@@ -113,7 +117,9 @@ class AsyncTradingSession:
                 if self._proxy:
                     os.environ['HTTPS_PROXY'] = self._proxy
                     os.environ['HTTP_PROXY'] = self._proxy
-                    print(f"🔄 [Chat {self.chat_id}] Proxy configured: {self._proxy[:30]}...")
+                    if verbose:
+                        print(f"🔄 [Chat {self.chat_id}] Proxy configured: {self._proxy[:30]}...")
+
                 
                 # Create client - use https_proxy parameter if available
                 if self._proxy:
@@ -128,16 +134,18 @@ class AsyncTradingSession:
                         self.api_secret
                     )
                 
-                proxy_status = "✅ Proxy" if self._proxy else "⚠️ Direct"
-                print(f"✅ [Chat {self.chat_id}] Binance Client Init ({proxy_status}, Key: ...{self.api_key[-4:]})")
+                if verbose:
+                    proxy_status = "✅ Proxy" if self._proxy else "⚠️ Direct"
+                    print(f"✅ [Chat {self.chat_id}] Binance Client Init ({proxy_status}, Key: ...{self.api_key[-4:]})")
             except Exception as e:
                 self._init_error = str(e)
-                print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
+                if verbose:
+                    print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
                 self.client = None
                 success = False
         
         # 2. Initialize Alpaca (still sync but wrapped)
-        await self.initialize_alpaca()
+        await self.initialize_alpaca(verbose=verbose)
         
         return success
     
@@ -178,7 +186,8 @@ class AsyncTradingSession:
                  
         return final_qty
     
-    async def initialize_alpaca(self):
+
+    async def initialize_alpaca(self, verbose: bool = True):
         """Initialize Alpaca client from per-user config, with ENV fallback for admins only."""
         # Check if this user is an admin (allow ENV fallback for owners)
         admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').replace(' ', '').split(',')
@@ -207,9 +216,12 @@ class AsyncTradingSession:
                         paper = False
                 
                 self.alpaca_client = TradingClient(ak, ask, paper=paper, url_override=base_url)
-                print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
+                
+                if verbose:
+                    print(f"✅ [Chat {self.chat_id}] Alpaca Client Initialized (Paper: {paper})")
             except Exception as e:
-                print(f"❌ [Chat {self.chat_id}] Alpaca Init Error: {e}")
+                if verbose:
+                    print(f"❌ [Chat {self.chat_id}] Alpaca Init Error: {e}")
     
     async def close(self):
         """Cleanup resources."""
@@ -2165,10 +2177,14 @@ class AsyncSessionManager:
         self.sessions: Dict[str, AsyncTradingSession] = {}
         self._lock = asyncio.Lock()
     
+
     async def load_sessions(self):
         """Load sessions from PostgreSQL (with JSON fallback)."""
         async with self._lock:
+            loaded_source = "NONE"
+            
             # Try PostgreSQL first
+            postgresql_success = False
             try:
                 from servos.db import load_all_sessions
                 db_sessions = load_all_sessions()
@@ -2204,61 +2220,95 @@ class AsyncSessionManager:
                             api_secret=api_secret,
                             config=config
                         )
-                        await session.initialize()
+                        await session.initialize(verbose=False)
                         self.sessions[chat_id] = session
                     
                     print(f"🐘 Loaded {len(self.sessions)} sessions from PostgreSQL")
-                    await self._ensure_admin_session()
-                    return
+                    postgresql_success = True
+                    loaded_source = "POSTGRESQL"
             except Exception as e:
                 print(f"⚠️ PostgreSQL load failed, using JSON fallback: {e}")
             
-            # Fallback to JSON
-            if not os.path.exists(self.data_file):
-                await self._ensure_admin_session()
-                return
-            
-            try:
-                with open(self.data_file, 'r') as f:
-                    data = json.load(f)
-                
-                for chat_id, info in data.items():
-                    # SANITIZE: Check authorization
-                    from servos.db import get_user_role
-                    allowed, role = get_user_role(str(chat_id))
-                    
-                    config = info.get('config', {})
-                    
-                    if not allowed:
-                        print(f"🔒 Locking down Unauthorized session (JSON): {chat_id}")
-                        config.update({
-                            "mode": "WATCHER",
-                            "strategies": {},
-                            "groups": {},
-                            "sentiment_filter": False,
-                            "personality": "STANDARD_ES"
-                        })
-                        # Force Clear Keys in Info dict (for init below)
-                        info['api_key'] = ""
-                        info['api_secret'] = ""
+            # Fallback to JSON if PostgreSQL failed
+            if not postgresql_success:
+                if not os.path.exists(self.data_file):
+                    pass # Will ensure admin below
+                else:
+                    try:
+                        with open(self.data_file, 'r') as f:
+                            data = json.load(f)
+                        
+                        for chat_id, info in data.items():
+                            # SANITIZE: Check authorization
+                            from servos.db import get_user_role
+                            allowed, role = get_user_role(str(chat_id))
+                            
+                            config = info.get('config', {})
+                            
+                            if not allowed:
+                                print(f"🔒 Locking down Unauthorized session (JSON): {chat_id}")
+                                config.update({
+                                    "mode": "WATCHER",
+                                    "strategies": {},
+                                    "groups": {},
+                                    "sentiment_filter": False,
+                                    "personality": "STANDARD_ES"
+                                })
+                                # Force Clear Keys in Info dict (for init below)
+                                info['api_key'] = ""
+                                info['api_secret'] = ""
 
-                    session = AsyncTradingSession(
-                        chat_id=chat_id,
-                        api_key=info.get('api_key', ''),
-                        api_secret=info.get('api_secret', ''),
-                        config=config
-                    )
-                    await session.initialize()
-                    self.sessions[chat_id] = session
-                
-                print(f"📁 Loaded {len(self.sessions)} sessions from {self.data_file}")
-                
-            except Exception as e:
-                print(f"❌ Session Load Error: {e}")
+                            session = AsyncTradingSession(
+                                chat_id=chat_id,
+                                api_key=info.get('api_key', ''),
+                                api_secret=info.get('api_secret', ''),
+                                config=config
+                            )
+                            await session.initialize(verbose=False)
+                            self.sessions[chat_id] = session
+                        
+                        print(f"📁 Loaded {len(self.sessions)} sessions from {self.data_file}")
+                        loaded_source = "JSON"
+                        
+                    except Exception as e:
+                        print(f"❌ Session Load Error: {e}")
         
-        await self._ensure_admin_session()
+        # Ensure Admin Session (Silent)
+        await self._ensure_admin_session(verbose=False)
+        
+        # --- AGGREGATED STARTUP LOG ---
+        print("🧠 Nexus Analyst: CONNECTED.")
+        
+        proxied_users = []
+        binance_users = []
+        alpaca_users = []
+        
+        # Extract proxy URL from first available session for display
+        proxy_url_display = ""
+        
+        for s in self.sessions.values():
+            if s._proxy:
+                proxied_users.append(s.chat_id)
+                if not proxy_url_display:
+                    proxy_url_display = s._proxy
+            
+            if s.client:
+                binance_users.append(s.chat_id)
+            
+            if s.alpaca_client:
+                alpaca_users.append(s.chat_id)
+        
+        if proxied_users:
+            print(f"🔄 Proxy configured: {proxy_url_display[:30]}... {proxied_users}")
+        
+        if binance_users:
+            print(f"✅ Binance Client Init (✅ Proxy) {binance_users}")
+            
+        if alpaca_users:
+            print(f"✅ Alpaca Client Initialized (Paper: Mixed) {alpaca_users}")
     
-    async def _ensure_admin_session(self):
+
+    async def _ensure_admin_session(self, verbose: bool = True):
         """Create or update admin sessions from env vars (supports comma-separated IDs)."""
         # Sanitize inputs
         raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip().strip("'\"")
@@ -2275,9 +2325,10 @@ class AsyncSessionManager:
             # Case 1: Session does not exist -> Create it
             if admin_id not in self.sessions:
                 session = AsyncTradingSession(admin_id, api_key, api_secret)
-                await session.initialize()
+                await session.initialize(verbose=verbose)
                 self.sessions[admin_id] = session
-                print(f"🔑 Admin session created for {admin_id} (Env Vars)")
+                if verbose:
+                    print(f"🔑 Admin session created for {admin_id} (Env Vars)")
             
             # Case 2: Session exists but Keys mismatch -> Update it
             else:
@@ -2286,8 +2337,9 @@ class AsyncSessionManager:
                     session.api_key = api_key
                     session.api_secret = api_secret
                     # Re-init client with new keys
-                    await session.initialize()
-                    print(f"🔄 Admin session updated for {admin_id} from Env Vars")
+                    await session.initialize(verbose=verbose)
+                    if verbose:
+                        print(f"🔄 Admin session updated for {admin_id} from Env Vars")
     
     async def save_sessions(self):
         """Persist sessions to PostgreSQL and JSON (redundancy)."""

@@ -28,6 +28,9 @@ def is_us_market_open() -> bool:
     return market_open <= now <= market_close
 
 
+
+from ..utils.logger import get_logger
+
 class AlpacaWSManager:
     """
     Manages WebSocket connection to Alpaca for real-time bar updates.
@@ -37,12 +40,8 @@ class AlpacaWSManager:
     def __init__(self, symbols: List[str], api_key: str = None, api_secret: str = None):
         """
         Initialize WebSocket manager.
-        
-        Args:
-            symbols: List of stock/ETF symbols (e.g., ['TSLA', 'NVDA'])
-            api_key: Alpaca API key (or from env APCA_API_KEY_ID)
-            api_secret: Alpaca API secret (or from env APCA_API_SECRET_KEY)
         """
+        self.logger = get_logger("AlpacaWS")
         self.symbols = [s.upper() for s in symbols]
         self.api_key = api_key or os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
         self.api_secret = api_secret or os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
@@ -68,17 +67,17 @@ class AlpacaWSManager:
     async def connect(self) -> bool:
         """Establish WebSocket connection to Alpaca."""
         if not self.api_key or not self.api_secret:
-            print("❌ AlpacaWS: No API keys provided")
+            self.logger.warning("No API keys provided")
             return False
         
         if not is_us_market_open():
-            print("⚠️ AlpacaWS: US market is closed. WS will activate during market hours.")
+            self.logger.info("US market is closed. WS will activate during market hours.")
             return False
             
         try:
             from alpaca.data.live import StockDataStream
             
-            print(f"🔌 AlpacaWS: Connecting to {len(self.symbols)} symbols...")
+            self.logger.info(f"Connecting to {len(self.symbols)} symbols...")
             
             # Try to use DataFeed enum (newer alpaca-py versions)
             try:
@@ -103,15 +102,15 @@ class AlpacaWSManager:
             
             self.running = True
             self._reconnect_attempts = 0
-            print(f"✅ AlpacaWS: Connected ({len(self.symbols)} symbols @ IEX feed)")
+            self.logger.info(f"Connected ({len(self.symbols)} symbols @ IEX feed)")
             
             return True
             
         except ImportError:
-            print("❌ AlpacaWS: 'alpaca-py' package not installed. Run: pip install alpaca-py")
+            self.logger.error("'alpaca-py' package not installed. Run: pip install alpaca-py")
             return False
         except Exception as e:
-            print(f"❌ AlpacaWS: Connection failed - {e}")
+            self.logger.error(f"Connection failed - {e}")
             return False
     
     async def _process_bar(self, bar):
@@ -141,10 +140,10 @@ class AlpacaWSManager:
                     try:
                         await callback(symbol, candle_15m)
                     except Exception as e:
-                        print(f"⚠️ AlpacaWS: Callback error for {symbol} - {e}")
+                        self.logger.error_debounced(f"Callback error for {symbol} - {e}", interval=300)
                         
         except Exception as e:
-            print(f"⚠️ AlpacaWS: Bar processing error - {e}")
+            self.logger.warning_debounced(f"Bar processing error - {e}", interval=300)
     
     def _aggregate_to_15m(self, symbol: str, candle_1m: dict, timestamp: datetime) -> Optional[dict]:
         """
@@ -204,28 +203,28 @@ class AlpacaWSManager:
     async def listen(self):
         """Main listening loop - runs the Alpaca stream."""
         if not self.stream:
-            print("❌ AlpacaWS: Stream not initialized")
+            self.logger.error("Stream not initialized")
             return
             
         while self.running:
             try:
                 # Check market hours
                 if not is_us_market_open():
-                    print("⏸️ AlpacaWS: Market closed, pausing stream...")
+                    self.logger.info_debounced("Market closed, pausing stream...", interval=3600)
                     await asyncio.sleep(60)  # Check every minute
                     continue
                 
                 # Run stream (blocking)
-                print("📡 AlpacaWS: Listening for bars...")
+                self.logger.info("Listening for bars...")
                 await self.stream._run_forever()
                 
             except Exception as e:
                 error_str = str(e).lower()
                 if "closed" in error_str or "connection" in error_str:
-                    print(f"⚠️ AlpacaWS: Disconnected - {e}")
+                    self.logger.warning(f"Disconnected - {e}")
                     await self._reconnect()
                 else:
-                    print(f"⚠️ AlpacaWS: Error - {e}")
+                    self.logger.warning_debounced(f"Error - {e}", interval=60)
                     await asyncio.sleep(5)
     
     async def _reconnect(self) -> bool:
@@ -233,11 +232,11 @@ class AlpacaWSManager:
         self._reconnect_attempts += 1
         
         if self._reconnect_attempts > self._max_reconnect_attempts:
-            print("❌ AlpacaWS: Max reconnection attempts reached")
+            self.logger.error("Max reconnection attempts reached")
             return False
             
         wait_time = min(2 ** self._reconnect_attempts, 60)
-        print(f"🔄 AlpacaWS: Reconnecting in {wait_time}s (attempt {self._reconnect_attempts})")
+        self.logger.warning(f"Reconnecting in {wait_time}s (attempt {self._reconnect_attempts})")
         await asyncio.sleep(wait_time)
         
         return await self.connect()
@@ -252,7 +251,7 @@ class AlpacaWSManager:
             except Exception:
                 pass
                 
-        print("🔌 AlpacaWS: Disconnected")
+        self.logger.info("Disconnected")
     
     def get_status(self) -> Dict[str, Any]:
         """Get current connection status."""
