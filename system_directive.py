@@ -16,8 +16,9 @@ ASSET_GROUPS = {
         'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
         'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
         '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
+        'PONKEUSDT', 'BRETTUSDT',
         # DeFi
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT'
+        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT'
     ],
     'STOCKS': ['TSLA', 'NVDA', 'MSFT', 'AAPL', 'AMD'],
     'COMMODITY': ['GLD', 'USO', 'SLV', 'CPER', 'UNG']
@@ -83,6 +84,8 @@ TICKER_MAP = {
     'SUIUSDT': '💧 Sui',
     '1000BONKUSDT': '🦴 Bonk',
     '1000FLOKIUSDT': '🐕 Floki',
+    'PONKEUSDT': '🐵 Ponke',
+    'BRETTUSDT': '🔵 Brett',
     # AI & Tech
     'RENDERUSDT': '🖼️ Render',
     'FETUSDT': '🤖 Fetch.ai',
@@ -96,6 +99,7 @@ TICKER_MAP = {
     'AAVEUSDT': '👻 Aave',
     'XLMUSDT': '✨ Stellar',
     'CRVUSDT': '🔄 Curve',
+    'LDOUSDT': '🏝️ Lido DAO',
     
     # === STOCKS (Alpaca) ===
     'TSLA': '🚗 Tesla',
