@@ -43,6 +43,11 @@ class MarketStream:
         self.ws_manager = None
         self.price_cache = None
         self._ws_task = None
+        
+        # Alpaca WebSocket
+        self.alpaca_ws_manager = None
+        self.alpaca_price_cache = None
+        self._alpaca_ws_task = None
 
     async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
         """Load markets and optionally start WebSocket streams."""
@@ -63,6 +68,13 @@ class MarketStream:
                     self.alpaca = AlpacaStream(api_key=key, api_secret=secret)
                     await self.alpaca.initialize()
                     # Message printed by AlpacaStream.initialize()
+                    
+                    # Initialize Alpaca WebSocket (if enabled)
+                    if self.use_websocket:
+                        from system_directive import ASSET_GROUPS
+                        stock_symbols = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('COMMODITY', [])
+                        if stock_symbols:
+                            await self._init_alpaca_websocket(stock_symbols, key, secret)
                 except Exception as ex:
                     print(f"⚠️ Alpaca Stream Init Failed: {ex}")
             else:
@@ -112,6 +124,37 @@ class MarketStream:
         except Exception as e:
             print(f"⚠️ WebSocket: Init failed ({e}), using REST fallback")
             self.use_websocket = False
+    
+    async def _init_alpaca_websocket(self, symbols: list, api_key: str, api_secret: str):
+        """Initialize WebSocket connection for Alpaca stocks/ETFs."""
+        try:
+            from .alpaca_ws_manager import AlpacaWSManager
+            from .price_cache import get_alpaca_price_cache
+            
+            if not symbols:
+                print("⚠️ AlpacaWS: No stock symbols to subscribe")
+                return
+            
+            self.alpaca_price_cache = get_alpaca_price_cache()
+            self.alpaca_ws_manager = AlpacaWSManager(symbols, api_key, api_secret)
+            
+            # Register callback to update cache
+            async def on_alpaca_candle(symbol: str, candle: dict):
+                self.alpaca_price_cache.update_candle(symbol, candle)
+            
+            self.alpaca_ws_manager.add_callback(on_alpaca_candle)
+            
+            # Connect and start listening in background
+            if await self.alpaca_ws_manager.connect():
+                self._alpaca_ws_task = asyncio.create_task(self.alpaca_ws_manager.listen())
+                print(f"📡 AlpacaWS: Streaming {len(symbols)} stock/ETF symbols")
+            else:
+                print("⚠️ AlpacaWS: Not connected (market may be closed), using REST fallback")
+                
+        except ImportError as e:
+            print(f"⚠️ AlpacaWS: Module not available ({e}), using REST")
+        except Exception as e:
+            print(f"⚠️ AlpacaWS: Init failed ({e}), using REST fallback")
 
     def _add_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add Technical Indicators (Standard + Premium Volume)"""
@@ -181,11 +224,33 @@ class MarketStream:
                 if not is_us_market_open():
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A", "market_closed": True}
                 
+                # Try Alpaca WebSocket cache first
+                if self.alpaca_price_cache and not self.alpaca_price_cache.is_stale(symbol, max_age_seconds=90):
+                    cached_df = self.alpaca_price_cache.get_dataframe(symbol)
+                    if not cached_df.empty and len(cached_df) >= 50:
+                        df = self._add_indicators(cached_df)
+                        return {
+                            "symbol": symbol,
+                            "timeframe": "15m",
+                            "dataframe": df,
+                            "source": "websocket"
+                        }
+                
+                # Fallback to REST API
                 if not self.alpaca:
                     # Silent fail if no keys (logged at init)
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
                 
-                return await self.alpaca.get_candles(symbol, limit)
+                result = await self.alpaca.get_candles(symbol, limit)
+                
+                # Backfill WS cache with REST data
+                if self.alpaca_price_cache and not result['dataframe'].empty:
+                    candles = result['dataframe'].to_dict('records')
+                    for c in candles:
+                        c['is_closed'] = True
+                    self.alpaca_price_cache.backfill(symbol, candles)
+                
+                return result
         except Exception as e:
             print(f"⚠️ Alpaca routing error for {symbol}: {e}")
             return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A"}
@@ -365,11 +430,17 @@ class MarketStream:
 
     async def close(self):
         """Close all connections (REST + WebSocket)."""
-        # Close WebSocket
+        # Close Binance WebSocket
         if self._ws_task:
             self._ws_task.cancel()
         if self.ws_manager:
             await self.ws_manager.close()
+        
+        # Close Alpaca WebSocket
+        if self._alpaca_ws_task:
+            self._alpaca_ws_task.cancel()
+        if self.alpaca_ws_manager:
+            await self.alpaca_ws_manager.close()
         
         # Close REST
         await self.exchange.close()

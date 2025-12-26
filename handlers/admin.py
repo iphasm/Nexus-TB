@@ -234,50 +234,74 @@ async def cmd_retrain(message: Message):
 @admin_only
 async def cmd_wsstatus(message: Message, **kwargs):
     """
-    Muestra el estado del WebSocket de datos de mercado.
+    Muestra el estado del WebSocket de datos de mercado (Binance + Alpaca).
     """
     try:
-        # Try to get the engine instance from the session manager
-        session_manager = kwargs.get('session_manager')
+        msg = "WEBSOCKET STATUS\n================\n\n"
         
-        msg = "📡 **WEBSOCKET STATUS**\n━━━━━━━━━━━━━━━━━━\n\n"
-        
-        # Check if ws_manager module exists
+        # BINANCE (Crypto)
+        msg += "BINANCE (Crypto)\n"
         try:
-            from nexus_system.uplink.ws_manager import BinanceWSManager
             from nexus_system.uplink.price_cache import get_price_cache
             
             cache = get_price_cache()
             stats = cache.get_stats()
             
             if stats['symbols'] > 0:
-                msg += f"✅ **Cache Activo**\n"
-                msg += f"📊 Símbolos: `{stats['symbols']}`\n"
-                msg += f"🕯️ Candles totales: `{stats['total_candles']}`\n\n"
+                msg += f"Status: ACTIVO\n"
+                msg += f"Simbolos: {stats['symbols']}\n"
+                msg += f"Candles: {stats['total_candles']}\n"
                 
-                msg += "**Últimas actualizaciones:**\n"
-                for symbol, details in list(stats['symbols_detail'].items())[:5]:
+                msg += "Ultimas actualizaciones:\n"
+                for symbol, details in list(stats['symbols_detail'].items())[:3]:
                     count = details['count']
                     last = details.get('last_update', 'N/A')
                     if hasattr(last, 'strftime'):
                         last = last.strftime('%H:%M:%S')
-                    msg += f"• `{symbol}`: {count} candles | {last}\n"
+                    msg += f"  {symbol}: {count} | {last}\n"
             else:
-                msg += "⚠️ **Cache Vacío**\n"
-                msg += "_El WebSocket puede no estar conectado o aún no ha recibido datos._\n"
+                msg += "Status: Cache Vacio\n"
                 
         except ImportError:
-            msg += "❌ **Módulo WebSocket no disponible**\n"
-            msg += "_Ejecuta: pip install websockets_\n"
+            msg += "Modulo no disponible\n"
         except Exception as e:
-            msg += f"⚠️ Error obteniendo stats: {e}\n"
+            msg += f"Error: {e}\n"
         
-        msg += "\n━━━━━━━━━━━━━━━━━━\n"
-        msg += "💡 Usa `/diag [SYMBOL]` para diagnóstico completo."
+        # ALPACA (Stocks)
+        msg += "\n----------------\nALPACA (Stocks)\n"
+        try:
+            from nexus_system.uplink.price_cache import get_alpaca_price_cache
+            from nexus_system.uplink.alpaca_ws_manager import is_us_market_open
+            
+            alpaca_cache = get_alpaca_price_cache()
+            alpaca_stats = alpaca_cache.get_stats()
+            market_status = "ABIERTO" if is_us_market_open() else "CERRADO"
+            
+            msg += f"Mercado US: {market_status}\n"
+            
+            if alpaca_stats['symbols'] > 0:
+                msg += f"Status: ACTIVO\n"
+                msg += f"Simbolos: {alpaca_stats['symbols']}\n"
+                msg += f"Candles: {alpaca_stats['total_candles']}\n"
+                
+                msg += "Ultimas actualizaciones:\n"
+                for symbol, details in list(alpaca_stats['symbols_detail'].items())[:3]:
+                    count = details['count']
+                    last = details.get('last_update', 'N/A')
+                    if hasattr(last, 'strftime'):
+                        last = last.strftime('%H:%M:%S')
+                    msg += f"  {symbol}: {count} | {last}\n"
+            else:
+                msg += "Status: Cache Vacio (WS activo solo durante mercado)\n"
+                
+        except ImportError:
+            msg += "Modulo no disponible\n"
+        except Exception as e:
+            msg += f"Error: {e}\n"
         
-        # Clean potential Markdown issues
-        msg = msg.replace('**', '').replace('`', '').replace('_', '')
+        msg += "\n================\nUsa /diag [SYMBOL] para diagnostico completo."
+        
         await message.answer(msg)
         
     except Exception as e:
-        await message.answer(f"❌ Error: {e}")
+        await message.answer(f"Error: {e}")

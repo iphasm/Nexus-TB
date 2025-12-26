@@ -210,11 +210,21 @@ class PriceCache:
 
 # Global singleton for shared access
 _price_cache: Optional[PriceCache] = None
+_alpaca_price_cache: Optional[PriceCache] = None
 
 
 def get_price_cache() -> PriceCache:
-    """Get global price cache instance."""
+    """Get global price cache instance (Binance)."""
     global _price_cache
     if _price_cache is None:
         _price_cache = PriceCache()
     return _price_cache
+
+
+def get_alpaca_price_cache() -> PriceCache:
+    """Get global price cache instance (Alpaca stocks/ETFs)."""
+    global _alpaca_price_cache
+    if _alpaca_price_cache is None:
+        _alpaca_price_cache = PriceCache()
+    return _alpaca_price_cache
+
