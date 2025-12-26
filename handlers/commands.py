@@ -636,60 +636,110 @@ async def cmd_diag(message: Message, **kwargs):
     """Per-symbol diagnostic: /diag SYMBOL"""
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("⚠️ Uso: `/diag SYMBOL` (ej: `/diag BTC`)", parse_mode="Markdown")
+        await message.answer("Uso: /diag SYMBOL (ej: /diag BTC o /diag TSLA)")
         return
     
     symbol = args[1].upper()
-    if not symbol.endswith('USDT'):
+    
+    # Determine if this is an Alpaca symbol or crypto
+    from system_directive import ASSET_GROUPS
+    is_alpaca = symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', [])
+    
+    # Only append USDT for crypto symbols
+    if not is_alpaca and not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
     
-    msg = await message.answer(f"🔍 Diagnosticando `{symbol}`...", parse_mode="Markdown")
+    msg = await message.answer(f"Diagnosticando {symbol}...")
     
     try:
-        from nexus_system.uplink.price_cache import get_price_cache
+        report = f"DIAGNOSTICO: {symbol}\n==================\n\n"
         
-        report = f"📊 **DIAGNÓSTICO: {symbol}**\n━━━━━━━━━━━━━━━━━━\n\n"
-        
-        # 1. WebSocket Cache Status
-        cache = get_price_cache()
-        cached_df = cache.get_dataframe(symbol)
-        last_update = cache.get_last_update(symbol)
-        is_stale = cache.is_stale(symbol, max_age_seconds=120)
-        
-        if not cached_df.empty:
-            last_price = cached_df['close'].iloc[-1] if 'close' in cached_df.columns else 0
-            candle_count = len(cached_df)
-            report += f"📡 **WebSocket Cache**\n"
-            report += f"├ Candles: `{candle_count}`\n"
-            report += f"├ Último precio: `${last_price:,.2f}`\n"
-            report += f"├ Última actualización: `{last_update.strftime('%H:%M:%S') if last_update else 'N/A'}`\n"
-            report += f"└ Estado: {'🟢 Fresco' if not is_stale else '🟡 Stale'}\n\n"
+        if is_alpaca:
+            # ALPACA PATH
+            from nexus_system.uplink.price_cache import get_alpaca_price_cache
+            from nexus_system.uplink.alpaca_ws_manager import is_us_market_open
+            
+            cache = get_alpaca_price_cache()
+            cached_df = cache.get_dataframe(symbol)
+            last_update = cache.get_last_update(symbol)
+            is_stale = cache.is_stale(symbol, max_age_seconds=120)
+            
+            market_status = "ABIERTO" if is_us_market_open() else "CERRADO"
+            report += f"Mercado US: {market_status}\n\n"
+            
+            if not cached_df.empty:
+                last_price = cached_df['close'].iloc[-1] if 'close' in cached_df.columns else 0
+                candle_count = len(cached_df)
+                report += f"WebSocket Cache\n"
+                report += f"  Candles: {candle_count}\n"
+                report += f"  Ultimo precio: ${last_price:,.2f}\n"
+                report += f"  Ultima actualizacion: {last_update.strftime('%H:%M:%S') if last_update else 'N/A'}\n"
+                report += f"  Estado: {'Fresco' if not is_stale else 'Stale'}\n\n"
+            else:
+                report += f"WebSocket Cache: Sin datos\n\n"
+            
+            # Try Alpaca REST
+            try:
+                from nexus_system.uplink.alpaca_stream import AlpacaStream
+                import os
+                key = os.getenv('APCA_API_KEY_ID', '')
+                secret = os.getenv('APCA_API_SECRET_KEY', '')
+                if key and secret:
+                    alpaca = AlpacaStream(api_key=key, api_secret=secret)
+                    await alpaca.initialize()
+                    result = await alpaca.get_candles(symbol, limit=10)
+                    if not result['dataframe'].empty:
+                        rest_price = result['dataframe']['close'].iloc[-1]
+                        report += f"REST API\n"
+                        report += f"  Precio: ${rest_price:,.2f}\n\n"
+                    else:
+                        report += f"REST API: Sin datos\n\n"
+            except Exception as e:
+                report += f"REST API: {str(e)[:50]}\n\n"
         else:
-            report += f"📡 **WebSocket Cache**: ❌ Sin datos\n\n"
+            # BINANCE PATH (original logic)
+            from nexus_system.uplink.price_cache import get_price_cache
+            
+            cache = get_price_cache()
+            cached_df = cache.get_dataframe(symbol)
+            last_update = cache.get_last_update(symbol)
+            is_stale = cache.is_stale(symbol, max_age_seconds=120)
+            
+            if not cached_df.empty:
+                last_price = cached_df['close'].iloc[-1] if 'close' in cached_df.columns else 0
+                candle_count = len(cached_df)
+                report += f"WebSocket Cache\n"
+                report += f"  Candles: {candle_count}\n"
+                report += f"  Ultimo precio: ${last_price:,.2f}\n"
+                report += f"  Ultima actualizacion: {last_update.strftime('%H:%M:%S') if last_update else 'N/A'}\n"
+                report += f"  Estado: {'Fresco' if not is_stale else 'Stale'}\n\n"
+            else:
+                report += f"WebSocket Cache: Sin datos\n\n"
+            
+            # Try Binance REST
+            session_manager = kwargs.get('session_manager')
+            if session_manager:
+                session = session_manager.get_session(str(message.chat.id))
+                if session and session.client:
+                    try:
+                        ticker = await session.client.futures_symbol_ticker(symbol=symbol)
+                        rest_price = float(ticker.get('price', 0))
+                        report += f"REST API\n"
+                        report += f"  Precio: ${rest_price:,.2f}\n\n"
+                    except Exception as e:
+                        report += f"REST API: {str(e)[:50]}\n\n"
         
-        # 2. Try REST fetch
-        session_manager = kwargs.get('session_manager')
-        if session_manager:
-            session = session_manager.get_session(str(message.chat.id))
-            if session and session.client:
-                try:
-                    ticker = await session.client.futures_symbol_ticker(symbol=symbol)
-                    rest_price = float(ticker.get('price', 0))
-                    report += f"🌐 **REST API**\n"
-                    report += f"└ Precio actual: `${rest_price:,.2f}`\n\n"
-                except Exception as e:
-                    report += f"🌐 **REST API**: ⚠️ {str(e)[:50]}\n\n"
-        
-        # 3. Strategy info
-        report += f"⚙️ **Configuración**\n"
+        # Common: Strategy info
+        report += f"Configuracion\n"
         from system_directive import DISABLED_ASSETS
         is_disabled = symbol in DISABLED_ASSETS
-        report += f"└ Estado: {'🔴 Deshabilitado' if is_disabled else '🟢 Activo'}\n"
+        report += f"  Estado: {'Deshabilitado' if is_disabled else 'Activo'}\n"
+        report += f"  Broker: {'ALPACA' if is_alpaca else 'BINANCE'}\n"
         
-        await msg.edit_text(report, parse_mode="Markdown")
+        await msg.edit_text(report)
         
     except Exception as e:
-        await msg.edit_text(f"❌ Error: {e}")
+        await msg.edit_text(f"Error: {e}")
 
 
 @router.message(Command("migrate_security"))
