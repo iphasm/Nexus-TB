@@ -14,7 +14,7 @@ class QuantumAnalyst:
         if self.api_key:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                print("🧠 Nexus Analyst: CONNECTED.")
+                # logger.debug("🧠 Nexus Analyst: CONNECTED.") 
             except Exception as e:
                 print(f"❌ Nexus Analyst Error: {e}")
         else:

@@ -379,6 +379,10 @@ class MarketStream:
         """
         Fetches a large dataset for backtesting using pagination.
         """
+        # SKIP NON-CRYPTO (Alpaca history not supported yet in this method)
+        if self._is_alpaca_symbol(symbol):
+            return pd.DataFrame()
+
         timeframe = self.tf_map.get(symbol.split('USDT')[0], '15m')
         # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
         formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol

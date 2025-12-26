@@ -634,7 +634,6 @@ async def main():
                             scheduler.cancel_task(user_id, t['id'])
                             await bot_instance.send_message(user_id, f"✅ Alert Directive for {symbol} executed and archived.", parse_mode="Markdown")
                             break
-
             except Exception as e:
                 logger.error(f"Price alert check failed: {e}")
 
@@ -649,7 +648,10 @@ async def main():
         scheduler.register_action('alert', handle_price_alert) # Fallback alias
         
         scheduler.start()
-        logger.info("📅 Task Scheduler (Servos) initialized.")
+        
+        # Aggregated Log
+        actions = list(scheduler.action_handlers.keys())
+        logger.info(f"📅 TaskScheduler: Initialized actions [{', '.join(actions)}]")
         
     except Exception as e:
         logger.warning(f"⚠️ Task Scheduler init skipped: {e}")
@@ -804,4 +806,3 @@ if __name__ == "__main__":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     asyncio.run(main())
-

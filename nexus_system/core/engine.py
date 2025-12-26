@@ -37,7 +37,7 @@ class NexusCore:
         self.signal_callback = callback
 
     async def initialize(self):
-        self.logger.info("Initializing Subsystems...")
+        self.logger.info("⚙️ Initializing Subsystems...")
         
         # Pass Alpaca keys and crypto symbols for WebSocket
         ak = self.alpaca_keys.get('key')

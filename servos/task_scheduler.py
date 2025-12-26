@@ -79,7 +79,7 @@ class TaskScheduler:
     def register_action(self, name: str, handler: Callable):
         """Register an action handler that can be scheduled."""
         self.action_handlers[name] = handler
-        print(f"📝 TaskScheduler: Registered action '{name}'")
+        # print(f"📝 TaskScheduler: Registered action '{name}'")
     
     async def parse_task_with_llm(self, user_input: str, user_id: int, user_timezone: str = "UTC") -> Dict[str, Any]:
         """
