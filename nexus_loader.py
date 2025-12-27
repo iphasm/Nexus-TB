@@ -13,9 +13,10 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import TelegramObject
+from aiogram.types import TelegramObject, FSInputFile
 from dotenv import load_dotenv
 from servos.db import get_user_name
+from servos.media_manager import MediaManager
 
 # Load Environment Variables
 load_dotenv()
@@ -335,7 +336,16 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name
                     )
-                await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
+                icon_path = MediaManager.get_icon_path(symbol)
+                if icon_path:
+                    await bot.send_photo(
+                        session.chat_id, 
+                        FSInputFile(icon_path), 
+                        caption=msg, 
+                        parse_mode="Markdown"
+                    )
+                else:
+                    await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
             elif mode == 'COPILOT':
                 if side == 'LONG':
@@ -367,11 +377,21 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         )
                     ]
                 ])
-                await bot.send_message(
-                    session.chat_id, msg, 
-                    reply_markup=keyboard, 
-                    parse_mode="Markdown"
-                )
+                icon_path = MediaManager.get_icon_path(symbol)
+                if icon_path:
+                    await bot.send_photo(
+                        session.chat_id,
+                        FSInputFile(icon_path),
+                        caption=msg,
+                        reply_markup=keyboard,
+                        parse_mode="Markdown"
+                    )
+                else:
+                    await bot.send_message(
+                        session.chat_id, msg, 
+                        reply_markup=keyboard, 
+                        parse_mode="Markdown"
+                    )
                 
             elif mode == 'PILOT':
                 # Check if position already exists - DON'T trigger update on every signal
@@ -414,11 +434,22 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Add execution confirmation + personality message with timestamp
                     from datetime import datetime, timezone
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                    await bot.send_message(
-                        session.chat_id,
-                        f"✅ *AUTOPILOT ENGAGED: {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}",
-                        parse_mode="Markdown"
-                    )
+                    icon_path = MediaManager.get_icon_path(symbol)
+                    caption = f"✅ *AUTOPILOT ENGAGED: {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}"
+                    
+                    if icon_path:
+                        await bot.send_photo(
+                            session.chat_id,
+                            FSInputFile(icon_path),
+                            caption=caption,
+                            parse_mode="Markdown"
+                        )
+                    else:
+                        await bot.send_message(
+                            session.chat_id,
+                            caption,
+                            parse_mode="Markdown"
+                        )
                     
                     # Check circuit breaker after trade
                     cb_triggered, cb_msg = await session.check_circuit_breaker()

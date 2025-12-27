@@ -2079,3 +2079,37 @@ async def cmd_scanner(message: Message, **kwargs):
     except Exception as e:
         await msg.edit_text(f"❌ Scanner Error: {str(e)}", parse_mode=None)
 
+
+# =================================================================
+# /icons - Branding: Check Missing Logos
+# =================================================================
+@router.message(Command("icons"))
+async def cmd_icons(message: Message, **kwargs):
+    """
+    Utility to check which enabled assets lack a custom icon.
+    """
+    from servos.media_manager import MediaManager
+    from system_directive import get_all_assets
+    
+    symbols = get_all_assets()
+    missing = MediaManager.list_missing_icons(symbols)
+    
+    if not missing:
+        return await message.answer("✅ **Perfecto!** Todos los activos habilitados tienen su respectivo icono.")
+    
+    report = [
+        "🖼️ **Branding Status: Asset Icons**",
+        f"Se encontraron `{len(missing)}` activos sin icono personalizado.",
+        "\n**Faltantes:**",
+        f"`{', '.join(missing[:50])}`"
+    ]
+    
+    if len(missing) > 50:
+        report.append(f"... y {len(missing) - 50} más.")
+        
+    report.append("\n**Instrucciones:**")
+    report.append("1. Sube los archivos PNG a la carpeta `assets/icons/`.")
+    report.append("2. Nombra los archivos en minúsculas (ej: `btc.png`, `sol.png`).")
+    report.append("3. Asegúrate de que sean fondos transparentes para mejor visualización.")
+    
+    await message.answer("\n".join(report), parse_mode="Markdown")
