@@ -19,6 +19,9 @@ from binance import AsyncClient
 # AI Analyst
 from servos.ai_analyst import QuantumAnalyst
 
+# Shield 2.0
+from nexus_system.shield.correlation import CorrelationManager
+
 import pandas as pd
 
 # Alpaca (still sync, but wrapped)
@@ -56,6 +59,9 @@ class AsyncTradingSession:
         
         # AI Analyst
         self.ai_analyst = QuantumAnalyst()
+
+        # Shield 2.0: Portfolio Correlation Guard
+        self.correlation_manager = CorrelationManager()
         
         # Operation Lock: Prevent concurrent/spam operations per symbol
         self._operation_locks = {}  # {symbol: timestamp}
@@ -314,6 +320,62 @@ class AsyncTradingSession:
         except Exception as e:
             print(f"⚠️ Chart Data Fetch Error: {e}")
             return None
+
+    # --- RISK HELPER: CORRELATION GUARD (Shield 2.0) ---
+    async def _check_correlation_safeguard(self, candidate_symbol: str) -> Tuple[bool, str]:
+        """
+        Checks if adding candidate_symbol violates portfolio correlation limits.
+        Uses cached market data from NexusCore engine via SessionManager.
+        """
+        if not self.manager or not self.manager.engine:
+            # Fallback: If no engine (standalone mode), skip check or be strict?
+            # Defaulting to Safe to not block trading if engine is offline, but logging warning.
+            return True, ""
+            
+        try:
+            # 1. Get Active Positions
+            active_pos = await self.get_active_positions()
+            active_symbols = [p['symbol'] for p in active_pos if 'USDT' in p['symbol']] # Crypto only
+            
+            # Filter out self (if re-entering/adding to same pos)
+            active_symbols = [s for s in active_symbols if s != candidate_symbol]
+            
+            if not active_symbols:
+                return True, ""
+            
+            # 2. Update History for Active Positions
+            # Fetch from Engine's MarketStream (Memory Cache)
+            stream = self.manager.engine.market_stream
+            
+            # Prepare Candidate Data first
+            cand_data = await stream.get_candles(candidate_symbol, limit=60)
+            if cand_data['dataframe'].empty:
+                return True, "" # Not enough data to correlation check
+                
+            cand_prices = cand_data['dataframe']['close']
+            
+            # Check against each active position
+            # We pass the active_symbols list to manager, but manager needs their history updated first
+            for pos_sym in active_symbols:
+                pos_data = await stream.get_candles(pos_sym, limit=60)
+                if not pos_data['dataframe'].empty:
+                    self.correlation_manager.update_price_history(pos_sym, pos_data['dataframe']['close'])
+            
+            # 3. Perform Check
+            is_safe = self.correlation_manager.check_correlation(
+                candidate_symbol, 
+                cand_prices, 
+                active_symbols
+            )
+            
+            if not is_safe:
+                return False, f"🚫 **Shield Protocol**: Alta correlación detectada."
+                
+            return True, ""
+            
+        except Exception as e:
+            print(f"⚠️ Correlation Check Error: {e}")
+            return True, "" # Fail Safe (Allow trade)
 
     # --- TRADING METHODS ---
     
@@ -644,6 +706,12 @@ class AsyncTradingSession:
             except Exception as e:
                 print(f"⚠️ AI Filter Error (continuing): {e}")
         
+        # --- SHIELD 2.0: CORRELATION CHECK ---
+        # Checks if adding this asset over-correlates the portfolio
+        is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
+        if not is_safe:
+            return False, shield_msg
+
         try:
             leverage = self.config['leverage']
             max_capital_pct = self.config['max_capital_pct']
@@ -821,6 +889,12 @@ class AsyncTradingSession:
             except Exception as e:
                 print(f"⚠️ AI Filter Error (continuing): {e}")
         
+        # --- SHIELD 2.0: CORRELATION CHECK ---
+        # Checks if adding this asset over-correlates the portfolio
+        is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
+        if not is_safe:
+            return False, shield_msg
+
         try:
             leverage = self.config['leverage']
             max_capital_pct = self.config['max_capital_pct']

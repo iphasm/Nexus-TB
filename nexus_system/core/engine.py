@@ -29,6 +29,9 @@ class NexusCore:
 
         self.signal_callback = None
         
+        # Concurrency Control (Max 10 parallel analysis tasks)
+        self._semaphore = asyncio.Semaphore(10)
+        
     def set_callback(self, callback):
         """
         Sets the async callback for signal emission.
@@ -87,62 +90,63 @@ class NexusCore:
 
     async def _process_symbol_event(self, asset: str):
         """Execute strategy analysis for a single symbol."""
-        try:
-            # 1. Fetch Market Data (From Cache - instantaneous)
-            # Use get_candles which checks cache first
-            # Ideally we pass different params for event driven? 
-            # For now, standard flow works as it hits cache.
-            
-            from system_directive import PREMIUM_SIGNALS_ENABLED
-            
-            if PREMIUM_SIGNALS_ENABLED:
-                mtf_data = await self.market_stream.get_multiframe_candles(asset)
-                market_data = mtf_data['main']
-                if not mtf_data['macro']['dataframe'].empty:
-                    market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
-            else:
-                market_data = await self.market_stream.get_candles(asset)
-            
-            if market_data.get('dataframe') is None or market_data['dataframe'].empty:
-                return
-
-            # --- SENTINEL OVERRIDE CHECK (Black Swan / Shark) ---
-            override_action = await self.risk_guardian.get_override_action(asset, market_data)
-            
-            if override_action == 'BLACK_SWAN':
-                self.logger.critical(f"🦢 BLACK SWAN DETECTED on {asset}! Triggering Emergency Exit (Longs).")
-                # Force Exit Signal (Refined: Only Exit Longs)
-                from ..cortex.base import Signal
-                signal = Signal(symbol=asset, action='EXIT_LONG', confidence=1.0, price=0, metadata={'reason': 'BLACK_SWAN'})
+        async with self._semaphore:
+            try:
+                # 1. Fetch Market Data (From Cache - instantaneous)
+                # Use get_candles which checks cache first
+                # Ideally we pass different params for event driven? 
+                # For now, standard flow works as it hits cache.
+                
+                from system_directive import PREMIUM_SIGNALS_ENABLED
+                
+                if PREMIUM_SIGNALS_ENABLED:
+                    mtf_data = await self.market_stream.get_multiframe_candles(asset)
+                    market_data = mtf_data['main']
+                    if not mtf_data['macro']['dataframe'].empty:
+                        market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
+                else:
+                    market_data = await self.market_stream.get_candles(asset)
+                
+                if market_data.get('dataframe') is None or market_data['dataframe'].empty:
+                    return
+    
+                # --- SENTINEL OVERRIDE CHECK (Black Swan / Shark) ---
+                override_action = await self.risk_guardian.get_override_action(asset, market_data)
+                
+                if override_action == 'BLACK_SWAN':
+                    self.logger.critical(f"🦢 BLACK SWAN DETECTED on {asset}! Triggering Emergency Exit (Longs).")
+                    # Force Exit Signal (Refined: Only Exit Longs)
+                    from ..cortex.base import Signal
+                    signal = Signal(symbol=asset, action='EXIT_LONG', confidence=1.0, price=0, metadata={'reason': 'BLACK_SWAN'})
+                    if self.signal_callback:
+                        await self.signal_callback(signal)
+                    return
+    
+                # SHARK MODE OVERRIDE
+                strategy = None
+                if override_action == 'SHARK_MODE':
+                     from ..cortex.shark import SharkStrategy
+                     strategy = SharkStrategy()
+                else:
+                     # Standard Factory Selection
+                     strategy = StrategyFactory.get_strategy(asset, market_data)
+                
+                # 3. Analyze
+                signal = await strategy.analyze(market_data)
+                
+                # 4. Actionable Filter
+                if signal is None or signal.action == 'HOLD':
+                    return
+                
+                # 5. Emit Signal
+                signal.strategy = strategy.name
+                self.logger.info(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
+                
                 if self.signal_callback:
                     await self.signal_callback(signal)
-                return
-
-            # SHARK MODE OVERRIDE
-            strategy = None
-            if override_action == 'SHARK_MODE':
-                 from ..cortex.shark import SharkStrategy
-                 strategy = SharkStrategy()
-            else:
-                 # Standard Factory Selection
-                 strategy = StrategyFactory.get_strategy(asset, market_data)
-            
-            # 3. Analyze
-            signal = await strategy.analyze(market_data)
-            
-            # 4. Actionable Filter
-            if signal is None or signal.action == 'HOLD':
-                return
-            
-            # 5. Emit Signal
-            signal.strategy = strategy.name
-            self.logger.info(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
-            
-            if self.signal_callback:
-                await self.signal_callback(signal)
-
-        except Exception as e:
-            self.logger.error_debounced(f"Event Error ({asset}): {e}", interval=300)
+    
+            except Exception as e:
+                self.logger.error_debounced(f"Event Error ({asset}): {e}", interval=300)
 
     async def core_loop(self):
         """

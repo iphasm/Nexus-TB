@@ -1,20 +1,42 @@
+"""
+Strategy Factory - Dynamic Assignment via Registry.
+Uses StrategyRegistry for plugin-based strategy discovery.
+"""
+
 from typing import Dict, Any
 from .base import IStrategy
-from .trend import TrendFollowingStrategy
-from .grid import GridTradingStrategy
-from .mean_reversion import MeanReversionStrategy
-from .scalping import ScalpingStrategy
+from .registry import StrategyRegistry
 from .classifier import MarketClassifier
 
-# Import the config MODULE (not individual vars) for runtime access
-# Import the system directive (formerly config)
+# Import the system directive for runtime config access
 import system_directive as qconfig
+
+
+# Strategy name mappings: Classifier output -> Registry class name
+STRATEGY_MAP = {
+    'TrendFollowing': 'TrendFollowingStrategy',
+    'Trend': 'TrendFollowingStrategy',
+    'Scalping': 'ScalpingStrategy',
+    'Grid': 'GridTradingStrategy',
+    'MeanReversion': 'MeanReversionStrategy',
+    'Shark': 'SharkStrategy',
+}
+
+# Config key mappings: Strategy name -> ENABLED_STRATEGIES key
+CONFIG_KEY_MAP = {
+    'TrendFollowing': 'TREND',
+    'Trend': 'TREND',
+    'Scalping': 'SCALPING',
+    'Grid': 'GRID',
+    'MeanReversion': 'MEAN_REVERSION',
+    'Shark': 'SHARK',
+}
+
 
 class StrategyFactory:
     """
     Dynamic Factory to assign strategies based on asset profile and Global Config.
-    Reads config at RUNTIME to respect changes made via /assets menu.
-    Uses MarketClassifier for intelligent selection.
+    Now uses StrategyRegistry for plugin-based strategy discovery.
     """
     
     @staticmethod
@@ -34,9 +56,6 @@ class StrategyFactory:
             try:
                 from .ml_classifier import MLClassifier
                 regime_result = MLClassifier.classify(market_data)
-                if regime_result:
-                    # Optional: Log usage
-                    pass
             except Exception as e:
                 print(f"⚠️ ML Classifier Failed: {e}")
         
@@ -44,43 +63,40 @@ class StrategyFactory:
         if regime_result is None:
             regime_result = MarketClassifier.classify(market_data)
         
-        # 2. Assign Strategy based on Regime
+        # 2. Get suggested strategy name from classifier
+        suggested = regime_result.suggested_strategy
+        
+        # 3. Check if strategy is enabled in config
+        config_key = CONFIG_KEY_MAP.get(suggested, suggested.upper())
+        default_enabled = False if suggested == 'Shark' else True
+        
+        if not qconfig.ENABLED_STRATEGIES.get(config_key, default_enabled):
+            # Strategy disabled, fall through to fallback
+            suggested = None
+        
+        # 4. Try to instantiate via Registry
         strategy = None
         
-        # TREND
-        if regime_result.suggested_strategy == "TrendFollowing":
-            if qconfig.ENABLED_STRATEGIES.get('TREND', True):
-                strategy = TrendFollowingStrategy()
-                
-        # SCALPING (Volatile)
-        elif regime_result.suggested_strategy == "Scalping":
-            if qconfig.ENABLED_STRATEGIES.get('SCALPING', True):
-                strategy = ScalpingStrategy()
-                
-        if regime_result.suggested_strategy == "Grid":
-            if qconfig.ENABLED_STRATEGIES.get('GRID', True):
-                strategy = GridTradingStrategy()
-
-        # SHARK (Crash / Sangría)
-        elif regime_result.suggested_strategy == "Shark":
-            if qconfig.ENABLED_STRATEGIES.get('SHARK', False):
-                from .shark import SharkStrategy
-                strategy = SharkStrategy()
-                
-        # EXTENSIONS: Add more as needed (e.g. Breakout)
+        if suggested:
+            class_name = STRATEGY_MAP.get(suggested, f"{suggested}Strategy")
+            strategy = StrategyRegistry.instantiate(class_name)
+            
+            if strategy:
+                print(f"📦 Registry: Loaded {class_name} for {symbol}")
         
-        # 3. Fallback: Mean Reversion (Safe default for Range/Uncertain)
+        # 5. Fallback: Mean Reversion (Safe default)
         if strategy is None:
-            # Default to MeanReversion if the suggested one is disabled or fallback needed
             if qconfig.ENABLED_STRATEGIES.get('MEAN_REVERSION', True):
+                strategy = StrategyRegistry.instantiate('MeanReversionStrategy')
+            
+            # Ultimate fallback if registry fails
+            if strategy is None:
+                from .mean_reversion import MeanReversionStrategy
                 strategy = MeanReversionStrategy()
-            else:
-                # Absolute panic fallback if MeanReversion is disabled too (Unlikely)
-                strategy = MeanReversionStrategy()
-                
-        # Attach regime metdata to strategy for logging
+                print(f"⚠️ Registry fallback: Using direct import for MeanReversion")
+        
+        # 6. Attach regime metadata to strategy for logging
         if strategy and regime_result:
-             strategy.regime_meta = regime_result
+            strategy.regime_meta = regime_result
         
         return strategy
-

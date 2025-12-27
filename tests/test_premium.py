@@ -85,7 +85,7 @@ async def test_scalping_logic():
     # Mock Data: Bullish Divergence Setup
     # Require 15+ rows
     print("1. Creating RSI Mock Data...")
-    N = 20
+    N = 60
     df = pd.DataFrame({
         'close': [100.0] * N,
         'low':   [99.0] * N,
@@ -109,11 +109,17 @@ async def test_scalping_logic():
     df.loc[15:, 'rsi'] = 40.0
     
     # Trigger Base Signal (BUY)
-    # Need RSI > 52 and Rising Strong (last 3 candles)
-    df.loc[19, 'rsi'] = 60.0 # Just now
-    df.loc[18, 'rsi'] = 55.0
-    df.loc[17, 'rsi'] = 53.0
-    # And Close > EMA200 for Trend Boost (optional)
+    # Requirement: Uptrend (Price > EMA200) AND RSI < 45 AND RSI Rising
+    
+    # 1. Set Uptrend
+    df['ema_200'] = 90.0 # Price 100 > 90
+    
+    # 2. Set RSI Dip and Rebound (Rising but still oversold-ish)
+    df.loc[N-1, 'rsi'] = 42.0 # Current
+    df.loc[N-2, 'rsi'] = 40.0 # Prev
+    df.loc[N-3, 'rsi'] = 38.0 # Older
+    # Rising: 42 > 40. True.
+    # Condition: 42 < 45. True.
     
     market_data = {'symbol': 'SOLUSDT', 'dataframe': df}
     

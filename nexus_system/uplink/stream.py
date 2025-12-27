@@ -1,10 +1,12 @@
 import ccxt.async_support as ccxt
 import pandas as pd
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+# Adapter Pattern Support
+from .adapters.base import IExchangeAdapter
 
 from ..utils.logger import get_logger
 
@@ -27,9 +29,10 @@ class MarketStream:
     """
     Async Market Data Provider.
     Hybrid mode: WebSocket for real-time updates, REST for fallback.
-    Uses Binance USD-M Futures for crypto.
+    Supports adapter injection for exchange abstraction.
     """
-    def __init__(self, exchange_id='binanceusdm', use_websocket: bool = True):
+    def __init__(self, exchange_id='binanceusdm', use_websocket: bool = True, 
+                 adapters: Optional[Dict[str, IExchangeAdapter]] = None):
         self.logger = get_logger("MarketStream")
         self.exchange_id = exchange_id
         self.exchange = getattr(ccxt, exchange_id)()
@@ -41,6 +44,10 @@ class MarketStream:
             'default': '15m'
         }
         self.alpaca = None
+        
+        # Adapter Pattern: Optional injected adapters
+        # Keys: 'binance', 'alpaca', etc.
+        self._adapters: Dict[str, IExchangeAdapter] = adapters or {}
         
         # WebSocket Integration
         self.use_websocket = use_websocket
@@ -64,6 +71,19 @@ class MarketStream:
             self.ws_manager.add_callback(callback)
         if self.alpaca_ws_manager:
             self.alpaca_ws_manager.add_callback(callback)
+
+    def register_adapter(self, name: str, adapter: IExchangeAdapter):
+        """Register an exchange adapter at runtime."""
+        self._adapters[name] = adapter
+        self.logger.info(f"🔌 Registered adapter: {name}")
+
+    def _get_adapter(self, symbol: str) -> Optional[IExchangeAdapter]:
+        """Get the appropriate adapter for a symbol."""
+        if self._is_alpaca_symbol(symbol):
+            return self._adapters.get('alpaca')
+        elif 'USDT' in symbol:
+            return self._adapters.get('binance')
+        return None
 
     async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
         """Load markets and optionally start WebSocket streams."""
@@ -181,51 +201,9 @@ class MarketStream:
             self.logger.warning(f"AlpacaWS: Init failed ({e}), using REST fallback")
 
     def _add_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add Technical Indicators (Standard + Premium Volume)"""
-        # EMAs
-        df['ema_20'] = df['close'].ewm(span=20).mean()
-        df['ema_50'] = df['close'].ewm(span=50).mean()
-        df['ema_200'] = df['close'].ewm(span=200).mean()
-        
-        # RSI (14)
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['rsi'] = 100 - (100 / (1 + rs))
-        
-        # Bollinger Bands (20, 2)
-        sma_20 = df['close'].rolling(window=20).mean()
-        std_20 = df['close'].rolling(window=20).std()
-        df['upper_bb'] = sma_20 + (std_20 * 2)
-        df['lower_bb'] = sma_20 - (std_20 * 2)
-        
-        # ATR (Average True Range)
-        prev_close = df['close'].shift(1)
-        high_low = df['high'] - df['low']
-        high_close = (df['high'] - prev_close).abs()
-        low_close = (df['low'] - prev_close).abs()
-        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-        df['atr'] = tr.rolling(window=14).mean()
-        
-        # Synthetic ADX (Trend Strength)
-        div = (df['ema_20'] - df['ema_50']).abs()
-        df['adx'] = (div / df['close']) * 2500
-        
-        # --- PREMIUM INDICATORS (Volume) ---
-        # Volume SMA (20)
-        df['vol_sma'] = df['volume'].rolling(window=20).mean()
-        
-        # OBV (On-Balance Volume)
-        obv_change = pd.Series(0.0, index=df.index, dtype=float)
-        obv_change[df['close'] > df['close'].shift(1)] = df['volume']
-        obv_change[df['close'] < df['close'].shift(1)] = -df['volume']
-        df['obv'] = obv_change.cumsum()
-        
-        # Fill NaN
-        df.bfill(inplace=True)
-        df.fillna(0, inplace=True)
-        return df
+        """Add Technical Indicators (Standard + Premium Volume) using Centralized Utility"""
+        from ..utils.indicators import TechnicalIndicators
+        return TechnicalIndicators.add_all_indicators(df)
 
     def _is_alpaca_symbol(self, symbol: str) -> bool:
         """Check if symbol should be routed to Alpaca (stocks/commodities)."""
@@ -422,37 +400,8 @@ class MarketStream:
         df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         
-        # 4. Add Basic Indicators (Native Pandas Implementation)
-        close = df['close']
-
-        # EMAs
-        df['ema_20'] = close.ewm(span=20, adjust=False).mean()
-        df['ema_50'] = close.ewm(span=50, adjust=False).mean()
-        df['ema_200'] = close.ewm(span=200, adjust=False).mean()
-        
-        # RSI (14)
-        delta = close.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['rsi'] = 100 - (100 / (1 + rs))
-        
-        # Bollinger Bands (20, 2)
-        sma_20 = close.rolling(window=20).mean()
-        std_20 = close.rolling(window=20).std()
-        df['upper_bb'] = sma_20 + (std_20 * 2)
-        df['lower_bb'] = sma_20 - (std_20 * 2)
-        
-        # Approximate ADX (Simplified TR/DX for prototype speed)
-        # Real ADX requires recursion, approximating with Volatility/Trend strength
-        # Using ATR-like measure relative to price
-        tr = df[['high', 'low', 'close']].max(axis=1) - df[['high', 'low', 'close']].min(axis=1)
-        atr_14 = tr.rolling(14).mean()
-        df['atr'] = atr_14
-        
-        # Synthetic ADX-like filter (same scale as get_candles: 2500)
-        # Measures EMA divergence relative to price
-        df['adx'] = (abs(df['ema_20'] - df['ema_50']) / close) * 2500
+        # 4. Add Indicators (Standardized)
+        df = self._add_indicators(df)
         
         return df
 

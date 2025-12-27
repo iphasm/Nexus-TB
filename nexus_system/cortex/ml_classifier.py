@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional
 from .classifier import MarketClassifier, MarketRegime
+from ..utils.indicators import TechnicalIndicators
 
 # Define paths to model artifacts
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
@@ -70,24 +71,6 @@ class MLClassifier:
         cls._model_loaded = True
 
     @staticmethod
-    def _calculate_mfi(df, period=14):
-        """Calculate Money Flow Index (volume-weighted RSI alternative)"""
-        typical_price = (df['high'] + df['low'] + df['close']) / 3
-        raw_money_flow = typical_price * df['volume']
-        
-        price_change = typical_price.diff()
-        positive_flow = np.where(price_change > 0, raw_money_flow, 0)
-        negative_flow = np.where(price_change < 0, raw_money_flow, 0)
-        
-        positive_sum = pd.Series(positive_flow).rolling(period).sum()
-        negative_sum = pd.Series(negative_flow).rolling(period).sum()
-        
-        mfr = positive_sum / (negative_sum + 1e-10)
-        mfi = 100 - (100 / (1 + mfr))
-        
-        return mfi.iloc[-1] if len(mfi) > 0 else 50
-
-    @staticmethod
     def _extract_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
         """
         Extracts features from the dataframe for the model.
@@ -122,21 +105,14 @@ class MLClassifier:
             
             # === v3.0 FEATURES ===
             
-            # MACD Histogram Normalized
-            ema_12 = df['close'].ewm(span=12, adjust=False).mean().iloc[-1]
-            ema_26 = df['close'].ewm(span=26, adjust=False).mean().iloc[-1]
-            macd = ema_12 - ema_26
-            macd_signal = df['close'].ewm(span=12, adjust=False).mean().ewm(span=9, adjust=False).mean().iloc[-1] - \
-                         df['close'].ewm(span=26, adjust=False).mean().ewm(span=9, adjust=False).mean().iloc[-1]
-            macd_hist_norm = (macd - macd_signal) / close * 100 if close > 0 else 0
+            # MACD Histogram Normalized (Using Utils)
+            _, _, macd_hist = TechnicalIndicators.macd(df['close'])
+            macd_hist_norm = macd_hist.iloc[-1] / close * 100 if close > 0 else 0
             
-            # Bollinger Bands
-            bb_middle = df['close'].rolling(20).mean().iloc[-1]
-            bb_std = df['close'].rolling(20).std().iloc[-1]
-            bb_upper = bb_middle + (bb_std * 2)
-            bb_lower = bb_middle - (bb_std * 2)
-            bb_width = (bb_std * 2) / (bb_middle + 1e-10) * 100
-            bb_pct = (close - bb_lower) / (bb_upper - bb_lower + 1e-10)
+            # Bollinger Bands (Using Utils)
+            _, _, _, bb_width, bb_pct_series = TechnicalIndicators.bollinger_bands(df['close'])
+            bb_width = bb_width.iloc[-1]
+            bb_pct = bb_pct_series.iloc[-1]
             
             # Rate of Change
             close_5 = df['close'].iloc[-6] if len(df) > 5 else close
@@ -170,7 +146,8 @@ class MLClassifier:
             ema20_slope = (ema20_current - ema20_5back) / close * 100 if close > 0 else 0
             
             # MFI (Money Flow Index)
-            mfi = MLClassifier._calculate_mfi(df, period=14)
+            mfi_series = TechnicalIndicators.mfi(df, period=14)
+            mfi = mfi_series.iloc[-1] if len(mfi_series) > 0 else 50
             
             # Distance to 50-period High/Low
             high_50 = df['high'].iloc[-50:].max() if len(df) >= 50 and 'high' in df.columns else high
