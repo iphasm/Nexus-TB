@@ -64,6 +64,10 @@ SHARK_TARGETS = [
 # --- AI & ML MODULES ---
 AI_FILTER_ENABLED = True
 ML_CLASSIFIER_ENABLED = False
+# --- RISK & MANAGEMENT ---
+RISK_PER_TRADE_PCT = 0.01
+ALLOW_SLTP_UPDATE = True
+SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes
 PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
 
 # =================================================================
