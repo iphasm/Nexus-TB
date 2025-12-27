@@ -2,7 +2,7 @@ import asyncio
 from ..cortex.factory import StrategyFactory
 from ..shield.manager import RiskManager
 from ..uplink.stream import MarketStream
-from ..directive import DISABLED_ASSETS
+from system_directive import DISABLED_ASSETS
 
 
 from ..utils.logger import get_logger
@@ -78,7 +78,7 @@ class NexusCore:
         self.last_analysis_time[symbol] = now
         
         # Check if asset is disabled
-        from ..directive import DISABLED_ASSETS
+        from system_directive import DISABLED_ASSETS
         if symbol in DISABLED_ASSETS:
             return
 
@@ -93,7 +93,7 @@ class NexusCore:
             # Ideally we pass different params for event driven? 
             # For now, standard flow works as it hits cache.
             
-            from ..directive import PREMIUM_SIGNALS_ENABLED
+            from system_directive import PREMIUM_SIGNALS_ENABLED
             
             if PREMIUM_SIGNALS_ENABLED:
                 mtf_data = await self.market_stream.get_multiframe_candles(asset)

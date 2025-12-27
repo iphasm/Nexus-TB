@@ -643,7 +643,7 @@ async def cmd_diag(message: Message, **kwargs):
     
     # Determine if this is an Alpaca symbol or crypto
     from system_directive import ASSET_GROUPS
-    is_alpaca = symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', [])
+    is_alpaca = symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', [])
     
     # Only append USDT for crypto symbols
     if not is_alpaca and not symbol.endswith('USDT'):
@@ -1148,18 +1148,6 @@ async def cmd_cooldowns(message: Message, **kwargs):
     
     lines.append(f"\n_Base: {cooldown_manager.default_cooldown // 60} min_")
     await message.reply("\n".join(lines), parse_mode="Markdown")
-
-
-@router.message(Command("reset_assets"))
-async def cmd_reset_assets(message: Message, **kwargs):
-    """Clear all disabled assets (Admin only)."""
-    from nexus_system.directive import DISABLED_ASSETS, ENABLED_STRATEGIES
-    from system_directive import GROUP_CONFIG
-    from servos.db import save_bot_state
-    import nexus_system.directive as aq_config
-    
-    count = len(DISABLED_ASSETS)
-    DISABLED_ASSETS.clear()
     
     # Persist to database
     save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, [], aq_config.AI_FILTER_ENABLED)
@@ -1426,7 +1414,7 @@ async def cmd_price(message: Message, **kwargs):
         
         # 2. Build dynamic target lists
         from system_directive import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
-        from nexus_system.directive import DISABLED_ASSETS
+        from system_directive import DISABLED_ASSETS
         from servos.indicators import calculate_rsi
         import numpy as np
         
@@ -1445,8 +1433,8 @@ async def cmd_price(message: Message, **kwargs):
             for asset in ASSET_GROUPS.get('STOCKS', []):
                 if asset not in DISABLED_ASSETS: stock_targets.append(asset)
         
-        if GROUP_CONFIG.get('COMMODITY', False):
-            for asset in ASSET_GROUPS.get('COMMODITY', []):
+        if GROUP_CONFIG.get('ETFS', False):
+            for asset in ASSET_GROUPS.get('ETFS', []):
                 if asset not in DISABLED_ASSETS: commodity_targets.append(asset)
         
         # --- 3. FETCH & PROCESS CRYPTO (Binance) ---
@@ -1908,7 +1896,7 @@ async def cmd_scanner(message: Message, **kwargs):
     
     try:
         from system_directive import ASSET_GROUPS, GROUP_CONFIG, ENABLED_STRATEGIES, get_display_name
-        from nexus_system.directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
+        from system_directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
         from nexus_system.cortex.classifier import MarketClassifier
         from nexus_system.cortex.factory import StrategyFactory
         from servos.fetcher import get_market_data

@@ -9,19 +9,10 @@ STATE_FILE = "bot_state.json"
 class SystemStateManager:
     def __init__(self, state_file=STATE_FILE):
         self.state_file = state_file
+        from system_directive import ENABLED_STRATEGIES, GROUP_CONFIG, DEFAULT_SESSION_CONFIG
         self.default_state = {
-            "enabled_strategies": {
-                "SCALPING": False,
-                "GRID": False,
-                "MEAN_REVERSION": True,
-                "BLACK_SWAN": True,
-                "SHARK": False
-            },
-            "group_config": {
-                "CRYPTO": True,
-                "STOCKS": False,
-                "COMMODITY": False
-            },
+            "enabled_strategies": dict(ENABLED_STRATEGIES),
+            "group_config": dict(GROUP_CONFIG),
             "disabled_assets": [],
             "module_assets": {
                 "SHARK_TARGETS": [],
@@ -29,12 +20,7 @@ class SystemStateManager:
                 "GRID_ASSETS": [],
                 "MEAN_REV_ASSETS": []
             },
-            "session_config": {
-                "leverage": 5,
-                "max_capital_pct": 0.1,
-                "personality": "STANDARD_ES",
-                "mode": "WATCHER"
-            }
+            "session_config": dict(DEFAULT_SESSION_CONFIG)
         }
 
     def load_state(self) -> Dict[str, Any]:

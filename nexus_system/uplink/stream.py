@@ -88,7 +88,7 @@ class MarketStream:
                     # Initialize Alpaca WebSocket (if enabled)
                     if self.use_websocket:
                         from system_directive import ASSET_GROUPS
-                        stock_symbols = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('COMMODITY', [])
+                        stock_symbols = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
                         if stock_symbols:
                             await self._init_alpaca_websocket(stock_symbols, key, secret)
                 except Exception as ex:
@@ -231,7 +231,7 @@ class MarketStream:
         """Check if symbol should be routed to Alpaca (stocks/commodities)."""
         try:
             from system_directive import ASSET_GROUPS
-            return symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', [])
+            return symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', [])
         except Exception:
             return False
 
@@ -243,7 +243,7 @@ class MarketStream:
         try:
             from system_directive import ASSET_GROUPS
             import os
-            if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('COMMODITY', []):
+            if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', []):
                 # Skip if US market is closed (avoid unnecessary API calls)
                 if not is_us_market_open():
                     return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "N/A", "market_closed": True}

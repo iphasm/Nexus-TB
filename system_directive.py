@@ -70,6 +70,24 @@ ALLOW_SLTP_UPDATE = True
 SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes
 PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
 
+# --- TRADING SESSION DEFAULTS ---
+DEFAULT_SESSION_CONFIG = {
+    "mode": "WATCHER",
+    "leverage": 5,
+    "max_capital_pct": 0.10,
+    "stop_loss_pct": 0.02,
+    "tp_ratio": 1.5,
+    "spot_allocation_pct": 0.20,
+    "personality": "STANDARD_ES",
+    "sentiment_filter": True,
+    "atr_multiplier": 2.2,
+    "circuit_breaker_enabled": True,
+    "alpaca_key": None,
+    "alpaca_secret": None,
+    "strategies": dict(ENABLED_STRATEGIES),
+    "groups": dict(GROUP_CONFIG)
+}
+
 # =================================================================
 # TICKER MAP - Human-readable names for all assets
 # =================================================================

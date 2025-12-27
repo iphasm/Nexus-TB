@@ -40,53 +40,18 @@ class AsyncTradingSession:
         self.client: Optional[AsyncClient] = None
         self.alpaca_client: Optional[TradingClient] = None
         
-        # Default Config
-        self.config = {
-            "mode": "WATCHER",
-            "leverage": 5,
-            "max_capital_pct": 0.10,
-            "stop_loss_pct": 0.02,
-            "tp_ratio": 1.5,  # TP Distance = SL Distance * tp_ratio
-            "spot_allocation_pct": 0.20,
-            "personality": "STANDARD_ES",
-            "sentiment_filter": False,
-            "atr_multiplier": 2.0,
-            "alpaca_key": None,
-            "alpaca_secret": None
-        }
+        from system_directive import DEFAULT_SESSION_CONFIG
+        
+        # Initialize with centralized defaults
+        self.config = dict(DEFAULT_SESSION_CONFIG)
         
         if config:
             self.config.update(config)
         
-        
-        # --- MULTI-TENANT CONFIG INITIALIZATION ---
-        # DEFAULT: Start with core strategies ENABLED for new sessions
-        if 'strategies' not in self.config:
-            # Initialize with sensible defaults matching ENABLED_STRATEGIES
-            self.config['strategies'] = {
-                'TREND': True,
-                'SCALPING': True,
-                'GRID': True,
-                'MEAN_REVERSION': True,
-                'BLACK_SWAN': True,
-                'SHARK': False  # Aggressive shorting OFF by default
-            }
-            
-        if 'groups' not in self.config:
-            # All market groups enabled by default
-            self.config['groups'] = {
-                'CRYPTO': True,
-                'STOCKS': True,
-                'COMMODITY': True
-            }
-             
-        if 'disabled_assets' not in self.config:
-             self.config['disabled_assets'] = []
-             
         self.mode = self.config.get('mode', 'WATCHER')
         
-        # Circuit Breaker State
-        self.cb_ignore_until = 0  # Timestamp (ms) to ignore previous losses
+        # Circuit Breaker State (Can be disabled via config)
+        self.cb_ignore_until = 0  
         
         # AI Analyst
         self.ai_analyst = QuantumAnalyst()
@@ -842,7 +807,7 @@ class AsyncTradingSession:
             return False, "No valid API Keys provided."
         
         # --- AI SENTIMENT FILTER (Inverse for Shorts) ---
-        from nexus_system.directive import AI_FILTER_ENABLED
+        from system_directive import AI_FILTER_ENABLED
         if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
             try:
                 print(f"🧠 Checking Sentiment for {symbol} (SHORT)...")
@@ -1370,7 +1335,8 @@ class AsyncTradingSession:
             return False, "No session."
         
         # PERSISTENT COOLDOWN: Check global per-symbol cooldown
-        from nexus_system.directive import SLTP_UPDATE_COOLDOWN, SLTP_LAST_UPDATE
+        from system_directive import SLTP_UPDATE_COOLDOWN
+        from nexus_system.directive import SLTP_LAST_UPDATE
         now = time.time()
         last_update = SLTP_LAST_UPDATE.get(symbol, 0)
         
