@@ -57,10 +57,15 @@ class StrategyFactory:
             if qconfig.ENABLED_STRATEGIES.get('SCALPING', True):
                 strategy = ScalpingStrategy()
                 
-        # GRID (Tight Range)
-        elif regime_result.suggested_strategy == "Grid":
+        if regime_result.suggested_strategy == "Grid":
             if qconfig.ENABLED_STRATEGIES.get('GRID', True):
                 strategy = GridTradingStrategy()
+
+        # SHARK (Crash / Sangría)
+        elif regime_result.suggested_strategy == "Shark":
+            if qconfig.ENABLED_STRATEGIES.get('SHARK', False):
+                from .shark import SharkStrategy
+                strategy = SharkStrategy()
                 
         # EXTENSIONS: Add more as needed (e.g. Breakout)
         

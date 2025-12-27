@@ -106,6 +106,18 @@ class NexusCore:
             if market_data.get('dataframe') is None or market_data['dataframe'].empty:
                 return
 
+            # --- SENTINEL OVERRIDE CHECK (Black Swan / Shark) ---
+            override_action = await self.risk_guardian.get_override_action(asset, market_data)
+            
+            if override_action == 'BLACK_SWAN':
+                self.logger.critical(f"🦢 BLACK SWAN DETECTED on {asset}! Triggering Emergency Exit.")
+                # Force Exit Signal
+                from ..cortex.base import Signal
+                signal = Signal(symbol=asset, action='EXIT_ALL', confidence=1.0, price=0, metadata={'reason': 'BLACK_SWAN'})
+                if self.signal_callback:
+                    await self.signal_callback(signal)
+                return
+
             # 2. Get Strategy via Factory
             strategy = StrategyFactory.get_strategy(asset, market_data)
             
