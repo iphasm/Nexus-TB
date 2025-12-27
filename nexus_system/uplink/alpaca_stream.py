@@ -103,37 +103,32 @@ class AlpacaStream:
             if df.empty:
                 return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": "15m"}
             
-            # Add indicators (same as MarketStream)
-            df['ema_20'] = df['close'].ewm(span=20).mean()
-            df['ema_50'] = df['close'].ewm(span=50).mean()
-            df['ema_200'] = df['close'].ewm(span=200).mean()
+            # Add indicators using pandas-ta wrappers
+            from servos.indicators import (
+                calculate_ema, calculate_rsi, calculate_bollinger_bands,
+                calculate_atr, calculate_adx
+            )
+            
+            df['ema_20'] = calculate_ema(df['close'], period=20)
+            df['ema_50'] = calculate_ema(df['close'], period=50)
+            df['ema_200'] = calculate_ema(df['close'], period=200)
             
             # RSI (14)
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['rsi'] = 100 - (100 / (1 + rs))
+            df['rsi'] = calculate_rsi(df['close'], period=14)
             
             # Bollinger Bands (20, 2)
-            sma_20 = df['close'].rolling(window=20).mean()
-            std_20 = df['close'].rolling(window=20).std()
-            df['upper_bb'] = sma_20 + (std_20 * 2)
-            df['lower_bb'] = sma_20 - (std_20 * 2)
+            bb = calculate_bollinger_bands(df['close'], period=20, std_dev=2.0)
+            df['upper_bb'] = bb['upper']
+            df['lower_bb'] = bb['lower']
             
-            # ATR (Average True Range) - CRITICAL for strategy filters
-            prev_close = df['close'].shift(1)
-            high_low = df['high'] - df['low']
-            high_close = (df['high'] - prev_close).abs()
-            low_close = (df['low'] - prev_close).abs()
-            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            df['atr'] = tr.rolling(window=14).mean()
+            # ATR (14)
+            df['atr'] = calculate_atr(df, period=14)
             
-            # Synthetic ADX (Trend Strength) - Same formula as MarketStream
-            div = (df['ema_20'] - df['ema_50']).abs()
-            df['adx'] = (div / df['close']) * 2500
+            # ADX (14)
+            adx_data = calculate_adx(df, period=14)
+            df['adx'] = adx_data['adx']
             
-            # Volume SMA (20) - For premium volume validation
+            # Volume SMA (20)
             df['vol_sma'] = df['volume'].rolling(window=20).mean()
             
             # Fill NaN values

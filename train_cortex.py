@@ -26,6 +26,7 @@ warnings.filterwarnings('ignore')
 
 import yfinance as yf
 from system_directive import get_all_assets, is_crypto
+import pandas_ta as ta
 
 
 # Configuration
@@ -106,50 +107,18 @@ def fetch_data(symbol, max_candles=35000):
 
 
 def calculate_adx(df, period=14):
-    """Calculate proper ADX (Average Directional Index)"""
-    high = df['high']
-    low = df['low']
-    close = df['close']
-    
-    tr1 = high - low
-    tr2 = abs(high - close.shift(1))
-    tr3 = abs(low - close.shift(1))
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(period).mean()
-    
-    up_move = high - high.shift(1)
-    down_move = low.shift(1) - low
-    
-    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-    
-    plus_di = 100 * pd.Series(plus_dm).rolling(period).mean() / atr
-    minus_di = 100 * pd.Series(minus_dm).rolling(period).mean() / atr
-    
-    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
-    adx = dx.rolling(period).mean()
-    
-    return adx.fillna(0).clip(0, 100)
+    """Calculate proper ADX using pandas-ta."""
+    adx_df = ta.adx(df['high'], df['low'], df['close'], length=period)
+    if adx_df is None:
+        return pd.Series(0, index=df.index)
+    return adx_df.iloc[:, 0].fillna(0).clip(0, 100)
 
 
 def calculate_mfi(df, period=14):
-    """Calculate Money Flow Index (volume-weighted RSI alternative)"""
-    typical_price = (df['high'] + df['low'] + df['close']) / 3
-    raw_money_flow = typical_price * df['volume']
-    
-    # Positive and negative money flow
-    price_change = typical_price.diff()
-    positive_flow = np.where(price_change > 0, raw_money_flow, 0)
-    negative_flow = np.where(price_change < 0, raw_money_flow, 0)
-    
-    # Rolling sums
-    positive_sum = pd.Series(positive_flow).rolling(period).sum()
-    negative_sum = pd.Series(negative_flow).rolling(period).sum()
-    
-    # Money flow ratio and MFI
-    mfr = positive_sum / (negative_sum + 1e-10)
-    mfi = 100 - (100 / (1 + mfr))
-    
+    """Calculate MFI using pandas-ta."""
+    mfi = ta.mfi(df['high'], df['low'], df['close'], df['volume'], length=period)
+    if mfi is None:
+        return pd.Series(50, index=df.index)
     return mfi.fillna(50).clip(0, 100)
 
 
@@ -163,13 +132,28 @@ def add_indicators(df):
     low = df['low']
     volume = df['volume']
     
-    # === BASIC INDICATORS ===
+    # === BASIC INDICATORS (using pandas-ta) ===
     # RSI (14)
-    delta = close.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / (loss + 1e-10)
-    df['rsi'] = 100 - (100 / (1 + rs))
+    df['rsi'] = ta.rsi(close, length=14)
+    if df['rsi'] is None:
+        df['rsi'] = 50
+    df['rsi'] = df['rsi'].fillna(50)
+    
+    # ATR (14)
+    df['atr'] = ta.atr(high, low, close, length=14)
+    if df['atr'] is None:
+        df['atr'] = 0
+    df['atr'] = df['atr'].fillna(0)
+    df['atr_pct'] = (df['atr'] / close) * 100
+    
+    # ADX
+    df['adx'] = calculate_adx(df, period=14)
+    
+    # EMAs (using pandas-ta)
+    df['ema_9'] = ta.ema(close, length=9)
+    df['ema_20'] = ta.ema(close, length=20)
+    df['ema_50'] = ta.ema(close, length=50)
+    df['ema_200'] = ta.ema(close, length=200)
     
     # ATR (14)
     tr1 = high - low
@@ -183,10 +167,11 @@ def add_indicators(df):
     df['adx'] = calculate_adx(df, period=14)
     
     # EMAs
-    df['ema_9'] = close.ewm(span=9, adjust=False).mean()
-    df['ema_20'] = close.ewm(span=20, adjust=False).mean()
-    df['ema_50'] = close.ewm(span=50, adjust=False).mean()
-    df['ema_200'] = close.ewm(span=200, adjust=False).mean()
+    # Fill NaN in EMAs
+    for col in ['ema_9', 'ema_20', 'ema_50', 'ema_200']:
+        if df[col] is None:
+            df[col] = close
+        df[col] = df[col].fillna(method='bfill').fillna(close)
     
     # Trend Strength (EMA divergence)
     df['trend_str'] = (df['ema_20'] - df['ema_50']) / close * 100
@@ -198,21 +183,30 @@ def add_indicators(df):
     
     # === v3.0 FEATURES ===
     
-    # MACD
-    ema_12 = close.ewm(span=12, adjust=False).mean()
-    ema_26 = close.ewm(span=26, adjust=False).mean()
-    df['macd'] = ema_12 - ema_26
-    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
-    df['macd_hist'] = df['macd'] - df['macd_signal']
-    df['macd_hist_norm'] = df['macd_hist'] / close * 100  # Normalized
+    # MACD (using pandas-ta)
+    macd_df = ta.macd(close, fast=12, slow=26, signal=9)
+    if macd_df is not None:
+        df['macd'] = macd_df.iloc[:, 0]
+        df['macd_signal'] = macd_df.iloc[:, 2]
+        df['macd_hist'] = macd_df.iloc[:, 1]
+    else:
+        df['macd'] = 0
+        df['macd_signal'] = 0
+        df['macd_hist'] = 0
+    df['macd_hist_norm'] = df['macd_hist'] / close * 100
     
-    # Bollinger Bands
-    df['bb_middle'] = close.rolling(20).mean()
-    df['bb_std'] = close.rolling(20).std()
-    df['bb_upper'] = df['bb_middle'] + (df['bb_std'] * 2)
-    df['bb_lower'] = df['bb_middle'] - (df['bb_std'] * 2)
+    # Bollinger Bands (using pandas-ta)
+    bb = ta.bbands(close, length=20, std=2.0)
+    if bb is not None:
+        df['bb_middle'] = bb.iloc[:, 1]
+        df['bb_upper'] = bb.iloc[:, 2]
+        df['bb_lower'] = bb.iloc[:, 0]
+    else:
+        df['bb_middle'] = close
+        df['bb_upper'] = close
+        df['bb_lower'] = close
+    df['bb_std'] = (df['bb_upper'] - df['bb_middle']) / 2
     df['bb_width'] = (df['bb_std'] * 2) / (df['bb_middle'] + 1e-10) * 100
-    # Bollinger %B (position within bands: 0=lower, 1=upper)
     df['bb_pct'] = (close - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'] + 1e-10)
     
     # Price Momentum (Rate of Change)

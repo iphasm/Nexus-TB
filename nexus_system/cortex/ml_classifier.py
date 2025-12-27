@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional
 from .classifier import MarketClassifier, MarketRegime
-from ..utils.indicators import TechnicalIndicators
+from servos.indicators import calculate_ema, calculate_rsi, calculate_atr, calculate_adx
+import pandas_ta as ta
 
 # Define paths to model artifacts
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
@@ -131,23 +132,23 @@ class MLClassifier:
             # Candle Body Percentage
             body_pct = abs(close - open_price) / (high - low + 1e-10)
             
-            # Trend Direction
-            ema_200 = df['close'].ewm(span=200, adjust=False).mean().iloc[-1] if len(df) >= 200 else ema_50
-            ema_9 = df['close'].ewm(span=9, adjust=False).mean().iloc[-1]
-            above_ema200 = 1 if close > ema_200 else 0
-            ema_cross = 1 if ema_9 > ema_20 else 0
+            # Trend Direction (using pandas_ta EMA)
+            ema_200_val = calculate_ema(df['close'], period=200).iloc[-1] if len(df) >= 200 else ema_50
+            ema_9_val = calculate_ema(df['close'], period=9).iloc[-1]
+            above_ema200 = 1 if close > ema_200_val else 0
+            ema_cross = 1 if ema_9_val > ema_20 else 0
             
             # === NEW v3.1 FEATURES ===
             
             # EMA20 Slope (momentum direction)
-            ema_20_series = df['close'].ewm(span=20, adjust=False).mean()
+            ema_20_series = calculate_ema(df['close'], period=20)
             ema20_current = ema_20_series.iloc[-1]
             ema20_5back = ema_20_series.iloc[-6] if len(ema_20_series) > 5 else ema20_current
             ema20_slope = (ema20_current - ema20_5back) / close * 100 if close > 0 else 0
             
-            # MFI (Money Flow Index)
-            mfi_series = TechnicalIndicators.mfi(df, period=14)
-            mfi = mfi_series.iloc[-1] if len(mfi_series) > 0 else 50
+            # MFI (Money Flow Index) - using pandas_ta
+            mfi_series = ta.mfi(df['high'], df['low'], df['close'], df['volume'], length=14)
+            mfi = mfi_series.iloc[-1] if mfi_series is not None and len(mfi_series) > 0 else 50
             
             # Distance to 50-period High/Low
             high_50 = df['high'].iloc[-50:].max() if len(df) >= 50 and 'high' in df.columns else high
