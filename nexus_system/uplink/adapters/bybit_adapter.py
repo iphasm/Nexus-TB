@@ -1,6 +1,7 @@
 """
 Bybit Futures Adapter.
 Implements IExchangeAdapter for Bybit Unified Trading (USDT Perpetuals).
+Focused on improved order management with single-call cancellation.
 """
 
 import os
@@ -13,34 +14,49 @@ from .base import IExchangeAdapter
 
 class BybitAdapter(IExchangeAdapter):
     """
-    Bybit Implementation (USDT Futures).
-    Uses CCXT.
+    Bybit V5 Implementation (USDT Linear Perpetuals).
+    Uses CCXT async with enhanced order cancellation capabilities.
+    
+    Key Improvements over Binance:
+    - cancel_all_orders(): Single API call to cancel all orders
+    - set_trading_stop(): Cancel/modify position-linked TP/SL
+    - amend_order(): Hot-edit orders without cancel+replace
     """
 
     def __init__(self, api_key: str = None, api_secret: str = None):
         self._api_key = api_key or os.getenv('BYBIT_API_KEY', '')
         self._api_secret = api_secret or os.getenv('BYBIT_SECRET', '')
         self._exchange: Optional[ccxt.bybit] = None
+        self._testnet = os.getenv('BYBIT_TESTNET', 'false').lower() == 'true'
 
     @property
     def name(self) -> str:
         return "bybit"
 
     async def initialize(self, **kwargs) -> bool:
-        """Initialize Bybit connection."""
+        """Initialize Bybit V5 connection."""
         try:
-            self._exchange = ccxt.bybit({
+            config = {
                 'apiKey': self._api_key,
                 'secret': self._api_secret,
                 'enableRateLimit': True,
                 'options': {
-                    'defaultType': 'linear',  # USDT Futures
+                    'defaultType': 'linear',  # USDT Perpetuals
                     'adjustForTimeDifference': True,
                 }
-            })
+            }
+            
+            # Testnet support
+            if self._testnet:
+                config['sandbox'] = True
+                
+            self._exchange = ccxt.bybit(config)
             await self._exchange.load_markets()
-            print(f"✅ BybitAdapter: Connected to USDT Futures")
+            
+            mode = "TESTNET" if self._testnet else "MAINNET"
+            print(f"✅ BybitAdapter: Connected to {mode} (Linear Perpetuals)")
             return True
+            
         except Exception as e:
             print(f"❌ BybitAdapter: Init failed - {e}")
             return False
@@ -56,9 +72,9 @@ class BybitAdapter(IExchangeAdapter):
             return pd.DataFrame()
             
         try:
-            # CCXT handles symbol conversion automatically for standard pairs usually
-            # But Bybit likes 'BTC/USDT:USDT' notation in ccxt sometimes
-            ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            # Format symbol for CCXT (BTC/USDT:USDT for linear)
+            formatted = self._format_symbol(symbol)
+            ohlcv = await self._exchange.fetch_ohlcv(formatted, timeframe, limit=limit)
             
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -69,14 +85,12 @@ class BybitAdapter(IExchangeAdapter):
             return pd.DataFrame()
 
     async def get_account_balance(self) -> Dict[str, float]:
-        """Get Bybit account balance."""
+        """Get Bybit UTA (Unified Trading Account) balance."""
         if not self._exchange:
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
             
         try:
-            # Bybit structure is complex, fetch_balance usually simplifies it
             balance = await self._exchange.fetch_balance({'type': 'swap', 'coin': 'USDT'})
-            
             usdt = balance.get('USDT', {})
             return {
                 'total': float(usdt.get('total', 0)),
@@ -86,6 +100,33 @@ class BybitAdapter(IExchangeAdapter):
         except Exception as e:
             print(f"⚠️ BybitAdapter: get_balance error: {e}")
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
+
+    async def get_market_price(self, symbol: str) -> float:
+        """Get current market price for a symbol."""
+        if not self._exchange:
+            return 0.0
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            ticker = await self._exchange.fetch_ticker(formatted)
+            return float(ticker.get('last', 0))
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: get_market_price error ({symbol}): {e}")
+            return 0.0
+
+    async def set_leverage(self, symbol: str, leverage: int) -> bool:
+        """Set leverage for a symbol."""
+        if not self._exchange:
+            return False
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            await self._exchange.set_leverage(leverage, formatted)
+            print(f"✅ BybitAdapter: Leverage set to {leverage}x for {symbol}")
+            return True
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: set_leverage error: {e}")
+            return False
 
     async def place_order(
         self, 
@@ -101,28 +142,29 @@ class BybitAdapter(IExchangeAdapter):
             return {'error': 'Not initialized'}
             
         try:
+            formatted = self._format_symbol(symbol)
             params = kwargs.copy()
-            params['positionIdx'] = 0 # 0 for One-Way Mode, 1/2 for Hedge
+            params['positionIdx'] = 0  # One-Way Mode
             
             if order_type.upper() == 'MARKET':
                 result = await self._exchange.create_order(
-                    symbol, 'market', side.lower(), quantity, None, params
+                    formatted, 'market', side.lower(), quantity, None, params
                 )
             elif order_type.upper() == 'LIMIT':
                 result = await self._exchange.create_order(
-                    symbol, 'limit', side.lower(), quantity, price, params
+                    formatted, 'limit', side.lower(), quantity, price, params
                 )
             else:
-                 # Conditional
+                # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
                 params['stopPrice'] = price
-                # Bybit uses specific types or params for trigger orders
-                # CCXT mapping: 'stop' -> 'market' with stopPrice
+                params['triggerPrice'] = price
                 result = await self._exchange.create_order(
-                    symbol, order_type.lower(), side.lower(), quantity, price, params
+                    formatted, order_type.lower(), side.lower(), quantity, price, params
                 )
             
             return {
                 'orderId': result.get('id'),
+                'orderLinkId': result.get('clientOrderId'),
                 'status': result.get('status'),
                 'symbol': symbol,
                 'side': side,
@@ -134,16 +176,188 @@ class BybitAdapter(IExchangeAdapter):
             return {'error': str(e)}
 
     async def cancel_order(self, symbol: str, order_id: str) -> bool:
-        """Cancel an order."""
+        """Cancel a single order by ID."""
         if not self._exchange:
             return False
             
         try:
-            await self._exchange.cancel_order(order_id, symbol)
+            formatted = self._format_symbol(symbol)
+            await self._exchange.cancel_order(order_id, formatted)
             return True
         except Exception as e:
             print(f"⚠️ BybitAdapter: cancel_order error: {e}")
             return False
+
+    # =========================================================================
+    # ENHANCED ORDER MANAGEMENT (Key Bybit Advantage)
+    # =========================================================================
+
+    async def cancel_all_orders(self, symbol: str) -> Dict[str, Any]:
+        """
+        Cancel ALL orders for a symbol in a SINGLE API call.
+        This is the key improvement over Binance's individual cancellation loop.
+        
+        Returns: {'success': bool, 'cancelled': int, 'message': str}
+        """
+        if not self._exchange:
+            return {'success': False, 'cancelled': 0, 'message': 'Not initialized'}
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            
+            # Bybit V5: Single call cancels all active + conditional orders
+            result = await self._exchange.cancel_all_orders(formatted)
+            
+            # Result format: list of cancelled order IDs
+            cancelled_count = len(result) if isinstance(result, list) else 1
+            
+            print(f"✅ BybitAdapter: Cancelled {cancelled_count} orders for {symbol} (single call)")
+            return {
+                'success': True,
+                'cancelled': cancelled_count,
+                'message': f'Cancelled {cancelled_count} orders'
+            }
+            
+        except Exception as e:
+            # No orders to cancel is not an error
+            if 'no order' in str(e).lower() or 'not found' in str(e).lower():
+                return {'success': True, 'cancelled': 0, 'message': 'No orders to cancel'}
+            print(f"⚠️ BybitAdapter: cancel_all_orders error: {e}")
+            return {'success': False, 'cancelled': 0, 'message': str(e)}
+
+    async def set_trading_stop(
+        self, 
+        symbol: str, 
+        take_profit: Optional[float] = None,
+        stop_loss: Optional[float] = None,
+        trailing_stop: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Set or cancel TP/SL for a position using Bybit's trading-stop endpoint.
+        
+        To CANCEL: pass 0 as the value (e.g., stop_loss=0 cancels SL)
+        To SET: pass the price value
+        
+        This is superior to Binance where TP/SL are separate conditional orders.
+        """
+        if not self._exchange:
+            return {'success': False, 'message': 'Not initialized'}
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            
+            params = {
+                'category': 'linear',
+                'symbol': formatted.replace('/', '').replace(':USDT', ''),
+                'positionIdx': 0  # One-Way Mode
+            }
+            
+            if take_profit is not None:
+                params['takeProfit'] = str(take_profit)
+            if stop_loss is not None:
+                params['stopLoss'] = str(stop_loss)
+            if trailing_stop is not None:
+                params['trailingStop'] = str(trailing_stop)
+            
+            # Use private API endpoint directly
+            result = await self._exchange.private_post_v5_position_trading_stop(params)
+            
+            action = "set" if (take_profit or stop_loss or trailing_stop) else "cancelled"
+            print(f"✅ BybitAdapter: Trading stop {action} for {symbol}")
+            
+            return {'success': True, 'message': f'Trading stop {action}', 'result': result}
+            
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
+            return {'success': False, 'message': str(e)}
+
+    async def amend_order(
+        self, 
+        symbol: str, 
+        order_id: str, 
+        quantity: Optional[float] = None,
+        price: Optional[float] = None,
+        trigger_price: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Amend (hot-edit) an existing order without cancel+replace.
+        Bybit native feature - not available on Binance.
+        """
+        if not self._exchange:
+            return {'success': False, 'message': 'Not initialized'}
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            
+            params = {
+                'category': 'linear',
+                'symbol': formatted.replace('/', '').replace(':USDT', ''),
+                'orderId': order_id
+            }
+            
+            if quantity is not None:
+                params['qty'] = str(quantity)
+            if price is not None:
+                params['price'] = str(price)
+            if trigger_price is not None:
+                params['triggerPrice'] = str(trigger_price)
+            
+            result = await self._exchange.private_post_v5_order_amend(params)
+            
+            print(f"✅ BybitAdapter: Order {order_id} amended")
+            return {'success': True, 'message': 'Order amended', 'result': result}
+            
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: amend_order error: {e}")
+            return {'success': False, 'message': str(e)}
+
+    async def place_trailing_stop(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        callback_rate: float,
+        activation_price: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Place a native server-side trailing stop order.
+        
+        Args:
+            symbol: Trading pair
+            side: 'BUY' or 'SELL' (to close position)
+            quantity: Order quantity
+            callback_rate: Trailing percentage (e.g., 1.0 for 1%)
+            activation_price: Price at which trailing activates
+        """
+        if not self._exchange:
+            return {'success': False, 'message': 'Not initialized'}
+            
+        try:
+            formatted = self._format_symbol(symbol)
+            
+            params = {
+                'positionIdx': 0,
+                'reduceOnly': True,
+                'trailingStop': str(callback_rate)
+            }
+            
+            if activation_price:
+                params['activePrice'] = activation_price
+            
+            result = await self._exchange.create_order(
+                formatted, 'trailing_stop_market', side.lower(), quantity, None, params
+            )
+            
+            print(f"✅ BybitAdapter: Trailing stop placed for {symbol} @ {callback_rate}%")
+            return {
+                'success': True,
+                'orderId': result.get('id'),
+                'message': f'Trailing stop @ {callback_rate}%'
+            }
+            
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: place_trailing_stop error: {e}")
+            return {'success': False, 'message': str(e)}
 
     async def get_positions(self) -> List[Dict[str, Any]]:
         """Get active positions."""
@@ -151,19 +365,20 @@ class BybitAdapter(IExchangeAdapter):
             return []
             
         try:
-            # Fetch Bybit positions
             positions = await self._exchange.fetch_positions(params={'settle': 'USDT'})
             active = []
             for p in positions:
                 amt = float(p.get('contracts', 0))
                 if amt != 0:
                     active.append({
-                        'symbol': p.get('symbol', ''),
-                        'side': p.get('side', '').upper(),
+                        'symbol': self._unformat_symbol(p.get('symbol', '')),
+                        'side': 'LONG' if p.get('side') == 'long' else 'SHORT',
                         'quantity': abs(amt),
                         'entryPrice': float(p.get('entryPrice', 0)),
                         'unrealizedPnl': float(p.get('unrealizedPnl', 0)),
-                        'leverage': int(p.get('leverage', 1))
+                        'leverage': int(p.get('leverage', 1)),
+                        'takeProfit': float(p.get('takeProfitPrice', 0) or 0),
+                        'stopLoss': float(p.get('stopLossPrice', 0) or 0)
                     })
             return active
         except Exception as e:
@@ -175,3 +390,24 @@ class BybitAdapter(IExchangeAdapter):
         if self._exchange:
             await self._exchange.close()
             self._exchange = None
+
+    def supports_websocket(self) -> bool:
+        return True
+
+    # =========================================================================
+    # HELPER METHODS
+    # =========================================================================
+
+    def _format_symbol(self, symbol: str) -> str:
+        """Convert BTCUSDT to BTC/USDT:USDT for CCXT linear futures."""
+        if ':' in symbol:
+            return symbol
+        if '/' in symbol:
+            return f"{symbol}:USDT"
+        # BTCUSDT -> BTC/USDT:USDT
+        base = symbol.replace('USDT', '')
+        return f"{base}/USDT:USDT"
+
+    def _unformat_symbol(self, symbol: str) -> str:
+        """Convert BTC/USDT:USDT back to BTCUSDT."""
+        return symbol.replace('/USDT:USDT', 'USDT').replace('/', '')

@@ -11,7 +11,7 @@ import pandas as pd
 class IExchangeAdapter(abc.ABC):
     """
     Abstract Base Class for Exchange Adapters.
-    All exchange implementations (Binance, Alpaca, Bybit, etc.) must implement this interface.
+    All exchange implementations (Binance, Alpaca, etc.) must implement this interface.
     """
 
     @property

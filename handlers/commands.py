@@ -1894,170 +1894,196 @@ async def callback_toggle_group(callback: CallbackQuery, **kwargs):
 
 
 # =================================================================
-# /scanner - DIAGNOSTIC: Full Asset Analysis
+# /scanner - Exchange-Based Asset Scanner Menu
 # =================================================================
 @router.message(Command("scanner"))
 async def cmd_scanner(message: Message, **kwargs):
     """
-    Diagnostic command to analyze ALL assets and show detailed parameters.
+    Scanner menu - Select exchange to analyze.
     """
-    msg = await message.answer("🔍 <b>Escaneando MERCADO COMPLETE...</b> (Esto tomará unos momentos)", parse_mode="HTML")
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
-    try:
-        from system_directive import ASSET_GROUPS, GROUP_CONFIG, ENABLED_STRATEGIES, get_display_name
-        from system_directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
-        from nexus_system.cortex.classifier import MarketClassifier
-        from nexus_system.cortex.factory import StrategyFactory
-        from servos.fetcher import get_market_data
-        from servos.indicators import calculate_rsi, calculate_adx, calculate_atr, calculate_ema, calculate_bollinger_bands
-        import pandas as pd
-        import html
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🟡 Binance", callback_data="SCANNER|BINANCE"),
+            InlineKeyboardButton(text="🟣 Bybit", callback_data="SCANNER|BYBIT"),
+        ],
+        [
+            InlineKeyboardButton(text="🟢 Alpaca", callback_data="SCANNER|ALPACA"),
+        ],
+        [
+            InlineKeyboardButton(text="🌐 Escaneo Global", callback_data="SCANNER|ALL"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|start"),
+        ]
+    ])
+    
+    msg_text = (
+        "🔍 <b>NEXUS SCANNER</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "<b>Selecciona un exchange para analizar:</b>\n\n"
+        "🟡 <b>Binance</b> → Crypto Perpetuos (USDT)\n"
+        "🟣 <b>Bybit</b> → Crypto Perpetuos (V5)\n"
+        "🟢 <b>Alpaca</b> → Stocks &amp; ETFs\n\n"
+        "🌐 <b>Global</b> → Todos los activos"
+    )
+    
+    edit_message = kwargs.get('edit_message', False)
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="HTML")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+async def execute_scanner(message, exchange_filter: str = 'ALL'):
+    """
+    Execute deep scan for specified exchange(s).
+    
+    Args:
+        message: Telegram message to edit
+        exchange_filter: 'BINANCE', 'BYBIT', 'ALPACA', or 'ALL'
+    """
+    from system_directive import ASSET_GROUPS, get_display_name
+    from system_directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
+    from nexus_system.cortex.classifier import MarketClassifier
+    from nexus_system.cortex.factory import StrategyFactory
+    from servos.fetcher import get_market_data
+    from servos.indicators import calculate_rsi, calculate_adx, calculate_atr, calculate_ema, calculate_bollinger_bands
+    import pandas as pd
+    import html
+    import asyncio
+    
+    # Map exchange to asset groups
+    exchange_groups = {
+        'BINANCE': ['CRYPTO'],
+        'BYBIT': ['CRYPTO'],  # Same assets, different adapter
+        'ALPACA': ['STOCKS', 'ETFS'],
+        'ALL': ['CRYPTO', 'STOCKS', 'ETFS']
+    }
+    
+    exchange_icons = {
+        'BINANCE': '🟡',
+        'BYBIT': '🟣', 
+        'ALPACA': '🟢',
+        'ALL': '🌐'
+    }
+    
+    groups_to_scan = exchange_groups.get(exchange_filter, ['CRYPTO'])
+    icon = exchange_icons.get(exchange_filter, '📡')
+    
+    report_lines = [
+        f"{icon} <b>NEXUS SCANNER - {exchange_filter}</b>",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━"
+    ]
+    
+    total_assets = 0
+    signals_would_fire = 0
+    
+    for group_name in groups_to_scan:
+        assets = ASSET_GROUPS.get(group_name, [])
+        if not assets:
+            continue
         
-        report_lines = ["📡 <b>NEXUS DEEP SCAN</b>", "━━━━━━━━━━━━━━━━━━━━━━━━━"]
+        group_icon = '💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'
+        report_lines.append(f"\n{group_icon} <b>{group_name}</b> ({len(assets)} activos)")
+        report_lines.append("─" * 30)
         
-        # Analyze ALL enabled groups in SYSTEM (Not just user config)
-        total_assets = 0
-        signals_would_fire = 0
-        
-        # We iterate over ALL groups defined in system
-        for group_name, assets in ASSET_GROUPS.items():
-            if not assets:
-                continue
-                
-            report_lines.append(f"\n{'💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'} <b>{group_name}</b> ({len(assets)} activos)")
-            report_lines.append("─" * 30)
+        for asset in assets:
+            total_assets += 1
+            tag = "⛔ " if asset in DISABLED_ASSETS else ""
             
-            # NO LIMIT - SCAN ALL
-            for asset in assets:
-                total_assets += 1
+            try:
+                df = get_market_data(asset, timeframe='15m', limit=250)
                 
-                # Tag disabled
-                tag = ""
-                if asset in DISABLED_ASSETS:
-                    tag = "⛔ "
+                if df is None or df.empty or len(df) < 50:
+                    display = html.escape(get_display_name(asset))
+                    report_lines.append(f"• <code>{display}</code>: ❌ No data")
+                    continue
+                
+                # Calculate indicators
+                df['rsi'] = calculate_rsi(df['close'], 14)
+                df['ema_20'] = calculate_ema(df['close'], 20)
+                df['ema_50'] = calculate_ema(df['close'], 50)
+                df['ema_200'] = calculate_ema(df['close'], 200)
+                df['atr'] = calculate_atr(df, 14)
+                adx_data = calculate_adx(df, 14)
+                df['adx'] = adx_data['adx']
+                bb = calculate_bollinger_bands(df['close'], 20, 2.0)
+                df['bb_upper'] = bb['upper']
+                df['bb_lower'] = bb['lower']
+                
+                last = df.iloc[-1]
+                close = float(last['close'])
+                rsi = float(last.get('rsi', 50))
+                adx = float(last.get('adx', 0))
+                atr = float(last.get('atr', 0))
+                atr_pct = (atr / close) * 100 if close > 0 else 0
+                
+                ema_20 = float(last.get('ema_20', close))
+                ema_50 = float(last.get('ema_50', close))
+                ema_200 = float(last.get('ema_200', close))
+                
+                bb_width = ((float(last['bb_upper']) - float(last['bb_lower'])) / close) * 100 if close > 0 else 0
+                
+                # Trend
+                if close > ema_200:
+                    trend = "🐂 BULL" if ema_20 > ema_50 else "🐃 UP-Weak"
+                else:
+                    trend = "🐻 BEAR" if ema_20 < ema_50 else "📉 DN-Weak"
+                
+                # Regime & Signal
+                market_data = {'dataframe': df, 'symbol': asset}
+                regime = MarketClassifier.classify(market_data)
+                strategy = StrategyFactory.get_strategy(asset, market_data)
                 
                 try:
-                    # Fetch market data
-                    df = get_market_data(asset, timeframe='15m', limit=250)
-                    
-                    if df is None or df.empty or len(df) < 50:
-                        display = html.escape(get_display_name(asset))
-                        report_lines.append(f"• <code>{display}</code>: ❌ No data")
-                        continue
-                    
-                    # --- CALCULATE INDICATORS ON THE FLY ---
-                    # 1. RSI
-                    df['rsi'] = calculate_rsi(df['close'], 14)
-                    
-                    # 2. EMAs
-                    df['ema_20'] = calculate_ema(df['close'], 20)
-                    df['ema_50'] = calculate_ema(df['close'], 50)
-                    df['ema_200'] = calculate_ema(df['close'], 200)
-                    
-                    # 3. ATR
-                    df['atr'] = calculate_atr(df, 14)
-                    
-                    # 4. ADX
-                    adx_data = calculate_adx(df, 14)
-                    df['adx'] = adx_data['adx']
-                    
-                    # 5. Bollinger
-                    bb = calculate_bollinger_bands(df['close'], 20, 2.0)
-                    df['bb_upper'] = bb['upper']
-                    df['bb_lower'] = bb['lower']
-                    
-                    # Extract last row
-                    last = df.iloc[-1]
-                    close = float(last['close'])
-                    rsi = float(last.get('rsi', 50))
-                    adx = float(last.get('adx', 0))
-                    atr = float(last.get('atr', 0))
-                    atr_pct = (atr / close) * 100 if close > 0 else 0
-                    
-                    ema_20 = float(last.get('ema_20', close))
-                    ema_50 = float(last.get('ema_50', close))
-                    ema_200 = float(last.get('ema_200', close))
-                    
-                    bb_width = ((float(last['bb_upper']) - float(last['bb_lower'])) / close) * 100 if close > 0 else 0
-                    
-                    # Determine trend
-                    if close > ema_200:
-                        if ema_20 > ema_50: trend = "🐂 BULL"
-                        else: trend = "🐃 UP-Weak"
-                    else:
-                        if ema_20 < ema_50: trend = "🐻 BEAR"
-                        else: trend = "📉 DN-Weak"
-                    
-                    # Get regime
-                    market_data = {'dataframe': df, 'symbol': asset}
-                    regime = MarketClassifier.classify(market_data) 
-                    
-                    # Get signal
-                    strategy = StrategyFactory.get_strategy(asset, market_data)
+                    signal = await strategy.analyze(market_data)
+                except:
                     signal = None
-                    try:
-                        signal = await strategy.analyze(market_data)
-                    except:
-                        signal = None
-                    
-                    # Format signal status
-                    if signal and signal.action not in ['HOLD', 'WAIT', None]:
-                        action_safe = html.escape(str(signal.action))
-                        signal_str = f"🚨 <b>{action_safe}</b> ({signal.confidence:.0%})"
-                        signals_would_fire += 1
-                    else:
-                        signal_str = "💤 HOLD"
-                    
-                    # Detailed Display Format (HTML)
-                    display = html.escape(get_display_name(asset))
-                    strat_safe = html.escape(strategy.name)
-                    
-                    # Line 1: Header
-                    report_lines.append(f"📌 <b>{tag}{display}</b> | <code>${close:,.2f}</code> | {trend}")
-                    
-                    # Line 2: Oscillators
-                    report_lines.append(f"   RSI: <code>{rsi:.1f}</code> | ADX: <code>{adx:.1f}</code> | ATR: <code>{atr_pct:.2f}%</code>")
-                    
-                    # Line 3: Structure
-                    report_lines.append(f"   EMA200: <code>${ema_200:,.2f}</code> | BB-W: <code>{bb_width:.1f}%</code>")
-                    
-                    # Line 4: Regime & Signal
-                    report_lines.append(f"   ⚙️ {regime} | {strat_safe} → {signal_str}")
-                    report_lines.append("") # Spacer
-                    
-                except Exception as e:
-                    display = html.escape(get_display_name(asset))
-                    err_safe = html.escape(str(e)[:20])
-                    report_lines.append(f"• <code>{display}</code>: ⚠️ Calc Error: {err_safe}")
-        
-        # Summary
-        report_lines.append("━" * 20)
-        report_lines.append(f"🏁 <b>Total Escaneado:</b> {total_assets} Activos")
-        report_lines.append(f"🔥 <b>Señales Potenciales:</b> {signals_would_fire}")
-        
-        # Send Multi-Part Report
-        # Chunking (Limit 2500 for HTML safety)
-        chunks = []
-        current_chunk = ""
-        for line in report_lines:
-            if len(current_chunk) + len(line) + 1 > 2500: 
-                chunks.append(current_chunk)
-                current_chunk = line + "\n"
-            else:
-                current_chunk += line + "\n"
-        if current_chunk:
+                
+                if signal and signal.action not in ['HOLD', 'WAIT', None]:
+                    action_safe = html.escape(str(signal.action))
+                    signal_str = f"🚨 <b>{action_safe}</b> ({signal.confidence:.0%})"
+                    signals_would_fire += 1
+                else:
+                    signal_str = "💤 HOLD"
+                
+                display = html.escape(get_display_name(asset))
+                strat_safe = html.escape(strategy.name)
+                
+                report_lines.append(f"📌 <b>{tag}{display}</b> | <code>${close:,.2f}</code> | {trend}")
+                report_lines.append(f"   RSI: <code>{rsi:.1f}</code> | ADX: <code>{adx:.1f}</code> | ATR: <code>{atr_pct:.2f}%</code>")
+                report_lines.append(f"   EMA200: <code>${ema_200:,.2f}</code> | BB-W: <code>{bb_width:.1f}%</code>")
+                report_lines.append(f"   ⚙️ {regime} | {strat_safe} → {signal_str}")
+                report_lines.append("")
+                
+            except Exception as e:
+                display = html.escape(get_display_name(asset))
+                err_safe = html.escape(str(e)[:20])
+                report_lines.append(f"• <code>{display}</code>: ⚠️ Error: {err_safe}")
+    
+    # Summary
+    report_lines.append("━" * 20)
+    report_lines.append(f"🏁 <b>Total Escaneado:</b> {total_assets} Activos")
+    report_lines.append(f"🔥 <b>Señales Potenciales:</b> {signals_would_fire}")
+    
+    # Chunk and send
+    chunks = []
+    current_chunk = ""
+    for line in report_lines:
+        if len(current_chunk) + len(line) + 1 > 2500:
             chunks.append(current_chunk)
-            
-        await msg.edit_text(chunks[0], parse_mode="HTML")
-        for chunk in chunks[1:]:
-            await message.answer(chunk, parse_mode="HTML")
-            import asyncio
-            await asyncio.sleep(0.3) # Rate limit protection
-            
-    except Exception as e:
-        # Emergency Fallback (No HTML)
-        err_clean = str(e).replace('<', '').replace('>', '')
-        await msg.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
+            current_chunk = line + "\n"
+        else:
+            current_chunk += line + "\n"
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    await message.edit_text(chunks[0], parse_mode="HTML")
+    for chunk in chunks[1:]:
+        await message.answer(chunk, parse_mode="HTML")
+        await asyncio.sleep(0.3)
 
 
 

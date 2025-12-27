@@ -837,3 +837,27 @@ async def handle_sync_orders(callback: CallbackQuery, **kwargs):
     except Exception as e:
         await callback.message.answer(f"❌ Error: {e}")
 
+
+@router.callback_query(F.data.startswith("SCANNER|"))
+async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
+    """Handle scanner exchange selection - Execute scan for selected exchange."""
+    exchange = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
+    
+    await safe_answer(callback, f"🔍 Escaneando {exchange}...")
+    
+    try:
+        # Update message to show scanning
+        msg = await callback.message.edit_text(
+            f"🔍 <b>Escaneando {exchange}...</b>\n\n"
+            "Esto puede tomar unos momentos.",
+            parse_mode="HTML"
+        )
+        
+        # Import and execute scanner
+        from handlers.commands import execute_scanner
+        await execute_scanner(msg, exchange_filter=exchange)
+        
+    except Exception as e:
+        err_clean = str(e).replace('<', '').replace('>', '')
+        await callback.message.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)

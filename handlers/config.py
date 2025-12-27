@@ -327,10 +327,9 @@ async def cmd_set_alpaca(message: Message, **kwargs):
         await message.answer(f"❌ Error: {e}")
 
 
-
 @router.message(Command("set_bybit", "setbybit"))
 async def cmd_set_bybit(message: Message, **kwargs):
-    """Configure Bybit API Keys"""
+    """Configure Bybit API Keys for enhanced order management."""
     session_manager = kwargs.get('session_manager')
     if not session_manager:
         await message.answer("⚠️ Error interno.")
@@ -341,16 +340,23 @@ async def cmd_set_bybit(message: Message, **kwargs):
     
     if not session:
         await message.answer(
-            "⚠️ Primero configura tu sesión básica con `/set_keys` (Binance) para inicializar.\n"
-            "Bybit se añadirá como exchange alternativo.", parse_mode="Markdown"
+            "⚠️ Primero configura tu sesión con `/set_binance`.\n"
+            "Bybit se puede usar como exchange alternativo para crypto.",
+            parse_mode="Markdown"
         )
         return
     
     args = message.text.split()
     if len(args) != 3:
         await message.answer(
-            "⚠️ Uso: `/set_bybit <API_KEY> <SECRET>`\n"
-            "_(Te recomendamos borrar el mensaje después)_",
+            "⚠️ *Configurar Bybit*\n\n"
+            "**Uso:** `/set_bybit <API_KEY> <SECRET>`\n\n"
+            "**Ventajas de Bybit:**\n"
+            "• Cancelación de órdenes en un solo request\n"
+            "• TP/SL vinculados a posición\n"
+            "• Edición de órdenes en caliente\n"
+            "• Trailing stops nativos\n\n"
+            "_(Borra este mensaje después)_",
             parse_mode="Markdown"
         )
         return
@@ -359,16 +365,15 @@ async def cmd_set_bybit(message: Message, **kwargs):
     secret = args[2].strip().strip('<>').strip()
     
     try:
-        # Update config
         await session.update_config('bybit_key', key)
         await session.update_config('bybit_secret', secret)
-        
         await session_manager.save_sessions()
         
         await message.answer(
-            "✅ *Bybit Keys Configuradas*\n"
-            "🔐 Credenciales guardadas correctamente.\n"
-            "ℹ️ Para usar Bybit, se necesitaria cambiar el 'crypto_exchange' a 'BYBIT' (Fase 2)",
+            "✅ *Bybit Keys Configuradas*\n\n"
+            "🔐 Credenciales guardadas.\n\n"
+            "**Para usar Bybit para crypto:**\n"
+            "Contacta al admin para cambiar `crypto_exchange` a `BYBIT`.",
             parse_mode="Markdown"
         )
         
