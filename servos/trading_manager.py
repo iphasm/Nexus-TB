@@ -1131,8 +1131,13 @@ class AsyncTradingSession:
 
 
 
-    async def execute_close_position(self, symbol: str) -> Tuple[bool, str]:
-        """Close position for a symbol."""
+    async def execute_close_position(self, symbol: str, only_side: str = None) -> Tuple[bool, str]:
+        """
+        Close position for a symbol.
+        Args:
+            symbol: Asset to close.
+            only_side: If 'LONG' or 'SHORT', will only close if position matches.
+        """
         
         # Route non-crypto to Alpaca
         if 'USDT' not in symbol and self.alpaca_client:
@@ -1168,6 +1173,11 @@ class AsyncTradingSession:
                 # No position, but ensure all orders are cleared
                 await self.wait_until_orders_cleared(symbol, timeout=2.0)
                 return True, f"⚠️ No position found for {symbol}, orders canceled."
+
+            # SIDE CHECK: For Black Swan (Exit Longs Only)
+            current_side = 'LONG' if qty > 0 else 'SHORT'
+            if only_side and current_side != only_side:
+                 return True, f"ℹ️ Skipped Close: {symbol} is {current_side}, target was {only_side}"
             
             # 3. Close position (Retry Logic)
             side = 'SELL' if qty > 0 else 'BUY'

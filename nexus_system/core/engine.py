@@ -110,16 +110,22 @@ class NexusCore:
             override_action = await self.risk_guardian.get_override_action(asset, market_data)
             
             if override_action == 'BLACK_SWAN':
-                self.logger.critical(f"🦢 BLACK SWAN DETECTED on {asset}! Triggering Emergency Exit.")
-                # Force Exit Signal
+                self.logger.critical(f"🦢 BLACK SWAN DETECTED on {asset}! Triggering Emergency Exit (Longs).")
+                # Force Exit Signal (Refined: Only Exit Longs)
                 from ..cortex.base import Signal
-                signal = Signal(symbol=asset, action='EXIT_ALL', confidence=1.0, price=0, metadata={'reason': 'BLACK_SWAN'})
+                signal = Signal(symbol=asset, action='EXIT_LONG', confidence=1.0, price=0, metadata={'reason': 'BLACK_SWAN'})
                 if self.signal_callback:
                     await self.signal_callback(signal)
                 return
 
-            # 2. Get Strategy via Factory
-            strategy = StrategyFactory.get_strategy(asset, market_data)
+            # SHARK MODE OVERRIDE
+            strategy = None
+            if override_action == 'SHARK_MODE':
+                 from ..cortex.shark import SharkStrategy
+                 strategy = SharkStrategy()
+            else:
+                 # Standard Factory Selection
+                 strategy = StrategyFactory.get_strategy(asset, market_data)
             
             # 3. Analyze
             signal = await strategy.analyze(market_data)

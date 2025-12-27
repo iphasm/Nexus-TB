@@ -237,8 +237,25 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     strategy = getattr(signal, 'strategy', 'UNKNOWN')
     price = getattr(signal, 'price', 0)
     
-    # Skip non-actionable signals
-    if action in ['HOLD', 'WAIT', 'EXIT_ALL']:
+    # Skip non-actionable signals (Hold/Wait)
+    # EXIT_ALL and EXIT_LONG are processed below immediately
+    if action in ['HOLD', 'WAIT']:
+        return
+        
+    # === SENTINEL / PANIC HANDLING ===
+    if action == 'EXIT_LONG':
+        logger.warning(f"🚨 SENTINEL: Processing ACTION EXIT_LONG for {symbol}")
+        import asyncio
+        for session in session_manager.get_all_sessions():
+             # Fire and forget (concurrent)
+             asyncio.create_task(session.execute_close_position(symbol, only_side='LONG'))
+        return
+
+    if action == 'EXIT_ALL':
+        logger.warning(f"🚨 SENTINEL: Processing ACTION EXIT_ALL for {symbol}")
+        import asyncio
+        for session in session_manager.get_all_sessions():
+             asyncio.create_task(session.execute_close_position(symbol))
         return
     
     # === TEMPORAL FILTER: Skip if on cooldown ===
