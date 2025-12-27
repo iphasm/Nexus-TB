@@ -1901,7 +1901,7 @@ async def cmd_scanner(message: Message, **kwargs):
     """
     Diagnostic command to analyze ALL assets and show detailed parameters.
     """
-    msg = await message.answer("🔍 *Escaneando MERCADO COMPLETE...* (Esto tomará unos momentos)", parse_mode="Markdown")
+    msg = await message.answer("🔍 <b>Escaneando MERCADO COMPLETE...</b> (Esto tomará unos momentos)", parse_mode="HTML")
     
     try:
         from system_directive import ASSET_GROUPS, GROUP_CONFIG, ENABLED_STRATEGIES, get_display_name
@@ -1911,8 +1911,9 @@ async def cmd_scanner(message: Message, **kwargs):
         from servos.fetcher import get_market_data
         from servos.indicators import calculate_rsi, calculate_adx, calculate_atr, calculate_ema, calculate_bollinger_bands
         import pandas as pd
+        import html
         
-        report_lines = ["📡 **NEXUS DEEP SCAN**", "━━━━━━━━━━━━━━━━━━━━━━━━━"]
+        report_lines = ["📡 <b>NEXUS DEEP SCAN</b>", "━━━━━━━━━━━━━━━━━━━━━━━━━"]
         
         # Analyze ALL enabled groups in SYSTEM (Not just user config)
         total_assets = 0
@@ -1923,7 +1924,7 @@ async def cmd_scanner(message: Message, **kwargs):
             if not assets:
                 continue
                 
-            report_lines.append(f"\n{'💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'} **{group_name}** ({len(assets)} activos)")
+            report_lines.append(f"\n{'💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'} <b>{group_name}</b> ({len(assets)} activos)")
             report_lines.append("─" * 30)
             
             # NO LIMIT - SCAN ALL
@@ -1940,8 +1941,8 @@ async def cmd_scanner(message: Message, **kwargs):
                     df = get_market_data(asset, timeframe='15m', limit=250)
                     
                     if df is None or df.empty or len(df) < 50:
-                        display = get_display_name(asset)
-                        report_lines.append(f"• `{display}`: ❌ No data")
+                        display = html.escape(get_display_name(asset))
+                        report_lines.append(f"• <code>{display}</code>: ❌ No data")
                         continue
                     
                     # --- CALCULATE INDICATORS ON THE FLY ---
@@ -1989,7 +1990,7 @@ async def cmd_scanner(message: Message, **kwargs):
                     
                     # Get regime
                     market_data = {'dataframe': df, 'symbol': asset}
-                    regime = MarketClassifier.classify(market_data) # This might re-calc some stuff, but that's fine
+                    regime = MarketClassifier.classify(market_data) 
                     
                     # Get signal
                     strategy = StrategyFactory.get_strategy(asset, market_data)
@@ -1999,57 +2000,47 @@ async def cmd_scanner(message: Message, **kwargs):
                     except:
                         signal = None
                     
-                    sig_text = "💤 HOLD"
-                    if signal and signal.action in ['BUY', 'SELL', 'LONG', 'SHORT']:
-                        sig_text = f"🚨 **{signal.action}** ({signal.confidence:.0%})"
-                        signals_would_fire += 1
-                    
                     # Format signal status
                     if signal and signal.action not in ['HOLD', 'WAIT', None]:
-                        # Sanitize Action
-                        action_safe = str(signal.action).replace('_', ' ').replace('*', '')
-                        signal_str = f"🚨 *{action_safe}* ({signal.confidence:.0%})"
+                        action_safe = html.escape(str(signal.action))
+                        signal_str = f"🚨 <b>{action_safe}</b> ({signal.confidence:.0%})"
                         signals_would_fire += 1
                     else:
                         signal_str = "💤 HOLD"
                     
-                    # Detailed Display Format
-                    # SANITIZE DISPLAY NAME (Legacy Markdown dislikes underscores)
-                    display = get_display_name(asset).replace('_', ' ').replace('*', '').replace('`', '')
+                    # Detailed Display Format (HTML)
+                    display = html.escape(get_display_name(asset))
+                    strat_safe = html.escape(strategy.name)
                     
-                    # Line 1: Header - Use SINGLE asterisk for Bold in Legacy Mode
-                    report_lines.append(f"📌 *{tag}{display}* | `${close:,.2f}` | {trend}")
+                    # Line 1: Header
+                    report_lines.append(f"📌 <b>{tag}{display}</b> | <code>${close:,.2f}</code> | {trend}")
                     
                     # Line 2: Oscillators
-                    report_lines.append(f"   RSI: `{rsi:.1f}` | ADX: `{adx:.1f}` | ATR: `{atr_pct:.2f}%`")
+                    report_lines.append(f"   RSI: <code>{rsi:.1f}</code> | ADX: <code>{adx:.1f}</code> | ATR: <code>{atr_pct:.2f}%</code>")
                     
                     # Line 3: Structure
-                    report_lines.append(f"   EMA200: `${ema_200:,.2f}` | BB-W: `{bb_width:.1f}%`")
+                    report_lines.append(f"   EMA200: <code>${ema_200:,.2f}</code> | BB-W: <code>{bb_width:.1f}%</code>")
                     
                     # Line 4: Regime & Signal
-                    # Sanitize Strategy Name
-                    strat_safe = strategy.name.replace('_', ' ')
                     report_lines.append(f"   ⚙️ {regime} | {strat_safe} → {signal_str}")
                     report_lines.append("") # Spacer
                     
                 except Exception as e:
-                    display = get_display_name(asset).replace('_', ' ')
-                    err_safe = str(e).replace('_', ' ').replace('*', '').replace('`', '')[:20]
-                    report_lines.append(f"• `{display}`: ⚠️ Calc Error: {err_safe}")
+                    display = html.escape(get_display_name(asset))
+                    err_safe = html.escape(str(e)[:20])
+                    report_lines.append(f"• <code>{display}</code>: ⚠️ Calc Error: {err_safe}")
         
         # Summary
         report_lines.append("━" * 20)
-        report_lines.append(f"🏁 *Total Escaneado:* {total_assets} Activos")
-        report_lines.append(f"🔥 *Señales Potenciales:* {signals_would_fire}")
+        report_lines.append(f"🏁 <b>Total Escaneado:</b> {total_assets} Activos")
+        report_lines.append(f"🔥 <b>Señales Potenciales:</b> {signals_would_fire}")
         
         # Send Multi-Part Report
-        final_report = "\n".join(report_lines)
-        
-        # Chunking (Telegram Limit 4096 - Reduce to 3000 for safety w/ Emojis)
+        # Chunking (Limit 2500 for HTML safety)
         chunks = []
         current_chunk = ""
         for line in report_lines:
-            if len(current_chunk) + len(line) + 1 > 3000: 
+            if len(current_chunk) + len(line) + 1 > 2500: 
                 chunks.append(current_chunk)
                 current_chunk = line + "\n"
             else:
@@ -2057,16 +2048,18 @@ async def cmd_scanner(message: Message, **kwargs):
         if current_chunk:
             chunks.append(current_chunk)
             
-        await msg.edit_text(chunks[0], parse_mode="Markdown")
+        await msg.edit_text(chunks[0], parse_mode="HTML")
         for chunk in chunks[1:]:
-            await message.answer(chunk, parse_mode="Markdown")
+            await message.answer(chunk, parse_mode="HTML")
             import asyncio
             await asyncio.sleep(0.3) # Rate limit protection
             
     except Exception as e:
-        # Fallback No Markdown
-        err_clean = str(e).replace('*', '').replace('_', '')
+        # Emergency Fallback (No HTML)
+        err_clean = str(e).replace('<', '').replace('>', '')
         await msg.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
+
+
 
 
 # =================================================================
