@@ -2004,11 +2004,21 @@ async def cmd_scanner(message: Message, **kwargs):
                         sig_text = f"🚨 **{signal.action}** ({signal.confidence:.0%})"
                         signals_would_fire += 1
                     
-                    # Detailed Display Format
-                    display = get_display_name(asset)
+                    # Format signal status
+                    if signal and signal.action not in ['HOLD', 'WAIT', None]:
+                        # Sanitize Action
+                        action_safe = str(signal.action).replace('_', ' ').replace('*', '')
+                        signal_str = f"🚨 *{action_safe}* ({signal.confidence:.0%})"
+                        signals_would_fire += 1
+                    else:
+                        signal_str = "💤 HOLD"
                     
-                    # Line 1: Header
-                    report_lines.append(f"📌 **{tag}{display}** | `${close:,.2f}` | {trend}")
+                    # Detailed Display Format
+                    # SANITIZE DISPLAY NAME (Legacy Markdown dislikes underscores)
+                    display = get_display_name(asset).replace('_', ' ').replace('*', '').replace('`', '')
+                    
+                    # Line 1: Header - Use SINGLE asterisk for Bold in Legacy Mode
+                    report_lines.append(f"📌 *{tag}{display}* | `${close:,.2f}` | {trend}")
                     
                     # Line 2: Oscillators
                     report_lines.append(f"   RSI: `{rsi:.1f}` | ADX: `{adx:.1f}` | ATR: `{atr_pct:.2f}%`")
@@ -2017,26 +2027,29 @@ async def cmd_scanner(message: Message, **kwargs):
                     report_lines.append(f"   EMA200: `${ema_200:,.2f}` | BB-W: `{bb_width:.1f}%`")
                     
                     # Line 4: Regime & Signal
-                    report_lines.append(f"   ⚙️ {regime} | {strategy.name} → {sig_text}")
+                    # Sanitize Strategy Name
+                    strat_safe = strategy.name.replace('_', ' ')
+                    report_lines.append(f"   ⚙️ {regime} | {strat_safe} → {signal_str}")
                     report_lines.append("") # Spacer
                     
                 except Exception as e:
-                    display = get_display_name(asset)
-                    report_lines.append(f"• `{display}`: ⚠️ Calc Error: {str(e)[:20]}")
+                    display = get_display_name(asset).replace('_', ' ')
+                    err_safe = str(e).replace('_', ' ').replace('*', '').replace('`', '')[:20]
+                    report_lines.append(f"• `{display}`: ⚠️ Calc Error: {err_safe}")
         
         # Summary
-        report_lines.append("━" * 30)
-        report_lines.append(f"🏁 **Total Escaneado:** {total_assets} Activos")
-        report_lines.append(f"🔥 **Señales Potenciales:** {signals_would_fire}")
+        report_lines.append("━" * 20)
+        report_lines.append(f"🏁 *Total Escaneado:* {total_assets} Activos")
+        report_lines.append(f"🔥 *Señales Potenciales:* {signals_would_fire}")
         
         # Send Multi-Part Report
         final_report = "\n".join(report_lines)
         
-        # Chunking (Telegram Limit 4096)
+        # Chunking (Telegram Limit 4096 - Reduce to 3000 for safety w/ Emojis)
         chunks = []
         current_chunk = ""
         for line in report_lines:
-            if len(current_chunk) + len(line) + 1 > 3800: # Safe buffer
+            if len(current_chunk) + len(line) + 1 > 3000: 
                 chunks.append(current_chunk)
                 current_chunk = line + "\n"
             else:
@@ -2051,7 +2064,9 @@ async def cmd_scanner(message: Message, **kwargs):
             await asyncio.sleep(0.3) # Rate limit protection
             
     except Exception as e:
-        await msg.edit_text(f"❌ Scanner Error: {str(e)}", parse_mode=None)
+        # Fallback No Markdown
+        err_clean = str(e).replace('*', '').replace('_', '')
+        await msg.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
 
 
 # =================================================================
