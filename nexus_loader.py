@@ -763,6 +763,10 @@ async def main():
             
             engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys)
             
+            # --- BRIDGE: Inject Engine into Session Manager for Dashboard Data ---
+            if session_manager:
+                session_manager.set_nexus_engine(engine)
+            
             # Set callback for signal dispatch
             async def on_signal(signal):
                 await dispatch_nexus_signal(bot, signal, session_manager)

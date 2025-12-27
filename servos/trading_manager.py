@@ -33,12 +33,13 @@ class AsyncTradingSession:
     Designed for native async/await operations in aiogram.
     """
     
-    def __init__(self, chat_id: str, api_key: str, api_secret: str, config: Optional[Dict] = None):
+    def __init__(self, chat_id: str, api_key: str, api_secret: str, config: Optional[Dict] = None, manager=None):
         self.chat_id = chat_id
         self.api_key = api_key
         self.api_secret = api_secret
         self.client: Optional[AsyncClient] = None
         self.alpaca_client: Optional[TradingClient] = None
+        self.manager = manager
         
         from system_directive import DEFAULT_SESSION_CONFIG
         
@@ -1775,6 +1776,11 @@ class AsyncTradingSession:
         else:
             alloc_binance_fut = alloc_binance_spot = alloc_alpaca = 0
 
+        # 5. Macro Stats
+        macro = {"btc_dominance": 0.0, "global_state": "N/A"}
+        if self.manager and hasattr(self.manager, 'get_macro_stats'):
+             macro = self.manager.get_macro_stats()
+
         return {
             "wallet": wallet,
             "positions": {
@@ -1801,6 +1807,7 @@ class AsyncTradingSession:
                 "binance_spot": alloc_binance_spot,
                 "alpaca": alloc_alpaca
             },
+            "macro": macro,
             "config": self.config
         }
     
@@ -2141,6 +2148,22 @@ class AsyncSessionManager:
         self.data_file = data_file
         self.sessions: Dict[str, AsyncTradingSession] = {}
         self._lock = asyncio.Lock()
+        self.engine = None
+        
+    def set_nexus_engine(self, engine):
+        """Inject NexusCore engine reference."""
+        self.engine = engine
+        
+    def get_macro_stats(self) -> Dict:
+        """Retrieve Global Macro Stats from Engine (RiskGuardian)."""
+        if self.engine and self.engine.risk_guardian:
+             rg = self.engine.risk_guardian
+             return {
+                 "btc_dominance": getattr(rg, 'btc_dominance', 0.0),
+                 "global_state": getattr(rg, 'global_state', 'NORMAL'),
+                 "total_cap": getattr(rg, 'total_cap', 0.0)
+             }
+        return {"btc_dominance": 0.0, "global_state": "N/A", "total_cap": 0.0}
     
 
     async def load_sessions(self):
@@ -2183,7 +2206,8 @@ class AsyncSessionManager:
                             chat_id=chat_id,
                             api_key=api_key,
                             api_secret=api_secret,
-                            config=config
+                            config=config,
+                            manager=self
                         )
                         await session.initialize(verbose=False)
                         self.sessions[chat_id] = session
@@ -2227,7 +2251,8 @@ class AsyncSessionManager:
                                 chat_id=chat_id,
                                 api_key=info.get('api_key', ''),
                                 api_secret=info.get('api_secret', ''),
-                                config=config
+                                config=config,
+                                manager=self
                             )
                             await session.initialize(verbose=False)
                             self.sessions[chat_id] = session
@@ -2289,7 +2314,7 @@ class AsyncSessionManager:
         for admin_id in admin_ids:
             # Case 1: Session does not exist -> Create it
             if admin_id not in self.sessions:
-                session = AsyncTradingSession(admin_id, api_key, api_secret)
+                session = AsyncTradingSession(admin_id, api_key, api_secret, manager=self)
                 await session.initialize(verbose=verbose)
                 self.sessions[admin_id] = session
                 if verbose:
@@ -2342,7 +2367,7 @@ class AsyncSessionManager:
         existing = self.sessions.get(chat_id)
         config = existing.config if existing else None
         
-        session = AsyncTradingSession(chat_id, api_key, api_secret, config)
+        session = AsyncTradingSession(chat_id, api_key, api_secret, config, manager=self)
         await session.initialize()
         
         self.sessions[chat_id] = session

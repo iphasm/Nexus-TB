@@ -31,11 +31,17 @@
 | **Grid Trading** | EMA Mean Reversion | Sideways/Chop |
 | **Black Swan** | -5% in 15min | Crash protection |
 
+### 🛡️ Sentinel Protocol (Defense System)
+- **Monitoring**: Exclusive 24/7 BTC Watchdog via WebSocket.
+- **Black Swan**: Auto-Exit Longs on >4% crash.
+- **Shark Mode**: Aggressive Shorting when BTC Dominance rises (CMC Integration).
+- **Macro Vision**: Uses CoinMarketCap API for global market health.
+
 ### 🛡️ Risk Management
 - **Circuit Breaker**: Auto-pause after consecutive losses
 - **Dynamic Cooldowns**: ATR-adjusted per-symbol cooldowns
-- **Shark Mode**: Background crash detection and auto-exit
 - **Position Sizing**: Configurable margin and leverage
+- **Portfolio Shield**: Global exposure limits
 
 ---
 
@@ -177,6 +183,7 @@ TSLA, NVDA, AMD, AAPL, MSFT, SPY, QQQ, IWM
 
 ## 📖 Documentation
 
+- **[System Teardown](teardown.md)** - Deep Dive Architecture & Modules (NEW)
 - **[Whitepaper](WHITEPAPER.md)** - Full technical documentation
 - **[Landing Page](index.html)** - Commercial overview
 

@@ -287,7 +287,8 @@ async def cmd_help(message: Message):
         "📊 *DASHBOARD & MERCADO*\n"
         "├ /start - Centro de mando\n"
         "├ /dashboard - Balance, posiciones, PnL\n"
-        "├ /price - Scanner (RSI, tendencia)\n"
+        "├ /scanner - Diagnóstico de mercado\n"
+        "├ /price - Cotización rápida\n"
         "├ /pnl - Historial de ganancias\n"
         "└ /sync - Sincronizar SL/TP\n\n"
         
@@ -318,6 +319,7 @@ async def cmd_help(message: Message):
         "├ /config - Panel interactivo\n"
         "├ /strategies - Motores de señales\n"
         "├ /assets - Gestión de activos\n"
+        "├ /icons - Gestión de logos (NUEVO)\n"
         "├ /togglegroup - Filtrar grupos\n"
         "├ /personality - Cambiar voz del bot\n"
         "├ /set\\_leverage - Apalancamiento\n"
@@ -431,12 +433,18 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
         # Fear & Greed
         fg_text = get_fear_and_greed_index()
         
+        # Macro Data
+        macro = data.get('macro', {})
+        btc_dom = macro.get('btc_dominance', 0)
+        global_state = macro.get('global_state', 'NORMAL')
+        state_icon = "🦈" if 'SHARK' in global_state else "🦢" if 'BLACK' in global_state else "✅"
+        
         # Build Message
         msg = (
             "📊 **TRADING DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             
-            f"� **Net Worth:** `${net_worth:,.2f}`\n"
+            f"💰 **Net Worth:** `${net_worth:,.2f}`\n"
             f"📈 **PnL Binance:** {'🟢' if pos.get('binance', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('binance', {}).get('pnl', 0):,.2f}`\n"
             f"📈 **PnL Alpaca:** {'🟢' if pos.get('alpaca', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('alpaca', {}).get('pnl', 0):,.2f}`\n\n"
             
@@ -450,8 +458,10 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
             f"• Posiciones Binance: `{pos.get('binance', {}).get('count', 0)}` ({pos.get('binance', {}).get('longs', 0)}L / {pos.get('binance', {}).get('shorts', 0)}S)\n"
             f"• Posiciones Alpaca: `{pos.get('alpaca', {}).get('count', 0)}` ({pos.get('alpaca', {}).get('longs', 0)}L / {pos.get('alpaca', {}).get('shorts', 0)}S)\n\n"
             
-            "**🌡️ Mercado**\n"
-            f"{fg_text}"
+            "**🌡️ Mercado Global**\n"
+            f"{fg_text}\n"
+            f"• BTC Dominance: `{btc_dom:.1f}%`\n"
+            f"• Sentinel State: {state_icon} `{global_state}`"
         )
         
         # Keyboard
