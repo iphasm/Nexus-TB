@@ -89,7 +89,20 @@ DEFAULT_SESSION_CONFIG = {
     "alpaca_key": None,
     "alpaca_secret": None,
     "strategies": dict(ENABLED_STRATEGIES),
-    "groups": dict(GROUP_CONFIG)
+    "groups": dict(GROUP_CONFIG),
+    # --- MONEY MANAGEMENT (Kelly Criterion) ---
+    "use_kelly_criterion": False, # Disabled by default
+    "kelly_fraction": 0.5,        # Half-Kelly (Conservative)
+    "win_rate_est": 0.55,         # 55% Win Rate Estimate
+    "risk_reward_est": 1.5,       # 1.5 R:R Ratio
+    
+    # --- SHIELDS ---
+    "correlation_guard_enabled": True, # Shield 2.0
+    
+    # --- EXCHANGE ROUTING ---
+    "crypto_exchange": "BINANCE", # BINANCE or BYBIT
+    "bybit_key": None,
+    "bybit_secret": None
 }
 
 # =================================================================

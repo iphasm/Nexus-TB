@@ -410,6 +410,36 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
         return
+
+    # Special case: KELLY CRITERION toggle
+    if strategy == "KELLY":
+        current = session.config.get('use_kelly_criterion', False)
+        new_state = not current
+        await session.update_config('use_kelly_criterion', new_state)
+        await session_manager.save_sessions()
+        
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        await safe_answer(callback, f"💰 Kelly Criterion {status}")
+        
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
+        
+    # Special case: SHIELD toggle
+    if strategy == "SHIELD":
+        current = session.config.get('correlation_guard_enabled', True)
+        new_state = not current
+        await session.update_config('correlation_guard_enabled', new_state)
+        await session_manager.save_sessions()
+        
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        await safe_answer(callback, f"🛡️ Portfolio Shield {status}")
+        
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
     
     # Normal strategy toggle
     try:

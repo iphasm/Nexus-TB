@@ -129,14 +129,41 @@ class AsyncTradingSession:
         """
         from system_directive import RISK_PER_TRADE_PCT
         
-        # 1. Calculate Risk Amount ($)
-        risk_amount = equity * RISK_PER_TRADE_PCT
+        # 1. Determine Risk Percentage
+        risk_pct = RISK_PER_TRADE_PCT
         
-        # 2. Calculate Distance to SL
+        # --- KELLY CRITERION LOGIC ---
+        if self.config.get('use_kelly_criterion', False):
+            try:
+                p = self.config.get('win_rate_est', 0.55)
+                b = self.config.get('risk_reward_est', 1.5)
+                fraction = self.config.get('kelly_fraction', 0.5)
+                
+                # Kelly Formula: f = p - (q / b)
+                q = 1 - p
+                kelly_optimal = p - (q / b)
+                
+                # Apply Fraction (Safety)
+                kelly_risk = kelly_optimal * fraction
+                
+                if kelly_risk > 0:
+                    # Log the difference if significant
+                    if abs(kelly_risk - risk_pct) > 0.01:
+                         print(f"🧠 Kelly Sizing: {kelly_risk:.2%} risk (vs Base {risk_pct:.2%})")
+                    risk_pct = kelly_risk
+                else:
+                    print("⚠️ Kelly suggests 0% or negative allocation. Reverting to base risk.")
+            except Exception as e:
+                print(f"⚠️ Kelly Calculation Error: {e}")
+                
+        # 2. Calculate Risk Amount ($)
+        risk_amount = equity * risk_pct
+        
+        # 3. Calculate Distance to SL
         dist_to_sl = abs(price - sl_price)
         if dist_to_sl <= 0: return 0.0
         
-        # 3. Raw Quantity (Units)
+        # 4. Raw Quantity (Units)
         raw_qty = risk_amount / dist_to_sl
         
         # 4. Cap at Max Capital Allocation (Safety Net)
@@ -708,9 +735,10 @@ class AsyncTradingSession:
         
         # --- SHIELD 2.0: CORRELATION CHECK ---
         # Checks if adding this asset over-correlates the portfolio
-        is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
-        if not is_safe:
-            return False, shield_msg
+        if self.config.get('correlation_guard_enabled', True):
+            is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
+            if not is_safe:
+                return False, shield_msg
 
         try:
             leverage = self.config['leverage']
@@ -891,9 +919,10 @@ class AsyncTradingSession:
         
         # --- SHIELD 2.0: CORRELATION CHECK ---
         # Checks if adding this asset over-correlates the portfolio
-        is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
-        if not is_safe:
-            return False, shield_msg
+        if self.config.get('correlation_guard_enabled', True):
+            is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
+            if not is_safe:
+                return False, shield_msg
 
         try:
             leverage = self.config['leverage']

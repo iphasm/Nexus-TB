@@ -60,6 +60,13 @@ async def cmd_config(message: Message, **kwargs):
     # AI Filter Status (Session)
     ai_enabled = session.config.get('sentiment_filter', True) if session else True
     ai_status = "🟢 ON" if ai_enabled else "🔴 OFF"
+
+    # Kelly & Shield Status
+    kelly_enabled = session.config.get('use_kelly_criterion', False) if session else False
+    kelly_status = "🟢 ON" if kelly_enabled else "🔴 OFF"
+    
+    shield_enabled = session.config.get('correlation_guard_enabled', True) if session else True
+    shield_status = "🟢 ON" if shield_enabled else "🔴 OFF"
     
     # Build keyboard (v4 Clean)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -78,6 +85,10 @@ async def cmd_config(message: Message, **kwargs):
         [
             InlineKeyboardButton(text=f"🔌 Circuit Breaker [{cb_status}]", callback_data="TOGGLE|CIRCUIT_BREAKER"),
             InlineKeyboardButton(text="🧩 Personalidad", callback_data="CMD|personality")
+        ],
+        [
+            InlineKeyboardButton(text=f"💰 Kelly Criterion [{kelly_status}]", callback_data="TOGGLE|KELLY"),
+            InlineKeyboardButton(text=f"🛡️ Portf. Shield [{shield_status}]", callback_data="TOGGLE|SHIELD")
         ],
         [
             InlineKeyboardButton(text="⬅️ Volver al Hub", callback_data="CMD|start")
@@ -311,6 +322,55 @@ async def cmd_set_alpaca(message: Message, **kwargs):
             )
         
         await message.answer(status, parse_mode="Markdown")
+        
+    except Exception as e:
+        await message.answer(f"❌ Error: {e}")
+
+
+
+@router.message(Command("set_bybit", "setbybit"))
+async def cmd_set_bybit(message: Message, **kwargs):
+    """Configure Bybit API Keys"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Error interno.")
+        return
+    
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await message.answer(
+            "⚠️ Primero configura tu sesión básica con `/set_keys` (Binance) para inicializar.\n"
+            "Bybit se añadirá como exchange alternativo.", parse_mode="Markdown"
+        )
+        return
+    
+    args = message.text.split()
+    if len(args) != 3:
+        await message.answer(
+            "⚠️ Uso: `/set_bybit <API_KEY> <SECRET>`\n"
+            "_(Te recomendamos borrar el mensaje después)_",
+            parse_mode="Markdown"
+        )
+        return
+    
+    key = args[1].strip().strip('<>').strip()
+    secret = args[2].strip().strip('<>').strip()
+    
+    try:
+        # Update config
+        await session.update_config('bybit_key', key)
+        await session.update_config('bybit_secret', secret)
+        
+        await session_manager.save_sessions()
+        
+        await message.answer(
+            "✅ *Bybit Keys Configuradas*\n"
+            "🔐 Credenciales guardadas correctamente.\n"
+            "ℹ️ Para usar Bybit, se necesitaria cambiar el 'crypto_exchange' a 'BYBIT' (Fase 2)",
+            parse_mode="Markdown"
+        )
         
     except Exception as e:
         await message.answer(f"❌ Error: {e}")
