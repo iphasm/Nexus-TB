@@ -1236,7 +1236,7 @@ async def cmd_long(message: Message, **kwargs):
                     print(f"Failed to send chart photo: {e}")
         
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}")
+        await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
 
 
 @router.message(Command("buy"))
@@ -1273,10 +1273,10 @@ async def cmd_buy_spot(message: Message, **kwargs):
         if success:
              await msg_wait.edit_text(f"✅ *COMPRA SPOT EXITOSA*\n{res_msg}", parse_mode="Markdown")
         else:
-             await msg_wait.edit_text(f"❌ Falló Compra: {res_msg}")
+             await msg_wait.edit_text(f"❌ Falló Compra: {res_msg}", parse_mode=None)
              
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error crítico: {str(e)}")
+        await msg_wait.edit_text(f"❌ Error crítico: {str(e)}", parse_mode=None)
 
 
 @router.message(Command("short", "sell"))
@@ -1319,7 +1319,7 @@ async def cmd_short(message: Message, **kwargs):
         await message.reply(res_msg)
         
     except Exception as e:
-        await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}")
+        await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
 
 
 @router.message(Command("sync"))
@@ -1911,4 +1911,171 @@ async def callback_toggle_group(callback: CallbackQuery, **kwargs):
     await callback.answer(f"{group_name}: {status}")
     
     await callback.message.edit_reply_markup(reply_markup=keyboard)
+
+
+# =================================================================
+# /scanner - DIAGNOSTIC: Full Asset Analysis
+# =================================================================
+@router.message(Command("scanner"))
+async def cmd_scanner(message: Message, **kwargs):
+    """
+    Diagnostic command to analyze all enabled assets and show their current status.
+    Shows: Price, RSI, ADX, ATR%, Trend, Regime, Strategy, Signal
+    """
+    msg = await message.answer("🔍 *Escaneando todos los activos...*\nEsto puede tardar unos segundos.", parse_mode="Markdown")
+    
+    try:
+        from system_directive import ASSET_GROUPS, GROUP_CONFIG, ENABLED_STRATEGIES, get_display_name
+        from nexus_system.directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
+        from nexus_system.cortex.classifier import MarketClassifier
+        from nexus_system.cortex.factory import StrategyFactory
+        from servos.fetcher import get_market_data
+        import pandas as pd
+        
+        report_lines = ["📡 **NEXUS SCANNER DIAGNOSTICS**", "━━━━━━━━━━━━━━━━━━━━━━━━━"]
+        
+        # Show enabled strategies
+        strats_on = [k for k, v in ENABLED_STRATEGIES.items() if v]
+        strats_off = [k for k, v in ENABLED_STRATEGIES.items() if not v]
+        report_lines.append(f"\n🧠 **Estrategias Activas:** `{', '.join(strats_on) if strats_on else 'NINGUNA'}`")
+        if strats_off:
+            report_lines.append(f"⏸️ **Deshabilitadas:** `{', '.join(strats_off)}`")
+        report_lines.append(f"🤖 **ML Cortex:** `{'ON' if ML_CLASSIFIER_ENABLED else 'OFF'}`")
+        
+        # Show group config
+        groups_on = [k for k, v in GROUP_CONFIG.items() if v]
+        report_lines.append(f"📊 **Grupos Activos:** `{', '.join(groups_on) if groups_on else 'NINGUNO'}`\n")
+        
+        # Analyze each enabled group
+        total_assets = 0
+        signals_would_fire = 0
+        
+        for group_name, is_enabled in GROUP_CONFIG.items():
+            if not is_enabled:
+                continue
+                
+            assets = ASSET_GROUPS.get(group_name, [])
+            if not assets:
+                continue
+            
+            report_lines.append(f"\n{'💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'} **{group_name}** ({len(assets)} activos)")
+            report_lines.append("─" * 30)
+            
+            # Limit to first 8 assets per group to avoid timeout
+            for asset in assets[:8]:
+                total_assets += 1
+                
+                # Skip disabled
+                if asset in DISABLED_ASSETS:
+                    display = get_display_name(asset)
+                    report_lines.append(f"• `{display}`: ⛔ DISABLED")
+                    continue
+                
+                try:
+                    # Fetch market data
+                    df = get_market_data(asset, timeframe='15m', limit=250)
+                    
+                    if df is None or df.empty or len(df) < 50:
+                        display = get_display_name(asset)
+                        report_lines.append(f"• `{display}`: ❌ No data")
+                        continue
+                    
+                    # Extract key indicators
+                    last = df.iloc[-1]
+                    close = float(last['close'])
+                    rsi = float(last.get('rsi', 50))
+                    adx = float(last.get('adx', 0))
+                    atr = float(last.get('atr', 0))
+                    atr_pct = (atr / close) * 100 if close > 0 else 0
+                    ema_20 = float(last.get('ema_20', close))
+                    ema_50 = float(last.get('ema_50', close))
+                    ema_200 = float(last.get('ema_200', close))
+                    
+                    # Determine trend
+                    if close > ema_200 and ema_20 > ema_50:
+                        trend = "🐂 UP"
+                    elif close < ema_200 and ema_20 < ema_50:
+                        trend = "🐻 DN"
+                    else:
+                        trend = "➡️ LAT"
+                    
+                    # Get market regime
+                    market_data = {'dataframe': df, 'symbol': asset}
+                    regime = MarketClassifier.classify(market_data)
+                    
+                    # Get signal preview
+                    strategy = StrategyFactory.get_strategy(asset, market_data)
+                    signal = None
+                    try:
+                        signal = await strategy.analyze(market_data)
+                    except Exception as e:
+                        signal = None
+                    
+                    # Format signal status
+                    if signal and signal.action not in ['HOLD', 'WAIT', None]:
+                        signal_str = f"🚨 **{signal.action}** ({signal.confidence:.0%})"
+                        signals_would_fire += 1
+                    else:
+                        signal_str = "💤 HOLD"
+                    
+                    # Determine if strategy is enabled
+                    strat_key = {
+                        'TrendFollowing': 'TREND',
+                        'Scalping': 'SCALPING', 
+                        'Scalping (High Vol)': 'SCALPING',
+                        'Grid': 'GRID',
+                        'GridTrading': 'GRID',
+                        'MeanReversion': 'MEAN_REVERSION'
+                    }.get(strategy.name, strategy.name.upper())
+                    
+                    strat_enabled = ENABLED_STRATEGIES.get(strat_key, True)
+                    strat_icon = "✅" if strat_enabled else "⏸️"
+                    
+                    # Format display name
+                    display = get_display_name(asset)
+                    if len(display) > 12:
+                        display = display[:12] + ".."
+                    
+                    # Build line
+                    line = (
+                        f"• `{display}` | ${close:,.2f}\n"
+                        f"  RSI:`{rsi:.0f}` ADX:`{adx:.0f}` ATR:`{atr_pct:.1f}%` {trend}\n"
+                        f"  {strat_icon} {strategy.name} → {signal_str}"
+                    )
+                    report_lines.append(line)
+                    
+                except Exception as e:
+                    display = get_display_name(asset)
+                    report_lines.append(f"• `{display}`: ⚠️ Error: {str(e)[:30]}")
+            
+            if len(assets) > 8:
+                report_lines.append(f"  _... y {len(assets) - 8} más_")
+        
+        # Summary
+        report_lines.append("\n" + "━" * 30)
+        report_lines.append(f"📊 **Resumen:** {total_assets} activos escaneados")
+        report_lines.append(f"🚨 **Señales Activas:** {signals_would_fire}")
+        
+        if signals_would_fire == 0:
+            report_lines.append("\n⚠️ **Sin Señales Activas**")
+            report_lines.append("Posibles causas:")
+            report_lines.append("• Mercado en rango (RSI 40-60)")
+            report_lines.append("• Estrategias deshabilitadas")
+            report_lines.append("• Cooldown activo")
+            report_lines.append("• Volatilidad baja (ATR < 1%)")
+        
+        # Send report
+        final_report = "\n".join(report_lines)
+        
+        # Split if too long
+        if len(final_report) > 4000:
+            parts = [final_report[i:i+4000] for i in range(0, len(final_report), 4000)]
+            await msg.edit_text(parts[0], parse_mode="Markdown")
+            for part in parts[1:]:
+                await message.answer(part, parse_mode="Markdown")
+        else:
+            await msg.edit_text(final_report, parse_mode="Markdown")
+            
+    except Exception as e:
+        await msg.edit_text(f"❌ Scanner Error: {str(e)}", parse_mode=None)
 

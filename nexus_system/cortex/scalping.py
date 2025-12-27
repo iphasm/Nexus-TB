@@ -36,7 +36,7 @@ class ScalpingStrategy(IStrategy):
         # Assuming we stick to 15m for now as per stream.py config, this update optimizes the logic
         # to be ready for faster updates and cleaner signal generation.
         
-        if df_15m is None or df_15m.empty or len(df_15m) < 200: return None
+        if df_15m is None or df_15m.empty or len(df_15m) < 50: return None
         
         last = df_15m.iloc[-1]
         close = last['close']
@@ -50,6 +50,7 @@ class ScalpingStrategy(IStrategy):
         # 2. Trigger Logic
         rsi = last.get('rsi', 50)
         adx = last.get('adx', 0)
+        atr = last.get('atr', 0)  # Get ATR for metadata
         
         signal_type = "HOLD"
         confidence = 0.0

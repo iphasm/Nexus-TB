@@ -447,7 +447,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         await bot.send_message(
                             session.chat_id,
                             f"❌ Effector Error: {result}",
-                            parse_mode="Markdown"
+                            parse_mode=None  # Avoid Markdown issues with dynamic error text
                         )
                     
             signal_processed = True
