@@ -12,7 +12,6 @@ pyTelegramBotAPI
 # Data
 yfinance
 pandas
-pandas-ta
 mplfinance
 
 # Utilities

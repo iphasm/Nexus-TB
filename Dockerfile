@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Install pandas-ta from local fork (PyPI version requires Python 3.12+)
+RUN pip install --no-cache-dir ./pandas_ta_openbb-0.4.22
+
 # Set environment variables if needed (or rely on .env pass-through)
 # ENV PYTHONUNBUFFERED=1
 
