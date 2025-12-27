@@ -172,6 +172,11 @@ async def cmd_assets(message: Message, **kwargs):
     edit_message = kwargs.get('edit_message', False)
     
     # 1. Groups Section
+    from system_directive import GROUP_CONFIG
+    session_groups = dict(GROUP_CONFIG)
+    if kwargs.get('session_manager'):
+        session = kwargs['session_manager'].get_session(str(message.chat.id))
+        if session:
             stored = session.config.get('groups', {})
             session_groups.update(stored)
             # Standardize naming if legacy state exists
