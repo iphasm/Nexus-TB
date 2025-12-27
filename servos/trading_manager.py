@@ -18,7 +18,7 @@ from binance import AsyncClient
 
 # AI Analyst
 from servos.ai_analyst import QuantumAnalyst
-from servos.charting import generate_trade_chart
+
 import pandas as pd
 
 # Alpaca (still sync, but wrapped)
@@ -813,17 +813,6 @@ class AsyncTradingSession:
                 
 
 
-                # --- 8. Generate & Attach Chart ---
-                try:
-                    df = await self._fetch_ohlcv_for_chart(symbol)
-                    if df is not None:
-                        # Ensure indicators match those in strategies if possible, or use standard
-                        # Add HMA/BB if engine logic allows, but for now chart module does basics
-                        img_path = generate_trade_chart(symbol, df, 'LONG', entry_price, sl_price, tp_price)
-                        if img_path:
-                            success_msg += f"\n[IMAGE]:{img_path}"
-                except Exception as e:
-                    print(f"⚠️ Chart Gen Error: {e}")
                 
                 return True, success_msg
                 
@@ -993,15 +982,6 @@ class AsyncTradingSession:
                     f"🎯 TP: {tp_msg}"
                 )
                 
-                # --- 7. Generate & Attach Chart ---
-                try:
-                    df = await self._fetch_ohlcv_for_chart(symbol)
-                    if df is not None:
-                        img_path = generate_trade_chart(symbol, df, 'SHORT', entry_price, sl_price, tp_price)
-                        if img_path:
-                            success_msg += f"\n[IMAGE]:{img_path}"
-                except Exception as e:
-                    print(f"⚠️ Chart Gen Error: {e}")
 
                 return True, success_msg
 
