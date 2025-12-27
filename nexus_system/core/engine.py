@@ -157,9 +157,14 @@ class NexusCore:
             
             # TODO: Add periodic cache cleanup or stats logging here
             
-            # If no WebSockets are active (fallback mode), we might want to poll manually?
-            # For now, we assume WS is primary. If WS fails, we might need a fallback poller.
             # But MarketStream handles WS reconnection.
+
+            # --- MACRO HEALTH POLLER (CMC) ---
+            # Run every minute check, but internal method respects CMC_POLL_INTERVAL
+            try:
+                await self.risk_guardian.update_macro_health()
+            except Exception as e:
+                self.logger.error(f"Macro Poll Failed: {e}")
             
             await asyncio.sleep(60)  # Sleep long, just keep process alive
 

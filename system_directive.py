@@ -70,6 +70,10 @@ ALLOW_SLTP_UPDATE = True
 SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes
 PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
 
+# --- COINMARKETCAP SENTINEL CONFIG ---
+CMC_API_KEY = "f9f38cf5f8a14a2e87a82e78aeba76c6"
+CMC_POLL_INTERVAL = 600  # 10 Minutes (Preserve API Credits)
+
 # --- TRADING SESSION DEFAULTS ---
 DEFAULT_SESSION_CONFIG = {
     "mode": "WATCHER",

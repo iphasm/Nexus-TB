@@ -9,6 +9,28 @@ class RiskManager:
         # Global State (Driven by BTC)
         self.global_state = 'NORMAL'
         self.last_btc_price = 0.0
+        
+        # Macro Data (CMC)
+        from ..uplink.cmc_client import CMCClient
+        self.cmc_client = CMCClient()
+        self.btc_dominance = 0.0
+        self.total_cap = 0.0
+
+    async def update_macro_health(self):
+        """
+        Polls CMC for Macro Data (Dominance/Cap).
+        Called periodically by NexusCore background task.
+        """
+        metrics = await self.cmc_client.get_global_metrics()
+        if metrics:
+            self.btc_dominance = metrics.get('btc_dominance', 0)
+            self.total_cap = metrics.get('total_market_cap', 0)
+            
+            # Smart Logic: If BTC Dominance is skyrocketing (>55% and rising)
+            # It validates Shark Context even if BTC price drop is mild.
+            if self.btc_dominance > 55.0 and self.global_state == 'NORMAL':
+                # Weak Shark Context (Warning)
+                pass
 
     async def check_trade_approval(self, signal, current_exposure: float) -> bool:
         """
