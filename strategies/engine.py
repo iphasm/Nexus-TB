@@ -11,7 +11,13 @@ from servos.indicators import (
     calculate_adx_slope,
     calculate_ema,
     calculate_stoch_rsi,
-    calculate_atr
+    calculate_rsi,
+    calculate_adx_slope,
+    calculate_ema,
+    calculate_stoch_rsi,
+    calculate_atr,
+    calculate_supertrend,
+    calculate_vwap
 )
 
 class StrategyEngine:
@@ -70,6 +76,18 @@ class StrategyEngine:
         # 9. Volumen SMA (20)
         self.df['vol_sma'] = self.df['volume'].rolling(20).mean()
 
+        # 10. Supertrend (10, 3.0)
+        st = calculate_supertrend(self.df, period=10, multiplier=3.0)
+        self.df['supertrend'] = st['line']
+        self.df['supertrend_dir'] = st['direction']
+
+        # 11. VWAP
+        if 'volume' in self.df.columns:
+            self.df['vwap'] = calculate_vwap(self.df)
+        else:
+            self.df['vwap'] = self.df['hma_55'] # Fallback
+
+
     def analyze(self) -> dict:
         """
         Ejecuta el análisis Híbrido (Spot Mean Reversion + Futures Squeeze/Velocity).
@@ -119,7 +137,10 @@ class StrategyEngine:
         
         breakout_up = (curr['close'] > curr['bb_upper'])
         momentum_bullish = (curr['rsi'] > 50)
-        trend_bullish = (curr['close'] > curr['hma_55'])
+        
+        # TREND FILTER: Supertrend Bullish + Price > VWAP (Institutional Support)
+        trend_bullish = (curr['supertrend_dir'] == 1) and (curr['close'] > curr['vwap'])
+        
         adx_rising = curr['adx'] > prev['adx']
         adx_strong = curr['adx'] > 20
         
@@ -136,7 +157,9 @@ class StrategyEngine:
         # Lógica Inversa: Ruptura bajista, Precio < HMA, RSI < 50
         breakout_down = (curr['close'] < curr['bb_lower'])
         momentum_bearish = (curr['rsi'] < 50)
-        trend_bearish = (curr['close'] < curr['hma_55'])
+        
+        # TREND FILTER: Supertrend Bearish + Price < VWAP
+        trend_bearish = (curr['supertrend_dir'] == -1) and (curr['close'] < curr['vwap'])
         
         if breakout_down and trend_bearish and momentum_bearish and adx_rising:
              # Prioriza Shorts si no estamos ya en lógica Long (espera)
@@ -150,8 +173,10 @@ class StrategyEngine:
         
         # Lógica de Salida (Close Long / Close Short)
         adx_collapse = (prev['adx'] > 30 and curr['adx'] < 25)
-        trend_loss_bull = (curr['close'] < curr['hma_55'])
-        trend_loss_bear = (curr['close'] > curr['hma_55'])
+        
+        # EXIT: Supertrend Flip (Trailing Stop Hit)
+        trend_loss_bull = (curr['supertrend_dir'] == -1) # Bull -> Bear
+        trend_loss_bear = (curr['supertrend_dir'] == 1)  # Bear -> Bull
         
         # Determina salida basada en estado asumido (El invocador maneja el estado)
         # Retorna señales distintas. El Bucle verifica el estado.
@@ -159,12 +184,12 @@ class StrategyEngine:
         if trend_loss_bull:
             # Crucial para cerrar Longs
             if fut_signal == "WAIT": fut_signal = "CLOSE_LONG"
-            fut_reason = "📉 **TENDENCIA ROTA**: Precio bajo HMA 55."
+            fut_reason = "📉 **SUPERTREND BREAK**: Cambio de tendencia (Bull->Bear)."
             
         elif trend_loss_bear:
             # Crucial para cerrar Shorts
             if fut_signal == "WAIT": fut_signal = "CLOSE_SHORT"
-            fut_reason = "📈 **RECUPERACIÓN**: Precio sobre HMA 55."
+            fut_reason = "📈 **SUPERTREND BREAK**: Cambio de tendencia (Bear->Bull)."
             
         elif adx_collapse:
              # Válido para ambos
@@ -180,6 +205,9 @@ class StrategyEngine:
             "stoch_k": float(curr['stoch_k']),
             "bb_lower": float(curr['bb_lower']),
             "hma_55": float(curr['hma_55']),
+            "vwap": float(curr.get('vwap', 0)),
+            "supertrend": float(curr['supertrend']),
+            "supertrend_dir": int(curr['supertrend_dir']),
             "atr": float(curr['atr'])
         }
 

@@ -101,6 +101,90 @@ class TechnicalIndicators:
         return change
 
     @staticmethod
+    def vwap(df: pd.DataFrame) -> pd.Series:
+        """Volume Weighted Average Price (Cumulative for the DataFrame)"""
+        v = df['volume'].values
+        tp = (df['high'] + df['low'] + df['close']) / 3
+        tp = tp.values
+        return pd.Series(np.cumsum(v * tp) / (np.cumsum(v) + 1e-10), index=df.index)
+
+    @staticmethod
+    def supertrend(df: pd.DataFrame, period: int = 10, multiplier: float = 3.0):
+        """
+        Supertrend Indicator.
+        Returns: supertrend (Series), direction (Series: 1=Bull, -1=Bear)
+        """
+        # Calculate ATR
+        atr = TechnicalIndicators.atr(df, period)
+        
+        hl2 = (df['high'] + df['low']) / 2
+        basic_upperband = hl2 + (multiplier * atr)
+        basic_lowerband = hl2 - (multiplier * atr)
+        
+        # Initialize
+        final_upperband = basic_upperband.copy()
+        final_lowerband = basic_lowerband.copy()
+        supertrend = pd.Series(0.0, index=df.index)
+        direction = pd.Series(1, index=df.index, dtype=int)
+        
+        close = df['close'].values
+        bu = basic_upperband.values
+        bl = basic_lowerband.values
+        fu = final_upperband.values
+        fl = final_lowerband.values
+        st = supertrend.values
+        d = direction.values
+        
+        # Recursive Calculation (Numpy Loop is fast enough for <1000 candles)
+        for i in range(1, len(df)):
+            # Final Upper Band
+            if bu[i] < fu[i-1] or close[i-1] > fu[i-1]:
+                fu[i] = bu[i]
+            else:
+                fu[i] = fu[i-1]
+                
+            # Final Lower Band
+            if bl[i] > fl[i-1] or close[i-1] < fl[i-1]:
+                fl[i] = bl[i]
+            else:
+                fl[i] = fl[i-1]
+                
+            # Direction and Supertrend
+            if d[i-1] == 1: # Bullish
+                st[i] = fl[i]
+                if close[i] < fl[i]:
+                    d[i] = -1 # Trend Change: Bull -> Bear
+                    st[i] = fu[i]
+                else:
+                    d[i] = 1
+            else: # Bearish
+                st[i] = fu[i]
+                if close[i] > fu[i]:
+                    d[i] = 1 # Trend Change: Bear -> Bull
+                    st[i] = fl[i]
+                else:
+                    d[i] = -1
+                    
+        return pd.Series(st, index=df.index), pd.Series(d, index=df.index)
+
+    @staticmethod
+    def stochastic(df: pd.DataFrame, k_period: int = 14, d_period: int = 3):
+        """
+        Stochastic Oscillator.
+        Returns: %K, %D
+        """
+        low_min = df['low'].rolling(window=k_period).min()
+        high_max = df['high'].rolling(window=k_period).max()
+        
+        # Fast %K
+        k_percent = 100 * ((df['close'] - low_min) / (high_max - low_min + 1e-10))
+        
+        # Slow %D (SMA of %K)
+        d_percent = k_percent.rolling(window=d_period).mean()
+        
+        return k_percent, d_percent
+
+    @staticmethod
     def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
         """
         Applies standard suite of indicators to the DataFrame in-place.
@@ -133,6 +217,16 @@ class TechnicalIndicators:
             
         # MACD
         _, _, df['macd_hist'] = TechnicalIndicators.macd(closes)
+
+        # Stochastic
+        df['stoch_k'], df['stoch_d'] = TechnicalIndicators.stochastic(df)
+        
+        # VWAP
+        if 'volume' in df.columns:
+            df['vwap'] = TechnicalIndicators.vwap(df)
+            
+        # Supertrend
+        df['supertrend'], df['supertrend_dir'] = TechnicalIndicators.supertrend(df)
         
         # Clean up
         df.bfill(inplace=True)
