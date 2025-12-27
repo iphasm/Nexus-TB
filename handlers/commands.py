@@ -1902,25 +1902,40 @@ async def cmd_scanner(message: Message, **kwargs):
         from servos.fetcher import get_market_data
         import pandas as pd
         
+        # --- SESSION SPECIFIC CONFIG ---
+        session_manager = kwargs.get('session_manager')
+        session = session_manager.get_session(str(message.chat.id)) if session_manager else None
+        
+        active_strats = dict(ENABLED_STRATEGIES)
+        active_groups = dict(GROUP_CONFIG)
+        
+        if session:
+            active_strats.update(session.config.get('strategies', {}))
+            active_groups.update(session.config.get('groups', {}))
+            # Standardize naming in groups
+            if 'COMMODITY' in active_groups:
+                active_groups['ETFS'] = active_groups.pop('COMMODITY')
+        
         report_lines = ["📡 **NEXUS SCANNER DIAGNOSTICS**", "━━━━━━━━━━━━━━━━━━━━━━━━━"]
         
         # Show enabled strategies
-        strats_on = [k for k, v in ENABLED_STRATEGIES.items() if v]
-        strats_off = [k for k, v in ENABLED_STRATEGIES.items() if not v]
+        strats_on = [k for k, v in active_strats.items() if v]
+        strats_off = [k for k, v in active_strats.items() if not v]
         report_lines.append(f"\n🧠 **Estrategias Activas:** `{', '.join(strats_on) if strats_on else 'NINGUNA'}`")
         if strats_off:
             report_lines.append(f"⏸️ **Deshabilitadas:** `{', '.join(strats_off)}`")
         report_lines.append(f"🤖 **ML Cortex:** `{'ON' if ML_CLASSIFIER_ENABLED else 'OFF'}`")
         
         # Show group config
-        groups_on = [k for k, v in GROUP_CONFIG.items() if v]
+        groups_on = [k for k, v in active_groups.items() if v]
         report_lines.append(f"📊 **Grupos Activos:** `{', '.join(groups_on) if groups_on else 'NINGUNO'}`\n")
         
         # Analyze each enabled group
         total_assets = 0
         signals_would_fire = 0
         
-        for group_name, is_enabled in GROUP_CONFIG.items():
+        # USE ACTIVE GROUPS FOR LOOP
+        for group_name, is_enabled in active_groups.items():
             if not is_enabled:
                 continue
                 

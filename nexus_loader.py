@@ -539,7 +539,18 @@ async def main():
                 if '_ML_CLASSIFIER' in gc:
                     system_directive.ML_CLASSIFIER_ENABLED = gc.pop('_ML_CLASSIFIER')
                 
+                # --- MIGRATION: COMMODITY -> ETFS ---
+                if 'COMMODITY' in gc:
+                    val = gc.pop('COMMODITY')
+                    if 'ETFS' not in gc:
+                        gc['ETFS'] = val
+                    logger.info("🔄 Migrated legacy 'COMMODITY' state to 'ETFS'")
+                
                 GROUP_CONFIG.update(gc)
+                
+                # Persist migration immediately
+                from servos.db import save_bot_state
+                save_bot_state(ENABLED_STRATEGIES, GROUP_CONFIG, list(DISABLED_ASSETS), system_directive.AI_FILTER_ENABLED)
                 
             # 3. Disabled Assets
             if bot_state.get('disabled_assets'):
