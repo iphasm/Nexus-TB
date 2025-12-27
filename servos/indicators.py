@@ -133,3 +133,109 @@ def calculate_supertrend(df: pd.DataFrame, period: int = 10, multiplier: float =
         'line': st.iloc[:, 0],
         'direction': st.iloc[:, 1]
     }
+
+
+# =============================================================================
+# ADVANCED INDICATORS (New)
+# =============================================================================
+
+def calculate_ichimoku(df: pd.DataFrame, tenkan: int = 9, kijun: int = 26, senkou: int = 52) -> dict:
+    """
+    Ichimoku Cloud.
+    Returns: tenkan, kijun, senkou_a, senkou_b, chikou
+    """
+    ich = ta.ichimoku(df['high'], df['low'], df['close'], tenkan=tenkan, kijun=kijun, senkou=senkou)
+    if ich is None or len(ich) < 2:
+        z = pd.Series(0, index=df.index)
+        return {'tenkan': z, 'kijun': z, 'senkou_a': z, 'senkou_b': z, 'chikou': z}
+    
+    # ich returns tuple: (ichimoku_df, span_df)
+    # ichimoku_df has: ISA (Senkou A), ISB (Senkou B), ITS (Tenkan), IKS (Kijun), ICS (Chikou)
+    ich_df = ich[0]
+    
+    return {
+        'tenkan': ich_df.iloc[:, 2] if ich_df.shape[1] > 2 else pd.Series(0, index=df.index),
+        'kijun': ich_df.iloc[:, 3] if ich_df.shape[1] > 3 else pd.Series(0, index=df.index),
+        'senkou_a': ich_df.iloc[:, 0] if ich_df.shape[1] > 0 else pd.Series(0, index=df.index),
+        'senkou_b': ich_df.iloc[:, 1] if ich_df.shape[1] > 1 else pd.Series(0, index=df.index),
+        'chikou': ich_df.iloc[:, 4] if ich_df.shape[1] > 4 else pd.Series(0, index=df.index)
+    }
+
+
+def calculate_squeeze_pro(df: pd.DataFrame, bb_length: int = 20, kc_length: int = 20, 
+                          mom_length: int = 12, use_tr: bool = True) -> dict:
+    """
+    Squeeze Pro (Advanced Squeeze with Momentum).
+    Returns: squeeze_on, squeeze_off, no_squeeze, momentum
+    """
+    sqz = ta.squeeze_pro(df['high'], df['low'], df['close'], 
+                         bb_length=bb_length, kc_length=kc_length, 
+                         mom_length=mom_length, use_tr=use_tr)
+    if sqz is None:
+        z = pd.Series(0, index=df.index)
+        return {'squeeze_on': z, 'squeeze_off': z, 'no_squeeze': z, 'momentum': z}
+    
+    # Returns: SQZ_ON, SQZ_OFF, SQZ_NO, SQZ
+    return {
+        'squeeze_on': sqz.iloc[:, 0],
+        'squeeze_off': sqz.iloc[:, 1],
+        'no_squeeze': sqz.iloc[:, 2],
+        'momentum': sqz.iloc[:, 3] if sqz.shape[1] > 3 else pd.Series(0, index=df.index)
+    }
+
+
+def calculate_psar(df: pd.DataFrame, af0: float = 0.02, af: float = 0.02, max_af: float = 0.2) -> dict:
+    """
+    Parabolic SAR.
+    Returns: long (bullish stops), short (bearish stops), af, reversal
+    """
+    psar = ta.psar(df['high'], df['low'], df['close'], af0=af0, af=af, max_af=max_af)
+    if psar is None:
+        z = pd.Series(0, index=df.index)
+        return {'long': z, 'short': z, 'af': z, 'reversal': z}
+    
+    # Returns: PSARl, PSARs, PSARaf, PSARr
+    return {
+        'long': psar.iloc[:, 0],   # Bullish stop line
+        'short': psar.iloc[:, 1],  # Bearish stop line
+        'af': psar.iloc[:, 2],     # Acceleration Factor
+        'reversal': psar.iloc[:, 3] if psar.shape[1] > 3 else pd.Series(0, index=df.index)
+    }
+
+
+def calculate_choppiness(df: pd.DataFrame, length: int = 14) -> pd.Series:
+    """
+    Choppiness Index.
+    High values (>61.8) = Choppy/Ranging market.
+    Low values (<38.2) = Trending market.
+    """
+    chop = ta.chop(df['high'], df['low'], df['close'], length=length)
+    if chop is None:
+        return pd.Series(50, index=df.index)  # Neutral
+    return chop
+
+
+def calculate_volume_profile(df: pd.DataFrame, width: int = 10) -> dict:
+    """
+    Volume Profile (Price by Volume).
+    Note: This returns aggregated data, not a time-series.
+    Returns: price_levels, volumes, poc (Point of Control)
+    """
+    # ta.vp returns a DataFrame with price levels and volumes
+    try:
+        vp = ta.vp(df['close'], df['volume'], width=width)
+        if vp is None or vp.empty:
+            return {'price_levels': [], 'volumes': [], 'poc': 0}
+        
+        # Find Point of Control (price level with max volume)
+        poc_idx = vp['Volume'].idxmax() if 'Volume' in vp.columns else 0
+        poc = vp.loc[poc_idx, 'Price'] if 'Price' in vp.columns else 0
+        
+        return {
+            'price_levels': vp['Price'].tolist() if 'Price' in vp.columns else [],
+            'volumes': vp['Volume'].tolist() if 'Volume' in vp.columns else [],
+            'poc': poc
+        }
+    except Exception:
+        return {'price_levels': [], 'volumes': [], 'poc': 0}
+
