@@ -49,15 +49,23 @@ class MarketClassifier:
         atr_pct = (atr / close) * 100 if close > 0 else 0
         trend_strength = abs(ema_20 - ema_50) / close * 1000 if close > 0 else 0  # Proxy for divergence
         
-        # --- CLASSIFICATION LOGIC ---
+        # --- CLASSIFICATION LOGIC (Reordered for Scalping Priority) ---
         
-        # 1. TREND REGIME
-        # Criteria: Moderate-High ADX (>20 with our scale) or Strong EMA separation
-        # Lowered from 25 to 20 to catch more trend signals
-        if adx > 20 or trend_strength > 4.0:
-            # Check alignment with Macro (EMA 200) for Extra Confidence
+        # 1. EXTREME VOLATILITY → Force Scalping
+        # When ATR% is very high, scalping is the best approach regardless of trend
+        if atr_pct > 2.0:
+            return MarketRegime(
+                regime="VOLATILE",
+                suggested_strategy="Scalping",
+                confidence=0.85,
+                reason=f"Extreme Volatility (ATR: {atr_pct:.2f}%) → Scalping Mode"
+            )
+        
+        # 2. STRONG TREND → TrendFollowing (ADX must be decisive)
+        # Only classify as TREND if ADX is clearly strong (> 30)
+        if adx > 30 and trend_strength > 5.0:
             aligned_macro = (close > ema_200 and ema_20 > ema_50) or (close < ema_200 and ema_20 < ema_50)
-            conf = 0.8 if aligned_macro else 0.65
+            conf = 0.85 if aligned_macro else 0.70
             
             return MarketRegime(
                 regime="TREND",
@@ -65,18 +73,30 @@ class MarketClassifier:
                 confidence=conf,
                 reason=f"Strong Trend (ADX: {adx:.1f}, Div: {trend_strength:.1f})"
             )
-            
-        # 2. VOLATILE / SCALPING REGIME
-        # Criteria: High ATR % (Volatile) - adjusted for typical crypto volatility
-        if atr_pct > 1.2:  # Lowered from 1.5 to catch more volatile periods
+        
+        # 3. MODERATE VOLATILITY + WEAK TREND → Scalping
+        # This is the key fix - volatile markets with moderate trend go to Scalping
+        if atr_pct > 1.0 and adx < 30:
             return MarketRegime(
                 regime="VOLATILE",
                 suggested_strategy="Scalping",
                 confidence=0.75,
-                reason=f"High Volatility (ATR: {atr_pct:.2f}%)"
+                reason=f"Volatile Market (ATR: {atr_pct:.2f}%, ADX: {adx:.1f}) → Scalping"
+            )
+        
+        # 4. MODERATE TREND (original logic, but with higher threshold)
+        if adx > 20 or trend_strength > 4.0:
+            aligned_macro = (close > ema_200 and ema_20 > ema_50) or (close < ema_200 and ema_20 < ema_50)
+            conf = 0.75 if aligned_macro else 0.60
+            
+            return MarketRegime(
+                regime="TREND",
+                suggested_strategy="TrendFollowing",
+                confidence=conf,
+                reason=f"Moderate Trend (ADX: {adx:.1f}, Div: {trend_strength:.1f})"
             )
 
-        # 3. RANGING / ACCUMULATION REGIME
+        # 5. RANGING / ACCUMULATION REGIME
         # Criteria: Low ADX, EMAs close together
         if adx < 18 and trend_strength < 3.0:
             # Distinguish between Tight Range (Grid) and Wide Range (Mean Rev)
@@ -99,7 +119,7 @@ class MarketClassifier:
                     reason=f"Wide Range (ADX: {adx:.1f}, BB: {bb_width_pct:.1f}%)"
                 )
         
-        # 4. DEFAULT FALLBACK - Use Mean Reversion as safe default
+        # 6. DEFAULT FALLBACK - Use Mean Reversion as safe default
         return MarketRegime(
             regime="NORMAL",
             suggested_strategy="MeanReversion",

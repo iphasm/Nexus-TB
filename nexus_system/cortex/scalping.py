@@ -39,6 +39,7 @@ class ScalpingStrategy(IStrategy):
         if df_15m is None or df_15m.empty or len(df_15m) < 50: return None
         
         last = df_15m.iloc[-1]
+        prev = df_15m.iloc[-2] if len(df_15m) > 1 else last
         close = last['close']
         
         # 1. Trend Filter (15m or higher)
@@ -47,29 +48,36 @@ class ScalpingStrategy(IStrategy):
         is_uptrend = close > ema_200
         is_downtrend = close < ema_200
         
-        # 2. Trigger Logic
+        # 2. Trigger Logic with Momentum Confirmation
         rsi = last.get('rsi', 50)
+        rsi_prev = prev.get('rsi', 50)
         adx = last.get('adx', 0)
-        atr = last.get('atr', 0)  # Get ATR for metadata
+        atr = last.get('atr', 0)
+        
+        # RSI Momentum (Anti-Falling-Knife Protection)
+        rsi_rising = rsi > rsi_prev
+        rsi_falling = rsi < rsi_prev
         
         signal_type = "HOLD"
         confidence = 0.0
         
-        # LONG TRIGGER
-        # RSI crossed back above 30 (Oversold Bounce) AND Uptrend
-        if is_uptrend and rsi < 40:  # Buying dips in uptrend
-             signal_type = "BUY"
-             confidence = 0.7
-             if rsi < 30: confidence += 0.1 # Deep value
-             if adx > 25: confidence += 0.1 # Strong trend
+        # LONG TRIGGER (Relaxed thresholds + momentum confirmation)
+        # RSI < 45 AND rising = catching a bounce, not a falling knife
+        if is_uptrend and rsi < 45 and rsi_rising:
+            signal_type = "BUY"
+            confidence = 0.70
+            if rsi < 35: confidence += 0.10  # Deep value bonus
+            if rsi < 30: confidence += 0.05  # Extreme oversold bonus
+            if adx > 25: confidence += 0.05  # Strong trend bonus
              
-        # SHORT TRIGGER
-        # RSI crossed back below 70 (Overbought Rejection) AND Downtrend
-        elif is_downtrend and rsi > 60: # Selling rips in downtrend
-             signal_type = "SELL"
-             confidence = 0.7
-             if rsi > 70: confidence += 0.1 # Weekly extended
-             if adx > 25: confidence += 0.1
+        # SHORT TRIGGER (Relaxed thresholds + momentum confirmation)
+        # RSI > 55 AND falling = catching a rejection, not chasing
+        elif is_downtrend and rsi > 55 and rsi_falling:
+            signal_type = "SELL"
+            confidence = 0.70
+            if rsi > 65: confidence += 0.10  # Extended bonus
+            if rsi > 70: confidence += 0.05  # Extreme overbought bonus
+            if adx > 25: confidence += 0.05  # Strong trend bonus
         
         if signal_type == "HOLD":
             return None
@@ -81,10 +89,10 @@ class ScalpingStrategy(IStrategy):
             price=last['close'],
             metadata={
                 "strategy": "Scalping", 
-                "rsi": rsi, 
+                "rsi": rsi,
+                "rsi_momentum": "UP" if rsi_rising else "DOWN",
                 "adx": adx, 
                 "trend": "UP" if is_uptrend else "DOWN",
-                "momentum_strength": "STRONG",
                 "atr": atr
             }
         )
