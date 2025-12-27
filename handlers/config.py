@@ -185,6 +185,7 @@ async def cmd_assets(message: Message, **kwargs):
             
     group_buttons = []
     for grp, enabled in session_groups.items():
+        if grp.startswith('_'): continue # Skip internal keys
         icon = "✅" if enabled else "❌"
         group_buttons.append(InlineKeyboardButton(text=f"{icon} {grp}", callback_data=f"TOGGLEGRP|{grp}"))
     
