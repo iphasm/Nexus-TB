@@ -88,6 +88,21 @@ class IExchangeAdapter(abc.ABC):
         """
         pass
 
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """
+        Get symbol rules (precision, filters).
+        Default returns empty dict. Override if supported.
+        """
+        return {}
+
+    async def cancel_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for a symbol."""
+        return False
+
+    async def close_position(self, symbol: str) -> bool:
+        """Close specific position."""
+        return False
+
     # Optional: WebSocket streaming
     def supports_websocket(self) -> bool:
         """Override to return True if adapter supports real-time streaming."""

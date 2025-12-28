@@ -31,11 +31,25 @@ class BinanceAdapter(IExchangeAdapter):
     async def initialize(self, **kwargs) -> bool:
         """Initialize Binance connection."""
         try:
-            self._exchange = ccxt.binanceusdm({
+            config = {
                 'apiKey': self._api_key,
                 'secret': self._api_secret,
                 'enableRateLimit': True,
-            })
+                'options': {'defaultType': 'future'}
+            }
+            
+            # Proxy Config
+            http_proxy = kwargs.get('http_proxy') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
+            https_proxy = kwargs.get('https_proxy') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
+            
+            if http_proxy:
+                config['proxies'] = {
+                    'http': http_proxy,
+                    'https': https_proxy or http_proxy
+                }
+                print(f"🌍 BinanceAdapter: Using Proxy -> {http_proxy}")
+
+            self._exchange = ccxt.binanceusdm(config)
             await self._exchange.load_markets()
             print(f"✅ BinanceAdapter: Connected to USD-M Futures")
             return True
@@ -166,6 +180,62 @@ class BinanceAdapter(IExchangeAdapter):
         except Exception as e:
             print(f"⚠️ BinanceAdapter: get_positions error: {e}")
             return []
+
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """Get symbol precision and limits."""
+        if not self._exchange:
+            return {}
+        try:
+            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+            market = self._exchange.market(formatted)
+            return {
+                'qty_precision': int(market['precision']['amount']),
+                'price_precision': int(market['precision']['price']),
+                'min_notional': float(market['limits']['cost']['min'])
+            }
+        except Exception as e:
+            # print(f"⚠️ BinanceAdapter Info Error: {e}")
+            return {}
+
+    async def cancel_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for symbol."""
+        if not self._exchange: return False
+        try:
+            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+            await self._exchange.cancel_all_orders(formatted)
+            return True
+        except Exception as e:
+            print(f"⚠️ BinanceAdapter Cancel Error ({symbol}): {e}")
+            return False
+
+    async def close_position(self, symbol: str) -> bool:
+        """Close specific position (Market)."""
+        if not self._exchange: return False
+        try:
+            # 1. Get Position
+            positions = await self.get_positions()
+            target_pos = next((p for p in positions if p['symbol'] == symbol), None)
+            
+            if not target_pos: return True # Already closed
+            
+            qty = target_pos['quantity']
+            side = target_pos['side']
+            
+            if qty == 0: return True
+            
+            # 2. Execute Close (Opposite Side)
+            close_side = 'SELL' if side == 'LONG' else 'BUY'
+            
+            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+            
+            # Use param 'reduceOnly': True explicitly
+            await self._exchange.create_order(
+                formatted, 'market', close_side, qty, params={'reduceOnly': True}
+            )
+            return True
+        except Exception as e:
+            print(f"⚠️ BinanceAdapter Close Error ({symbol}): {e}")
+            return False
 
     async def close(self):
         """Close connections."""

@@ -13,8 +13,9 @@ import aiohttp
 import asyncio
 from typing import Optional, Dict, Any, Tuple, List
 
-# Binance Async Client
-from binance import AsyncClient
+# Nexus Core
+from nexus_system.core.nexus_bridge import NexusBridge
+from nexus_system.core.shadow_wallet import ShadowWallet
 
 # AI Analyst
 from servos.ai_analyst import QuantumAnalyst
@@ -22,30 +23,24 @@ from servos.ai_analyst import QuantumAnalyst
 # Shield 2.0
 from nexus_system.shield.correlation import CorrelationManager
 
-# Bybit Adapter
-from nexus_system.uplink.adapters.bybit_adapter import BybitAdapter
-
 import pandas as pd
-
-# Alpaca (still sync, but wrapped)
-from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, TakeProfitRequest, StopLossRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
 
 
 class AsyncTradingSession:
     """
-    Async Trading Session using python-binance AsyncClient.
-    Designed for native async/await operations in aiogram.
+    Async Trading Session using Nexus Bridge.
+    Unified interface for Binance, Bybit, and Alpaca.
     """
     
     def __init__(self, chat_id: str, api_key: str, api_secret: str, config: Optional[Dict] = None, manager=None):
         self.chat_id = chat_id
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.client: Optional[AsyncClient] = None
-        self.alpaca_client: Optional[TradingClient] = None
-        self.bybit_client: Optional[BybitAdapter] = None
+        self.config_api_key = api_key
+        self.config_api_secret = api_secret
+        
+        # Nexus Core
+        self.shadow_wallet = ShadowWallet()
+        self.bridge = NexusBridge(self.shadow_wallet)
+        
         self.manager = manager
         
         from system_directive import DEFAULT_SESSION_CONFIG
@@ -80,62 +75,56 @@ class AsyncTradingSession:
 
 
     async def initialize(self, verbose: bool = True) -> bool:
-        """Async initialization of exchange clients."""
+        """Async initialization via Nexus Bridge."""
         if verbose:
             print("🧠 Nexus Analyst: CONNECTED.")
-        success = True
         
-        # 1. Initialize Binance Async Client
-        if self.api_key and self.api_secret:
-            try:
-                # Set environment variables BEFORE creating client
-                # This ensures aiohttp session picks them up with trust_env=True
-                if self._proxy:
-                    os.environ['HTTPS_PROXY'] = self._proxy
-                    os.environ['HTTP_PROXY'] = self._proxy
-                    if verbose:
-                        print(f"🔄 [Chat {self.chat_id}] Proxy configured: {self._proxy[:30]}...")
-
-                
-                # Create client - use https_proxy parameter if available
-                if self._proxy:
-                    self.client = await AsyncClient.create(
-                        self.api_key, 
-                        self.api_secret,
-                        https_proxy=self._proxy
-                    )
-                else:
-                    self.client = await AsyncClient.create(
-                        self.api_key, 
-                        self.api_secret
-                    )
-                
-                if verbose:
-                    proxy_status = "✅ Proxy" if self._proxy else "⚠️ Direct"
-                    print(f"✅ [Chat {self.chat_id}] Binance Client Init ({proxy_status}, Key: ...{self.api_key[-4:]})")
-            except Exception as e:
-                self._init_error = str(e)
-                if verbose:
-                    print(f"❌ [Chat {self.chat_id}] Binance Init Error: {e}")
-                self.client = None
-                success = False
+        # Proxy Settings (Config > Env)
+        http_proxy = self.config.get('http_proxy') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
+        https_proxy = self.config.get('https_proxy') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
         
-        # 2. Initialize Alpaca (still sync but wrapped)
-        await self.initialize_alpaca(verbose=verbose)
+        exchange_kwargs = {}
+        if http_proxy:
+            exchange_kwargs['http_proxy'] = http_proxy
+            if https_proxy:
+                 exchange_kwargs['https_proxy'] = https_proxy
 
-        # 3. Initialize Bybit
+        # 1. Binance Futures
+        if self.config_api_key and self.config_api_secret:
+            await self.bridge.connect_exchange(
+                'BINANCE', 
+                api_key=self.config_api_key, 
+                api_secret=self.config_api_secret,
+                **exchange_kwargs
+            )
+            if verbose: print(f"✅ Bridge: Connected to Binance")
+
+        # 2. Bybit
         bybit_key = self.config.get('bybit_api_key') or os.getenv('BYBIT_API_KEY')
         bybit_secret = self.config.get('bybit_api_secret') or os.getenv('BYBIT_API_SECRET')
-        
         if bybit_key and bybit_secret:
-             self.bybit_client = BybitAdapter(bybit_key, bybit_secret)
-             if await self.bybit_client.initialize():
-                 if verbose: print(f"✅ [Chat {self.chat_id}] Bybit Client Initialized")
-             else:
-                 self.bybit_client = None
-                 if verbose: print(f"❌ [Chat {self.chat_id}] Bybit Client Init Failed")
-        
-        return success
+            await self.bridge.connect_exchange(
+                'BYBIT',
+                api_key=bybit_key,
+                api_secret=bybit_secret,
+                **exchange_kwargs
+            )
+            if verbose: print(f"✅ Bridge: Connected to Bybit")
+            
+        # 3. Alpaca
+        alp_key = self.config.get('alpaca_key') or os.getenv('ALPACA_API_KEY')
+        alp_sec = self.config.get('alpaca_secret') or os.getenv('ALPACA_SECRET_KEY')
+        if alp_key and alp_sec:
+             await self.bridge.connect_exchange(
+                'ALPACA',
+                api_key=alp_key,
+                api_secret=alp_sec,
+                paper=True, # Explicitly default to paper for safety
+                **exchange_kwargs
+            )
+             if verbose: print(f"✅ Bridge: Connected to Alpaca")
+             
+        return True
     
     # --- RISK HELPER ---
     def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
@@ -713,403 +702,151 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Sync Error: {e}"
 
-    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
-        """Execute a LONG position asynchronously."""
-        
-        # Route non-crypto to Alpaca
-        # Route non-crypto to Alpaca
-        if 'USDT' not in symbol:
-            return await self._execute_alpaca_order(symbol, 'LONG', atr)
+    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
+        """Get qty_precision, price_precision, min_notional via Bridge."""
+        info = await self.bridge.get_symbol_info(symbol)
+        qty_prec = info.get('qty_precision', 3)
+        price_prec = info.get('price_precision', 2)
+        min_notional = info.get('min_notional', 5.0)
+        return qty_prec, price_prec, min_notional
 
-        # [NEW] Primary Exchange Routing
-        target = self.config.get('primary_exchange', 'BINANCE')
-        if ':' in symbol:
-             parts = symbol.split(':')
-             target = parts[0].upper()
-             symbol = parts[1]
-             
-        if target == 'BYBIT':
-             return await self._execute_bybit_order(symbol, 'LONG', strategy, atr)
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+        """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
-        # Ensure Client with retry
-        ok, err = await self._ensure_client()
-        if not ok:
-            return False, err
+        # 1. Check existing position via Shadow Wallet
+        current_pos = await self.bridge.get_position(symbol)
+        net_qty = current_pos.get('quantity', 0)
+        current_side = current_pos.get('side', '')
         
-        # --- AI SENTIMENT & MACRO FILTER ---
-        vol_risk = 'LOW'  # Default for later use
-        from system_directive import AI_FILTER_ENABLED
-        if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
-            try:
-                print(f"🧠 Checking Sentiment for {symbol}...")
-                sent = self.ai_analyst.check_market_sentiment(symbol)
-                score = sent.get('score', 0)
-                vol_risk = sent.get('volatility_risk', 'LOW')
-                
-                # Filter: BAD Sentiment
-                thresh = self.config.get('sentiment_threshold', -0.6)
-                if score < thresh:
-                    return False, f"⛔ **IA FILTER [{symbol}]**: Mercado muy negativo ({score:.2f} < {thresh}).\nMotivo: {sent.get('reason', 'N/A')}"
-                
-                # Macro Shield: Reduce Leverage on High Volatility
-                if vol_risk in ['HIGH', 'EXTREME']:
-                    current_lev = self.config['leverage']
-                    if current_lev > 3:
-                        print(f"⚠️ High Volatility ({vol_risk}). Reducing Leverage to 3x.")
-                        self.config['leverage'] = 3
-            except Exception as e:
-                print(f"⚠️ AI Filter Error (continuing): {e}")
-        
-        # --- SHIELD 2.0: CORRELATION CHECK ---
-        # Checks if adding this asset over-correlates the portfolio
-        if self.config.get('correlation_guard_enabled', True):
-            is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
-            if not is_safe:
-                return False, shield_msg
+        if net_qty > 0:
+            if current_side == 'LONG':
+                 return await self.execute_update_sltp(symbol, 'LONG', atr)
+            elif current_side == 'SHORT':
+                 print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
+                 return await self.execute_flip_position(symbol, 'LONG', atr)
 
         try:
-            leverage = self.config['leverage']
-            max_capital_pct = self.config['max_capital_pct']
-            stop_loss_pct = self.config['stop_loss_pct']
+            # 2. Get Data via Bridge
+            current_price = await self.bridge.get_last_price(symbol)
+            if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
-            # 1. Check Existing Position
-            positions = await self.client.futures_position_information(symbol=symbol)
-            net_qty = sum(float(p['positionAmt']) for p in positions)
-            
-            if net_qty != 0:
-                if net_qty > 0:
-                    return await self.execute_update_sltp(symbol, 'LONG', atr)
-                else:
-                    # Auto-Flip: Long requested but Short exists
-                    print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
-                    return await self.execute_flip_position(symbol, 'LONG', atr)
-            
-            # 2. Set Leverage
-            await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-            
-            # 3. Cancel Existing Orders (Robust with Verification)
-            # Uses _cancel_all_robust to handle both standard and algo orders
-            cleared = await self._cancel_all_robust(symbol, verify=True)
-            if not cleared:
-                print(f"⚠️ {symbol}: Could not verify all orders cleared before entry")
-            
-            # 4. Get Account & Price Info
-            acc_info = await self.client.futures_account()
-            total_equity = float(acc_info.get('totalMarginBalance', 0))
-            
-            ticker = await self.client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
+            total_equity = self.shadow_wallet.get_unified_equity()
+            if total_equity == 0:
+                 total_equity = self.shadow_wallet.balances.get('BINANCE', {}).get('total', 0)
             
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
-            
-            # 5. Calculate Position Size (Dynamic Risk)
+
+            # 3. Calculate Sizing
+            leverage = self.config['leverage']
+            stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
+            
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price - sl_dist, price_precision)
                 tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
-                
-                # Use Helper for Risk Sizing
                 raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
             else:
-                margin_assignment = total_equity * max_capital_pct
+                margin_assignment = total_equity * self.config['max_capital_pct']
                 raw_quantity = (margin_assignment * leverage) / current_price
                 sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
                 tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
             
             quantity = float(round(raw_quantity, qty_precision))
-            
-            # Final notional check
-            final_notional = quantity * current_price
-            if final_notional < min_notional:
-                return False, f"❌ {symbol}: Insufficient capital for min notional ({min_notional} USDT)."
-            
-            if quantity <= 0:
-                return False, "Position size too small."
-            
-            # 6. Execute Market Buy (Retry Logic for Timeouts)
-            try:
-                order = None
-                for attempt in range(1, 4):  # 3 Attempts
-                    try:
-                        order = await self.client.futures_create_order(
-                            symbol=symbol, side='BUY', type='MARKET', quantity=quantity
-                        )
-                        break
-                    except Exception as e:
-                        # Retry only on timeouts or network errors
-                        if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
-                            if attempt < 3:
-                                wait_time = 2 * (2 ** (attempt - 1))  # 2s, 4s
-                                print(f"⚠️ Timeout opening {symbol} (Attempt {attempt}/3). Retrying in {wait_time}s...")
-                                await asyncio.sleep(wait_time)
-                                continue
-                        raise e
-                
-                if not order:
-                    raise Exception("Max retries exceeded for order placement")
-                    
-                entry_price = float(order.get('avgPrice', current_price)) or current_price
-            except Exception as e:
-                return False, f"❌ Failed to open position: {e}"
-            
-            # 7. Place SL/TP Orders (Using tracked helpers for anti-accumulation)
-            try:
-                # Stop Loss with tracking
-                if sl_price > 0:
-                    sl_ok, sl_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'STOP_MARKET', 'SELL', quantity, sl_price
-                    )
-                    if not sl_ok:
-                        print(f"⚠️ SL placement issue: {sl_result}")
-                
-                # Logic: TP1 (50%) + Trailing Stop (50%)
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                qty_trail = float(round(quantity - qty_tp1, qty_precision))
-                
-                # Check Min Notional for split (must be > 5 USDT each approx)
-                is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
-                
-                if is_split:
-                    # TP1: Take 50% Profit with tracking
-                    tp1_ok, tp1_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TAKE_PROFIT_MARKET', 'SELL', qty_tp1, tp_price
-                    )
-                    # Trailing: Let the rest run (Activate at TP1, Callback 1.0%)
-                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TRAILING_STOP_MARKET', 'SELL', qty_trail, tp_price,
-                        callbackRate=1.0, activationPrice=tp_price
-                    )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
-                else:
-                    # Capital too small: Full Trailing Stop with tracking
-                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TRAILING_STOP_MARKET', 'SELL', quantity, entry_price,
-                        callbackRate=1.0, activationPrice=entry_price
-                    )
-                    tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
+            if (quantity * current_price) < min_notional:
+                 return False, f"❌ {symbol}: Insufficient capital."
 
-                
-                success_msg = (
-                    f"⚡ {symbol} (x{leverage})\n"
-                    f"🧠 Estrategia: {strategy.replace('_', ' ')}\n\n"
-                    f"📈 Entrada: {entry_price}\n"
-                    f"📦 Tamaño: {quantity}\n\n"
-                    f"🛑 SL: {sl_price}\n"
-                    f"🎯 TP: {tp_msg}"
-                )
-                
+            # 4. Execute Market Buy
+            res = await self.bridge.place_order(symbol, 'BUY', 'MARKET', quantity=quantity)
+            if 'error' in res: return False, f"Bridge Error: {res['error']}"
+            
+            entry_price = float(res.get('price', current_price) or current_price)
+            
+            # 5. Place SL/TP (Separate to ensure logic holds)
+            await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
+            await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
 
+            return True, (
+                f"✅ Long Executed: {symbol}\n"
+                f"Qty: {quantity} | Entry: {entry_price}\n"
+                f"SL: {sl_price} | TP: {tp_price}"
+            )
 
-                
-                return True, success_msg
-                
-            except Exception as e:
-                # Rollback: Close position if SL/TP fails
-                print(f"⚠️ SL/TP Failed: {e}. Closing position...")
-                try:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='SELL', type='MARKET',
-                        quantity=quantity, reduceOnly=True
-                    )
-                except:
-                    pass
-                return False, f"⚠️ SL/TP placement failed ({e}). Position closed for safety."
-        
         except Exception as e:
-            error_msg = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
-            return False, f"[{symbol}] Error: {error_msg}"
-    
-    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
-        """Execute a SHORT position asynchronously."""
-        
-        # Route non-crypto to Alpaca
-        # Route non-crypto to Alpaca
-        if 'USDT' not in symbol:
-            return await self._execute_alpaca_order(symbol, 'SHORT', atr)
+            return False, f"Execution Error: {e}"
 
-        # [NEW] Primary Exchange Routing
-        target = self.config.get('primary_exchange', 'BINANCE')
-        if ':' in symbol:
-             parts = symbol.split(':')
-             target = parts[0].upper()
-             symbol = parts[1]
-             
-        if target == 'BYBIT':
-             return await self._execute_bybit_order(symbol, 'SHORT', strategy, atr)
+
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+        """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
         
-        if not self.client:
-            return False, "No valid API Keys provided."
+        # 1. Check existing position via Shadow Wallet
+        current_pos = await self.bridge.get_position(symbol)
+        net_qty = current_pos.get('quantity', 0)
+        current_side = current_pos.get('side', '')
         
-        # --- AI SENTIMENT FILTER (Inverse for Shorts) ---
-        from system_directive import AI_FILTER_ENABLED
-        if AI_FILTER_ENABLED and self.config.get('sentiment_filter', True) and self.ai_analyst and self.ai_analyst.client:
-            try:
-                print(f"🧠 Checking Sentiment for {symbol} (SHORT)...")
-                sent = self.ai_analyst.check_market_sentiment(symbol)
-                score = sent.get('score', 0)
-                
-                # Filter: BULLISH Sentiment (bad for shorts)
-                if score > 0.6:
-                    return False, f"⛔ **IA FILTER [{symbol}]**: Mercado muy alcista ({score:.2f}).\nMotivo: {sent.get('reason', 'N/A')}"
-            except Exception as e:
-                print(f"⚠️ AI Filter Error (continuing): {e}")
-        
-        # --- SHIELD 2.0: CORRELATION CHECK ---
-        # Checks if adding this asset over-correlates the portfolio
-        if self.config.get('correlation_guard_enabled', True):
-            is_safe, shield_msg = await self._check_correlation_safeguard(symbol)
-            if not is_safe:
-                return False, shield_msg
+        if net_qty > 0:
+            if current_side == 'SHORT':
+                 return await self.execute_update_sltp(symbol, 'SHORT', atr)
+            elif current_side == 'LONG':
+                 print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
+                 return await self.execute_flip_position(symbol, 'SHORT', atr)
 
         try:
-            leverage = self.config['leverage']
-            max_capital_pct = self.config['max_capital_pct']
-            stop_loss_pct = self.config['stop_loss_pct']
+            # 2. Get Data via Bridge
+            current_price = await self.bridge.get_last_price(symbol)
+            if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
-            # 1. Check Existing Position
-            positions = await self.client.futures_position_information(symbol=symbol)
-            net_qty = sum(float(p['positionAmt']) for p in positions)
+            total_equity = self.shadow_wallet.get_unified_equity()
+            if total_equity == 0:
+                 total_equity = self.shadow_wallet.balances.get('BINANCE', {}).get('total', 0)
             
-            if net_qty != 0:
-                if net_qty < 0:
-                    return await self.execute_update_sltp(symbol, 'SHORT', atr)
-                else:
-                    # Auto-Flip: Short requested but Long exists
-                    print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
-                    return await self.execute_flip_position(symbol, 'SHORT', atr)
-            
-            # 2. Set Leverage & Cancel Orders
-            await self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
-            # 3. Cancel Existing Orders (Robust with Verification)
-            # Uses _cancel_all_robust to handle both standard and algo orders
-            cleared = await self._cancel_all_robust(symbol, verify=True)
-            if not cleared:
-                print(f"⚠️ {symbol}: Could not verify all orders cleared before entry")
-            
-            # 3. Get Info
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
-            ticker = await self.client.futures_ticker(symbol=symbol)
-            current_price = float(ticker['lastPrice'])
-            
-            acc = await self.client.futures_account()
-            equity = float(acc['totalWalletBalance'])
-            
-            # 4. Calculate Size (Dynamic Risk)
+
+            # 3. Calculate Sizing
+            leverage = self.config['leverage']
+            stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
+            
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 sl_price = round(current_price + sl_dist, price_precision)
                 tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
-                
-                raw_quantity = self.calculate_dynamic_size(equity, current_price, sl_price, leverage, min_notional)
+                raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
             else:
+                margin_assignment = total_equity * self.config['max_capital_pct']
+                raw_quantity = (margin_assignment * leverage) / current_price
                 sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
                 tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
-                
-                max_alloc = equity * max_capital_pct
-                raw_quantity = max_alloc / current_price
             
             quantity = float(round(raw_quantity, qty_precision))
-            
             if (quantity * current_price) < min_notional:
-                return False, f"❌ {symbol}: Insufficient capital for min notional."
-            
-            if quantity <= 0:
-                return False, "Position size too small."
-            
-            # 5. Execute Market Sell (Retry Logic)
-            try:
-                order = None
-                for attempt in range(1, 4):  # 3 Attempts
-                    try:
-                        order = await self.client.futures_create_order(
-                            symbol=symbol, side='SELL', type='MARKET', quantity=quantity
-                        )
-                        break
-                    except Exception as e:
-                        if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
-                            if attempt < 3:
-                                wait_time = 2 * (2 ** (attempt - 1))
-                                print(f"⚠️ Timeout opening {symbol} (Attempt {attempt}/3). Retrying in {wait_time}s...")
-                                await asyncio.sleep(wait_time)
-                                continue
-                        raise e
-                
-                if not order:
-                    raise Exception("Max retries exceeded")
-                
-                entry_price = float(order.get('avgPrice', current_price)) or current_price
-            except Exception as e:
-                return False, f"❌ Failed to open position: {e}"
-            
-            # 6. Place SL/TP Orders (Using tracked helpers for anti-accumulation)
-            try:
-                # Stop Loss with tracking
-                if sl_price > 0:
-                    sl_ok, sl_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'STOP_MARKET', 'BUY', quantity, sl_price
-                    )
-                    if not sl_ok:
-                        print(f"⚠️ SL placement issue: {sl_result}")
-                
-                # Logic: TP1 (50%) + Trailing Stop (50%)
-                qty_tp1 = float(round(quantity / 2, qty_precision))
-                qty_trail = float(round(quantity - qty_tp1, qty_precision))
-                
-                is_split = (qty_tp1 * current_price) > min_notional and (qty_trail * current_price) > min_notional
-                
-                if is_split:
-                    # TP1: Take 50% Profit with tracking
-                    tp1_ok, tp1_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TAKE_PROFIT_MARKET', 'BUY', qty_tp1, tp_price
-                    )
-                    # Trailing: Let the rest run (Activate at TP1, Callback 1.0%)
-                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TRAILING_STOP_MARKET', 'BUY', qty_trail, tp_price,
-                        callbackRate=1.0, activationPrice=tp_price
-                    )
-                    tp_msg = f"TP1: {tp_price} (50%) | Trail: 1.0% (Act: {tp_price})"
-                else:
-                    # Capital too small: Full Trailing Stop with tracking
-                    trail_ok, trail_result, _ = await self._place_conditional_with_tracking(
-                        symbol, 'TRAILING_STOP_MARKET', 'BUY', quantity, entry_price,
-                        callbackRate=1.0, activationPrice=entry_price
-                    )
-                    tp_msg = f"Trailing Stop: {entry_price} (1.0%)"
+                 return False, f"❌ {symbol}: Insufficient capital."
 
-                
-                success_msg = (
-                    f"⚡ {symbol} (x{leverage})\n"
-                    f"🧠 Estrategia: {strategy.replace('_', ' ')}\n\n"
-                    f"📉 Entrada: {entry_price}\n"
-                    f"📦 Tamaño: {quantity}\n\n"
-                    f"🛑 SL: {sl_price}\n"
-                    f"🎯 TP: {tp_msg}"
-                )
-                
+            # 4. Execute Market Sell (SHORT)
+            res = await self.bridge.place_order(symbol, 'SELL', 'MARKET', quantity=quantity)
+            if 'error' in res: return False, f"Bridge Error: {res['error']}"
+            
+            entry_price = float(res.get('price', current_price) or current_price)
+            
+            # 5. Place SL/TP (Buy Orders)
+            # SL (Buy Stop)
+            await self.bridge.place_order(symbol, 'BUY', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
+            # TP (Buy Take Profit)
+            await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
 
-                return True, success_msg
+            return True, (
+                f"✅ Short Executed: {symbol}\n"
+                f"Qty: {quantity} | Entry: {entry_price}\n"
+                f"SL: {sl_price} | TP: {tp_price}"
+            )
 
-                
-            except Exception as e:
-                print(f"⚠️ SL/TP Failed: {e}. Closing position...")
-                try:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side='BUY', type='MARKET',
-                        quantity=quantity, reduceOnly=True
-                    )
-                except:
-                    pass
-                return False, f"⚠️ SL/TP failed ({e}). Position closed for safety."
-        
         except Exception as e:
-            error_msg = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
-            return False, f"[{symbol}] Error: {error_msg}"
-    
-    async def cancel_algo_orders(self, symbol: str) -> int:
+            return False, f"Execution Error: {e}"
+
+
+        async def cancel_algo_orders(self, symbol: str) -> int:
         """
         Cancel ALL conditional orders (SL/TP/Trailing) for a symbol.
         
@@ -1276,83 +1013,37 @@ class AsyncTradingSession:
 
 
     async def execute_close_position(self, symbol: str, only_side: str = None) -> Tuple[bool, str]:
-        """
-        Close position for a symbol.
-        Args:
-            symbol: Asset to close.
-            only_side: If 'LONG' or 'SHORT', will only close if position matches.
-        """
-        
-        # Route non-crypto to Alpaca
-        if 'USDT' not in symbol and self.alpaca_client:
-            try:
-                self.alpaca_client.cancel_orders()
-                self.alpaca_client.close_position(symbol)
-                return True, f"✅ (Alpaca) Closed {symbol}."
-            except Exception as e:
-                return False, f"Alpaca Error: {e}"
-        
-        if not self.client:
-            return False, "No valid session."
-        
+        """Close position for a symbol via Nexus Bridge."""
         try:
-            # 1. Cancel ALL orders BEFORE closing (Standard + Algo)
-            # Use verify=False here since we'll verify at the end
-            for _ in range(3):
-                try:
-                    await self._cancel_all_robust(symbol, verify=False)
-                    break
-                except Exception as e:
-                    await asyncio.sleep(0.5)
+            # 1. Cancel Open Orders
+            await self.bridge.cancel_orders(symbol)
             
-            # 2. Get position
-            positions = await self.client.futures_position_information(symbol=symbol)
-            qty = 0.0
-            for p in positions:
-                if p['symbol'] == symbol:
-                    qty = float(p['positionAmt'])
-                    break
-            
-            if qty == 0:
-                # No position, but ensure all orders are cleared
-                await self.wait_until_orders_cleared(symbol, timeout=2.0)
-                return True, f"⚠️ No position found for {symbol}, orders canceled."
+            # 2. Check Side if requested
+            if only_side:
+                pos = await self.bridge.get_position(symbol)
+                qty = pos.get('quantity', 0)
+                side = pos.get('side', '')
+                if qty == 0:
+                     return True, f"⚠️ No position found for {symbol}."
+                if side != only_side:
+                     return True, f"ℹ️ Skipped Close: {symbol} is {side}, target was {only_side}"
 
-            # SIDE CHECK: For Black Swan (Exit Longs Only)
-            current_side = 'LONG' if qty > 0 else 'SHORT'
-            if only_side and current_side != only_side:
-                 return True, f"ℹ️ Skipped Close: {symbol} is {current_side}, target was {only_side}"
+            # 3. Close Position
+            closed = await self.bridge.close_position(symbol)
             
-            # 3. Close position (Retry Logic)
-            side = 'SELL' if qty > 0 else 'BUY'
+            # 4. Final Cleanup
+            await self.bridge.cancel_orders(symbol)
             
-            for attempt in range(1, 4):
-                try:
-                    await self.client.futures_create_order(
-                        symbol=symbol, side=side, type='MARKET',
-                        reduceOnly=True, quantity=abs(qty)
-                    )
-                    break
-                except Exception as e:
-                    if "timeout" in str(e).lower() or "-1007" in str(e):
-                        if attempt < 3:
-                            await asyncio.sleep(1.0)
-                            continue
-                    raise e
-            
-            # 4. FINAL CLEANUP: Ensure all orders (including algo) are gone
-            # Sometimes closing triggers new algo fills, so cancel again with verification
-            cleared = await self._cancel_all_robust(symbol, verify=True)
-            
-            if not cleared:
-                print(f"⚠️ {symbol}: Some orders may remain after close")
-            
-            return True, f"✅ Closed {symbol} ({qty})."
+            if closed:
+                return True, f"✅ Closed {symbol}."
+            else:
+                return False, f"Bridge reported failure closing {symbol}."
             
         except Exception as e:
-            return False, f"Error: {e}"
-    
-    async def execute_close_all(self) -> Tuple[bool, str]:
+            return False, f"Close Error: {e}"
+
+
+        async def execute_close_all(self) -> Tuple[bool, str]:
         """
         NUCLEAR CLOSE: Close ALL open positions and cancel ALL open orders for ALL symbols.
         Ensures no orphaned orders (standard or algo) remain anywhere in the account.
@@ -1834,41 +1525,34 @@ class AsyncTradingSession:
         return active
     
     async def get_wallet_details(self) -> Dict:
-        """Get wallet balances including Alpaca and Earn products."""
-        if not self.client:
-            return {"error": "No session"}
-        
+        """Get wallet balances from Shadow Wallet (Real-time)."""
         try:
-            # Futures
-            futures_acc = await self.client.futures_account()
-            futures_balance = float(futures_acc.get('totalWalletBalance', 0))
-            futures_pnl = float(futures_acc.get('totalUnrealizedProfit', 0))
+            # 1. Binance Futures
+            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+            futures_balance = bin_bal.get('total', 0.0)
+            futures_available = bin_bal.get('available', 0.0)
+            futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
+            # We could fetch PnL from caching positions if needed
             
-            # Spot
-            spot_acc = await self.client.get_account()
-            spot_usdt = 0.0
-            for asset in spot_acc['balances']:
-                if asset['asset'] == 'USDT':
-                    spot_usdt = float(asset['free']) + float(asset['locked'])
-                    break
+            # 2. Bybit
+            bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
+            bybit_total = bybit_bal.get('total', 0.0)
             
-            # Alpaca Equity
-            alpaca_equity = 0.0
-            if self.alpaca_client:
-                try:
-                    loop = asyncio.get_event_loop()
-                    acct = await loop.run_in_executor(None, self.alpaca_client.get_account)
-                    alpaca_equity = float(acct.equity) if acct else 0.0
-                except Exception as e:
-                    print(f"⚠️ Alpaca equity warning: {e}")
+            # 3. Alpaca
+            alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
+            alpaca_equity = alp_bal.get('total', 0.0)
             
-            total = spot_usdt + futures_balance + alpaca_equity
+            # Legacy Spot support (Mocked for now as we focus on Futures)
+            spot_usdt = 0.0 
+            
+            total = futures_balance + bybit_total + alpaca_equity + spot_usdt
             
             return {
                 "spot_usdt": spot_usdt,
-                "earn_usdt": 0.0,  # Deprecated
+                "earn_usdt": 0.0,
                 "futures_balance": futures_balance,
-                "futures_pnl": futures_pnl,
+                "bybit_balance": bybit_total, # Added Bybit
+                "futures_pnl": 0.0, # TODO: Aggregated PnL
                 "alpaca_equity": alpaca_equity,
                 "total": total
             }
