@@ -110,7 +110,17 @@ class BybitAdapter(IExchangeAdapter):
                 'currency': 'USDT'
             }
         except Exception as e:
-            print(f"⚠️ BybitAdapter: get_balance error: {e}")
+            # Parse error
+            err_msg = str(e)
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_msg)
+            if match:
+                 try:
+                     data = json.loads(match.group(0))
+                     err_msg = f"Bybit Error {data.get('code')}: {data.get('msg')}"
+                 except: pass
+                 
+            print(f"⚠️ BybitAdapter: get_balance error: {err_msg}")
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 
     async def get_market_price(self, symbol: str) -> float:
@@ -395,7 +405,17 @@ class BybitAdapter(IExchangeAdapter):
                     })
             return active
         except Exception as e:
-            print(f"⚠️ BybitAdapter: get_positions error: {e}")
+            # Parse error
+            err_msg = str(e)
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_msg)
+            if match:
+                 try:
+                     data = json.loads(match.group(0))
+                     err_msg = f"Bybit Error {data.get('code')}: {data.get('msg')}"
+                 except: pass
+                 
+            print(f"⚠️ BybitAdapter: get_positions error: {err_msg}")
             return []
 
     async def close(self):

@@ -112,7 +112,10 @@ def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int =
 def calculate_vwap(df: pd.DataFrame) -> pd.Series:
     """Volume Weighted Average Price."""
     try:
-        # ta.vwap requires a DatetimeIndex
+        # ta.vwap requires a DatetimeIndex and it MUST be ordered
+        if not df.index.is_monotonic_increasing:
+             df.sort_index(inplace=True)
+             
         vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'])
         if vwap is None or vwap.isna().all():
             raise ValueError("VWAP returned None or all NaN")

@@ -84,7 +84,17 @@ class BinanceAdapter(IExchangeAdapter):
             return df
             
         except Exception as e:
-            print(f"⚠️ BinanceAdapter: fetch_candles error ({symbol}): {e}")
+            # Parse error
+            err_msg = str(e)
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_msg)
+            if match:
+                 try:
+                     data = json.loads(match.group(0))
+                     err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
+                 except: pass
+                 
+            print(f"⚠️ BinanceAdapter: fetch_candles error ({symbol}): {err_msg}")
             return pd.DataFrame()
 
     async def get_account_balance(self) -> Dict[str, float]:
@@ -101,7 +111,17 @@ class BinanceAdapter(IExchangeAdapter):
                 'currency': 'USDT'
             }
         except Exception as e:
-            print(f"⚠️ BinanceAdapter: get_balance error: {e}")
+            # Parse error
+            err_msg = str(e)
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_msg)
+            if match:
+                 try:
+                     data = json.loads(match.group(0))
+                     err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
+                 except: pass
+            
+            print(f"⚠️ BinanceAdapter: get_balance error: {err_msg}")
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 
     async def place_order(
@@ -234,7 +254,17 @@ class BinanceAdapter(IExchangeAdapter):
                     })
             return active
         except Exception as e:
-            print(f"⚠️ BinanceAdapter: get_positions error: {e}")
+            # Parse error
+            err_msg = str(e)
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_msg)
+            if match:
+                 try:
+                     data = json.loads(match.group(0))
+                     err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
+                 except: pass
+                 
+            print(f"⚠️ BinanceAdapter: get_positions error: {err_msg}")
             return []
 
     async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
