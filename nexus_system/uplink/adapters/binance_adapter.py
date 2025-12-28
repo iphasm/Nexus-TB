@@ -173,15 +173,15 @@ class BinanceAdapter(IExchangeAdapter):
             positions = await self._exchange.fetch_positions()
             active = []
             for p in positions:
-                amt = float(p.get('contracts', 0))
+                amt = float(p.get('contracts') or 0)
                 if amt != 0:
                     active.append({
                         'symbol': p.get('symbol', '').replace('/USDT:USDT', 'USDT'),
                         'side': 'LONG' if amt > 0 else 'SHORT',
                         'quantity': abs(amt),
-                        'entryPrice': float(p.get('entryPrice', 0)),
-                        'unrealizedPnl': float(p.get('unrealizedPnl', 0)),
-                        'leverage': int(p.get('leverage', 1))
+                        'entryPrice': float(p.get('entryPrice') or 0),
+                        'unrealizedPnl': float(p.get('unrealizedPnl') or 0),
+                        'leverage': int(p.get('leverage') or 1)
                     })
             return active
         except Exception as e:
