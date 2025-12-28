@@ -2208,10 +2208,16 @@ class AsyncSessionManager:
         """
         # Sanitize inputs
         raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip().strip("'\"")
-        api_key = os.getenv('BINANCE_API_KEY', '').strip().strip("'\"")
-        api_secret = os.getenv('BINANCE_SECRET', '').strip().strip("'\"")
         
-        if not raw_admin_ids or not api_key or not api_secret:
+        # Binance
+        bin_key = os.getenv('BINANCE_API_KEY', '').strip().strip("'\"")
+        bin_sec = os.getenv('BINANCE_SECRET', '').strip().strip("'\"")
+        
+        # Alpaca
+        alp_key = os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
+        alp_sec = os.getenv('APCA_API_SECRET_KEY', '').strip().strip("'\"")
+        
+        if not raw_admin_ids or not bin_key or not bin_sec:
             return
 
         # Split multiple IDs (e.g. "123,456,789")
@@ -2222,9 +2228,20 @@ class AsyncSessionManager:
             existing = self.sessions.get(admin_id)
             needs_recreation = False
             
+            # Check if config needs update (Alpaca)
+            alpaca_needs_update = False
+            if existing:
+                cfg = existing.config
+                if cfg.get('alpaca_key') != alp_key or cfg.get('alpaca_secret') != alp_sec:
+                    alpaca_needs_update = True
+
             if existing:
                 # Always recreate if keys differ (ENV takes priority)
-                if existing.config_api_key != api_key or existing.config_api_secret != api_secret:
+                # Check Binance params + Alpaca Params
+                if (existing.config_api_key != bin_key or 
+                    existing.config_api_secret != bin_sec or 
+                    alpaca_needs_update):
+                    
                     needs_recreation = True
                     # Close old session's adapters
                     await existing.bridge.close_all()
@@ -2235,7 +2252,8 @@ class AsyncSessionManager:
             
             if needs_recreation:
                 # Create fresh session with ENV credentials
-                session = AsyncTradingSession(admin_id, api_key, api_secret, manager=self)
+                config = {'alpaca_key': alp_key, 'alpaca_secret': alp_sec}
+                session = AsyncTradingSession(admin_id, bin_key, bin_sec, config=config, manager=self)
                 await session.initialize(verbose=verbose)
                 self.sessions[admin_id] = session
                 if verbose:
