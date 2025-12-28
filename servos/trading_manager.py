@@ -2256,8 +2256,16 @@ class AsyncSessionManager:
             
             if needs_recreation:
                 # Create fresh session with ENV credentials
-                config = {'alpaca_key': alp_key, 'alpaca_secret': alp_sec}
-                session = AsyncTradingSession(admin_id, bin_key, bin_sec, config=config, manager=self)
+                
+                # PRESERVE EXISTING CONFIG
+                new_config = {}
+                if existing and existing.config:
+                    new_config = existing.config.copy()
+                
+                # Update with MANDATORY credentials
+                new_config.update({'alpaca_key': alp_key, 'alpaca_secret': alp_sec})
+                
+                session = AsyncTradingSession(admin_id, bin_key, bin_sec, config=new_config, manager=self)
                 await session.initialize(verbose=verbose)
                 self.sessions[admin_id] = session
                 if verbose:
