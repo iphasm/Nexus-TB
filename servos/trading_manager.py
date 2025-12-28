@@ -22,6 +22,9 @@ from servos.ai_analyst import QuantumAnalyst
 # Shield 2.0
 from nexus_system.shield.correlation import CorrelationManager
 
+# Bybit Adapter
+from nexus_system.uplink.adapters.bybit_adapter import BybitAdapter
+
 import pandas as pd
 
 # Alpaca (still sync, but wrapped)
@@ -42,6 +45,7 @@ class AsyncTradingSession:
         self.api_secret = api_secret
         self.client: Optional[AsyncClient] = None
         self.alpaca_client: Optional[TradingClient] = None
+        self.bybit_client: Optional[BybitAdapter] = None
         self.manager = manager
         
         from system_directive import DEFAULT_SESSION_CONFIG
@@ -118,6 +122,18 @@ class AsyncTradingSession:
         
         # 2. Initialize Alpaca (still sync but wrapped)
         await self.initialize_alpaca(verbose=verbose)
+
+        # 3. Initialize Bybit
+        bybit_key = self.config.get('bybit_api_key')
+        bybit_secret = self.config.get('bybit_api_secret')
+        
+        if bybit_key and bybit_secret:
+             self.bybit_client = BybitAdapter(bybit_key, bybit_secret)
+             if await self.bybit_client.initialize():
+                 if verbose: print(f"✅ [Chat {self.chat_id}] Bybit Client Initialized")
+             else:
+                 self.bybit_client = None
+                 if verbose: print(f"❌ [Chat {self.chat_id}] Bybit Client Init Failed")
         
         return success
     
@@ -701,8 +717,19 @@ class AsyncTradingSession:
         """Execute a LONG position asynchronously."""
         
         # Route non-crypto to Alpaca
+        # Route non-crypto to Alpaca
         if 'USDT' not in symbol:
             return await self._execute_alpaca_order(symbol, 'LONG', atr)
+
+        # [NEW] Primary Exchange Routing
+        target = self.config.get('primary_exchange', 'BINANCE')
+        if ':' in symbol:
+             parts = symbol.split(':')
+             target = parts[0].upper()
+             symbol = parts[1]
+             
+        if target == 'BYBIT':
+             return await self._execute_bybit_order(symbol, 'LONG', strategy, atr)
         
         # Ensure Client with retry
         ok, err = await self._ensure_client()
@@ -897,8 +924,19 @@ class AsyncTradingSession:
         """Execute a SHORT position asynchronously."""
         
         # Route non-crypto to Alpaca
+        # Route non-crypto to Alpaca
         if 'USDT' not in symbol:
             return await self._execute_alpaca_order(symbol, 'SHORT', atr)
+
+        # [NEW] Primary Exchange Routing
+        target = self.config.get('primary_exchange', 'BINANCE')
+        if ':' in symbol:
+             parts = symbol.split(':')
+             target = parts[0].upper()
+             symbol = parts[1]
+             
+        if target == 'BYBIT':
+             return await self._execute_bybit_order(symbol, 'SHORT', strategy, atr)
         
         if not self.client:
             return False, "No valid API Keys provided."
@@ -1926,6 +1964,78 @@ class AsyncTradingSession:
             self._alpaca_order_sync, 
             symbol, side, atr
         )
+
+    async def _execute_bybit_order(self, symbol: str, side: str, strategy: str = "Manual", atr: Optional[float] = None) -> Tuple[bool, str]:
+        """Execute order via Bybit Adapter."""
+        if not self.bybit_client:
+            return False, "⚠️ Bybit Client not initialized."
+            
+        try:
+            # 1. Get Account Info
+            bal = await self.bybit_client.get_account_balance()
+            total_equity = bal['total']
+            
+            # 2. Get Price
+            current_price = await self.bybit_client.get_market_price(symbol)
+            if current_price <= 0:
+                return False, f"❌ Failed to fetch price for {symbol}"
+                
+            # 3. Leverage
+            leverage = self.config['leverage']
+            await self.bybit_client.set_leverage(symbol, leverage)
+            
+            # 4. Sizing & SL/TP
+            tp_ratio = self.config.get('tp_ratio', 1.5)
+            stop_loss_pct = self.config['stop_loss_pct']
+            
+            if atr and atr > 0:
+                 mult = self.config.get('atr_multiplier', 2.0)
+                 sl_dist = mult * atr
+                 if side == 'LONG':
+                     sl_price = round(current_price - sl_dist, 2)
+                     tp_price = round(current_price + (tp_ratio * sl_dist), 2)
+                 else:
+                     sl_price = round(current_price + sl_dist, 2)
+                     tp_price = round(current_price - (tp_ratio * sl_dist), 2)
+                 
+                 # Dynamic Sizing (Approx)
+                 risk_amt = total_equity * 0.01 
+                 dist_to_sl = sl_dist
+                 raw_quantity = risk_amt / dist_to_sl if dist_to_sl > 0 else 0
+            else:
+                 margin_assignment = total_equity * self.config['max_capital_pct']
+                 raw_quantity = (margin_assignment * leverage) / current_price
+                 
+                 if side == 'LONG':
+                     sl_price = round(current_price * (1 - stop_loss_pct), 2)
+                     tp_price = round(current_price * (1 + (stop_loss_pct * 3)), 2)
+                 else:
+                     sl_price = round(current_price * (1 + stop_loss_pct), 2)
+                     tp_price = round(current_price * (1 - (stop_loss_pct * 3)), 2)
+
+            quantity = round(raw_quantity, 4) 
+            
+            if quantity <= 0: return False, "Quantity too small."
+            
+            # 5. Execute
+            res = await self.bybit_client.place_order(
+                symbol, side, 'MARKET', quantity, 
+                takeProfit=str(tp_price), stopLoss=str(sl_price)
+            )
+            
+            if 'error' in res:
+                return False, f"Bybit Error: {res['error']}"
+                
+            return True, (
+                f"✅ Bybit {side} {symbol}\n"
+                f"Qty: {quantity}\n"
+                f"Entry: {current_price}\n"
+                f"SL: {sl_price}\n"
+                f"TP: {tp_price}"
+            )
+
+        except Exception as e:
+            return False, f"Bybit Execution Error: {e}"
     
     def _alpaca_order_sync(self, symbol: str, side: str, atr: Optional[float]) -> Tuple[bool, str]:
         """Sync Alpaca order execution (called via run_in_executor)."""

@@ -487,3 +487,77 @@ async def cmd_set_margin(message: Message, **kwargs):
         parse_mode="Markdown"
     )
 
+
+@router.message(Command("exchanges"))
+async def cmd_exchanges(message: Message, **kwargs):
+    """Unified Exchange Management Dashboard"""
+    edit_message = kwargs.get('edit_message', False)
+    session_manager = kwargs.get('session_manager')
+    
+    session = None
+    if session_manager:
+        session = session_manager.get_session(str(message.chat.id))
+    
+    # 1. Status Checks
+    # Binance
+    bin_key = session.config.get('api_key') if session else None
+    bin_status = "✅ Conectado" if bin_key else "❌ No Configurado"
+    bin_bal = session.wallet.get('total_usdt', 0) if session else 0
+    
+    # Bybit
+    bybit_key = session.config.get('bybit_api_key') if session else None
+    bybit_status = "✅ Conectado" if bybit_key else "❌ No Configurado"
+    bybit_bal = session.wallet.get('bybit_balance', 0) if session else 0
+    
+    # Alpaca
+    alp_key = session.config.get('alpaca_key') if session else None
+    alp_status = "✅ Conectado" if alp_key else "❌ No Configurado"
+    alp_bal = session.wallet.get('alpaca_equity', 0) if session else 0
+    
+    # 2. Primary Exchange State
+    primary = session.config.get('primary_exchange', 'BINANCE') if session else 'BINANCE'
+    p_icon = "⭐"
+    
+    # 3. Build UI Text
+    msg_text = (
+        "🏦 **GESTIÓN DE EXCHANGES**\n"
+        "Configuración y estado de cuentas conectadas.\n\n"
+        
+        f"🟡 **Binance Futures** [{bin_status}]\n"
+        f"   • Saldo: `${bin_bal:,.2f}`\n\n"
+        
+        f"⬛ **Bybit** [{bybit_status}]\n"
+        f"   • Saldo: `${bybit_bal:,.2f}`\n\n"
+        
+        f"🦙 **Alpaca (Stocks)** [{alp_status}]\n"
+        f"   • Equity: `${alp_bal:,.2f}`\n\n"
+        
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{p_icon} **Exchange Principal (Crypto):** [ {primary} ]\n"
+        "_(Las operaciones crypto irán aquí por defecto)_"
+    )
+    
+    # 4. Build Keyboard
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔑 Config Binance", callback_data="WIZARD|BINANCE"),
+            InlineKeyboardButton(text="🔑 Config Bybit", callback_data="WIZARD|BYBIT")
+        ],
+        [
+            InlineKeyboardButton(text="🔑 Config Alpaca", callback_data="WIZARD|ALPACA"),
+            InlineKeyboardButton(text="🗑️ Reset Keys", callback_data="CMD|delete_keys")
+        ],
+        [
+             InlineKeyboardButton(text="⭐ Set Primary: BINANCE", callback_data="EXCHANGE|PRIMARY|BINANCE"),
+             InlineKeyboardButton(text="⭐ Set Primary: BYBIT", callback_data="EXCHANGE|PRIMARY|BYBIT")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")
+        ]
+    ])
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+

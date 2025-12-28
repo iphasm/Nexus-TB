@@ -153,21 +153,6 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
     
-    # Personality
-    elif cmd == "personality":
-        from handlers.config import cmd_personality
-        await cmd_personality(callback.message, session_manager=session_manager)
-    
-    # Strategies
-    elif cmd == "strategies":
-        from handlers.config import cmd_strategies
-        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
-    
-    # Toggle Group
-    elif cmd == "togglegroup":
-        from handlers.config import cmd_togglegroup
-        await cmd_togglegroup(callback.message, session_manager=session_manager, edit_message=True)
-    
     # Assets
     elif cmd == "assets":
         from handlers.config import cmd_assets
