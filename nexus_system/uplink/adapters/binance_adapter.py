@@ -52,10 +52,8 @@ class BinanceAdapter(IExchangeAdapter):
             https_proxy = kwargs.get('https_proxy') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
             
             if http_proxy:
-                config['proxies'] = {
-                    'http': http_proxy,
-                    'https': https_proxy or http_proxy
-                }
+                config['httpProxy'] = http_proxy
+                config['httpsProxy'] = https_proxy or http_proxy
                 print(f"🌍 BinanceAdapter: Using Proxy -> {http_proxy}")
 
             self._exchange = ccxt.binanceusdm(config)

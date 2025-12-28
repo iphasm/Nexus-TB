@@ -54,8 +54,9 @@ class BybitAdapter(IExchangeAdapter):
             if config_options.get('http_proxy'):
                 config['httpProxy'] = config_options['http_proxy']
                 print(f"🌍 BybitAdapter: Using Proxy -> {config_options['http_proxy']}")
-            if config_options.get('https_proxy'):
-                config['httpsProxy'] = config_options['https_proxy']
+            # REMOVED https_proxy to avoid Bybit conflict error "use only one"
+            # if config_options.get('https_proxy'):
+            #     config['httpsProxy'] = config_options['https_proxy']
             
             # Testnet support
             if self._testnet:
