@@ -1919,9 +1919,9 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
     # Map exchange to asset groups
     exchange_groups = {
         'BINANCE': ['CRYPTO'],
-        'BYBIT': ['CRYPTO'],  # Same assets, different adapter
+        'BYBIT': ['BYBIT'],  # Uses dedicated BYBIT asset list
         'ALPACA': ['STOCKS', 'ETFS'],
-        'ALL': ['CRYPTO', 'STOCKS', 'ETFS']
+        'ALL': ['CRYPTO', 'BYBIT', 'STOCKS', 'ETFS']
     }
     
     exchange_icons = {
@@ -1947,7 +1947,7 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
         if not assets:
             continue
         
-        group_icon = '💎' if group_name == 'CRYPTO' else '📈' if group_name == 'STOCKS' else '📦'
+        group_icon = '🟡' if group_name == 'CRYPTO' else '⬛' if group_name == 'BYBIT' else '📈' if group_name == 'STOCKS' else '📦'
         report_lines.append(f"\n{group_icon} <b>{group_name}</b> ({len(assets)} activos)")
         report_lines.append("─" * 30)
         
