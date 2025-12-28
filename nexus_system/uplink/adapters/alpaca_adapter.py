@@ -139,6 +139,29 @@ class AlpacaAdapter(IExchangeAdapter):
             
         except Exception as e:
             print(f"⚠️ AlpacaAdapter: fetch_candles error ({symbol}): {e}")
+            return pd.DataFrame()
+
+    async def get_account_balance(self) -> Dict[str, float]:
+        """Get Alpaca account balance."""
+        if not self._trading_client:
+            return {'total': 0, 'available': 0, 'currency': 'USD'}
+            
+        try:
+            account = self._trading_client.get_account()
+            return {
+                'total': float(account.equity),
+                'available': float(account.buying_power),
+                'currency': 'USD'
+            }
+        except Exception as e:
+            print(f"⚠️ AlpacaAdapter: get_balance error: {e}")
+            return {'total': 0, 'available': 0, 'currency': 'USD'}
+
+    async def place_order(
+        self, 
+        symbol: str, 
+        side: str,
+        order_type: str,
         quantity: float,
         price: Optional[float] = None,
         **kwargs
