@@ -215,8 +215,93 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         from handlers.commands import cmd_start
         await cmd_start(callback.message, session_manager=session_manager, edit_message=True)
     
+    elif cmd == "exchanges":
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+    
+    elif cmd == "delete_keys":
+        # Show danger zone confirmation
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ CONFIRMAR BORRADO", callback_data="CONFIRM_DELETE_KEYS")],
+            [InlineKeyboardButton(text="⬅️ Cancelar", callback_data="CMD|exchanges")]
+        ])
+        await callback.message.edit_text(
+            "⚠️ *ZONA DE PELIGRO*\n\n"
+            "Esto borrará TODAS tus API Keys y configuración.\n"
+            "¿Estás seguro?",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+    
     else:
         await callback.message.answer(f"⚠️ Comando no reconocido: {cmd}")
+
+
+@router.callback_query(F.data.startswith("WIZARD|"))
+async def handle_wizard_callback(callback: CallbackQuery, **kwargs):
+    """Handle API Key Setup Wizard"""
+    exchange = callback.data.split("|")[1]
+    
+    await safe_answer(callback)
+    
+    # Map exchange to command
+    cmd_map = {
+        'BINANCE': '/set_binance',
+        'BYBIT': '/set_bybit',
+        'ALPACA': '/set_alpaca'
+    }
+    
+    cmd = cmd_map.get(exchange, '/set_binance')
+    
+    await callback.message.edit_text(
+        f"🔑 *Configurar {exchange}*\n\n"
+        f"Envía tus claves API en el siguiente formato:\n\n"
+        f"`{cmd} TU_API_KEY TU_API_SECRET`\n\n"
+        f"_Las claves se guardan de forma segura._",
+        parse_mode="Markdown"
+    )
+
+
+@router.callback_query(F.data.startswith("EXCHANGE|PRIMARY|"))
+async def handle_primary_exchange(callback: CallbackQuery, **kwargs):
+    """Handle Primary Exchange Selection"""
+    session_manager = kwargs.get('session_manager')
+    exchange = callback.data.split("|")[2]
+    
+    await safe_answer(callback)
+    
+    if not session_manager:
+        await callback.message.answer("⚠️ Error interno.")
+        return
+    
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.message.answer("⚠️ Sin sesión activa.")
+        return
+    
+    # Update primary exchange
+    await session.update_config('primary_exchange', exchange)
+    await session_manager.save_sessions()
+    
+    # Refresh the exchanges panel
+    from handlers.config import cmd_exchanges
+    await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+
+
+@router.callback_query(F.data == "CONFIRM_DELETE_KEYS")
+async def handle_confirm_delete(callback: CallbackQuery, **kwargs):
+    """Handle key deletion confirmation"""
+    session_manager = kwargs.get('session_manager')
+    
+    await safe_answer(callback)
+    
+    if session_manager:
+        chat_id = str(callback.message.chat.id)
+        session_manager.remove_session(chat_id)
+        await session_manager.save_sessions()
+        await callback.message.edit_text("🗑️ *Sesión eliminada.*\n\nUsa /start para comenzar de nuevo.", parse_mode="Markdown")
+    else:
+        await callback.message.answer("⚠️ Error interno.")
 
 
 @router.callback_query(F.data.startswith("CFG|"))
