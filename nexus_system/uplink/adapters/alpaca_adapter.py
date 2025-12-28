@@ -33,8 +33,14 @@ class AlpacaAdapter(IExchangeAdapter):
     """
 
     def __init__(self, api_key: str = None, api_secret: str = None, paper: bool = True, **kwargs):
-        self._api_key = api_key or os.getenv('APCA_API_KEY_ID', '').strip("'\" ")
-        self._api_secret = api_secret or os.getenv('APCA_API_SECRET_KEY', '').strip("'\" ")
+        self._api_key = (api_key or 
+                         os.getenv('ALPACA_API_KEY') or 
+                         os.getenv('APCA_API_KEY_ID', '')).strip("'\" ")
+        
+        self._api_secret = (api_secret or 
+                            os.getenv('ALPACA_API_SECRET') or 
+                            os.getenv('ALPACA_SECRET_KEY') or 
+                            os.getenv('APCA_API_SECRET_KEY', '')).strip("'\" ")
         self._paper = paper
         self._trading_client = None
         self._data_client = None

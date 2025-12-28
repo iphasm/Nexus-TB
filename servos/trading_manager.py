@@ -126,14 +126,22 @@ class AsyncTradingSession:
             if verbose: print(f"✅ Bridge: Connected to Bybit")
             
         # 3. Alpaca
-        alp_key = self.config.get('alpaca_key') or os.getenv('ALPACA_API_KEY')
-        alp_sec = self.config.get('alpaca_secret') or os.getenv('ALPACA_SECRET_KEY')
+        alp_key = (self.config.get('alpaca_key') or 
+                   os.getenv('ALPACA_API_KEY') or 
+                   os.getenv('APCA_API_KEY_ID'))
+        alp_sec = (self.config.get('alpaca_secret') or 
+                   os.getenv('ALPACA_API_SECRET') or 
+                   os.getenv('ALPACA_SECRET_KEY') or 
+                   os.getenv('APCA_API_SECRET_KEY'))
+        
         if alp_key and alp_sec:
+             # Respect PAPER_MODE env or default to True
+             paper_mode = os.getenv('PAPER_MODE', 'true').lower() == 'true'
              await self.bridge.connect_exchange(
                 'ALPACA',
-                api_key=alp_key,
-                api_secret=alp_sec,
-                paper=True, # Explicitly default to paper for safety
+                api_key=alp_key.strip(),
+                api_secret=alp_sec.strip(),
+                paper=paper_mode,
                 **exchange_kwargs
             )
              if verbose: print(f"✅ Bridge: Connected to Alpaca")
