@@ -1858,10 +1858,9 @@ class AsyncTradingSession:
         
         # 3. Verify position is actually closed before opening new
         try:
-            positions = await self.client.futures_position_information(symbol=symbol)
-            for pos in positions:
-                if float(pos.get('positionAmt', 0)) != 0:
-                    return False, f"Flip Aborted: Position still open ({pos.get('positionAmt')} contracts)"
+            pos = await self.bridge.get_position(symbol)
+            if pos and pos.get('quantity', 0) != 0:
+                return False, f"Flip Aborted: Position still open ({pos.get('quantity')} contracts)"
         except Exception as e:
             print(f"⚠️ Warning: Could not verify position closure: {e}")
         
@@ -1895,12 +1894,22 @@ class AsyncTradingSession:
         if not self.config.get('circuit_breaker_enabled', True):
             return False, ""
         
-        if not self.client:
+        if not self.bridge:
             return False, ""
         
         try:
+            # NOTE: CCXT doesn't have futures_income_history equivalent
+            # This feature requires python-binance or direct API call
+            # For now, skip circuit breaker check when using CCXT
+            binance_adapter = self.bridge.adapters.get('BINANCE')
+            if not binance_adapter or not hasattr(binance_adapter._exchange, 'fapiPrivateGetIncome'):
+                return False, ""  # Skip if method not available
+            
             # Fetch last 20 Income entries (REALIZED_PNL only)
-            income = await self.client.futures_income_history(incomeType='REALIZED_PNL', limit=20)
+            income = await binance_adapter._exchange.fapiPrivateGetIncome({
+                'incomeType': 'REALIZED_PNL',
+                'limit': 20
+            })
             
             # Sort descending by time (Newest first)
             income.sort(key=lambda x: x['time'], reverse=True)
@@ -1936,24 +1945,30 @@ class AsyncTradingSession:
 
     async def get_pnl_history(self, days: int = 1) -> Tuple[float, List[Dict]]:
         """Fetches Realized PnL from Binance for the last N days"""
-        if not self.client:
+        if not self.bridge:
             return 0.0, []
         
         try:
+            # Get Binance adapter from bridge
+            binance_adapter = self.bridge.adapters.get('BINANCE')
+            if not binance_adapter or not binance_adapter._exchange:
+                return 0.0, []
+                
+            exchange = binance_adapter._exchange
             start_time = int((time.time() - (days * 86400)) * 1000)
             
-            # Fetch Realized PnL
-            income = await self.client.futures_income_history(
-                incomeType='REALIZED_PNL',
-                startTime=start_time,
-                limit=100
-            )
+            # Fetch Realized PnL using CCXT's direct API call
+            income = await exchange.fapiPrivateGetIncome({
+                'incomeType': 'REALIZED_PNL',
+                'startTime': start_time,
+                'limit': 100
+            })
             # Fetch Commission (to subtract for Net PnL)
-            commission = await self.client.futures_income_history(
-                incomeType='COMMISSION',
-                startTime=start_time,
-                limit=100
-            )
+            commission = await exchange.fapiPrivateGetIncome({
+                'incomeType': 'COMMISSION',
+                'startTime': start_time,
+                'limit': 100
+            })
             
             total_pnl = 0.0
             details = []
