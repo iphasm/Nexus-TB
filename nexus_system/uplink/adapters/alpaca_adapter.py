@@ -33,9 +33,19 @@ class AlpacaAdapter(IExchangeAdapter):
     """
 
     def __init__(self, api_key: str = None, api_secret: str = None, paper: bool = True, **kwargs):
-        self._api_key = (api_key or 
-                         os.getenv('ALPACA_API_KEY') or 
-                         os.getenv('APCA_API_KEY_ID', '')).strip("'\" ")
+        # Track credential source for debugging
+        key_source = 'PARAM'
+        if api_key:
+            self._api_key = api_key.strip("'\" ")
+        elif os.getenv('ALPACA_API_KEY'):
+            self._api_key = os.getenv('ALPACA_API_KEY').strip("'\" ")
+            key_source = 'ALPACA_API_KEY env'
+        elif os.getenv('APCA_API_KEY_ID'):
+            self._api_key = os.getenv('APCA_API_KEY_ID').strip("'\" ")
+            key_source = 'APCA_API_KEY_ID env'
+        else:
+            self._api_key = ''
+            key_source = 'NONE'
         
         self._api_secret = (api_secret or 
                             os.getenv('ALPACA_API_SECRET') or 
@@ -46,6 +56,7 @@ class AlpacaAdapter(IExchangeAdapter):
         self._trading_client = None
         self._data_client = None
         self._proxy_config = kwargs
+        self._key_source = key_source  # Store for error messages
 
     @property
     def name(self) -> str:
@@ -81,7 +92,7 @@ class AlpacaAdapter(IExchangeAdapter):
             mode = 'PAPER' if self._paper else 'LIVE'
             key_preview = self._api_key[:5] + "..." if self._api_key else "None"
             print(f"❌ AlpacaAdapter: Init failed ({mode}) - {e}")
-            print(f"   Key Prefix: {key_preview} (Paper keys usually start with 'PK')")
+            print(f"   Key Prefix: {key_preview} | Source: {self._key_source}")
             print(f"   Tip: Check your .env file and ensure config matches.")
             return False
 
