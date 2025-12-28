@@ -1843,7 +1843,7 @@ class AsyncTradingSession:
         4. Verify position is closed
         5. Open New Position (Reverse).
         """
-        if not self.client:
+        if not self.bridge:
             return False, "No valid session."
         
         # 1. Close Current
