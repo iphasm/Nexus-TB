@@ -845,8 +845,7 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Execution Error: {e}"
 
-
-        async def cancel_algo_orders(self, symbol: str) -> int:
+    async def cancel_algo_orders(self, symbol: str) -> int:
         """
         Cancel ALL conditional orders (SL/TP/Trailing) for a symbol.
         
