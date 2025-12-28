@@ -76,10 +76,11 @@ STRATEGY_CONFIG_MAP = {
     'Grid': 'GRID',
     'GridTrading': 'GRID',
     'GRID': 'GRID',
-    'BlackSwan': 'BLACK_SWAN',
-    'BLACK_SWAN': 'BLACK_SWAN',
-    'Shark': 'SHARK',
-    'SHARK': 'SHARK',
+    'BlackSwan': 'SENTINEL',
+    'BLACK_SWAN': 'SENTINEL',
+    'Shark': 'SENTINEL',
+    'SHARK': 'SENTINEL',
+    'Sentinel': 'SENTINEL',
 }
 
 # Maps Strategy Name to Class Name (for Factory)
@@ -89,7 +90,9 @@ STRATEGY_CLASS_MAP = {
     'Scalping': 'ScalpingStrategy',
     'Grid': 'GridTradingStrategy',
     'MeanReversion': 'MeanReversionStrategy',
-    'Shark': 'SharkStrategy',
+    'Shark': 'SentinelStrategy',
+    'BlackSwan': 'SentinelStrategy',
+    'Sentinel': 'SentinelStrategy',
 }
 
 # Runtime Blacklist (Global)
