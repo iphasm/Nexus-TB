@@ -283,6 +283,34 @@ class BinanceAdapter(IExchangeAdapter):
             # print(f"⚠️ BinanceAdapter Info Error: {e}")
             return {}
 
+    async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
+        """Get open orders for a symbol (or all if symbol is None)."""
+        if not self._exchange:
+            return []
+        try:
+            formatted = None
+            if symbol:
+                formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+            
+            orders = await self._exchange.fetch_open_orders(formatted)
+            
+            result = []
+            for o in orders:
+                result.append({
+                    'orderId': o.get('id'),
+                    'symbol': o.get('symbol', '').replace('/USDT:USDT', 'USDT'),
+                    'type': o.get('type', '').upper(),
+                    'side': o.get('side', '').upper(),
+                    'quantity': float(o.get('amount') or 0),
+                    'price': float(o.get('price') or 0),
+                    'stopPrice': float(o.get('stopPrice') or o.get('triggerPrice') or 0),
+                    'status': o.get('status')
+                })
+            return result
+        except Exception as e:
+            print(f"⚠️ BinanceAdapter: get_open_orders error: {e}")
+            return []
+
     async def cancel_orders(self, symbol: str) -> bool:
         """Cancel all open orders for symbol."""
         if not self._exchange: return False

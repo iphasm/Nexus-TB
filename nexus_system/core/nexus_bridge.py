@@ -76,6 +76,14 @@ class NexusBridge:
             return await adapter.get_symbol_info(symbol)
         return {}
 
+    async def get_open_orders(self, symbol: str = None) -> list:
+        """Get open orders via adapter."""
+        target = self._route_symbol(symbol) if symbol else self.primary_exchange
+        adapter = self.adapters.get(target)
+        if adapter and hasattr(adapter, 'get_open_orders'):
+            return await adapter.get_open_orders(symbol)
+        return []
+
     async def cancel_orders(self, symbol: str) -> bool:
         """Cancel all open orders via adapter."""
         target = self._route_symbol(symbol)

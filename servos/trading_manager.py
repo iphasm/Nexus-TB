@@ -76,6 +76,19 @@ class AsyncTradingSession:
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
     
+    @property
+    def client(self):
+        """
+        Backward compatibility property.
+        Returns the underlying CCXT exchange from Binance adapter.
+        NOTE: This returns a CCXT exchange (binanceusdm), not python-binance AsyncClient.
+        Some method names differ. For futures operations, use CCXT equivalents.
+        """
+        if self.bridge and 'BINANCE' in self.bridge.adapters:
+            adapter = self.bridge.adapters['BINANCE']
+            return adapter._exchange  # CCXT binanceusdm instance
+        return None
+    
 
 
     async def initialize(self, verbose: bool = True) -> bool:
@@ -502,18 +515,18 @@ class AsyncTradingSession:
         
         Anti-Accumulation Logic:
         1. Fetch all open orders
-        2. Cancel each order individually
+        2. Cancel all orders via bridge
         3. Verify no orders remain (optional)
         4. Clear tracked algo orders
         
         Returns: True if all orders cleared, False if some remain
         """
-        if not self.client:
-            return True  # No client means no orders
+        if not self.bridge:
+            return True  # No bridge means no orders
             
         try:
-            # 1. Get all open orders
-            all_orders = await self.client.futures_get_open_orders(symbol=symbol)
+            # 1. Get all open orders via bridge
+            all_orders = await self.bridge.get_open_orders(symbol)
             
             if not all_orders:
                 # Clear tracking dict
@@ -523,23 +536,13 @@ class AsyncTradingSession:
                 
             print(f"🧹 {symbol}: Cancelling {len(all_orders)} existing orders...")
             
-            # 2. Cancel each order
-            cancelled_count = 0
-            for order in all_orders:
-                try:
-                    order_id = order.get('orderId')
-                    if order_id:
-                        await self.client.futures_cancel_order(
-                            symbol=symbol, 
-                            orderId=order_id
-                        )
-                        cancelled_count += 1
-                except Exception as e:
-                    # Order might already be filled/cancelled
-                    if '-2011' not in str(e):  # Unknown order
-                        print(f"⚠️ Cancel failed for order {order_id}: {e}")
-                        
-            print(f"✅ {symbol}: Cancelled {cancelled_count}/{len(all_orders)} orders")
+            # 2. Cancel all orders via bridge (CCXT handles this atomically)
+            success = await self.bridge.cancel_orders(symbol)
+            
+            if success:
+                print(f"✅ {symbol}: All orders cancelled")
+            else:
+                print(f"⚠️ {symbol}: Cancel command executed (may have partial cancellation)")
             
             # 3. Clear tracked algo orders
             if symbol in self.active_algo_orders:
@@ -548,7 +551,7 @@ class AsyncTradingSession:
             # 4. Verify (optional, adds latency)
             if verify:
                 await asyncio.sleep(0.3)  # Small delay for order state to propagate
-                remaining = await self.client.futures_get_open_orders(symbol=symbol)
+                remaining = await self.bridge.get_open_orders(symbol)
                 if remaining:
                     print(f"⚠️ {symbol}: {len(remaining)} orders still remain after cancel")
                     return False
@@ -619,10 +622,8 @@ class AsyncTradingSession:
         5. V3: Validate triggers against current price to avoid -2021.
         """
         try:
-            # 1. Fetch existing orders (BOTH standard AND algo)
-            standard_orders = await self.client.futures_get_open_orders(symbol=symbol)
-            algo_orders = await self.get_open_algo_orders(symbol)
-            orders = standard_orders + algo_orders
+            # 1. Fetch existing orders via bridge
+            orders = await self.bridge.get_open_orders(symbol)
             
             existing_sl = None
             existing_tp_count = 0
@@ -678,12 +679,14 @@ class AsyncTradingSession:
                     valid_sl = False
             
             if sl_price > 0 and valid_sl:
-                await self._place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='STOP_MARKET',
-                    stopPrice=sl_price, quantity=abs_qty, reduceOnly=True
+                result = await self.bridge.place_order(
+                    symbol=symbol, side=sl_side, order_type='STOP_MARKET',
+                    quantity=abs_qty, price=sl_price, reduceOnly=True
                 )
-                sl_msg = f"SL: {sl_price}"
+                if result.get('error'):
+                    sl_msg = f"⚠️ SL Error: {result['error']}"
+                else:
+                    sl_msg = f"SL: {sl_price}"
                 
             # 6. Place TP (split or single trailing) with -2021 check
             tp_msg = ""
@@ -711,17 +714,15 @@ class AsyncTradingSession:
 
                 # TP1 (fixed)
                 if valid_tp:
-                    await self._place_order_with_retry(
-                        self.client.futures_create_order,
-                        symbol=symbol, side=sl_side, type='TAKE_PROFIT_MARKET',
-                        stopPrice=tp_price, quantity=qty_tp1, reduceOnly=True
+                    await self.bridge.place_order(
+                        symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
+                        quantity=qty_tp1, price=tp_price, reduceOnly=True
                     )
                 # Trailing for rest
                 activation = tp_price  # Activate at TP1
-                await self._place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=qty_trail, callbackRate=1.0, activationPrice=activation, reduceOnly=True
+                await self.bridge.place_order(
+                    symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
+                    quantity=qty_trail, price=activation, callbackRate=1.0, reduceOnly=True
                 )
                 tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
             else:
@@ -729,10 +730,9 @@ class AsyncTradingSession:
                 # Fix: Use tp_price as activation. entry_price can be invalid if currently in profit
                 # (e.g. SHORT Entry 100, Current 90. Activation cannot be 100 for BUY Trailing)
                 activation = tp_price 
-                await self._place_order_with_retry(
-                    self.client.futures_create_order,
-                    symbol=symbol, side=sl_side, type='TRAILING_STOP_MARKET',
-                    quantity=abs_qty, callbackRate=1.0, activationPrice=activation, reduceOnly=True
+                await self.bridge.place_order(
+                    symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
+                    quantity=abs_qty, price=activation, callbackRate=1.0, reduceOnly=True
                 )
                 tp_msg = f"Trail: {activation} (1.0%)"
             
@@ -1068,7 +1068,7 @@ class AsyncTradingSession:
         Refresh SL/TP/Trailing for ALL active positions.
         Forces update based on CURRENT price (Trailing) and Config (SL/TP %).
         """
-        if not self.client:
+        if not self.bridge:
             return "❌ No invalid session."
 
         try:
@@ -1098,9 +1098,8 @@ class AsyncTradingSession:
                 side = 'LONG' if qty > 0 else 'SHORT'
                 entry_price = float(p['entry'])
                 
-                # Get current price
-                ticker = await self.client.futures_symbol_ticker(symbol=symbol)
-                current_price = float(ticker['price'])
+                # Get current price via Bridge (CCXT-compatible)
+                current_price = await self.bridge.get_last_price(symbol)
                 
                 # Get precision
                 qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
