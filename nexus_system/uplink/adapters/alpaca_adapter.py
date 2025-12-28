@@ -54,6 +54,30 @@ class AlpacaAdapter(IExchangeAdapter):
             from alpaca.trading.client import TradingClient
             from alpaca.data.historical import StockHistoricalDataClient
             
+            self._trading_client = TradingClient(
+                self._api_key, 
+                self._api_secret, 
+                paper=self._paper
+            )
+            self._data_client = StockHistoricalDataClient(
+                self._api_key, 
+                self._api_secret
+            )
+            
+            # Test connection
+            acct = self._trading_client.get_account()
+            # print(f"✅ Alpaca Connected ({'PAPER' if self._paper else 'LIVE'}): {acct.status}")
+            return True
+            
+        except Exception as e:
+            mode = 'PAPER' if self._paper else 'LIVE'
+            key_preview = self._api_key[:5] + "..." if self._api_key else "None"
+            print(f"❌ AlpacaAdapter: Init failed ({mode}) - {e}")
+            print(f"   Key Prefix: {key_preview} (Paper keys usually start with 'PK')")
+            print(f"   Tip: Check your .env file and ensure config matches.")
+            return False
+
+    async def fetch_candles(
         self, 
         symbol: str, 
         timeframe: str = '15m', 
