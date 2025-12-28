@@ -228,7 +228,8 @@ class AlpacaAdapter(IExchangeAdapter):
                     'quantity': abs(float(p.qty)),
                     'entryPrice': float(p.avg_entry_price),
                     'unrealizedPnl': float(p.unrealized_pl),
-                    'currentPrice': float(p.current_price)
+                    'currentPrice': float(p.current_price),
+                    'exchange': 'ALPACA'
                 })
             return result
         except Exception as e:

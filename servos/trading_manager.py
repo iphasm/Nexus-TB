@@ -1485,55 +1485,49 @@ class AsyncTradingSession:
             return False, f"Spot Buy Error: {e}"
     
     async def get_active_positions(self) -> List[Dict]:
-        """Get list of active positions (Binance + Alpaca)."""
+        """Get list of active positions (Unified via NexusBridge)."""
         active = []
         
-        # 1. Binance Futures
-        if self.client:
-            try:
-                # Use futures_account to get positions with correct leverage
-                account = await self.client.futures_account()
-                positions = account.get('positions', [])
-                
-                for p in positions:
-                    amt = float(p.get('positionAmt', 0))
-                    if abs(amt) > 0.0001:  # Filter dust
-                        # Get leverage from position data
-                        lev = p.get('leverage', '5')
-                        active.append({
-                            'symbol': p['symbol'],
-                            'amt': amt,
-                            'entry': float(p.get('entryPrice', 0)),
-                            'pnl': float(p.get('unrealizedProfit', 0)),
-                            'leverage': int(lev) if isinstance(lev, (int, float)) else int(lev),
-                            'source': 'BINANCE'
-                        })
-            except Exception as e:
-                print(f"Binance Position error: {e}")
-        
-        # 2. Alpaca Stocks
-        if self.alpaca_client:
-            try:
-                loop = asyncio.get_event_loop()
-                # Run sync Alpaca call in executor
-                alp_positions = await loop.run_in_executor(None, self.alpaca_client.get_all_positions)
-                
-                for p in alp_positions:
-                    amt = float(p.qty)
-                    if p.side == 'short':
-                        amt = -abs(amt)
+        # 1. Force Sync via Bridge (ensure fresh data)
+        if self.bridge:
+            for name, adapter in self.bridge.adapters.items():
+                try:
+                    # Sync Positions
+                    positions = await adapter.get_positions()
+                    for pos in positions:
+                        self.shadow_wallet.update_position(pos['symbol'], pos)
                         
-                    active.append({
-                        'symbol': p.symbol,
-                        'amt': amt,
-                        'entry': float(p.avg_entry_price),
-                        'pnl': float(p.unrealized_pl),
-                        'leverage': 1, # Stocks usually 1:1 or 1:2, hard to track per pos via API simply
-                        'source': 'ALPACA'
-                    })
-            except Exception as e:
-                print(f"Alpaca Position error: {e}")
+                    # Sync Balance (fast enough to do here)
+                    balance = await adapter.get_account_balance()
+                    self.shadow_wallet.update_balance(name, balance)
+                except Exception as e:
+                    print(f"⚠️ Dashboard Sync Error ({name}): {e}")
 
+        # 2. Read from Shadow Wallet
+        for symbol, p in self.shadow_wallet.positions.items():
+            try:
+                raw_qty = float(p.get('quantity', 0))
+                if raw_qty == 0: continue
+                
+                # Determine signed amount for dashboard display
+                side = p.get('side', 'LONG')
+                signed_amt = abs(raw_qty) if side == 'LONG' else -abs(raw_qty)
+                
+                # Source detection (from exchange field or fallback)
+                source = p.get('exchange', 'BINANCE')
+                if 'ALPACA' in str(symbol): source = 'ALPACA' # Fallback
+                
+                active.append({
+                    'symbol': symbol,
+                    'amt': signed_amt,
+                    'entry': float(p.get('entryPrice', 0)),
+                    'pnl': float(p.get('unrealizedPnl', 0)),
+                    'leverage': int(p.get('leverage', 1)),
+                    'source': source
+                })
+            except Exception as e:
+                print(f"⚠️ Position Format Error ({symbol}): {e}")
+            
         return active
     
     async def get_wallet_details(self) -> Dict:
@@ -1579,14 +1573,14 @@ class AsyncTradingSession:
         - Active Positions (Count/PnL)
         - Mode/Risk Status
         """
-        # 1. Wallet Data
+        # 1. Active Positions (Triggers Sync)
+        positions = await self.get_active_positions()
+        
+        # 2. Wallet Data (Now Fresh)
         wallet = await self.get_wallet_details()
         if 'error' in wallet:
             wallet = {k: 0.0 for k in ['spot_usdt','earn_usdt','futures_balance','futures_pnl','alpaca_equity','total']}
             wallet['error'] = True
-            
-        # 2. Active Positions
-        positions = await self.get_active_positions()
         pos_count = len(positions)
         longs = len([p for p in positions if p['amt'] > 0])
         shorts = len([p for p in positions if p['amt'] < 0])

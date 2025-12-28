@@ -181,7 +181,8 @@ class BinanceAdapter(IExchangeAdapter):
                         'quantity': abs(amt),
                         'entryPrice': float(p.get('entryPrice') or 0),
                         'unrealizedPnl': float(p.get('unrealizedPnl') or 0),
-                        'leverage': int(p.get('leverage') or 1)
+                        'leverage': int(p.get('leverage') or 1),
+                        'exchange': 'BINANCE'
                     })
             return active
         except Exception as e:

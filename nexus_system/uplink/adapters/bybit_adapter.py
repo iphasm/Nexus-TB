@@ -390,7 +390,8 @@ class BybitAdapter(IExchangeAdapter):
                         'unrealizedPnl': float(p.get('unrealizedPnl', 0)),
                         'leverage': int(p.get('leverage', 1)),
                         'takeProfit': float(p.get('takeProfitPrice', 0) or 0),
-                        'stopLoss': float(p.get('stopLossPrice', 0) or 0)
+                        'stopLoss': float(p.get('stopLossPrice', 0) or 0),
+                        'exchange': 'BYBIT'
                     })
             return active
         except Exception as e:
