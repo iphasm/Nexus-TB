@@ -1502,9 +1502,12 @@ class AsyncTradingSession:
             bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
             bybit_total = bybit_bal.get('total', 0.0)
             
-            # 3. Alpaca
-            alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
-            alpaca_equity = alp_bal.get('total', 0.0)
+            # 3. Alpaca (only show if user has their OWN credentials)
+            alpaca_equity = 0.0
+            user_has_alpaca = self.config.get('alpaca_key') and self.config.get('alpaca_secret')
+            if user_has_alpaca:
+                alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
+                alpaca_equity = alp_bal.get('total', 0.0)
             
             # Legacy Spot support (Mocked for now as we focus on Futures)
             spot_usdt = 0.0 
@@ -1545,7 +1548,10 @@ class AsyncTradingSession:
         
         # Split by Exchange
         bin_pos = [p for p in positions if p.get('source') == 'BINANCE'] # Default if None
-        alp_pos = [p for p in positions if p.get('source') == 'ALPACA']
+        
+        # Only include Alpaca positions if user has their OWN credentials
+        user_has_alpaca = self.config.get('alpaca_key') and self.config.get('alpaca_secret')
+        alp_pos = [p for p in positions if p.get('source') == 'ALPACA'] if user_has_alpaca else []
         
         bin_longs = len([p for p in bin_pos if p['amt'] > 0])
         bin_shorts = len([p for p in bin_pos if p['amt'] < 0])
