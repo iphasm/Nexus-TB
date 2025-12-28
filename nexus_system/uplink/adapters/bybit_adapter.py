@@ -23,11 +23,12 @@ class BybitAdapter(IExchangeAdapter):
     - amend_order(): Hot-edit orders without cancel+replace
     """
 
-    def __init__(self, api_key: str = None, api_secret: str = None):
+    def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BYBIT_API_KEY', '')
         self._api_secret = api_secret or os.getenv('BYBIT_API_SECRET', '')
         self._exchange: Optional[ccxt.bybit] = None
         self._testnet = os.getenv('BYBIT_TESTNET', 'false').lower() == 'true'
+        self._proxy_config = kwargs
 
     @property
     def name(self) -> str:
@@ -36,6 +37,9 @@ class BybitAdapter(IExchangeAdapter):
     async def initialize(self, **kwargs) -> bool:
         """Initialize Bybit V5 connection."""
         try:
+            # Merge init kwargs with method kwargs
+            config_options = {**self._proxy_config, **kwargs}
+            
             config = {
                 'apiKey': self._api_key,
                 'secret': self._api_secret,
@@ -45,6 +49,13 @@ class BybitAdapter(IExchangeAdapter):
                     'adjustForTimeDifference': True,
                 }
             }
+            
+            # Apply proxies if present
+            if config_options.get('http_proxy'):
+                config['httpProxy'] = config_options['http_proxy']
+                print(f"🌍 BybitAdapter: Using Proxy -> {config_options['http_proxy']}")
+            if config_options.get('https_proxy'):
+                config['httpsProxy'] = config_options['https_proxy']
             
             # Testnet support
             if self._testnet:
