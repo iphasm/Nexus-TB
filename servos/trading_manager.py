@@ -2224,9 +2224,10 @@ class AsyncSessionManager:
             # Case 2: Session exists but Keys mismatch -> Update it
             else:
                 session = self.sessions[admin_id]
-                if session.api_key != api_key or session.api_secret != api_secret:
-                    session.api_key = api_key
-                    session.api_secret = api_secret
+                # Fix: Use correct attribute names (config_api_key, not api_key)
+                if session.config_api_key != api_key or session.config_api_secret != api_secret:
+                    session.config_api_key = api_key
+                    session.config_api_secret = api_secret
                     # Re-init client with new keys
                     await session.initialize(verbose=verbose)
                     if verbose:
@@ -2238,8 +2239,8 @@ class AsyncSessionManager:
             data = {}
             for chat_id, session in self.sessions.items():
                 data[chat_id] = {
-                    'api_key': session.api_key,
-                    'api_secret': session.api_secret,
+                    'api_key': session.config_api_key,
+                    'api_secret': session.config_api_secret,
                     'config': session.config
                 }
             
