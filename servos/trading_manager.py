@@ -71,6 +71,9 @@ class AsyncTradingSession:
         
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
+        
+        # Anti-Spam Cache: {symbol_reason: timestamp}
+        self._rejection_cache = {}
     
     @property
     def client(self):
@@ -175,6 +178,56 @@ class AsyncTradingSession:
         return True
     
     # --- RISK HELPER ---
+    def check_capital_limits(self, symbol: str) -> Tuple[bool, str]:
+        """
+        Guardián de Límites (Limit Guardian):
+        1. Check Max Open Positions (Cupo).
+        2. Check Available Margin (Liquidez).
+        3. Double-entry prevention.
+        4. Anti-Spam (Silenciador).
+        """
+        # Anti-Spam Check
+        import time
+        now = time.time()
+        
+        # 0. Check if symbol already locked/rejected recently (Cooldown 5 mins)
+        spam_key = f"{symbol}_limit_rechazo"
+        if spam_key in self._rejection_cache:
+            last_time = self._rejection_cache[spam_key]
+            if now - last_time < 300: # 5 minutes silence
+                return False, "SILENT_REJECTION"
+
+        # 1. Max Open Positions
+        max_pos = self.config.get('max_open_positions', 5)
+        # Count only active positions (amt != 0)
+        active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
+        
+        # Exclude current symbol if already open (re-entry or pyramid) - debated, better to block unless strictly pyramiding
+        # For now, simplistic count
+        if len(active_positions) >= max_pos:
+            # Check if we are already in this position (allow close/reduce, but block new adds if limiting)
+            # Actually, standard logic: strict limit
+            is_new_symbol = symbol not in [p.get('symbol') for p in active_positions]
+            
+            if is_new_symbol:
+                reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
+                print(f"🛑 Limit Guardian: {reason} for {symbol}")
+                self._rejection_cache[spam_key] = now
+                return False, reason
+
+        # 2. Min Free Margin
+        min_margin = self.config.get('min_free_margin', 10.0) # $10 USD
+        bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+        available = bin_bal.get('available', 0.0)
+        
+        if available < min_margin:
+            reason = f"Margen insuficiente (${available:.2f} < ${min_margin})"
+            print(f"🛑 Limit Guardian: {reason} for {symbol}")
+            self._rejection_cache[spam_key] = now
+            return False, reason
+            
+        return True, ""
+
     def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
         """
         Calculates position size based on Risk Per Trade (e.g. 1% of Equity).
@@ -219,22 +272,46 @@ class AsyncTradingSession:
         # 4. Raw Quantity (Units)
         raw_qty = risk_amount / dist_to_sl
         
-        # 4. Cap at Max Capital Allocation (Safety Net)
+        # 5. Cap at Max Capital Allocation (Safety Net)
         max_cap_val = equity * self.config.get('max_capital_pct', 0.10) * leverage
-        max_qty = max_cap_val / price
+        max_qty_cap = max_cap_val / price
         
-        final_qty = min(raw_qty, max_qty)
+        # 6. Check Available Margin (Smart Sizing)
+        # Fetch real-time available balance from ShadowWallet
+        try:
+             # Wait for wallet details (async call not allowed here if sync, but this method is sync?)
+             # Wait, calculate_dynamic_size is NOT async in definition but get_wallet_details IS async.
+             # We should make calculate_dynamic_size async or use synchronous shadow wallet access.
+             # ShadowWallet access is synchronous (dict lookup).
+             
+             # Direct ShadowWallet Access for speed
+             bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+             available = bin_bal.get('available', 0.0)
+             
+             # Buffer: Leave 5% margin free
+             usable_margin = available * 0.95
+             
+             if usable_margin > 0:
+                 max_affordable_qty = (usable_margin * leverage) / price
+                 
+                 if raw_qty > max_affordable_qty:
+                     print(f"⚠️ Sizing Reduced: Margin {usable_margin:.2f} limits qty to {max_affordable_qty:.4f}")
+                     raw_qty = max_affordable_qty
+        except Exception:
+             pass # Fallback to equity-based calculation
         
-        # 5. Min Notional Check
+        final_qty = min(raw_qty, max_qty_cap)
+        
+        # 7. Min Notional Check
         if (final_qty * price) < min_notional:
              # If risk-based size is too small, check if we can bump to min_notional 
              # without exceeding 2x risk. If so, allowed. Else, skip.
              min_qty = (min_notional * 1.05) / price
              implied_risk = min_qty * dist_to_sl
-             if implied_risk <= (risk_amount * 2): # Allow slight risk stretch for small accounts
+             if implied_risk <= (risk_amount * 2): # Allow slight risk stretch
                  return min_qty
              else:
-                 return 0.0 # Too risky for this account size
+                 return 0.0 # Too risky
                  
         return final_qty
     
@@ -779,6 +856,11 @@ class AsyncTradingSession:
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
+        # 0. Guardián de Límites (NUEVO)
+        allowed, reason = self.check_capital_limits(symbol)
+        if not allowed:
+            return False, reason
+            
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -851,6 +933,11 @@ class AsyncTradingSession:
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
         
+        # 0. Guardián de Límites (NUEVO)
+        allowed, reason = self.check_capital_limits(symbol)
+        if not allowed:
+            return False, reason
+            
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
