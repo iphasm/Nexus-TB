@@ -724,6 +724,37 @@ class AsyncTradingSession:
         min_notional = info.get('min_notional', 5.0)
         return qty_prec, price_prec, min_notional
 
+    async def check_liquidity(self, symbol: str) -> Tuple[bool, float, str]:
+        """
+        Check if we have enough 'dry powder' to open a new position.
+        Returns: (is_sufficient, available_balance, message)
+        """
+        # 1. Get Min Notional (Minimum trade size allowed by exchange)
+        qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+        
+        # 2. Get Available Balance (Unified via ShadowWallet/Bridge)
+        # Note: We need 'available' balance, not total equity
+        if not self.shadow_wallet:
+             return False, 0.0, "Wallet not initialized"
+             
+        # Determine asset class (Crypto vs Stock) - simplistic check
+        is_crypto = 'USDT' in symbol or 'BTC' in symbol 
+        
+        if is_crypto:
+             # Check USDT Balance
+             balance = self.shadow_wallet.balances.get('BINANCE', {}).get('available', 0)
+        else:
+             # Check Alpaca Buying Power
+             balance = self.shadow_wallet.balances.get('ALPACA', {}).get('available', 0)
+             
+        # 3. Define Threshold (Min Notional + 10% buffer)
+        threshold = max(min_notional * 1.1, 6.0) # Ensure at least $6 for safety
+        
+        if balance < threshold:
+             return False, balance, f"⚠️ **Low Budget Mode:** Balance (${balance:.2f}) < Min Req (${threshold:.2f}). Pausing entries."
+             
+        return True, balance, "OK"
+
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
@@ -738,6 +769,11 @@ class AsyncTradingSession:
             elif current_side == 'SHORT':
                  print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
                  return await self.execute_flip_position(symbol, 'LONG', atr)
+
+        # Low Budget Check
+        has_liquidity, bal, msg = await self.check_liquidity(symbol)
+        if not has_liquidity:
+            return False, msg
 
         try:
             # 2. Get Data via Bridge
@@ -805,6 +841,11 @@ class AsyncTradingSession:
             elif current_side == 'LONG':
                  print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
                  return await self.execute_flip_position(symbol, 'SHORT', atr)
+
+        # Low Budget Check
+        has_liquidity, bal, msg = await self.check_liquidity(symbol)
+        if not has_liquidity:
+            return False, msg
 
         try:
             # 2. Get Data via Bridge
