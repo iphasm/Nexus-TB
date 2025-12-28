@@ -1338,9 +1338,8 @@ class AsyncTradingSession:
                 
                 side = 'LONG' if qty > 0 else 'SHORT'
                 
-                # Get current price
-                ticker = await self.client.futures_symbol_ticker(symbol=symbol)
-                current_price = float(ticker['price'])
+                # Get current price via bridge
+                current_price = await self.bridge.get_last_price(symbol)
                 
                 # Use unrealized PnL from API (confirmed correct by user)
                 pnl = unrealized_pnl

@@ -687,12 +687,14 @@ async def cmd_diag(message: Message, **kwargs):
             session_manager = kwargs.get('session_manager')
             if session_manager:
                 session = session_manager.get_session(str(message.chat.id))
-                if session and session.client:
+                if session and session.bridge:
                     try:
-                        ticker = await session.client.futures_symbol_ticker(symbol=symbol)
-                        rest_price = float(ticker.get('price', 0))
-                        report += f"REST API\n"
-                        report += f"  Precio: ${rest_price:,.2f}\n\n"
+                        rest_price = await session.bridge.get_last_price(symbol)
+                        if rest_price > 0:
+                            report += f"REST API\n"
+                            report += f"  Precio: ${rest_price:,.2f}\n\n"
+                        else:
+                            report += f"REST API: Sin datos\n\n"
                     except Exception as e:
                         report += f"REST API: {str(e)[:50]}\n\n"
         
