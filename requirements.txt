@@ -33,3 +33,7 @@ psycopg2-binary
 scikit-learn
 joblib
 xgboost
+
+# Testing
+pytest
+pytest-asyncio

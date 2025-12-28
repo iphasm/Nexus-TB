@@ -1041,8 +1041,7 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Close Error: {e}"
 
-
-        async def execute_close_all(self) -> Tuple[bool, str]:
+    async def execute_close_all(self) -> Tuple[bool, str]:
         """
         NUCLEAR CLOSE: Close ALL open positions and cancel ALL open orders for ALL symbols.
         Ensures no orphaned orders (standard or algo) remain anywhere in the account.
