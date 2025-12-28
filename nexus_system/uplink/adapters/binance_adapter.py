@@ -134,10 +134,35 @@ class BinanceAdapter(IExchangeAdapter):
                 params['side'] = side.upper()
                 params['symbol'] = symbol
                 params['quantity'] = quantity
-                if price:
-                    params['stopPrice'] = price
+                
+                # Determine limit price vs trigger price
+                # If order type implies MARKET, limit_price must be None
+                limit_price = price
+                if 'MARKET' in order_type.upper():
+                    limit_price = None
+                    if price:
+                        params['stopPrice'] = price
+                else:
+                    # STOP (Limit) or TAKE_PROFIT (Limit)
+                    # If it's a Limit conditional, we normally need 2 prices:
+                    # 1. Trigger (stopPrice)
+                    # 2. Limit (price)
+                    # The 'price' arg here is ambiguously used as Trigger in trading_manager.
+                    # We assume 'price' arg is TRIGGER. limit_price must come from params or be same?
+                    # STANDARD NEXUS CONVENTION: price arg = TRIGGER PRICE for conditional.
+                    # Limit Price should be in params['price'] if needed, or we assume Trigger=Limit (risky).
+                    # For now, let's fix the MARKET case which is the immediate crash.
+                    if price:
+                        params['stopPrice'] = price
+                        # If params has 'price', use it as limit, else use None (which might fail for Limit orders)
+                        if 'price' in params:
+                            limit_price = params.pop('price') # Move to argument
+                        else:
+                            # If no separate limit price provided, use trigger as limit?
+                            limit_price = price 
+                
                 result = await self._exchange.create_order(
-                    symbol, order_type.lower(), side.lower(), quantity, price, params
+                    symbol, order_type.lower(), side.lower(), quantity, limit_price, params
                 )
             
             return {
@@ -150,7 +175,30 @@ class BinanceAdapter(IExchangeAdapter):
             }
             
         except Exception as e:
-            return {'error': str(e)}
+            # Try to extract detailed error message from ccxt exception
+            error_msg = str(e)
+            try:
+                # CCXT errors often wrap JSON in the message
+                if hasattr(e, 'args') and len(e.args) > 0:
+                     # e.args[0] might be the raw message
+                     pass
+                
+                # If it's a specific CCXT error, it might have 'code' and 'msg' attributes
+                # But generic handling: try to parse json from string if present
+                import json
+                import re
+                
+                # Look for JSON part: {"code":...}
+                match = re.search(r'\{.*"code":.*\}', error_msg)
+                if match:
+                    json_str = match.group(0)
+                    data = json.loads(json_str)
+                    clean_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
+                    return {'error': clean_msg}
+            except:
+                pass
+                
+            return {'error': error_msg}
 
     async def cancel_order(self, symbol: str, order_id: str) -> bool:
         """Cancel an order."""
