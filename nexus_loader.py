@@ -353,16 +353,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name
                     )
-                icon_path = MediaManager.get_icon_path(symbol)
-                if icon_path:
-                    await bot.send_photo(
-                        session.chat_id, 
-                        FSInputFile(icon_path), 
-                        caption=msg, 
-                        parse_mode="Markdown"
-                    )
-                else:
-                    await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
+                await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
             elif mode == 'COPILOT':
                 if side == 'LONG':
@@ -394,21 +385,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         )
                     ]
                 ])
-                icon_path = MediaManager.get_icon_path(symbol)
-                if icon_path:
-                    await bot.send_photo(
-                        session.chat_id,
-                        FSInputFile(icon_path),
-                        caption=msg,
-                        reply_markup=keyboard,
-                        parse_mode="Markdown"
-                    )
-                else:
-                    await bot.send_message(
-                        session.chat_id, msg, 
-                        reply_markup=keyboard, 
-                        parse_mode="Markdown"
-                    )
+                await bot.send_message(
+                    session.chat_id, msg, 
+                    reply_markup=keyboard, 
+                    parse_mode="Markdown"
+                )
                 
             elif mode == 'PILOT':
                 # Check if position already exists - DON'T trigger update on every signal
@@ -471,20 +452,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         f"`{reason}`"
                     )
                     
-                    icon_path = MediaManager.get_icon_path(symbol)
-                    if icon_path:
-                        await bot.send_photo(
-                            session.chat_id,
-                            FSInputFile(icon_path),
-                            caption=caption,
-                            parse_mode="Markdown"
-                        )
-                    else:
-                        await bot.send_message(
-                            session.chat_id,
-                            caption,
-                            parse_mode="Markdown"
-                        )
+                    await bot.send_message(
+                        session.chat_id,
+                        caption,
+                        parse_mode="Markdown"
+                    )
                     
                     # Check circuit breaker after trade
                     cb_triggered, cb_msg = await session.check_circuit_breaker()
