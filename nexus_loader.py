@@ -253,9 +253,21 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 
     if action == 'EXIT_ALL':
         logger.warning(f"🚨 SENTINEL: Processing ACTION EXIT_ALL for {symbol}")
-        import asyncio
         for session in session_manager.get_all_sessions():
              asyncio.create_task(session.execute_close_position(symbol))
+        return
+
+    # === CLOSE HANDLING (Trend Reversal / Exit Signals) ===
+    if action in ['CLOSE_LONG', 'EXIT_LONG']:
+        logger.info(f"📉 SIGNAL: Exiting LONG for {symbol} (Reason: {getattr(signal, 'metadata', 'Trend Change')})")
+        for session in session_manager.get_all_sessions():
+             asyncio.create_task(session.execute_close_position(symbol, only_side='LONG'))
+        return
+
+    if action in ['CLOSE_SHORT', 'EXIT_SHORT']:
+        logger.info(f"📈 SIGNAL: Exiting SHORT for {symbol} (Reason: {getattr(signal, 'metadata', 'Trend Change')})")
+        for session in session_manager.get_all_sessions():
+             asyncio.create_task(session.execute_close_position(symbol, only_side='SHORT'))
         return
     
     # === TEMPORAL FILTER: Skip if on cooldown ===
