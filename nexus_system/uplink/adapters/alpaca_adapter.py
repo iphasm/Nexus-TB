@@ -42,6 +42,7 @@ class AlpacaAdapter(IExchangeAdapter):
                             os.getenv('ALPACA_SECRET_KEY') or 
                             os.getenv('APCA_API_SECRET_KEY', '')).strip("'\" ")
         self._paper = paper
+        self._url_override = kwargs.get('url_override') or os.getenv('APCA_API_BASE_URL')
         self._trading_client = None
         self._data_client = None
         self._proxy_config = kwargs
@@ -63,7 +64,8 @@ class AlpacaAdapter(IExchangeAdapter):
             self._trading_client = TradingClient(
                 self._api_key, 
                 self._api_secret, 
-                paper=self._paper
+                paper=self._paper,
+                url_override=self._url_override
             )
             self._data_client = StockHistoricalDataClient(
                 self._api_key, 

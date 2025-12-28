@@ -148,6 +148,7 @@ class AsyncTradingSession:
                 api_key=alp_key.strip(),
                 api_secret=alp_sec.strip(),
                 paper=paper_mode,
+                url_override=os.getenv('APCA_API_BASE_URL'),
                 **exchange_kwargs
             )
              if verbose: print(f"✅ Bridge: Connected to Alpaca")
