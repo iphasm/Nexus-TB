@@ -1983,7 +1983,7 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
                 
                 # Trend
                 if close > ema_200:
-                    trend = "🐂 BULL" if ema_20 > ema_50 else "🐃 UP-Weak"
+                    trend = "🐂 BULL" if ema_20 > ema_50 else "📈 UP-Weak"
                 else:
                     trend = "🐻 BEAR" if ema_20 < ema_50 else "📉 DN-Weak"
                 
