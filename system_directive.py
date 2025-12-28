@@ -21,10 +21,11 @@ ASSET_GROUPS = {
         'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT'
     ],
     'BYBIT': [
-        # Bybit Perpetuals
-        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'NIGHTUSDT', 'XRPUSDT',
-        'FLOWUSDT', 'MNTUSDT', 'TAOUSDT', 'RENDERUSDT', '1000PEPEUSDT',
-        'DOGEUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT'
+        # Bybit Perpetuals (cross-listed on Binance until Bybit fetcher is ready)
+        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT',
+        'FLOWUSDT', 'TAOUSDT', 'RENDERUSDT', '1000PEPEUSDT', 'DOGEUSDT'
+        # Bybit-exclusive (disabled - need Bybit data fetcher):
+        # 'NIGHTUSDT', 'MNTUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT'
     ],
     'STOCKS': [
         # High Liquidity Day Trading Workhorses (Alpaca)
