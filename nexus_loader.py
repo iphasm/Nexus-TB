@@ -430,30 +430,48 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     success, result = await session.execute_short_position(symbol, strategy=strategy)
                 
                 if success:
-                    # Use personality-based message for PILOT mode
-                    if side == 'LONG':
-                        pilot_msg = personality_manager.get_message(
-                            p_key, 'TRADE_LONG',
-                            asset=symbol, price=price, reason=reason,
-                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                            title=title, quote=quote, strategy_name=strategy,
-                            user_name=user_name
-                        )
-                    else:
-                        pilot_msg = personality_manager.get_message(
-                            p_key, 'TRADE_SHORT',
-                            asset=symbol, price=price, reason=reason,
-                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
-                            title=title, quote=quote, strategy_name=strategy,
-                            user_name=user_name
-                        )
-                    
-                    # Add execution confirmation + personality message with timestamp
+                    # Build enhanced AUTOPILOT message
                     from datetime import datetime, timezone
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                    icon_path = MediaManager.get_icon_path(symbol)
-                    caption = f"✅ *AUTOPILOT ENGAGED: {side}*\n🕐 `{timestamp}`\n\n{pilot_msg}"
                     
+                    # Determine exchange based on symbol
+                    if 'USDT' not in symbol:
+                        exchange = "Alpaca"
+                    elif session.config.get('primary_exchange', 'BINANCE') == 'BYBIT':
+                        exchange = "Bybit"
+                    else:
+                        exchange = "Binance"
+                    
+                    # Direction styling
+                    direction = "🟢 LONG (Activo)" if side == 'LONG' else "🔴 SHORT (Activo)"
+                    
+                    # Format prices safely
+                    price_str = f"${price:.2f}" if price else "N/A"
+                    ts_str = f"${ts_prev:.2f}" if ts_prev else "N/A"
+                    tp_str = f"${tp_prev:.2f}" if tp_prev else "N/A"
+                    sl_str = f"${sl_prev:.2f}" if sl_prev else "N/A"
+                    
+                    # Format quote with username
+                    formatted_quote = quote.rstrip('.!?,;:')
+                    
+                    caption = (
+                        f"✅ *AUTOPILOT ENGAGED: {side}*\n"
+                        f"🕐 `{timestamp}`\n\n"
+                        f"\"{formatted_quote}, *{user_name}*.\"\n"
+                        f"{title}\n\n"
+                        f"*Activo:* `{symbol}`\n"
+                        f"*Exchange:* {exchange}\n"
+                        f"*Dirección:* {direction}\n"
+                        f"*Estrategia:* {strategy}\n"
+                        f"*Precio Actual:* {price_str}\n\n"
+                        f"💸 *TS:* {ts_str}\n"
+                        f"🎯 *TP:* {tp_str}\n"
+                        f"🛑 *SL:* {sl_str}\n\n"
+                        f"*Parámetros:*\n"
+                        f"`{reason}`"
+                    )
+                    
+                    icon_path = MediaManager.get_icon_path(symbol)
                     if icon_path:
                         await bot.send_photo(
                             session.chat_id,
@@ -477,8 +495,25 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Only log errors, don't spam user with cooldown messages
                     ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized"]
                     
+                    # Determine exchange for error messages
+                    if 'USDT' not in symbol:
+                        error_exchange = "Alpaca"
+                    elif session.config.get('primary_exchange', 'BINANCE') == 'BYBIT':
+                        error_exchange = "Bybit"
+                    else:
+                        error_exchange = "Binance"
+                    
+                    # Handle Margin Insufficient errors with friendly message
+                    if "Margin is insufficient" in result or "insufficient" in result.lower():
+                        await bot.send_message(
+                            session.chat_id,
+                            f"⚠️ No se ejecutó operación automática para *{symbol}* "
+                            f"en el exchange *{error_exchange}* por fondos insuficientes ⚠️",
+                            parse_mode="Markdown"
+                        )
+                    
                     # Special handling for "Insufficient capital" (Min Notional)
-                    if "Insufficient capital" in result:
+                    elif "Insufficient capital" in result:
                         # 1. Trigger Long Cooldown (1 hour) to stop spam
                         cooldown_manager.set_cooldown(symbol, 3600)
                         
