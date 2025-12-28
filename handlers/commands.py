@@ -579,10 +579,11 @@ async def cmd_debug(message: Message, **kwargs):
         
         user_api_key = session.config_api_key if session else None
         user_api_secret = session.config_api_secret if session else None
+        user_proxy = session.config.get('http_proxy') or getattr(session, '_proxy', None)
         
         # Run blocking diagnostics in thread pool with user's credentials
         loop = asyncio.get_running_loop()
-        diag_func = partial(run_diagnostics, api_key=user_api_key, api_secret=user_api_secret)
+        diag_func = partial(run_diagnostics, api_key=user_api_key, api_secret=user_api_secret, proxy_url=user_proxy)
         report = await loop.run_in_executor(None, diag_func)
         
         # Split report if too long (Telegram limit 4096)

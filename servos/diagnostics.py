@@ -93,13 +93,14 @@ def format_indicator_report(data: dict) -> str:
 • **Señal**: {sig_icon} `{signal}`
 • Razón: _{data.get('reason', 'N/A')}_"""
 
-def run_diagnostics(api_key: str = None, api_secret: str = None):
+def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str = None):
     """
     Run system diagnostics.
     
     Args:
-        api_key: Optional API key (uses env var if not provided)
-        api_secret: Optional API secret (uses env var if not provided)
+        api_key: Optional API key
+        api_secret: Optional API secret
+        proxy_url: Optional Proxy URL (overrides env)
     """
     report = ["🔍 **SYSTEM DIAGNOSTICS REPORT** 🔍\n"]
     
@@ -124,7 +125,7 @@ def run_diagnostics(api_key: str = None, api_secret: str = None):
     report.append("\n**🌍 Network / IP Check:**")
     
     # Proxy Check
-    proxy_url = os.getenv('PROXY_URL')
+    proxy_url = proxy_url or os.getenv('PROXY_URL')
     proxies = {'https': proxy_url} if proxy_url else None
     
     if proxy_url:
