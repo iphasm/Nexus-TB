@@ -106,6 +106,66 @@ async def cmd_config(message: Message, **kwargs):
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
+@router.message(Command("exchanges"))
+async def cmd_exchanges(message: Message, **kwargs):
+    """Unified Exchange Dashboard"""
+    session_manager = kwargs.get('session_manager')
+    edit_message = kwargs.get('edit_message', False)
+    
+    if not session_manager:
+        await message.answer("⚠️ Error interno.")
+        return
+    
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.answer("⚠️ Sin sesión. Usa /start primero.")
+        return
+    
+    # Determine connection status for each exchange
+    binance_status = "✅ Conectado" if session.client else "❌ No Configurado"
+    bybit_status = "✅ Conectado" if getattr(session, 'bybit_client', None) else "❌ No Configurado"
+    alpaca_status = "✅ Conectado" if getattr(session, 'alpaca_client', None) else "❌ No Configurado"
+    
+    # Primary exchange
+    primary = session.config.get('primary_exchange', 'BINANCE')
+    
+    msg_text = (
+        "🔗 *GESTIÓN DE EXCHANGES*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🟡 *Binance:* {binance_status}\n"
+        f"🟣 *Bybit:* {bybit_status}\n"
+        f"🟢 *Alpaca:* {alpaca_status}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⭐ *Exchange Principal (Crypto):* `{primary}`\n"
+        "_Usado para comandos genéricos como /long BTCUSDT_"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔑 Config Binance", callback_data="WIZARD|BINANCE"),
+            InlineKeyboardButton(text="🔑 Config Bybit", callback_data="WIZARD|BYBIT")
+        ],
+        [
+            InlineKeyboardButton(text="🔑 Config Alpaca", callback_data="WIZARD|ALPACA")
+        ],
+        [
+            InlineKeyboardButton(text=f"⭐ Set Primary: BINANCE", callback_data="EXCHANGE|PRIMARY|BINANCE"),
+            InlineKeyboardButton(text=f"⭐ Set Primary: BYBIT", callback_data="EXCHANGE|PRIMARY|BYBIT")
+        ],
+        [
+            InlineKeyboardButton(text="🗑️ Reset Keys", callback_data="CMD|delete_keys")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")
+        ]
+    ])
+    
+    if edit_message:
+        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+
+
 @router.message(Command("strategies"))
 async def cmd_strategies(message: Message, **kwargs):
     """Interactive strategy selector - ALL 6 STRATEGIES"""
