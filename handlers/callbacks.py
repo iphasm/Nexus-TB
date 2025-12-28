@@ -654,19 +654,21 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
         
         # === GLOBAL SCANNER: Show Category Selector ===
         crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
+        bybit_count = len(ASSET_GROUPS.get('BYBIT', []))
         stocks_count = len(ASSET_GROUPS.get('STOCKS', []))
         etfs_count = len(ASSET_GROUPS.get('ETFS', []))
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🪙 Crypto ({crypto_count})", callback_data="ASSETS_CAT|CRYPTO")],
-            [InlineKeyboardButton(text=f"📊 Stocks ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
-            [InlineKeyboardButton(text=f"📈 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
+            [InlineKeyboardButton(text=f"🟡 Binance ({crypto_count})", callback_data="ASSETS_CAT|CRYPTO")],
+            [InlineKeyboardButton(text=f"⬛ Bybit ({bybit_count})", callback_data="ASSETS_CAT|BYBIT")],
+            [InlineKeyboardButton(text=f"🦙 Alpaca: Stocks ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
+            [InlineKeyboardButton(text=f"🦙 Alpaca: ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
             [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
         ])
         
         await callback.message.edit_text(
             "📡 *SCANNER GLOBAL*\n\n"
-            f"Total: {crypto_count + stocks_count + etfs_count} activos\n\n"
+            f"Total: {crypto_count + bybit_count + stocks_count + etfs_count} activos\n\n"
             "Selecciona una categoría:",
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -690,9 +692,10 @@ async def handle_assets_category(callback: CallbackQuery, **kwargs):
         assets = ASSET_GROUPS.get(category, [])
         
         titles = {
-            'CRYPTO': '🪙 CRYPTO',
-            'STOCKS': '📊 STOCKS',
-            'ETFS': '📈 ETFs'
+            'CRYPTO': '🟡 BINANCE',
+            'BYBIT': '⬛ BYBIT',
+            'STOCKS': '🦙 ALPACA (Stocks)',
+            'ETFS': '🦙 ALPACA (ETFs)'
         }
         title = titles.get(category, category)
         

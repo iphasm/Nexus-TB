@@ -9,24 +9,30 @@ Single source of truth for asset groups and ticker mappings.
 
 ASSET_GROUPS = {
     'CRYPTO': [
-        # Major Caps
+        # Major Caps (Binance Futures)
         'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
         'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
         # Memes & AI
         'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
-        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'FTMUSDT', 'SEIUSDT',
+        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'SEIUSDT',
         '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
         'PONKEUSDT', 'BRETTUSDT',
         # DeFi
         'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT'
     ],
+    'BYBIT': [
+        # Bybit Perpetuals
+        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'NIGHTUSDT', 'XRPUSDT',
+        'FLOWUSDT', 'MNTUSDT', 'TAOUSDT', 'RENDERUSDT', '1000PEPEUSDT',
+        'DOGEUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT'
+    ],
     'STOCKS': [
-        # High Liquidity Day Trading Workhorses
+        # High Liquidity Day Trading Workhorses (Alpaca)
         'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN',
         'META', 'GOOGL', 'AMD', 'JPM', 'BAC'
     ],
     'ETFS': [
-        # Core ETFs for Market Operations
+        # Core ETFs for Market Operations (Alpaca)
         'SPY',   # S&P 500
         'QQQ',   # Nasdaq 100
         'IWM',   # Russell 2000
@@ -38,6 +44,7 @@ ASSET_GROUPS = {
 # Toggle groups on/off (Global Defaults)
 GROUP_CONFIG = {
     'CRYPTO': True,
+    'BYBIT': True,
     'STOCKS': True,
     'ETFS': True
 }
@@ -58,7 +65,7 @@ DISABLED_ASSETS = set()
 # --- SHARK TARGETS (High Volatility Assets) ---
 SHARK_TARGETS = [
     'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WIFUSDT', '1000PEPEUSDT',
-    'DOGEUSDT', 'SUIUSDT', 'SEIUSDT', 'INJUSDT', 'FTMUSDT'
+    'DOGEUSDT', 'SUIUSDT', 'SEIUSDT', 'INJUSDT', 'TAOUSDT'
 ]
 
 # --- AI & ML MODULES ---
@@ -140,7 +147,6 @@ TICKER_MAP = {
     'RENDERUSDT': '🖼️ Render',
     'FETUSDT': '🤖 Fetch.ai',
     'INJUSDT': '💉 Injective',
-    'FTMUSDT': '👻 Fantom',
     'SEIUSDT': '🌊 Sei',
     'TRBUSDT': '🔮 Tellor',
     'ZECUSDT': '🔐 Zcash',
@@ -150,6 +156,14 @@ TICKER_MAP = {
     'XLMUSDT': '✨ Stellar',
     'CRVUSDT': '🔄 Curve',
     'LDOUSDT': '🏝️ Lido DAO',
+    # Bybit-specific
+    'NIGHTUSDT': '🌙 Night',
+    'FLOWUSDT': '🌊 Flow',
+    'MNTUSDT': '🏔️ Mantle',
+    'TAOUSDT': '🧠 Bittensor',
+    'ZKPUSDT': '🔐 ZKP',
+    'RAVEUSDT': '🎵 Rave',
+    'FOLKSUSDT': '👥 Folks',
     
     # === STOCKS (Alpaca) ===
     'AAPL': '🍎 Apple',

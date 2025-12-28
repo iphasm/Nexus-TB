@@ -194,83 +194,43 @@ async def menu_modes(callback: CallbackQuery, **kwargs):
         parse_mode="Markdown"
     )
 
-
-
 @router.message(Command("startup"))
 async def cmd_startup(message: Message):
     """Onboarding guide - explains how to set up the bot"""
     
     startup_text = (
-        "🚀 **GUÍA DE INICIO RÁPIDO**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🚀 **GUÍA DE INICIO RÁPIDO**\\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n"
         
-        "🤖 **¿Qué es NEXUS TRADING BOT?**\n"
-        "Un sistema de trading automatizado que opera en Binance (Crypto) y Alpaca (Stocks/ETFs) "
-        "usando algoritmos avanzados de análisis técnico y sentimiento de mercado.\n\n"
+        "🤖 **¿Qué es NEXUS TRADING BOT?**\\n"
+        "Trading automatizado en Binance, Bybit y Alpaca.\\n\\n"
         
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔧 **CONFIGURACIÓN INICIAL**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        "🔧 **CONFIGURACIÓN**\\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n"
         
-        "**PASO 1: Configurar Binance (Crypto)**\n"
-        "1. Ve a [Binance API Management](https://www.binance.com/en/my/settings/api-management)\n"
-        "2. Crea una nueva API Key con permisos:\n"
-        "   • ✅ Enable Reading\n"
-        "   • ✅ Enable Futures\n"
-        "   • ✅ Enable Spot & Margin (opcional)\n"
-        "   • ⛔ NO habilites Withdrawals\n"
-        "   • 🛡️ **IP Whitelist**: Debes agregar la IP confiable `96.62.194.97`\n"
-        "     *(Sin esto, la API rechazará las conexiones de Railway)*\n"
-        "3. Copia tu API Key y Secret\n"
-        "4. Usa el comando:\n"
-        "   `/set_binance <API_KEY> <API_SECRET>`\n"
-        "   ⚠️ _Borra el mensaje después de enviarlo_\n\n"
+        "**PASO 1: Binance (Crypto)**\\n"
+        "`/set_binance <KEY> <SECRET>`\\n\\n"
         
-        "**PASO 2: Configurar Alpaca (Stocks)** *(opcional)*\n"
-        "1. Crea cuenta en [Alpaca Markets](https://alpaca.markets/)\n"
-        "2. Ve a Paper Trading > API Keys\n"
-        "3. Genera nuevas credenciales\n"
-        "4. Usa el comando:\n"
-        "   `/set_alpaca <API_KEY> <API_SECRET>`\n\n"
+        "**PASO 2: Bybit (Opcional)**\\n"
+        "`/set_bybit <KEY> <SECRET>`\\n\\n"
         
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🎮 **MODOS DE OPERACIÓN**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "**PASO 3: Alpaca (Stocks)**\\n"
+        "`/set_alpaca <KEY> <SECRET>`\\n\\n"
         
-        "• 👀 **Watcher**: Solo alertas (sin operaciones)\n"
-        "• 👨‍✈️ **Copilot**: Propuestas con botones Aceptar/Rechazar\n"
-        "• 🤖 **Pilot**: Trading 100% automático\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        "🎮 **MODOS**\\n"
+        "• 👀 Watcher - Solo alertas\\n"
+        "• 👨‍✈️ Copilot - Confirmación manual\\n"
+        "• 🤖 Pilot - 100% automático\\n\\n"
         
-        "Cambia con: `/watcher`, `/copilot`, `/pilot`\n\n"
-        
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚙️ **COMANDOS ESENCIALES**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        
-        "• `/start` - Menú principal\n"
-        "• `/status` - Estado de tu sesión\n"
-        "• `/wallet` - Ver tu cartera\n"
-        "• `/config` - Panel de configuración\n"
-        "• `/strategies` - Activar/Desactivar estrategias\n"
-        "• `/help` - Lista completa de comandos\n\n"
-        
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🛡️ **SEGURIDAD**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        
-        "• Nunca compartas tus API Keys\n"
-        "• Usa `/delete_keys` para borrar tu sesión\n"
-        "• Las claves se almacenan encriptadas\n"
-        "• El bot NO puede hacer retiros\n\n"
-        
-        "¿Listo? Usa `/set_binance` para empezar 🚀"
+        "¿Listo? Usa `/set_binance` 🚀"
     )
     
     try:
         await message.answer(startup_text, parse_mode="Markdown", disable_web_page_preview=True)
     except:
-        # Fallback without markdown
-        await message.answer(startup_text.replace('*', '').replace('`', '').replace('_', '_'))
+        await message.answer(startup_text.replace('*', '').replace('`', ''))
 
 
 @router.message(Command("help"))
@@ -327,6 +287,7 @@ async def cmd_help(message: Message):
         
         "🔐 *SEGURIDAD*\n"
         "├ /set\\_binance - API Keys Binance\n"
+        "├ /set\\_bybit - API Keys Bybit\n"
         "├ /set\\_alpaca - API Keys Alpaca\n"
         "└ /delete\\_keys - Borrar sesión\n\n"
         
@@ -451,6 +412,7 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
             "**💰 Balances**\n"
             f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`\n"
             f"• Binance Futures: `${wallet.get('futures_balance', 0):,.0f}`\n"
+            f"• Bybit: `${wallet.get('bybit_balance', 0):,.0f}`\n"
             f"• Alpaca: `${wallet.get('alpaca_equity', 0):,.0f}`\n\n"
             
             "**⚙️ Estado**\n"

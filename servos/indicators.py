@@ -111,10 +111,20 @@ def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int =
 
 def calculate_vwap(df: pd.DataFrame) -> pd.Series:
     """Volume Weighted Average Price."""
-    # ta.vwap returns Series
-    vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'])
-    if vwap is None: return df['close']
-    return vwap
+    try:
+        # ta.vwap requires a DatetimeIndex
+        vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'])
+        if vwap is None or vwap.isna().all():
+            raise ValueError("VWAP returned None or all NaN")
+        return vwap
+    except Exception:
+        # Fallback: Manual VWAP calculation (cumulative)
+        # VWAP = cumsum(typical_price * volume) / cumsum(volume)
+        typical_price = (df['high'] + df['low'] + df['close']) / 3
+        cum_vol = df['volume'].cumsum()
+        cum_tp_vol = (typical_price * df['volume']).cumsum()
+        vwap_manual = cum_tp_vol / cum_vol.replace(0, np.nan)
+        return vwap_manual.fillna(df['close'])
 
 
 def calculate_supertrend(df: pd.DataFrame, period: int = 10, multiplier: float = 3.0) -> dict:

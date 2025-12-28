@@ -106,14 +106,22 @@ class MLClassifier:
             
             # === v3.0 FEATURES ===
             
-            # MACD Histogram Normalized (Using Utils)
-            _, _, macd_hist = TechnicalIndicators.macd(df['close'])
-            macd_hist_norm = macd_hist.iloc[-1] / close * 100 if close > 0 else 0
+            # MACD Histogram Normalized (Using pandas_ta directly)
+            macd_df = ta.macd(df['close'])
+            if macd_df is not None and len(macd_df.columns) >= 3:
+                macd_hist = macd_df.iloc[:, 2]  # MACDh column
+                macd_hist_norm = macd_hist.iloc[-1] / close * 100 if close > 0 else 0
+            else:
+                macd_hist_norm = 0
             
-            # Bollinger Bands (Using Utils)
-            _, _, _, bb_width, bb_pct_series = TechnicalIndicators.bollinger_bands(df['close'])
-            bb_width = bb_width.iloc[-1]
-            bb_pct = bb_pct_series.iloc[-1]
+            # Bollinger Bands (Using pandas_ta directly)
+            bb = ta.bbands(df['close'], length=20, std=2.0)
+            if bb is not None and len(bb.columns) >= 5:
+                bb_width = bb.iloc[-1, 3]  # BBB (Bandwidth)
+                bb_pct = bb.iloc[-1, 4]    # BBP (Percent)
+            else:
+                bb_width = 0
+                bb_pct = 0.5
             
             # Rate of Change
             close_5 = df['close'].iloc[-6] if len(df) > 5 else close
