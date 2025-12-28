@@ -1153,7 +1153,6 @@ class AsyncTradingSession:
         self._operation_locks[symbol] = now
         
         try:
-        try:
             # Get position via Bridge
             pos = await self.bridge.get_position(symbol)
             qty = float(pos.get('quantity', 0))
