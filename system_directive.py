@@ -69,8 +69,9 @@ SHARK_TARGETS = [
 ]
 
 # --- AI & ML MODULES ---
+# Defaults - DB persisted values will override on startup
 AI_FILTER_ENABLED = True
-ML_CLASSIFIER_ENABLED = False
+ML_CLASSIFIER_ENABLED = True
 # --- RISK & MANAGEMENT ---
 RISK_PER_TRADE_PCT = 0.01
 ALLOW_SLTP_UPDATE = True
