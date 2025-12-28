@@ -25,7 +25,7 @@ class BybitAdapter(IExchangeAdapter):
 
     def __init__(self, api_key: str = None, api_secret: str = None):
         self._api_key = api_key or os.getenv('BYBIT_API_KEY', '')
-        self._api_secret = api_secret or os.getenv('BYBIT_SECRET', '')
+        self._api_secret = api_secret or os.getenv('BYBIT_API_SECRET', '')
         self._exchange: Optional[ccxt.bybit] = None
         self._testnet = os.getenv('BYBIT_TESTNET', 'false').lower() == 'true'
 
