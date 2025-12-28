@@ -1998,7 +1998,10 @@ class AsyncTradingSession:
         if not self.bridge:
             return False, "No valid session."
         
-        # 1. Close Current
+        # 1. Cancel Open Orders (Safety)
+        await self.bridge.cancel_orders(symbol)
+        
+        # 2. Close Current
         success_close, msg_close = await self.execute_close_position(symbol)
         
         if not success_close and "No open position" not in msg_close:

@@ -251,7 +251,7 @@ class BinanceAdapter(IExchangeAdapter):
                 if amt != 0:
                     active.append({
                         'symbol': p.get('symbol', '').replace('/USDT:USDT', 'USDT'),
-                        'side': 'LONG' if amt > 0 else 'SHORT',
+                        'side': p.get('side', '').upper() if p.get('side') else ('LONG' if float(p.get('info', {}).get('positionAmt', amt)) > 0 else 'SHORT'),
                         'quantity': abs(amt),
                         'entryPrice': float(p.get('entryPrice') or 0),
                         'unrealizedPnl': float(p.get('unrealizedPnl') or 0),
