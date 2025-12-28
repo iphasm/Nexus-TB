@@ -577,8 +577,8 @@ async def cmd_debug(message: Message, **kwargs):
         session_manager = kwargs.get('session_manager')
         session = session_manager.get_session(str(message.chat.id)) if session_manager else None
         
-        user_api_key = session.api_key if session else None
-        user_api_secret = session.api_secret if session else None
+        user_api_key = session.config_api_key if session else None
+        user_api_secret = session.config_api_secret if session else None
         
         # Run blocking diagnostics in thread pool with user's credentials
         loop = asyncio.get_running_loop()
@@ -593,7 +593,8 @@ async def cmd_debug(message: Message, **kwargs):
             await msg.edit_text(report, parse_mode="Markdown")
             
     except Exception as e:
-        await msg.edit_text(f"❌ Error en diagnóstico: {e}")
+        # Disable parse_mode for error reporting to avoid "Can't parse entities"
+        await msg.edit_text(f"❌ Error en diagnóstico: {e}", parse_mode=None)
 
 
 @router.message(Command("diag"))
