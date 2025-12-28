@@ -192,8 +192,8 @@ async def cmd_strategies(message: Message, **kwargs):
     s_state = "✅" if session_strategies.get('SCALPING', True) else "❌"
     g_state = "✅" if session_strategies.get('GRID', True) else "❌"
     m_state = "✅" if session_strategies.get('MEAN_REVERSION', True) else "❌"
-    bs_state = "✅" if session_strategies.get('BLACK_SWAN', True) else "❌"
-    sh_state = "✅" if session_strategies.get('SHARK', False) else "❌"
+    # Sentinel combines Black Swan + Shark
+    sent_state = "✅" if session_strategies.get('SENTINEL', True) or session_strategies.get('BLACK_SWAN', True) else "❌"
     
     # Premium Signal State
     try:
@@ -205,8 +205,7 @@ async def cmd_strategies(message: Message, **kwargs):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"💎 Premium Signals: {ps_state}", callback_data="TOGGLE|PREMIUM")],
         [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
-        [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
-        [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
+        [InlineKeyboardButton(text=f"🛡️ Sentinel (Defense/Shark): {sent_state}", callback_data="TOGGLE|SENTINEL")],
         [
             InlineKeyboardButton(text=f"⚡ Scalping: {s_state}", callback_data="TOGGLE|SCALPING"),
             InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
@@ -222,7 +221,7 @@ async def cmd_strategies(message: Message, **kwargs):
         "• ⚡ *Scalping* - Alta volatilidad intradía\n"
         "• 🕸️ *Grid* - Mercados laterales\n"
         "• 📉 *Mean Rev* - Reversión a la media\n\n"
-        "_Los módulos Black Swan y Shark siguen siendo configurables:_ "
+        "🛡️ *Sentinel:* Unifica Black Swan (Defensa) y Shark Mode (Ataque)."
     )
     
     if edit_message:

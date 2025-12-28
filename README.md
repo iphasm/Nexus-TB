@@ -29,11 +29,11 @@
 | **Scalping** | RSI extremes + Volume | High volatility |
 | **Mean Reversion** | Bollinger touches | Range-bound markets |
 | **Grid Trading** | EMA Mean Reversion | Sideways/Chop |
-| **Black Swan** | -5% in 15min | Crash protection |
+| **Sentinel** | BTC Crash / Bearish Momentum | Defense + Predator |
 
 ### 🛡️ Sentinel Protocol (Defense System)
 - **Monitoring**: Exclusive 24/7 BTC Watchdog via WebSocket.
-- **Black Swan**: Auto-Exit Longs on >4% crash.
+- **Black Swan Mode**: Auto-Exit Longs on >4% crash.
 - **Shark Mode**: Aggressive Shorting when BTC Dominance rises (CMC Integration).
 - **Macro Vision**: Uses CoinMarketCap API for global market health.
 

@@ -27,7 +27,7 @@ Responsible for signal generation and strategy logic.
     - `scalping.py`: RSI/Momentum scalper for ranging markets.
     - `flow.py`: Trend following (EMA/ADX).
     - `harpoon.py`: Reversal catcher (Bollinger Bands).
-    - `shark.py`: **Shark Strategy** (Aggressive Shorting for crashes).
+    - `sentinel.py`: **Sentinel Strategy** (Unified Defense & Shark Attack).
 - **Classifier (`classifier.py`)**: ML Model to determine market regime (Volatile/Stable).
 
 #### B. SHIELD (The Defense) - `nexus_system/shield/`
@@ -60,15 +60,9 @@ Execution and User Management.
 
 ## 3. Key Functionalities
 
-### 🛡️ Sentinel Protocol (The Guardian)
-An always-on defensive layer that overrides all other strategies.
-- **Black Swan Event**: If BTC crashes >4% in minutes -> Immediate **EXIT_LONG** only. Shorts remain open.
-- **Shark Context**: If BTC Dominance rises + Global Cap falls -> Trigger **SHARK_MODE**.
-
-### 🦈 Shark Mode (The Predator)
-- **Trigger**: "Sangria" Market (Bleeding Alts). 
-- **Action**: Aggressively SHORT specific targets (`SHARK_TARGETS` like SOL, MEMEs).
-- **Logic**: High Leverage, Tight SL, follows downside momentum.
+### 🦢 Sentinel Protocol (The Guardian + Predator)
+- **Black Swan Mode**: If BTC crashes >4% in minutes -> Immediate **EXIT_LONG** only. Shorts remain open.
+- **Shark Mode**: If BTC Dominance rises + Global Cap falls -> Aggressive **SHORT** on vulnerable targets.
 
 ### 🧠 ML-Enhanced Regimes
 The bot uses a Random Forest / XGBoost model to classify the market structure (Trending vs Ranging) to automatically select the best strategy:
