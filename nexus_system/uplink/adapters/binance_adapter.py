@@ -328,19 +328,26 @@ class BinanceAdapter(IExchangeAdapter):
         try:
             # 1. Get Position
             positions = await self.get_positions()
-            target_pos = next((p for p in positions if p['symbol'] == symbol), None)
             
-            if not target_pos: return True # Already closed
+            # Normalize symbol for comparison (remove USDT suffix variations)
+            normalized = symbol.replace('/USDT:USDT', 'USDT').replace('USDT', '')
+            target_pos = next((p for p in positions if p['symbol'].replace('USDT', '') == normalized), None)
+            
+            if not target_pos: 
+                print(f"ℹ️ BinanceAdapter: No position found for {symbol} (already closed)")
+                return True # Already closed
             
             qty = target_pos['quantity']
             side = target_pos['side']
             
             if qty == 0: return True
             
-            # 2. Execute Close (Opposite Side)
-            close_side = 'SELL' if side == 'LONG' else 'BUY'
+            # 2. Execute Close (Opposite Side) - CCXT uses lowercase
+            close_side = 'sell' if side == 'LONG' else 'buy'
             
             formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+            
+            print(f"🔒 BinanceAdapter: Closing {symbol} - {close_side} {qty} (reduceOnly)")
             
             # Use param 'reduceOnly': True explicitly
             await self._exchange.create_order(
@@ -348,7 +355,16 @@ class BinanceAdapter(IExchangeAdapter):
             )
             return True
         except Exception as e:
-            print(f"⚠️ BinanceAdapter Close Error ({symbol}): {e}")
+            err_str = str(e)
+            # Parse Binance error code if present
+            import re, json
+            match = re.search(r'\{.*"code":.*\}', err_str)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                    err_str = f"Binance Error {data.get('code')}: {data.get('msg')}"
+                except: pass
+            print(f"⚠️ BinanceAdapter Close Error ({symbol}): {err_str}")
             return False
 
     async def close(self):
