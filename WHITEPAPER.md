@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-Nexus Trading Bot is an advanced algorithmic trading platform that combines real-time market analysis, machine learning classification, and multi-strategy execution to deliver institutional-grade trading capabilities to individual traders. Built on a modular architecture, Nexus operates across cryptocurrency and traditional markets via Binance and Alpaca integrations.
+Nexus Trading Bot is an advanced algorithmic trading platform that combines real-time market analysis, machine learning classification, and multi-strategy execution to deliver institutional-grade trading capabilities to individual traders. Built on a **modular biome architecture**, Nexus operates across cryptocurrency and traditional markets via **Binance, Bybit, and Alpaca** integrations, with persistent state managed through **PostgreSQL** and encrypted session handling.
 
 ---
 
@@ -46,8 +46,9 @@ Nexus Trading Bot addresses these challenges through:
 │  │  (Data In)  │  │  (Brain)    │  │   (Trade Out)       │  │
 │  ├─────────────┤  ├─────────────┤  ├─────────────────────┤  │
 │  │ • Binance   │  │ • Strategies│  │ • Order Execution   │  │
-│  │ • Alpaca    │  │ • ML Class. │  │ • SL/TP Management  │  │
-│  │ • WebSocket │  │ • Signals   │  │ • Position Sizing   │  │
+│  │ • Bybit     │  │ • ML Class. │  │ • SL/TP Management  │  │
+│  │ • Alpaca    │  │ • Signals   │  │ • Position Sizing   │  │
+│  │ • WebSocket │  │ • Sentinel  │  │ • NexusBridge       │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 │                                                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
@@ -55,20 +56,62 @@ Nexus Trading Bot addresses these challenges through:
 │  │   (Risk)    │  │ (Services)  │  │    (Telegram)       │  │
 │  ├─────────────┤  ├─────────────┤  ├─────────────────────┤  │
 │  │ • Circuit   │  │ • Scheduler │  │ • Commands          │  │
-│  │   Breaker   │  │ • Database  │  │ • Callbacks         │  │
-│  │ • Shark Mode│  │ • Analytics │  │ • Sessions          │  │
+│  │   Breaker   │  │ • PostgreSQL│  │ • Callbacks         │  │
+│  │ • Sentinel  │  │ • Sessions  │  │ • Sessions          │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Data Flow
+### 2.2 Modular Biome Architecture
 
-1. **Market Data Ingestion**: WebSocket streams from Binance Futures (29+ crypto pairs)
-2. **Indicator Calculation**: EMA, RSI, Bollinger Bands, ATR, ADX computed in real-time
-3. **Strategy Classification**: ML model selects optimal strategy based on market regime
-4. **Signal Generation**: Strategy-specific analysis produces BUY/SELL/HOLD signals
-5. **Risk Filtering**: Signals pass through confidence thresholds and cooldown filters
-6. **Execution**: Orders placed via exchange APIs with automated SL/TP
+| Biome | Responsibility | Key Files |
+|-------|----------------|----------|
+| **CORE** | Event loop, orchestration | `engine.py` |
+| **CORTEX** | Strategies, ML Classifier, Signals | `trend.py`, `scalping.py`, `sentinel.py` |
+| **SHIELD** | Risk management, Circuit Breaker | `manager.py` |
+| **UPLINK** | Data ingestion, Exchange Adapters | `stream.py`, `binance_adapter.py`, `bybit_adapter.py` |
+| **SERVOS** | Trading, Sessions, DB, Auth | `trading_manager.py`, `db.py` |
+| **HANDLERS** | Telegram commands | `commands.py`, `config.py` |
+
+### 2.3 Data Flow
+
+1. **Market Data Ingestion**: WebSocket streams from Binance/Bybit Futures (29+ crypto pairs)
+2. **Multi-Timeframe Analysis**: Main (15m), Macro (4h), Micro (1m) candles fetched in parallel
+3. **Indicator Calculation**: EMA, RSI, Bollinger Bands, ATR, ADX computed in real-time
+4. **Strategy Classification**: ML model selects optimal strategy based on market regime
+5. **Signal Generation**: Strategy-specific analysis produces BUY/SELL/HOLD signals
+6. **Risk Filtering**: Signals pass through Sentinel Protocol and cooldown filters
+7. **Execution**: Orders placed via NexusBridge with automated SL/TP
+
+---
+
+## 3. Exchange Integration
+
+### 3.1 Binance Futures
+- **Primary exchange** for crypto perpetuals
+- WebSocket streaming with REST fallback
+- Full CCXT async implementation
+
+### 3.2 Bybit V5 (Unified Trading)
+Bybit offers **superior order management** capabilities:
+
+| Feature | Binance | Bybit |
+|---------|---------|-------|
+| Cancel All Orders | Multiple API calls | **Single call** |
+| TP/SL Linked to Position | No | **Yes** |
+| Amend Order (Hot-Edit) | No | **Yes** |
+| Native Trailing Stop | No | **Yes** |
+
+**Key Bybit Adapter Methods:**
+- `cancel_all_orders(symbol)`: Cancel all orders in one request
+- `set_trading_stop(symbol, tp, sl)`: Set TP/SL linked to position (pass 0 to cancel)
+- `amend_order(order_id, price)`: Modify existing order without cancel+replace
+- `place_trailing_stop(symbol, callback_rate)`: Server-side trailing stops
+
+### 3.3 Alpaca (Stocks & ETFs)
+- Paper and Live trading support
+- Real-time during US market hours
+- Polygon WebSocket for premium data
 
 ---
 
@@ -98,11 +141,12 @@ Nexus Trading Bot addresses these challenges through:
 - **Best For**: Sideways or choppy markets
 - **Risk**: Dynamic stop loss below grid range
 
-### 3.5 Black Swan Defense (Shield Protocol)
-- **Executor**: Shark Sentinel (Daemon Thread)
-- **Trigger**: Sudden price drops > 3-5% in <60 seconds
-- **Action**: Panic Close ALL Long positions immediately
-- **Purpose**: Capital preservation during flash crashes; NOT a profit-generating strategy.
+### 4.5 Sentinel Protocol (Unified Defense & Attack)
+- **Module**: `sentinel.py`
+- **Modes**:
+  - **Black Swan (Defense)**: Auto-exit all Longs on >4% BTC crash
+  - **Shark Mode (Offense)**: Aggressive shorting on vulnerable assets during "Sangria" markets
+- **CoinMarketCap Integration**: Monitors BTC Dominance for macro context
 
 ---
 
@@ -147,36 +191,54 @@ Nexus Trading Bot addresses these challenges through:
 - ATR-adjusted duration
 - Prevents overtrading
 
-### 5.4 Shark Sentinel (The Guardian)
-The **Shark Sentinel** is a specialized background daemon that operates independently of the main trading loop. It manages two protocols:
+### 5.4 Sentinel Protocol (The Guardian + Predator)
+The **Sentinel** module (`sentinel.py`) is a unified strategy that handles both defensive and offensive operations:
 
-1.  **Shield Protocol (Black Swan)**:
-    - **Defensive**: Monitors BTC for flash crashes.
-    - **Action**: If triggered, strictly closes all Long positions to preserve capital.
+1.  **Black Swan Mode (Defense)**:
+    - **Trigger**: BTC crashes >4% in a single candle.
+    - **Action**: Emits `EXIT_LONG` signal with confidence 1.0. Shorts remain open.
     
-2.  **Sword Protocol (Shark Mode)**:
-    - **Offensive**: Identifies assets with high downside beta.
-    - **Action**: Opens "Sniper Short" positions on specific targets (e.g., SOL, PEPE) to profit from the crash.
+2.  **Shark Mode (Offense)**:
+    - **Trigger**: Bearish momentum detected (ADX > 25, Price < EMA50 < EMA200).
+    - **Action**: Opens leveraged SHORT positions on `SHARK_TARGETS` (volatile altcoins).
 
 ---
 
-## 6. Logging & Diagnostics
+## 6. Database & Persistence
+
+### 6.1 PostgreSQL Schema
+Nexus uses PostgreSQL for durable state persistence:
+
+| Table | Purpose |
+|-------|--------|
+| `sessions` | User API keys (encrypted), config (JSONB) |
+| `users` | Subscription management, roles, timezones |
+| `bot_state` | Global strategies, group toggles, disabled assets |
+| `scheduled_tasks` | User-defined scheduled actions |
+
+### 6.2 Security
+- **Encryption**: Fernet AES-256 for API keys
+- **Fallback**: JSON files if `DATABASE_URL` not set
+- **Lazy Migration**: Auto-encrypts plaintext keys on load
+
+---
+## 7. Logging & Diagnostics
 
 Nexus employs a centralized **NexusLogger** to maintain system health without saturating storage or API quotas.
 
-### 6.1 Log Architecture
+### 7.1 Log Architecture
 - **Centralized**: All modules feed into `NexusLogger`.
 - **Debounced**: Repetitive errors (e.g., connection retries) are suppressed (logged once every N seconds).
 - **Aggregated Startup**: Initialization logs are condensed into single-line summaries with user counts.
 
-### 6.2 Operational Modes
+### 7.2 Operational Modes
 - **INFO**: Standard production level (Events + Signals).
 - **DEBUG**: Verbose trace for development.
 - **ERROR**: Critical failures only.
 
 ---
 
-## 7. Operational Modes
+## 8. Operational Modes
 
 | Mode | Description | User Action |
 |------|-------------|-------------|
@@ -186,21 +248,21 @@ Nexus employs a centralized **NexusLogger** to maintain system health without sa
 
 ---
 
-## 8. Supported Markets
+## 9. Supported Markets
 
-### 7.1 Cryptocurrency (Binance Futures)
+### 9.1 Cryptocurrency (Binance/Bybit Futures)
 - BTC, ETH, SOL, BNB, XRP, ADA
 - DOGE, SHIB, PEPE, FLOKI, BONK
 - 25+ additional pairs
 
-### 7.2 Stocks & ETFs (Alpaca)
+### 9.2 Stocks & ETFs (Alpaca)
 - TSLA, NVDA, AMD, AAPL, MSFT
 - SPY, QQQ, IWM
 - Real-time during US market hours
 
 ---
 
-## 9. Technical Specifications
+## 10. Technical Specifications
 
 | Component | Technology |
 |-----------|------------|
@@ -214,7 +276,7 @@ Nexus employs a centralized **NexusLogger** to maintain system health without sa
 
 ---
 
-## 10. Security
+## 11. Security
 
 - **API Key Encryption**: Fernet AES-256
 - **Session Isolation**: Per-user encrypted sessions
@@ -223,7 +285,7 @@ Nexus employs a centralized **NexusLogger** to maintain system health without sa
 
 ---
 
-## 11. Future Roadmap
+## 12. Future Roadmap
 
 ### Phase 1 (Current)
 - ✅ Multi-strategy engine
@@ -243,7 +305,7 @@ Nexus employs a centralized **NexusLogger** to maintain system health without sa
 
 ---
 
-## 12. Conclusion
+## 13. Conclusion
 
 Nexus Trading Bot represents growing algorithmic trading platform. By combining real-time data processing, machine learning, and proven trading strategies, Nexus empowers traders to participate in markets with institutional-grade tools while maintaining full control over their risk parameters.
 
