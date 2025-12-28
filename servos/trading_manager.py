@@ -135,8 +135,14 @@ class AsyncTradingSession:
                    os.getenv('APCA_API_SECRET_KEY'))
         
         if alp_key and alp_sec:
-             # Respect PAPER_MODE env or default to True
+             # Detection logic (Config > ENV > URL-based fallback)
              paper_mode = os.getenv('PAPER_MODE', 'true').lower() == 'true'
+             base_url = os.getenv('APCA_API_BASE_URL', '').lower()
+             
+             # If URL is explicitly live, override paper_mode to False
+             if base_url and 'paper' not in base_url and 'api.alpaca' in base_url:
+                 paper_mode = False
+                 
              await self.bridge.connect_exchange(
                 'ALPACA',
                 api_key=alp_key.strip(),
