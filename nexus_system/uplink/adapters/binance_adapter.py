@@ -17,12 +17,16 @@ class BinanceAdapter(IExchangeAdapter):
     Uses CCXT for REST and custom WebSocket for streaming.
     """
 
-    def __init__(self, api_key: str = None, api_secret: str = None):
+    def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BINANCE_API_KEY', '')
         self._api_secret = api_secret or os.getenv('BINANCE_SECRET', '')
         self._exchange: Optional[ccxt.binanceusdm] = None
         self._ws_manager = None
         self._price_cache = None
+        
+        # Debug: Show credential presence
+        key_preview = f"{self._api_key[:4]}...{self._api_key[-4:]}" if len(self._api_key) > 8 else "(empty/short)"
+        print(f"🔐 BinanceAdapter: Credentials loaded - Key: {key_preview}")
 
     @property
     def name(self) -> str:
@@ -31,6 +35,11 @@ class BinanceAdapter(IExchangeAdapter):
     async def initialize(self, **kwargs) -> bool:
         """Initialize Binance connection."""
         try:
+            # Validate credentials
+            if not self._api_key or not self._api_secret:
+                print(f"❌ BinanceAdapter: Missing API credentials!")
+                return False
+            
             config = {
                 'apiKey': self._api_key,
                 'secret': self._api_secret,
