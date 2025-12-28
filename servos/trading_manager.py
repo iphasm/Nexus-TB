@@ -918,7 +918,8 @@ class AsyncTradingSession:
                 return False, f"⚠️ SL/TP placement failed ({e}). Position closed for safety."
         
         except Exception as e:
-            return False, f"[{symbol}] Error: {str(e)}"
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+            return False, f"[{symbol}] Error: {error_msg}"
     
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously."""
@@ -1105,7 +1106,8 @@ class AsyncTradingSession:
                 return False, f"⚠️ SL/TP failed ({e}). Position closed for safety."
         
         except Exception as e:
-            return False, f"[{symbol}] Error: {str(e)}"
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+            return False, f"[{symbol}] Error: {error_msg}"
     
     async def cancel_algo_orders(self, symbol: str) -> int:
         """
