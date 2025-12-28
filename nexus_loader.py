@@ -405,14 +405,23 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                 
             elif mode == 'PILOT':
                 # Check if position already exists - DON'T trigger update on every signal
+                # Check if position already exists
                 try:
                     positions = await session.get_active_positions()
-                    has_position = any(p['symbol'] == symbol for p in positions)
+                    existing_pos = next((p for p in positions if p['symbol'] == symbol), None)
                     
-                    if has_position:
-                        # Position exists - skip to prevent SL/TP spam from repeated signals
-                        logger.debug(f"⏭️ {symbol}: Active position detected in Memory. Skipping redundancy.")
-                        continue  # Skip this session's signal processing
+                    if existing_pos:
+                        # Check for Reversal / Flip opportunity
+                        existing_amt = float(existing_pos.get('amt', 0))
+                        is_existing_long = existing_amt > 0
+                        is_signal_long = (side == 'LONG')
+                        
+                        if is_existing_long == is_signal_long:
+                             logger.debug(f"⏭️ {symbol}: Active {side} position exists. Skipping redundancy.")
+                             continue
+                        else:
+                             logger.info(f"🔄 FLIP DETECTED: {symbol} switching from {'LONG' if is_existing_long else 'SHORT'} to {side}")
+                             # Proceed to execution (trading_manager handles the flip)
                 except:
                     pass  # If check fails, proceed with trade attempt
                 
