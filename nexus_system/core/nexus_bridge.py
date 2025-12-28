@@ -34,8 +34,7 @@ class NexusBridge:
             if await adapter.initialize(**credentials):
                 self.adapters[name] = adapter
                 
-                # Initial sync to Shadow Wallet (Balance & Positions)
-                print(f"🔄 Bridge: Syncing {name} state...")
+                # Initial sync to Shadow Wallet (Balance & Positions) - silent
                 balance = await adapter.get_account_balance()
                 self.shadow_wallet.update_balance(name, balance)
                 

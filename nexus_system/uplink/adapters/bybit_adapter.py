@@ -34,7 +34,7 @@ class BybitAdapter(IExchangeAdapter):
     def name(self) -> str:
         return "bybit"
 
-    async def initialize(self, **kwargs) -> bool:
+    async def initialize(self, verbose: bool = False, **kwargs) -> bool:
         """Initialize Bybit V5 connection."""
         try:
             # Merge init kwargs with method kwargs
@@ -53,10 +53,6 @@ class BybitAdapter(IExchangeAdapter):
             # Apply proxies if present
             if config_options.get('http_proxy'):
                 config['httpProxy'] = config_options['http_proxy']
-                print(f"🌍 BybitAdapter: Using Proxy -> {config_options['http_proxy']}")
-            # REMOVED https_proxy to avoid Bybit conflict error "use only one"
-            # if config_options.get('https_proxy'):
-            #     config['httpsProxy'] = config_options['https_proxy']
             
             # Testnet support
             if self._testnet:
@@ -64,9 +60,6 @@ class BybitAdapter(IExchangeAdapter):
                 
             self._exchange = ccxt.bybit(config)
             await self._exchange.load_markets()
-            
-            mode = "TESTNET" if self._testnet else "MAINNET"
-            print(f"✅ BybitAdapter: Connected to {mode} (Linear Perpetuals)")
             return True
             
         except Exception as e:

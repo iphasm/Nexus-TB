@@ -23,16 +23,12 @@ class BinanceAdapter(IExchangeAdapter):
         self._exchange: Optional[ccxt.binanceusdm] = None
         self._ws_manager = None
         self._price_cache = None
-        
-        # Debug: Show credential presence
-        key_preview = f"{self._api_key[:4]}...{self._api_key[-4:]}" if len(self._api_key) > 8 else "(empty/short)"
-        print(f"🔐 BinanceAdapter: Credentials loaded - Key: {key_preview}")
 
     @property
     def name(self) -> str:
         return "binance"
 
-    async def initialize(self, **kwargs) -> bool:
+    async def initialize(self, verbose: bool = False, **kwargs) -> bool:
         """Initialize Binance connection."""
         try:
             # Validate credentials
@@ -53,12 +49,9 @@ class BinanceAdapter(IExchangeAdapter):
             
             if http_proxy:
                 config['httpProxy'] = http_proxy
-                # config['httpsProxy'] = https_proxy or http_proxy # REMOVED to avoid conflict
-                print(f"🌍 BinanceAdapter: Using Proxy -> {http_proxy}")
 
             self._exchange = ccxt.binanceusdm(config)
             await self._exchange.load_markets()
-            print(f"✅ BinanceAdapter: Connected to USD-M Futures")
             return True
         except Exception as e:
             print(f"❌ BinanceAdapter: Init failed - {e}")

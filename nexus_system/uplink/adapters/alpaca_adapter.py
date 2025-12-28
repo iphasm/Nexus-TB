@@ -62,10 +62,10 @@ class AlpacaAdapter(IExchangeAdapter):
     def name(self) -> str:
         return "alpaca"
 
-    async def initialize(self, **kwargs) -> bool:
+    async def initialize(self, verbose: bool = False, **kwargs) -> bool:
         """Initialize Alpaca connection."""
         if not self._api_key or not self._api_secret:
-            print("⚠️ AlpacaAdapter: No API keys provided")
+            if verbose: print("⚠️ AlpacaAdapter: No API keys provided")
             return False
             
         try:
@@ -85,7 +85,6 @@ class AlpacaAdapter(IExchangeAdapter):
             
             # Test connection
             acct = self._trading_client.get_account()
-            # print(f"✅ Alpaca Connected ({'PAPER' if self._paper else 'LIVE'}): {acct.status}")
             return True
             
         except Exception as e:

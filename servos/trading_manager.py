@@ -37,10 +37,6 @@ class AsyncTradingSession:
         self.config_api_key = api_key
         self.config_api_secret = api_secret
         
-        # Debug: Show credential presence
-        key_preview = f"{api_key[:4]}...{api_key[-4:]}" if api_key and len(api_key) > 8 else "(empty/short)"
-        print(f"🔐 Session {chat_id}: API Key loaded - {key_preview}")
-        
         # Nexus Core
         self.shadow_wallet = ShadowWallet()
         self.bridge = NexusBridge(self.shadow_wallet)
