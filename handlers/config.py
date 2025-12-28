@@ -122,9 +122,10 @@ async def cmd_exchanges(message: Message, **kwargs):
         return
     
     # Determine connection status for each exchange
-    binance_status = "✅ Conectado" if session.client else "❌ No Configurado"
-    bybit_status = "✅ Conectado" if getattr(session, 'bybit_client', None) else "❌ No Configurado"
-    alpaca_status = "✅ Conectado" if getattr(session, 'alpaca_client', None) else "❌ No Configurado"
+    # FIX: Use Bridge Adapters instead of deprecated clients
+    binance_status = "✅ Conectado" if session.bridge.adapters.get('BINANCE') else "❌ No Configurado"
+    bybit_status = "✅ Conectado" if session.bridge.adapters.get('BYBIT') else "❌ No Configurado"
+    alpaca_status = "✅ Conectado" if session.bridge.adapters.get('ALPACA') else "❌ No Configurado"
     
     # Primary exchange
     primary = session.config.get('primary_exchange', 'BINANCE')
@@ -311,7 +312,8 @@ async def cmd_set_keys(message: Message, **kwargs):
         session = await session_manager.create_or_update_session(chat_id, key, secret)
         
         status = "✅ *API Keys Configuradas Correctamente.*\n"
-        if session.client:
+        # FIX: Check Bridge for connection status
+        if session.bridge.adapters.get('BINANCE'):
             status += "🔌 Conexión con Binance: *ESTABLE*"
         else:
             status += "⚠️ Keys guardadas pero *falló la conexión* (Revisa si son correctas)."
@@ -367,7 +369,8 @@ async def cmd_set_alpaca(message: Message, **kwargs):
         await session_manager.save_sessions()
         
         status = "✅ *Alpaca Keys Configuradas*\n"
-        if session.alpaca_client:
+        # FIX: Check Bridge for connection status
+        if session.bridge.adapters.get('ALPACA'):
             status += "🦙 Conexión con Alpaca: *ESTABLE*"
         else:
             status += "⚠️ Keys guardadas pero *falló la conexión*."
