@@ -83,9 +83,19 @@ class AsyncTradingSession:
         if verbose:
             print("🧠 Nexus Analyst: CONNECTED.")
         
-        # Proxy Settings (Config > Env)
-        http_proxy = self.config.get('http_proxy') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-        https_proxy = self.config.get('https_proxy') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
+        # Proxy Settings (Config > Env > self._proxy)
+        # Fix: Check PROXY_URL and self._proxy which were being ignored
+        http_proxy = (self.config.get('http_proxy') or 
+                     os.getenv('PROXY_URL') or 
+                     os.getenv('HTTP_PROXY') or 
+                     os.getenv('http_proxy') or 
+                     self._proxy)
+                     
+        https_proxy = (self.config.get('https_proxy') or 
+                      os.getenv('PROXY_URL') or 
+                      os.getenv('HTTPS_PROXY') or 
+                      os.getenv('https_proxy') or
+                      self._proxy)
         
         exchange_kwargs = {}
         if http_proxy:
