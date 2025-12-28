@@ -67,16 +67,21 @@ class SharkStrategy(IStrategy):
             }
         )
 
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Shark Parameters: High Leverage, Aggressive Stops.
         """
+        # Safe Config Get
+        cfg = config or {}
+        lev = cfg.get('leverage', 7)
+        size_pct = cfg.get('max_capital_pct', 0.08)
+        
         price = signal.price
         atr = signal.metadata.get('atr', price * 0.02)
         
         return {
-            "leverage": 7,  # Higher leverage for high conviction crash
-            "size_pct": 0.08, # 8% per trade
+            "leverage": lev,  # Higher leverage for high conviction crash
+            "size_pct": size_pct, # 8% per trade
             "stop_loss_price": price + (atr * 2.0), # Trailing style room
             "take_profit_price": price - (atr * 4.0) # Target deeper flush
         }

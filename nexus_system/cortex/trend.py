@@ -111,17 +111,31 @@ class TrendFollowingStrategy(IStrategy):
             }
         )
 
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Trend strategies use wider stops (ATR * 2) and try to ride the wave.
         """
         atr = signal.metadata.get('atr', 100) # Fallback
         
+        # Safe Config Get
+        cfg = config or {}
+        lev = cfg.get('leverage', 5)
+        # Use risk % if available, else default size
+        risk_pct = cfg.get('risk_per_trade_pct', 0.01)
+        # Simple sizing: Risk / Distance to SL? Or fixed %?
+        # Current logic used fixed size_pct. Let's respect 'max_capital_pct' or default 0.10
+        size_pct = cfg.get('max_capital_pct', 0.10)
+        
+        # Calculate dynamic prices
+        # Trend: Wide stops (2 ATR)
+        sl_price = signal.price - (atr * 2) if signal.action == "BUY" else signal.price + (atr * 2)
+        tp_price = signal.price + (atr * 4) if signal.action == "BUY" else signal.price - (atr * 4)
+        
         return {
-            "leverage": 5,
-            "size_pct": 0.10,
-            "stop_loss_price": signal.price - (atr * 2) if signal.action == "BUY" else signal.price + (atr * 2),
-            "take_profit_price": signal.price + (atr * 4) if signal.action == "BUY" else signal.price - (atr * 4)
+            "leverage": lev,
+            "size_pct": size_pct,
+            "stop_loss_price": sl_price,
+            "take_profit_price": tp_price
         }
 
 

@@ -188,30 +188,43 @@ class BinanceAdapter(IExchangeAdapter):
             }
             
         except Exception as e:
-            # Try to extract detailed error message from ccxt exception
+            # Standardized Error Handling
             error_msg = str(e)
-            try:
-                # CCXT errors often wrap JSON in the message
-                if hasattr(e, 'args') and len(e.args) > 0:
-                     # e.args[0] might be the raw message
-                     pass
-                
-                # If it's a specific CCXT error, it might have 'code' and 'msg' attributes
-                # But generic handling: try to parse json from string if present
-                import json
-                import re
-                
-                # Look for JSON part: {"code":...}
-                match = re.search(r'\{.*"code":.*\}', error_msg)
-                if match:
-                    json_str = match.group(0)
-                    data = json.loads(json_str)
-                    clean_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
-                    return {'error': clean_msg}
-            except:
-                pass
-                
-            return {'error': error_msg}
+            
+            # 1. Parse JSON if present (CCXT often wraps exchange errors)
+            import json, re
+            code = None
+            msg = ""
+            
+            # Try to find JSON block
+            match = re.search(r'\{.*"code":.*\}', error_msg)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                    code = data.get('code')
+                    msg = data.get('msg', '')
+                except:
+                    pass
+            
+            # 2. Map Critical Errors
+            if code == -2015:
+                return {'error': 'INVALID_API_KEY'}
+            elif code == -2011:
+                return {'error': 'UNKNOWN_ORDER'}
+            elif code == -4003: # Quantity too large?
+                return {'error': 'QUANTITY_ERROR'}
+            elif code == -2019: # Margin is insufficient
+                return {'error': 'INSUFFICIENT_MARGIN'}
+            
+            # Fallback text matching (if code parsing failed)
+            lower_msg = error_msg.lower()
+            if "insufficient margin" in lower_msg:
+                return {'error': 'INSUFFICIENT_MARGIN'}
+            elif "min_notional" in lower_msg:
+                return {'error': 'MIN_NOTIONAL'}
+            
+            clean_msg = f"Binance Error {code}: {msg}" if code else f"Error: {error_msg}"
+            return {'error': clean_msg}
 
     async def cancel_order(self, symbol: str, order_id: str) -> bool:
         """Cancel an order."""

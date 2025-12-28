@@ -36,22 +36,27 @@ class ScalpingStrategy(IStrategy):
         # Assuming we stick to 15m for now as per stream.py config, this update optimizes the logic
         # to be ready for faster updates and cleaner signal generation.
         
-        if df_15m is None or df_15m.empty or len(df_15m) < 50: return None
+        # Prefer 1m data for Trigger, Fallback to 15m if missing
+        trigger_df = df_1m if df_1m is not None and not df_1m.empty and len(df_1m) > 10 else df_15m
+        trend_df = df_15m
         
-        last = df_15m.iloc[-1]
-        prev = df_15m.iloc[-2] if len(df_15m) > 1 else last
-        close = last['close']
+        last = trigger_df.iloc[-1]
+        prev = trigger_df.iloc[-2] if len(trigger_df) > 1 else last
         
-        # 1. Trend Filter (15m or higher)
-        # If we had macro_df, we'd use that. Here we use 15m EMA200 as baseline.
-        ema_200 = last.get('ema_200', close)
-        is_uptrend = close > ema_200
-        is_downtrend = close < ema_200
+        # 1. Trend Filter (Always use 15m or higher)
+        trend_last = trend_df.iloc[-1]
+        trend_close = trend_last['close']
+        ema_200 = trend_last.get('ema_200', trend_close)
         
-        # 2. Trigger Logic with Momentum Confirmation
+        # Trend Logic
+        is_uptrend = trend_close > ema_200
+        is_downtrend = trend_close < ema_200
+        
+        # 2. Trigger Logic (Uses Trigger TF - 1m ideal)
+        # We use RSI and Momentum from the Trigger TF (1m)
         rsi = last.get('rsi', 50)
         rsi_prev = prev.get('rsi', 50)
-        adx = last.get('adx', 0)
+        adx = last.get('adx', 0) # ADX of 1m indicates micro-trend strength
         atr = last.get('atr', 0)
         
         # RSI Momentum (Anti-Falling-Knife Protection)
@@ -97,13 +102,22 @@ class ScalpingStrategy(IStrategy):
             }
         )
 
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Scalping: High Leverage, Tight Stops, Quick TP.
         """
+        # Safe Config Get
+        cfg = config or {}
+        lev = cfg.get('leverage', 10)
+        size_pct = cfg.get('max_capital_pct', 0.05) # Default 5% for scalping if not set
+        
+        # Fixed % stops for scalping (Legacy) -> Should typically be ATR based too, 
+        # but maintaining logic for now to avoid drastic behavior change, just exposing params.
+        # Ideally: Scalping SL = 1.5 * ATR
+        
         return {
-            "leverage": 10, 
-            "size_pct": 0.05, # 5% per trade
+            "leverage": lev, 
+            "size_pct": size_pct,
             "stop_loss_price": signal.price * (0.99 if signal.action == "BUY" else 1.01), # 1% SL
             "take_profit_price": signal.price * (1.015 if signal.action == "BUY" else 0.985) # 1.5% TP
         }

@@ -12,25 +12,8 @@ from .classifier import MarketClassifier
 import system_directive as qconfig
 
 
-# Strategy name mappings: Classifier output -> Registry class name
-STRATEGY_MAP = {
-    'TrendFollowing': 'TrendFollowingStrategy',
-    'Trend': 'TrendFollowingStrategy',
-    'Scalping': 'ScalpingStrategy',
-    'Grid': 'GridTradingStrategy',
-    'MeanReversion': 'MeanReversionStrategy',
-    'Shark': 'SharkStrategy',
-}
-
-# Config key mappings: Strategy name -> ENABLED_STRATEGIES key
-CONFIG_KEY_MAP = {
-    'TrendFollowing': 'TREND',
-    'Trend': 'TREND',
-    'Scalping': 'SCALPING',
-    'Grid': 'GRID',
-    'MeanReversion': 'MEAN_REVERSION',
-    'Shark': 'SHARK',
-}
+# Import maps from system_directive
+from system_directive import STRATEGY_CLASS_MAP as STRATEGY_MAP, STRATEGY_CONFIG_MAP as CONFIG_KEY_MAP
 
 
 class StrategyFactory:

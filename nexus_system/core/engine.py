@@ -104,6 +104,8 @@ class NexusCore:
                     market_data = mtf_data['main']
                     if not mtf_data['macro']['dataframe'].empty:
                         market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
+                    if 'micro' in mtf_data and not mtf_data['micro']['dataframe'].empty:
+                        market_data['micro_dataframe'] = mtf_data['micro']['dataframe']
                 else:
                     market_data = await self.market_stream.get_candles(asset)
                 

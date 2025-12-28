@@ -24,7 +24,7 @@ class IStrategy(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Calculates position size, leverage, and stop-loss based on strategy logic.
         """

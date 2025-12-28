@@ -43,8 +43,16 @@ class MeanReversionStrategy(IStrategy):
         confidence = 0.0
         
         # Trend context for confidence adjustment
-        is_uptrend = price > ema_200
-        is_downtrend = price < ema_200
+        adx = last_row.get('adx', 0)
+        is_ranging = adx < 20
+        
+        # If Ranging (Low ADX), we ignore EMA trend and trade both sides
+        if is_ranging:
+            is_uptrend = True
+            is_downtrend = True
+        else:
+            is_uptrend = price > ema_200
+            is_downtrend = price < ema_200
         
         # RSI MOMENTUM CHECKS (Anti-Falling-Knife)
         rsi_rising = rsi > rsi_prev
@@ -82,15 +90,36 @@ class MeanReversionStrategy(IStrategy):
             }
         )
 
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Mean Reversion targets quick scalps with tight risk.
+        Now uses ATR for dynamic stops (Consistency fix).
         """
+        # Safe Config Get
+        cfg = config or {}
+        lev = cfg.get('leverage', 10)
+        size_pct = cfg.get('max_capital_pct', 0.10)
+        
+        price = signal.price
+        atr = signal.metadata.get('atr', price * 0.01) # Fallback 1%
+        
+        # SL = 2 * ATR (Tight but dynamic)
+        # TP = 3 * ATR
+        sl_dist = atr * 2.0
+        tp_dist = atr * 3.0
+        
+        if signal.action == "BUY":
+            sl_price = price - sl_dist
+            tp_price = price + tp_dist
+        else:
+            sl_price = price + sl_dist
+            tp_price = price - tp_dist
+        
         return {
-            "leverage": 10, 
-            "size_pct": 0.10,  # 10% per trade
-            "stop_loss_price": signal.price * 0.98 if signal.action == "BUY" else signal.price * 1.02,
-            "take_profit_price": signal.price * 1.03 if signal.action == "BUY" else signal.price * 0.97
+            "leverage": lev, 
+            "size_pct": size_pct,
+            "stop_loss_price": sl_price,
+            "take_profit_price": tp_price
         }
 
 

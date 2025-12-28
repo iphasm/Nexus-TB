@@ -324,18 +324,23 @@ class MarketStream:
         tf_main = self.tf_map.get(symbol.split('USDT')[0], self.tf_map['default'])
         tf_macro = '4h'
         
+        # Micro TF Logic (1m for Scalping)
+        # If main is small (5m), micro is 1m. If main is 15m, micro is 1m.
+        tf_micro = '1m'
+        
         # Optimization: If main IS macro (unlikely but possible), skip double fetch
         if tf_main == tf_macro:
              data = await self.get_candles(symbol, limit, timeframe=tf_main)
-             return {'main': data, 'macro': data}
+             return {'main': data, 'macro': data, 'micro': {"dataframe": pd.DataFrame()}}
 
-        # 2. Fetch Concurrently
+        # 2. Fetch Concurrently (Main + Macro + Micro)
         try:
             task_main = self.get_candles(symbol, limit, timeframe=tf_main)
             task_macro = self.get_candles(symbol, limit, timeframe=tf_macro)
+            task_micro = self.get_candles(symbol, 50, timeframe=tf_micro) # Smaller limit for micro is fine
             
             # Run parallel
-            res_main, res_macro = await asyncio.gather(task_main, task_macro)
+            res_main, res_macro, res_micro = await asyncio.gather(task_main, task_macro, task_micro)
             
             # Check for errors (empty frames)
             if res_main['dataframe'].empty:
@@ -345,12 +350,17 @@ class MarketStream:
                  
             return {
                 'main': res_main,
-                'macro': res_macro
+                'macro': res_macro,
+                'micro': res_micro
             }
             
         except Exception as e:
             self.logger.error(f"MTF Execution Error: {e}")
-            return {'main': {"dataframe": pd.DataFrame()}, 'macro': {"dataframe": pd.DataFrame()}}
+            return {
+                'main': {"dataframe": pd.DataFrame()}, 
+                'macro': {"dataframe": pd.DataFrame()},
+                'micro': {"dataframe": pd.DataFrame()}
+            }
 
 
     async def get_historical_candles(self, symbol: str, days: int = 30) -> pd.DataFrame:

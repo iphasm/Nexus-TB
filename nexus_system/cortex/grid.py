@@ -92,12 +92,17 @@ class GridTradingStrategy(IStrategy):
             metadata=meta
         )
 
-    def calculate_entry_params(self, signal: Signal, wallet_balance: float) -> Dict[str, Any]:
+    def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Grid Risk Management:
         - Conservatively sized (High probability of mean reversion, but "catching a knife" risk).
         - Wide Stop Loss to allow for noise.
         """
+        # Safe Config Get
+        cfg = config or {}
+        lev = cfg.get('leverage', 3)
+        size_pct = cfg.get('max_capital_pct', 0.05)
+        
         price = signal.price
         atr = signal.metadata.get('atr', price * 0.01)
         
@@ -116,8 +121,8 @@ class GridTradingStrategy(IStrategy):
             tp_price = price - (atr * 2.5)
             
         return {
-            "leverage": 3, # Conservative leverage for Mean Reversion
-            "size_pct": 0.05, # 5% per grid trade
+            "leverage": lev, # Conservative leverage for Mean Reversion
+            "size_pct": size_pct, # 5% per grid trade
             "stop_loss_price": sl_price,
             "take_profit_price": tp_price
         }

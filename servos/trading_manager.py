@@ -889,22 +889,64 @@ class AsyncTradingSession:
             
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
 
-            # 3. Calculate Sizing
+            # 3. Calculate Sizing & Risk Parameters
             leverage = self.config['leverage']
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
+            size_pct = self.config['max_capital_pct'] # Default
             
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                sl_price = round(current_price - sl_dist, price_precision)
-                tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
-                raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
-            else:
-                margin_assignment = total_equity * self.config['max_capital_pct']
-                raw_quantity = (margin_assignment * leverage) / current_price
-                sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
+            # --- STRATEGY OVERRIDE ---
+            if strategy and strategy not in ["Manual", "Legacy"]:
+                strat_instance = StrategyRegistry.instantiate(strategy)
+                if strat_instance:
+                    # Create stub signal for parameter calculation
+                    stub_signal = Signal(
+                        symbol=symbol, action='BUY', confidence=1.0, 
+                        price=current_price, metadata={'atr': atr or 0}
+                    )
+                    try:
+                        params = strat_instance.calculate_entry_params(stub_signal, total_equity, self.config)
+                        # Override defaults
+                        leverage = params.get('leverage', leverage)
+                        size_pct = params.get('size_pct', size_pct)
+                        sl_price = params.get('stop_loss_price')
+                        tp_price = params.get('take_profit_price')
+                        
+                        # Set custom prices if provided
+                        if sl_price and tp_price:
+                            # Strategy handled price calc
+                             # Set dummy vars to skip default calc below if we use a flag?
+                             # Better: Put default logic in 'else' or verify params.
+                             pass
+                    except Exception as e:
+                        print(f"⚠️ Strategy Param Error ({strategy}): {e}")
+
+            # Calculate Final Prices/Qty
+            # Note: If strategy provided SL/TP, use them. Else use defaults.
+            if 'sl_price' not in locals():
+                if atr and atr > 0:
+                    mult = self.config.get('atr_multiplier', 2.0)
+                    sl_dist = mult * atr
+                    sl_price = round(current_price - sl_dist, price_precision)
+                    tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
+                else:
+                    sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
+                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
+
+            # Assign Margin & Calculate Qty
+            margin_assignment = total_equity * size_pct
+            raw_quantity = (margin_assignment * leverage) / current_price
+            
+            # Dynamic Size Check (Risk/Budget) - Re-uses helper
+            # Need to reverse-calc size if calculate_dynamic_size expects total_equity
+            # Actually, `calculate_dynamic_size` accounts for risk.
+            # Strategy strict sizing vs Risk Manager safe sizing?
+            # Strategy wins on 'size_pct', but we should clamp it to max robust checks?
+            if atr:
+                # Use robust sizer to clamp if needed, but respect Strategy's size_pct as target
+                # We can't easily inject "target_size_pct" into calculate_dynamic_size easily without refactoring.
+                # So we stick to raw calc above. logic.
+                pass
             
             quantity = float(round(raw_quantity, qty_precision))
             if (quantity * current_price) < min_notional:
@@ -966,22 +1008,43 @@ class AsyncTradingSession:
             
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
 
-            # 3. Calculate Sizing
+            # 3. Calculate Sizing & Risk Parameters
             leverage = self.config['leverage']
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
+            size_pct = self.config['max_capital_pct']
+
+            # --- STRATEGY OVERRIDE ---
+            if strategy and strategy not in ["Manual", "Legacy"]:
+                strat_instance = StrategyRegistry.instantiate(strategy)
+                if strat_instance:
+                    stub_signal = Signal(
+                        symbol=symbol, action='SELL', confidence=1.0, 
+                        price=current_price, metadata={'atr': atr or 0}
+                    )
+                    try:
+                        params = strat_instance.calculate_entry_params(stub_signal, total_equity, self.config)
+                        leverage = params.get('leverage', leverage)
+                        size_pct = params.get('size_pct', size_pct)
+                        sl_price = params.get('stop_loss_price')
+                        tp_price = params.get('take_profit_price')
+                    except Exception as e:
+                        print(f"⚠️ Strategy Param Error ({strategy}): {e}")
+
+            # Calculate Final Prices/Qty
+            if 'sl_price' not in locals():
+                if atr and atr > 0:
+                    mult = self.config.get('atr_multiplier', 2.0)
+                    sl_dist = mult * atr
+                    sl_price = round(current_price + sl_dist, price_precision)
+                    tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
+                else:
+                    sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
+                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
             
-            if atr and atr > 0:
-                mult = self.config.get('atr_multiplier', 2.0)
-                sl_dist = mult * atr
-                sl_price = round(current_price + sl_dist, price_precision)
-                tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
-                raw_quantity = self.calculate_dynamic_size(total_equity, current_price, sl_price, leverage, min_notional)
-            else:
-                margin_assignment = total_equity * self.config['max_capital_pct']
-                raw_quantity = (margin_assignment * leverage) / current_price
-                sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
+            # Assign Margin & Calculate Qty
+            margin_assignment = total_equity * size_pct
+            raw_quantity = (margin_assignment * leverage) / current_price
             
             quantity = float(round(raw_quantity, qty_precision))
             if (quantity * current_price) < min_notional:

@@ -61,6 +61,37 @@ ENABLED_STRATEGIES = {
     'TREND': True
 }
 
+# --- STRATEGY CONFIG MAPPING (Centralized) ---
+# Maps Strategy Name to Config Key (Duplicate in nexus_loader/factory fixed)
+STRATEGY_CONFIG_MAP = {
+    'TrendFollowing': 'TREND',
+    'Trend': 'TREND',
+    'TREND': 'TREND',
+    'Scalping': 'SCALPING',
+    'Scalping (High Vol)': 'SCALPING',
+    'SCALPING': 'SCALPING',
+    'MeanReversion': 'MEAN_REVERSION',
+    'Mean Reversion': 'MEAN_REVERSION',
+    'MEAN_REVERSION': 'MEAN_REVERSION',
+    'Grid': 'GRID',
+    'GridTrading': 'GRID',
+    'GRID': 'GRID',
+    'BlackSwan': 'BLACK_SWAN',
+    'BLACK_SWAN': 'BLACK_SWAN',
+    'Shark': 'SHARK',
+    'SHARK': 'SHARK',
+}
+
+# Maps Strategy Name to Class Name (for Factory)
+STRATEGY_CLASS_MAP = {
+    'TrendFollowing': 'TrendFollowingStrategy',
+    'Trend': 'TrendFollowingStrategy',
+    'Scalping': 'ScalpingStrategy',
+    'Grid': 'GridTradingStrategy',
+    'MeanReversion': 'MeanReversionStrategy',
+    'Shark': 'SharkStrategy',
+}
+
 # Runtime Blacklist (Global)
 DISABLED_ASSETS = set()
 

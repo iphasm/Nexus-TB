@@ -206,24 +206,7 @@ cooldown_manager = DynamicCooldownManager(default_cooldown=300)  # 5 min default
 # === STRATEGY NAME MAPPING ===
 # Maps strategy.name values from StrategyFactory to session config keys
 # This is CRITICAL for signal filtering to work correctly
-STRATEGY_NAME_TO_CONFIG_KEY = {
-    'TrendFollowing': 'TREND',
-    'Trend': 'TREND',
-    'TREND': 'TREND',
-    'Scalping': 'SCALPING',
-    'Scalping (High Vol)': 'SCALPING',
-    'SCALPING': 'SCALPING',
-    'MeanReversion': 'MEAN_REVERSION',
-    'Mean Reversion': 'MEAN_REVERSION',
-    'MEAN_REVERSION': 'MEAN_REVERSION',
-    'Grid': 'GRID',
-    'GridTrading': 'GRID',
-    'GRID': 'GRID',
-    'BlackSwan': 'BLACK_SWAN',
-    'BLACK_SWAN': 'BLACK_SWAN',
-    'Shark': 'SHARK',
-    'SHARK': 'SHARK',
-}
+from system_directive import STRATEGY_CONFIG_MAP as STRATEGY_NAME_TO_CONFIG_KEY
 
 async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     """
@@ -428,9 +411,9 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                 
                 # Auto-execute (no "entering pilot mode" message)
                 if side == 'LONG':
-                    success, result = await session.execute_long_position(symbol, strategy=strategy)
+                    success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy)
                 else:
-                    success, result = await session.execute_short_position(symbol, strategy=strategy)
+                    success, result = await session.execute_short_position(symbol, atr=atr, strategy=strategy)
                 
                 if success:
                     # Build enhanced AUTOPILOT message
@@ -498,7 +481,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         error_exchange = "Binance"
                     
                     # Handle Margin Insufficient errors with friendly message
-                    if "Margin is insufficient" in result or "insufficient" in result.lower():
+                    # Supports both standard "INSUFFICIENT_MARGIN" code and legacy string fallback
+                    if "INSUFFICIENT_MARGIN" in result or "Margin is insufficient" in result:
                         await bot.send_message(
                             session.chat_id,
                             f"⚠️ No se ejecutó operación automática para *{symbol}* "
@@ -507,16 +491,16 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         )
                     
                     # Special handling for "Insufficient capital" (Min Notional)
-                    elif "Insufficient capital" in result:
+                    elif "MIN_NOTIONAL" in result or "Insufficient capital" in result:
                         # 1. Trigger Long Cooldown (1 hour) to stop spam
                         cooldown_manager.set_cooldown(symbol, 3600)
                         
                         # 2. Notify User only once (Cooldown matches)
                         await bot.send_message(
                             session.chat_id,
-                            f"⚠️ **INSUFFICIENT CAPITAL: {symbol}**\n\n"
-                            f"Position size below exchange minimum.\n"
-                            f"❄️ **Action:** {symbol} frozen for 1 hour.",
+                            f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
+                            f"Tamaño de posición por debajo del mínimo del exchange.\n"
+                            f"❄️ **Acción:** {symbol} congelado por 1 hora.",
                             parse_mode="Markdown"
                         )
                     
