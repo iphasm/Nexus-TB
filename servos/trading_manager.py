@@ -125,7 +125,7 @@ class AsyncTradingSession:
 
         # 3. Initialize Bybit
         bybit_key = self.config.get('bybit_api_key') or os.getenv('BYBIT_API_KEY')
-        bybit_secret = self.config.get('bybit_api_secret') or os.getenv('BYBIT_SECRET')
+        bybit_secret = self.config.get('bybit_api_secret') or os.getenv('BYBIT_API_SECRET')
         
         if bybit_key and bybit_secret:
              self.bybit_client = BybitAdapter(bybit_key, bybit_secret)
