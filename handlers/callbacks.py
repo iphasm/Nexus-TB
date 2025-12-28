@@ -510,6 +510,31 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
         return
+
+    # Special case: SENTINEL toggle (unified Black Swan + Shark)
+    if strategy == "SENTINEL":
+        # Toggle both BLACK_SWAN and SHARK together
+        current_bs = session.config.get('strategies', {}).get('BLACK_SWAN', True)
+        new_state = not current_bs
+        
+        session.config.setdefault('strategies', {})
+        session.config['strategies']['BLACK_SWAN'] = new_state
+        session.config['strategies']['SHARK'] = new_state
+        session.config['strategies']['SENTINEL'] = new_state
+        await session_manager.save_sessions()
+        
+        # Sync with global
+        import system_directive as aq_config
+        aq_config.ENABLED_STRATEGIES['BLACK_SWAN'] = new_state
+        aq_config.ENABLED_STRATEGIES['SHARK'] = new_state
+        
+        status = "🛡️ ACTIVO (Defense + Shark)" if new_state else "❌ DESACTIVADO"
+        await safe_answer(callback, f"Sentinel: {status}")
+        
+        # Refresh Strategy Menu
+        from handlers.config import cmd_strategies
+        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
+        return
     
     # Normal strategy toggle
     try:
@@ -525,19 +550,17 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
         await safe_answer(callback, f"{strategy}: {new_state}")
         
-        # Rebuild keyboard
+        # Rebuild keyboard (use unified Sentinel)
         strategies = session.config.get('strategies', {})
         t_state = "✅" if strategies.get('TREND', True) else "❌"
         s_state = "✅" if strategies.get('SCALPING', True) else "❌"
         g_state = "✅" if strategies.get('GRID', True) else "❌"
         m_state = "✅" if strategies.get('MEAN_REVERSION', True) else "❌"
-        bs_state = "✅" if strategies.get('BLACK_SWAN', True) else "❌"
-        sh_state = "✅" if strategies.get('SHARK', False) else "❌"
+        sent_state = "✅" if strategies.get('SENTINEL', True) or strategies.get('BLACK_SWAN', True) else "❌"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
-            [InlineKeyboardButton(text=f"🦢 Black Swan: {bs_state}", callback_data="TOGGLE|BLACK_SWAN")],
-            [InlineKeyboardButton(text=f"🦈 Shark Mode: {sh_state}", callback_data="TOGGLE|SHARK")],
+            [InlineKeyboardButton(text=f"🛡️ Sentinel (Defense/Shark): {sent_state}", callback_data="TOGGLE|SENTINEL")],
             [
                 InlineKeyboardButton(text=f"⚡ Scalp: {s_state}", callback_data="TOGGLE|SCALPING"),
                 InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
