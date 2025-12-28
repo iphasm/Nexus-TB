@@ -2183,10 +2183,11 @@ class AsyncSessionManager:
                 if not proxy_url_display:
                     proxy_url_display = s._proxy
             
-            if s.client:
+            # Check adapters via bridge (refactored from deprecated s.client)
+            if 'BINANCE' in s.bridge.adapters:
                 binance_users.append(s.chat_id)
             
-            if s.alpaca_client:
+            if 'ALPACA' in s.bridge.adapters:
                 alpaca_users.append(s.chat_id)
         
         if proxied_users:
@@ -2200,7 +2201,11 @@ class AsyncSessionManager:
     
 
     async def _ensure_admin_session(self, verbose: bool = True):
-        """Create or update admin sessions from env vars (supports comma-separated IDs)."""
+        """Create or REPLACE admin sessions from env vars (supports comma-separated IDs).
+        
+        IMPORTANT: Admin sessions ALWAYS use ENV credentials, overriding any DB values.
+        This ensures the admin can always connect even if DB has stale/different keys.
+        """
         # Sanitize inputs
         raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip().strip("'\"")
         api_key = os.getenv('BINANCE_API_KEY', '').strip().strip("'\"")
@@ -2213,25 +2218,28 @@ class AsyncSessionManager:
         admin_ids = [aid.strip() for aid in raw_admin_ids.split(',') if aid.strip()]
 
         for admin_id in admin_ids:
-            # Case 1: Session does not exist -> Create it
-            if admin_id not in self.sessions:
+            # Check if session exists and has DIFFERENT keys
+            existing = self.sessions.get(admin_id)
+            needs_recreation = False
+            
+            if existing:
+                # Always recreate if keys differ (ENV takes priority)
+                if existing.config_api_key != api_key or existing.config_api_secret != api_secret:
+                    needs_recreation = True
+                    # Close old session's adapters
+                    await existing.bridge.close_all()
+                    if verbose:
+                        print(f"🔄 Admin {admin_id}: ENV credentials differ from DB - recreating session")
+            else:
+                needs_recreation = True
+            
+            if needs_recreation:
+                # Create fresh session with ENV credentials
                 session = AsyncTradingSession(admin_id, api_key, api_secret, manager=self)
                 await session.initialize(verbose=verbose)
                 self.sessions[admin_id] = session
                 if verbose:
-                    print(f"🔑 Admin session created for {admin_id} (Env Vars)")
-            
-            # Case 2: Session exists but Keys mismatch -> Update it
-            else:
-                session = self.sessions[admin_id]
-                # Fix: Use correct attribute names (config_api_key, not api_key)
-                if session.config_api_key != api_key or session.config_api_secret != api_secret:
-                    session.config_api_key = api_key
-                    session.config_api_secret = api_secret
-                    # Re-init client with new keys
-                    await session.initialize(verbose=verbose)
-                    if verbose:
-                        print(f"🔄 Admin session updated for {admin_id} from Env Vars")
+                    print(f"🔑 Admin session {'updated' if existing else 'created'} for {admin_id} (Env Vars)")
     
     async def save_sessions(self):
         """Persist sessions to PostgreSQL and JSON (redundancy)."""
