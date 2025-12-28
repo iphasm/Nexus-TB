@@ -53,7 +53,7 @@ class BinanceAdapter(IExchangeAdapter):
             
             if http_proxy:
                 config['httpProxy'] = http_proxy
-                config['httpsProxy'] = https_proxy or http_proxy
+                # config['httpsProxy'] = https_proxy or http_proxy # REMOVED to avoid conflict
                 print(f"🌍 BinanceAdapter: Using Proxy -> {http_proxy}")
 
             self._exchange = ccxt.binanceusdm(config)
