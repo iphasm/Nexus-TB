@@ -574,19 +574,20 @@ class AsyncTradingSession:
     async def get_open_algo_orders(self, symbol: str) -> list:
         """
         Fetch open algo orders (conditional orders like SL/TP/Trailing).
-        Binance uses futures_get_open_orders for both standard and algo orders.
+        Uses NexusBridge for CCXT compatibility.
         """
         try:
-            if not self.client:
+            if not self.bridge:
                 return []
             
-            # Binance Futures API returns all open orders including conditional ones
-            orders = await self.client.futures_get_open_orders(symbol=symbol)
+            # Use Bridge to get open orders
+            orders = await self.bridge.get_open_orders(symbol)
             
             # Filter for algo-type orders (conditional orders)
             algo_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 
-                         'STOP', 'TAKE_PROFIT', 'TRAILING_STOP']
-            algo_orders = [o for o in orders if o.get('type') in algo_types]
+                         'STOP', 'TAKE_PROFIT', 'TRAILING_STOP',
+                         'stop_market', 'take_profit_market', 'trailing_stop_market']
+            algo_orders = [o for o in orders if o.get('type', '').upper() in [t.upper() for t in algo_types]]
             
             return algo_orders
         except Exception as e:
@@ -653,6 +654,7 @@ class AsyncTradingSession:
     ) -> Tuple[bool, str, Optional[str]]:
         """
         Place conditional order and track algoId for later cancellation.
+        Uses NexusBridge for proper CCXT compatibility.
         
         Args:
             symbol: Trading pair
@@ -665,15 +667,40 @@ class AsyncTradingSession:
         Returns: (success, message, algoId)
         """
         try:
-            result = await self._place_order_with_retry(
-                self.client.futures_create_order,
-                symbol=symbol, side=side, type=order_type,
-                stopPrice=stop_price, quantity=quantity,
-                reduceOnly=True, **kwargs
-            )
+            # Build params for conditional order
+            params = {
+                'stopPrice': stop_price,
+                'reduceOnly': True,
+                **kwargs
+            }
+            
+            # Use Bridge for CCXT-compatible order placement with retry
+            result = None
+            for attempt in range(1, 4):
+                try:
+                    result = await self.bridge.place_order(
+                        symbol=symbol,
+                        side=side,
+                        order_type=order_type,
+                        quantity=quantity,
+                        price=stop_price,
+                        **params
+                    )
+                    if 'error' in result:
+                        raise Exception(result['error'])
+                    break
+                except Exception as e:
+                    if "timeout" in str(e).lower() or "network" in str(e).lower() or "-1007" in str(e):
+                        if attempt < 3:
+                            await asyncio.sleep(attempt)
+                            continue
+                    raise e
+            
+            if not result:
+                raise Exception("Max retries exceeded")
             
             # Extract algoId (or orderId for standard)
-            algo_id = str(result.get('algoId') or result.get('orderId', ''))
+            algo_id = str(result.get('orderId', ''))
             
             # Store in tracking dict
             if symbol not in self.active_algo_orders:
