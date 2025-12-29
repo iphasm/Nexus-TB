@@ -464,11 +464,11 @@ class AsyncTradingSession:
         try:
             info = await self.bridge.get_symbol_info(symbol)
             if info:
-                return (
-                    info.get('quantity_precision', 2),
-                    info.get('price_precision', 2),
-                    info.get('min_notional', 5.0)
-                )
+                q = info.get('quantity_precision', 2)
+                p = info.get('price_precision', 2)
+                n = info.get('min_notional', 5.0)
+                # print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n}")
+                return (q, p, n)
         except Exception as e:
             print(f"⚠️ Precision Error (Bridge) {symbol}: {e}")
             
@@ -1687,6 +1687,46 @@ class AsyncTradingSession:
             
         except Exception as e:
             return False, f"Breakeven Error: {e}"
+
+
+    async def synchronize_sl_tp_safe(
+        self, symbol: str, quantity: float, sl_price: float, tp_price: float, 
+        side: str, min_notional: float, qty_precision: int, 
+        entry_price: float = 0, current_price: float = 0
+    ) -> Tuple[bool, str]:
+        """
+        Surgically synchronize SL/TP orders.
+        1. Cancels existing SL/TP.
+        2. Places new SL/TP if prices > 0.
+        """
+        try:
+            # 1. Cancel Algo Orders
+            await self.bridge.cancel_orders(symbol)
+            
+            # 2. Place SL
+            if sl_price > 0:
+                sl_side = 'SELL' if side == 'LONG' else 'BUY'
+                await self.bridge.place_order(
+                    symbol, sl_side, 'STOP_MARKET', 
+                    quantity=quantity, price=sl_price, 
+                    params={'stopPrice': sl_price, 'reduceOnly': True}
+                )
+            else:
+                return True, f"Skipped SL (Price 0.0)"
+
+            # 3. Place TP
+            if tp_price > 0:
+                tp_side = 'SELL' if side == 'LONG' else 'BUY'
+                await self.bridge.place_order(
+                    symbol, tp_side, 'TAKE_PROFIT_MARKET', 
+                    quantity=quantity, price=tp_price, 
+                    params={'stopPrice': tp_price, 'reduceOnly': True}
+                )
+                
+            return True, "Synced"
+            
+        except Exception as e:
+            return False, f"Sync Exception: {e}"
 
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
         """
