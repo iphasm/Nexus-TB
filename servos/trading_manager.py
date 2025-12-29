@@ -456,10 +456,8 @@ class AsyncTradingSession:
     
     async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
         """Returns (quantityPrecision, pricePrecision, minNotional)"""
-        # Use Bridge to fetch info from Adapter (CCXT)
-        # Fallback defaults: 2, 2, 5.0
         if not self.bridge: 
-            return 2, 2, 5.0
+            return 2, 4, 5.0 # Better default
         
         try:
             info = await self.bridge.get_symbol_info(symbol)
@@ -467,12 +465,21 @@ class AsyncTradingSession:
                 q = info.get('quantity_precision', 2)
                 p = info.get('price_precision', 2)
                 n = info.get('min_notional', 5.0)
-                # print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n}")
+                
+                # FALLBACK: If precision is 0 (integer rounding), it breaks low-value assets (PEPE, DOGE)
+                # We enforce minimum 4 decimals if p=0, or just use 4 if p<2 for testing?
+                # Actually, 0 IS valid for SHIB (no, that's quantity).
+                # For Price, 0 is almost never right for altcoins.
+                if p <= 0: 
+                    p = 5 # Force high precision for safety
+                    print(f"⚠️ Precision 0 detected for {symbol}. Forcing 5.", flush=True)
+                
+                print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n}", flush=True)
                 return (q, p, n)
         except Exception as e:
-            print(f"⚠️ Precision Error (Bridge) {symbol}: {e}")
+            print(f"⚠️ Precision Error (Bridge) {symbol}: {e}", flush=True)
             
-        return 2, 2, 5.0
+        return 2, 4, 5.0
     
     async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
         """Fetch historical klines for chart generation."""
