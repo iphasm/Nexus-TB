@@ -541,12 +541,64 @@ class BinanceAdapter(IExchangeAdapter):
             return []
 
     async def cancel_orders(self, symbol: str) -> bool:
-        """Cancel all open orders for symbol."""
-        if not self._exchange: return False
+        """
+        Cancel all open orders for symbol (standard + conditional).
+        
+        Binance requiere cancelación individual de órdenes condicionales ya que
+        cancel_all_orders() puede no cancelarlas correctamente.
+        """
+        if not self._exchange: 
+            return False
+        
+        formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+        
         try:
-            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
-            await self._exchange.cancel_all_orders(formatted)
+            # 1. Obtener todas las órdenes abiertas (incluyendo condicionales)
+            orders = await self._exchange.fetch_open_orders(formatted)
+            
+            if not orders:
+                return True  # No hay órdenes para cancelar
+            
+            # 2. Separar órdenes estándar y condicionales
+            conditional_types = ['stop_market', 'take_profit_market', 'trailing_stop_market', 
+                               'stop', 'take_profit', 'trailing_stop']
+            conditional_orders = [o for o in orders if o.get('type', '').lower() in conditional_types]
+            standard_orders = [o for o in orders if o.get('type', '').lower() not in conditional_types]
+            
+            # 3. Cancelar órdenes condicionales individualmente (requerido por Binance)
+            cancelled_count = 0
+            for order in conditional_orders:
+                try:
+                    order_id = order.get('id')
+                    if order_id:
+                        await self._exchange.cancel_order(order_id, formatted)
+                        cancelled_count += 1
+                except Exception as e:
+                    # Ignorar errores si la orden ya fue cancelada o no existe
+                    if 'does not exist' not in str(e).lower() and 'not found' not in str(e).lower():
+                        print(f"⚠️ BinanceAdapter: Error cancelando orden condicional {order_id}: {e}")
+            
+            # 4. Cancelar órdenes estándar con cancel_all_orders (si hay alguna)
+            if standard_orders:
+                try:
+                    await self._exchange.cancel_all_orders(formatted)
+                except Exception as e:
+                    # Si cancel_all_orders falla, cancelar individualmente
+                    print(f"⚠️ BinanceAdapter: cancel_all_orders falló, cancelando individualmente: {e}")
+                    for order in standard_orders:
+                        try:
+                            order_id = order.get('id')
+                            if order_id:
+                                await self._exchange.cancel_order(order_id, formatted)
+                                cancelled_count += 1
+                        except Exception:
+                            pass
+            
+            if cancelled_count > 0 or len(standard_orders) > 0:
+                print(f"✅ BinanceAdapter: Cancelled {cancelled_count + len(standard_orders)} orders for {symbol}")
+            
             return True
+            
         except Exception as e:
             print(f"⚠️ BinanceAdapter Cancel Error ({symbol}): {e}")
             return False

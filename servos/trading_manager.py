@@ -795,49 +795,68 @@ class AsyncTradingSession:
 
     async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
         """
-        Robustly cancel all open orders for a symbol (standard + algo).
+        Cancela todas las órdenes abiertas (estándar + condicionales) de forma robusta.
         
-        Anti-Accumulation Logic:
-        1. Fetch all open orders
-        2. Cancel all orders via bridge
-        3. Verify no orders remain (optional)
-        4. Clear tracked algo orders
+        Problema conocido con Binance:
+        - cancel_all_orders() puede no cancelar órdenes condicionales correctamente
+        - Requiere cancelación individual de órdenes condicionales
         
-        Returns: True if all orders cleared, False if some remain
+        Lógica:
+        1. Obtener todas las órdenes abiertas (incluyendo condicionales)
+        2. Cancelar todas las órdenes vía bridge (que maneja cancelación individual)
+        3. Verificar que no queden órdenes (opcional, con retry)
+        4. Limpiar tracking de órdenes algo
+        
+        Returns: True si todas las órdenes fueron canceladas, False si algunas permanecen
         """
         if not self.bridge:
-            return True  # No bridge means no orders
+            return True  # No bridge significa no hay órdenes
             
         try:
-            # 1. Get all open orders via bridge
+            # 1. Obtener todas las órdenes abiertas vía bridge
             all_orders = await self.bridge.get_open_orders(symbol)
             
             if not all_orders:
-                # Clear tracking dict
+                # Limpiar tracking dict
                 if symbol in self.active_algo_orders:
                     del self.active_algo_orders[symbol]
                 return True
                 
             print(f"🧹 {symbol}: Cancelling {len(all_orders)} existing orders...")
             
-            # 2. Cancel all orders via bridge (CCXT handles this atomically)
+            # 2. Cancelar todas las órdenes vía bridge
+            # BinanceAdapter ahora cancela órdenes condicionales individualmente
             success = await self.bridge.cancel_orders(symbol)
             
-            if success:
-                print(f"✅ {symbol}: All orders cancelled")
-            else:
-                print(f"⚠️ {symbol}: Cancel command executed (may have partial cancellation)")
+            if not success:
+                print(f"⚠️ {symbol}: Cancel command failed")
+                return False
             
-            # 3. Clear tracked algo orders
+            # 3. Limpiar tracking de órdenes algo
             if symbol in self.active_algo_orders:
                 del self.active_algo_orders[symbol]
             
-            # 4. Verify (optional, adds latency)
+            # 4. Verificar con retry (opcional, agrega latencia pero asegura cancelación)
             if verify:
-                await asyncio.sleep(0.3)  # Small delay for order state to propagate
+                # Binance puede tardar hasta 1 segundo en actualizar el estado
+                for attempt in range(3):
+                    await asyncio.sleep(0.5 + (attempt * 0.3))  # 0.5s, 0.8s, 1.1s
+                    remaining = await self.bridge.get_open_orders(symbol)
+                    if not remaining:
+                        print(f"✅ {symbol}: All orders cancelled and verified")
+                        return True
+                    
+                    # Si aún quedan órdenes, intentar cancelar nuevamente
+                    if attempt < 2:
+                        print(f"🔄 {symbol}: {len(remaining)} orders still remain, retrying cancellation...")
+                        await self.bridge.cancel_orders(symbol)
+                
+                # Si después de 3 intentos aún quedan órdenes
                 remaining = await self.bridge.get_open_orders(symbol)
                 if remaining:
-                    print(f"⚠️ {symbol}: {len(remaining)} orders still remain after cancel")
+                    print(f"⚠️ {symbol}: {len(remaining)} orders still remain after {3} attempts")
+                    for order in remaining:
+                        print(f"   - Remaining: {order.get('type')} {order.get('orderId')}")
                     return False
                     
             return True
