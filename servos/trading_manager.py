@@ -231,38 +231,6 @@ class AsyncTradingSession:
              
         return True
     
-    # --- RISK HELPER ---
-    def check_capital_limits(self, symbol: str, bypass_cupo: bool = False) -> Tuple[bool, str]:
-        """
-        Guardián de Límites (Limit Guardian):
-        1. Check Max Open Positions (Cupo).
-        2. Check Available Margin (Liquidez).
-        """
-        # 1. Max Open Positions
-        if not bypass_cupo:
-            max_pos = self.config.get('max_open_positions', 10)
-            # Count only active positions (amt != 0)
-            active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
-            
-            if len(active_positions) >= max_pos:
-                is_new_symbol = symbol not in [p.get('symbol') for p in active_positions]
-                
-                if is_new_symbol:
-                    reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
-                    print(f"🛑 Limit Guardian: {reason} for {symbol}")
-                    return False, reason
-
-        # 2. Min Free Margin
-        min_margin = self.config.get('min_free_margin', 10.0) # $10 USD
-        bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-        available = bin_bal.get('available', 0.0)
-        
-        if available < min_margin:
-            reason = f"Margen insuficiente (${available:.2f} < ${min_margin})"
-            print(f"🛑 Limit Guardian: {reason} for {symbol}")
-            return False, reason
-            
-        return True, ""
 
 
     def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
@@ -1162,7 +1130,7 @@ class AsyncTradingSession:
              
         return True, balance, "OK"
 
-    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
         # Log de inicio de ejecución de posición LONG
@@ -1175,11 +1143,6 @@ class AsyncTradingSession:
             except Exception as sync_err:
                 print(f"⚠️ Balance Sync Error: {sync_err}")
         
-        # 0. Guardián de Límites (NUEVO)
-        allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
-        if not allowed:
-            return False, reason
-            
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -1355,7 +1318,7 @@ class AsyncTradingSession:
             return False, f"Execution Error: {e}"
 
 
-    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
         """
         Ejecuta una posición SHORT de forma asíncrona mediante Nexus Bridge.
         
@@ -1370,7 +1333,6 @@ class AsyncTradingSession:
             symbol: Símbolo del activo (ej: 'BTCUSDT')
             atr: Valor de ATR para cálculo de riesgo (opcional)
             strategy: Nombre de la estrategia para parámetros personalizados
-            skip_limits: Si True, omite verificación de límites de capital
         
         Returns:
             Tuple[bool, str]: (éxito, mensaje descriptivo)
@@ -1386,11 +1348,6 @@ class AsyncTradingSession:
             except Exception as sync_err:
                 print(f"⚠️ Balance Sync Error: {sync_err}")
         
-        # 0. Guardián de Límites (NUEVO)
-        allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
-        if not allowed:
-            return False, reason
-            
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -2626,9 +2583,9 @@ class AsyncTradingSession:
         
         # 4. Open New
         if new_side == 'LONG':
-            return await self.execute_long_position(symbol, atr, skip_limits=True)
+            return await self.execute_long_position(symbol, atr)
         elif new_side == 'SHORT':
-            return await self.execute_short_position(symbol, atr, skip_limits=True)
+            return await self.execute_short_position(symbol, atr)
         else:
             return False, f"Invalid Side: {new_side}"
 
