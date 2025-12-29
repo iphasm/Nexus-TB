@@ -820,16 +820,17 @@ class AsyncTradingSession:
                 # Limpiar tracking dict
                 if symbol in self.active_algo_orders:
                     del self.active_algo_orders[symbol]
+                self.logger.info(f"🧹 {symbol}: No open orders to cancel", group=False)
                 return True
                 
-            print(f"🧹 {symbol}: Cancelling {len(all_orders)} existing orders...")
+            self.logger.info(f"🧹 {symbol}: Cancelling {len(all_orders)} existing orders (bridge)", group=False)
             
             # 2. Cancelar todas las órdenes vía bridge
             # BinanceAdapter ahora cancela órdenes condicionales individualmente
             success = await self.bridge.cancel_orders(symbol)
             
             if not success:
-                print(f"⚠️ {symbol}: Cancel command failed")
+                self.logger.warning(f"⚠️ {symbol}: Cancel command failed", group=False)
                 return False
             
             # 3. Limpiar tracking de órdenes algo
@@ -843,26 +844,26 @@ class AsyncTradingSession:
                     await asyncio.sleep(0.5 + (attempt * 0.3))  # 0.5s, 0.8s, 1.1s
                     remaining = await self.bridge.get_open_orders(symbol)
                     if not remaining:
-                        print(f"✅ {symbol}: All orders cancelled and verified")
+                        self.logger.info(f"✅ {symbol}: All orders cancelled and verified", group=False)
                         return True
                     
                     # Si aún quedan órdenes, intentar cancelar nuevamente
                     if attempt < 2:
-                        print(f"🔄 {symbol}: {len(remaining)} orders still remain, retrying cancellation...")
+                        self.logger.warning(f"🔄 {symbol}: {len(remaining)} orders still remain, retrying cancellation...", group=False)
                         await self.bridge.cancel_orders(symbol)
                 
                 # Si después de 3 intentos aún quedan órdenes
                 remaining = await self.bridge.get_open_orders(symbol)
                 if remaining:
-                    print(f"⚠️ {symbol}: {len(remaining)} orders still remain after {3} attempts")
+                    self.logger.warning(f"⚠️ {symbol}: {len(remaining)} orders still remain after {3} attempts", group=False)
                     for order in remaining:
-                        print(f"   - Remaining: {order.get('type')} {order.get('orderId')}")
+                        self.logger.warning(f"   - Remaining: {order.get('type')} {order.get('orderId')}", group=False)
                     return False
                     
             return True
             
         except Exception as e:
-            print(f"❌ _cancel_all_robust error for {symbol}: {e}")
+            self.logger.error(f"❌ _cancel_all_robust error for {symbol}: {e}", group=False)
             return False
 
 

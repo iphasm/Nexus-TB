@@ -575,7 +575,10 @@ class BinanceAdapter(IExchangeAdapter):
                     'status': ao.get('status'),
                     'isAlgo': True
                 })
-            
+
+            # Log resumido para diagnóstico
+            print(f"📋 BinanceAdapter.get_open_orders {symbol or 'ALL'} -> std:{len(orders)} algo:{len(algo_orders)} total:{len(result)}")
+
             return result
         except Exception as e:
             print(f"⚠️ BinanceAdapter: get_open_orders error: {e}")
@@ -615,9 +618,10 @@ class BinanceAdapter(IExchangeAdapter):
             
             total_orders = (orders or []) + (algo_orders or [])
             if not total_orders:
+                print(f"ℹ️ BinanceAdapter: No open orders to cancel for {symbol}")
                 return True  # No hay órdenes para cancelar
             
-            print(f"🔍 BinanceAdapter: Found {len(total_orders)} orders to cancel for {symbol}")
+            print(f"🔍 BinanceAdapter: Found {len(total_orders)} orders to cancel for {symbol} (std:{len(orders)} algo:{len(algo_orders)})")
             
             cancelled_count = 0
             failed_count = 0
