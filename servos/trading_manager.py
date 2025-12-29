@@ -704,11 +704,22 @@ class AsyncTradingSession:
                         raw_tp = entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio)
                         tp_price = round_to_tick_size(raw_tp, tick_size)
                     
-                    # Validación final: Si aún son 0, usar valor sin redondeo (caso edge)
-                    if sl_price <= 0:
-                        sl_price = entry - sl_dist if side=='LONG' else entry + sl_dist
-                    if tp_price <= 0:
-                        tp_price = entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio)
+                    # Validación final: Si aún son 0 después del redondeo, recalcular con tick_size más pequeño
+                    if sl_price <= 0 and entry > 0:
+                        raw_sl = entry - sl_dist if side=='LONG' else entry + sl_dist
+                        # Intentar con tick_size más pequeño si el actual causó 0
+                        smaller_tick = tick_size / 10 if tick_size > 0.00001 else 0.00001
+                        sl_price = round_to_tick_size(raw_sl, smaller_tick)
+                        if sl_price <= 0:
+                            sl_price = raw_sl  # Último recurso: usar valor sin redondeo
+                    
+                    if tp_price <= 0 and entry > 0:
+                        raw_tp = entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio)
+                        # Intentar con tick_size más pequeño si el actual causó 0
+                        smaller_tick = tick_size / 10 if tick_size > 0.00001 else 0.00001
+                        tp_price = round_to_tick_size(raw_tp, smaller_tick)
+                        if tp_price <= 0:
+                            tp_price = raw_tp  # Último recurso: usar valor sin redondeo
 
                         
                     # Place missing orders with validation
