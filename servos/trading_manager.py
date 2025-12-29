@@ -81,6 +81,57 @@ def round_to_tick_size(price: float, tick_size: float) -> float:
     return result
 
 
+def ensure_price_separation(price: float, entry_price: float, tick_size: float, side: str, is_sl: bool) -> float:
+    """
+    Asegura que SL/TP tengan una separación mínima del precio de entrada.
+    
+    Args:
+        price: Precio calculado (SL o TP)
+        entry_price: Precio de entrada
+        tick_size: Tick size del símbolo
+        side: 'LONG' o 'SHORT'
+        is_sl: True si es SL, False si es TP
+    
+    Returns:
+        Precio ajustado con separación mínima garantizada
+    """
+    if price <= 0 or entry_price <= 0:
+        return price
+    
+    # Calcular separación mínima (al menos 2 ticks para evitar problemas de redondeo)
+    min_separation = max(tick_size * 2, entry_price * 0.0001)  # Al menos 0.01% o 2 ticks
+    
+    if side == 'LONG':
+        if is_sl:
+            # SL debe ser < entry, asegurar al menos min_separation de diferencia
+            if price >= entry_price:
+                price = entry_price - min_separation
+            elif (entry_price - price) < min_separation:
+                price = entry_price - min_separation
+        else:
+            # TP debe ser > entry, asegurar al menos min_separation de diferencia
+            if price <= entry_price:
+                price = entry_price + min_separation
+            elif (price - entry_price) < min_separation:
+                price = entry_price + min_separation
+    else:  # SHORT
+        if is_sl:
+            # SL debe ser > entry, asegurar al menos min_separation de diferencia
+            if price <= entry_price:
+                price = entry_price + min_separation
+            elif (price - entry_price) < min_separation:
+                price = entry_price + min_separation
+        else:
+            # TP debe ser < entry, asegurar al menos min_separation de diferencia
+            if price >= entry_price:
+                price = entry_price - min_separation
+            elif (entry_price - price) < min_separation:
+                price = entry_price - min_separation
+    
+    # Re-redondear después del ajuste
+    return round_to_tick_size(price, tick_size)
+
+
 class AsyncTradingSession:
     """
     Async Trading Session using Nexus Bridge.
@@ -1281,6 +1332,10 @@ class AsyncTradingSession:
             
             entry_price = float(res.get('price', current_price) or current_price)
             
+            # Ensure SL/TP have minimum separation from entry price after rounding
+            sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
+            tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
+            
             # 5. Place SL/TP (Separate to ensure logic holds)
             # For conditional orders, price arg = stopPrice (trigger price)
             # Validate prices before placing orders to avoid -2021 error
@@ -1469,6 +1524,10 @@ class AsyncTradingSession:
             if 'error' in res: return False, f"Bridge Error: {res['error']}"
             
             entry_price = float(res.get('price', current_price) or current_price)
+            
+            # Ensure SL/TP have minimum separation from entry price after rounding
+            sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
+            tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'SHORT', is_sl=False)
             
             # 5. Place SL/TP (Buy Orders)
             # SL (Buy Stop) - For SHORT, SL is above entry
