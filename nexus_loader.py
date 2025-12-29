@@ -470,8 +470,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
                     # Only log errors, don't spam user with cooldown messages
-                    ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized"]
+                    ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized", "SILENT_REJECTION", "Cupo lleno"]
                     
+                    if any(x in result for x in ignore_phrases):
+                        continue
+
                     # Determine exchange for error messages
                     if 'USDT' not in symbol:
                         error_exchange = "Alpaca"
@@ -481,7 +484,6 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         error_exchange = "Binance"
                     
                     # Handle Margin Insufficient errors with friendly message
-                    # Supports both standard "INSUFFICIENT_MARGIN" code and legacy string fallback
                     if "INSUFFICIENT_MARGIN" in result or "Margin is insufficient" in result:
                         await bot.send_message(
                             session.chat_id,
@@ -493,9 +495,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Special handling for "Insufficient capital" (Min Notional)
                     elif "MIN_NOTIONAL" in result or "Insufficient capital" in result:
                         # 1. Trigger Long Cooldown (1 hour) to stop spam
+                        from system_directive import COOLDOWN_SECONDS
                         cooldown_manager.set_cooldown(symbol, 3600)
                         
-                        # 2. Notify User only once (Cooldown matches)
+                        # 2. Notify User only once
                         await bot.send_message(
                             session.chat_id,
                             f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
@@ -504,11 +507,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                             parse_mode="Markdown"
                         )
                     
-                    elif not any(x in result for x in ignore_phrases):
+                    else:
                         await bot.send_message(
                             session.chat_id,
                             f"❌ Effector Error: {result}",
-                            parse_mode=None  # Avoid Markdown issues with dynamic error text
+                            parse_mode=None
                         )
                     
             signal_processed = True

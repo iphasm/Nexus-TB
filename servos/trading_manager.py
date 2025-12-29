@@ -192,9 +192,16 @@ class AsyncTradingSession:
         
         # 0. Check if symbol already locked/rejected recently (Cooldown 5 mins)
         spam_key = f"{symbol}_limit_rechazo"
+        global_key = "global_limit_rechazo"
+        
+        # Per-symbol cooldown
         if spam_key in self._rejection_cache:
-            last_time = self._rejection_cache[spam_key]
-            if now - last_time < 300: # 5 minutes silence
+            if now - self._rejection_cache[spam_key] < 300:
+                return False, "SILENT_REJECTION"
+        
+        # Global "Cupo lleno" cooldown (stop spamming many symbols at once)
+        if global_key in self._rejection_cache:
+            if now - self._rejection_cache[global_key] < 60: # 1 minute global silence
                 return False, "SILENT_REJECTION"
 
         # 1. Max Open Positions
@@ -203,17 +210,14 @@ class AsyncTradingSession:
             # Count only active positions (amt != 0)
             active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
             
-            # Exclude current symbol if already open (re-entry or pyramid) - debated, better to block unless strictly pyramiding
-            # For now, simplistic count
             if len(active_positions) >= max_pos:
-                # Check if we are already in this position (allow close/reduce, but block new adds if limiting)
-                # Actually, standard logic: strict limit
                 is_new_symbol = symbol not in [p.get('symbol') for p in active_positions]
                 
                 if is_new_symbol:
                     reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
                     print(f"🛑 Limit Guardian: {reason} for {symbol}")
                     self._rejection_cache[spam_key] = now
+                    self._rejection_cache[global_key] = now # Lock globally for 1 min
                     return False, reason
 
         # 2. Min Free Margin
@@ -2078,16 +2082,26 @@ class AsyncTradingSession:
         if not success_close and "No open position" not in msg_close:
             return False, f"Flip Aborted: Failed to close ({msg_close})"
         
-        # 2. Safety Wait (Binance sequencing - tripled for stability)
-        await asyncio.sleep(3.0)
-        
-        # 3. Verify position is actually closed before opening new
+        # 2. Safety Wait & Robust Verification
+        # We try up to 3 times to verify closure, with a small delay between each.
         try:
-            pos = await self.bridge.get_position(symbol)
-            if pos and pos.get('quantity', 0) != 0:
-                return False, f"Flip Aborted: Position still open ({pos.get('quantity')} contracts)"
+            verified = False
+            qty_now = 0
+            for attempt in range(3):
+                await asyncio.sleep(2.0 if attempt == 0 else 1.0) # Total up to 4s
+                pos = await self.bridge.get_position(symbol)
+                qty_now = abs(float(pos.get('quantity', 0) or pos.get('amt', 0)))
+                
+                if qty_now == 0:
+                    verified = True
+                    break
+                else:
+                    self.logger.warning(f"🔄 Flip Verification (Attempt {attempt+1}/3): {symbol} still has {qty_now} contracts. Waiting...")
+
+            if not verified:
+                return False, f"Flip Aborted: Position failed to close after 3 attempts ({qty_now} remaining)"
         except Exception as e:
-            print(f"⚠️ Warning: Could not verify position closure: {e}")
+            self.logger.warning(f"⚠️ Verification Error ({symbol}): {e}")
         
         # 4. Open New
         if new_side == 'LONG':
