@@ -20,9 +20,9 @@ class BinanceAdapter(IExchangeAdapter):
     def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BINANCE_API_KEY', '')
         self._api_secret = api_secret or os.getenv('BINANCE_SECRET', '')
-        self._exchange: Optional[ccxt.binanceusdm] = None
         self._ws_manager = None
         self._price_cache = None
+        self._is_hedge_mode = False # Default to One-Way
 
     @property
     def name(self) -> str:
@@ -100,6 +100,18 @@ class BinanceAdapter(IExchangeAdapter):
             try:
                 balance = await self._exchange.fetch_balance()
                 print(f"✅ BinanceAdapter: Auth OK (balance fetched)")
+                
+                # Step 3: Detect Position Mode (Hedge vs One-Way)
+                try:
+                    mode_info = await self._exchange.fapiPrivateGetPositionSideDual()
+                    # Response format: {"dualSidePosition": true} for Hedge, false for One-Way
+                    self._is_hedge_mode = mode_info.get('dualSidePosition', False)
+                    mode_str = "HEDGE" if self._is_hedge_mode else "ONE-WAY"
+                    print(f"⚙️ BinanceAdapter: Position Mode -> {mode_str}")
+                except Exception as mode_err:
+                    print(f"⚠️ BinanceAdapter: Could not detect Position Mode - {mode_err}")
+                    # Keep default _is_hedge_mode = False
+                
                 return True
             except Exception as auth_err:
                 err_str = str(auth_err)
@@ -270,6 +282,23 @@ class BinanceAdapter(IExchangeAdapter):
 
         try:
             params = kwargs.copy()
+            
+            # --- FIX: Unpack nested 'params' dict if present ---
+            # trading_manager sometimes passes params={'stopPrice': ..., 'reduceOnly': True}
+            # while the adapter expects these as direct kwargs. Merge them.
+            if 'params' in params:
+                nested = params.pop('params')
+                if isinstance(nested, dict):
+                    params.update(nested)
+            # ---------------------------------------------------
+            
+            # --- POSITION MODE HANDLING ---
+            # Strip positionSide if account is in One-Way mode
+            if not self._is_hedge_mode and 'positionSide' in params:
+                 # In One-Way mode, Binance rejects positionSide parameter
+                 params.pop('positionSide')
+            # ------------------------------
+
             
             if order_type.upper() == 'MARKET':
                 result = await self._exchange.create_order(
