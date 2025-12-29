@@ -79,9 +79,18 @@ class MarketStream:
 
     def _get_adapter(self, symbol: str) -> Optional[IExchangeAdapter]:
         """Get the appropriate adapter for a symbol."""
-        if self._is_alpaca_symbol(symbol):
+        from system_directive import get_asset_group
+        group = get_asset_group(symbol)
+        
+        if group in ['STOCKS', 'ETFS']:
             return self._adapters.get('alpaca')
-        elif 'USDT' in symbol:
+        elif group == 'BYBIT':
+            return self._adapters.get('bybit')
+        elif group == 'CRYPTO':
+            return self._adapters.get('binance')
+            
+        # Fallback patterns
+        if 'USDT' in symbol:
             return self._adapters.get('binance')
         return None
 
@@ -280,6 +289,28 @@ class MarketStream:
         
         # 3. REST Fallback
         try:
+            adapter = self._get_adapter(symbol)
+            if adapter:
+                df = await adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                if not df.empty:
+                    # Add Indicators (Unified)
+                    df = self._add_indicators(df)
+                    
+                    # Backfill WebSocket cache with REST data
+                    if self.price_cache:
+                        candles = df.to_dict('records')
+                        for c in candles:
+                            c['is_closed'] = True
+                        self.price_cache.backfill(symbol, candles)
+                        
+                    return {
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "dataframe": df,
+                        "source": f"adapter:{adapter.name}"
+                    }
+
+            # Original fallback to self.exchange (Binance) if no adapter found
             # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
             formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
             ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)

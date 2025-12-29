@@ -11,13 +11,14 @@ class NexusCore:
     """
     Main Orchestrator for Nexus System.
     """
-    def __init__(self, assets=None, alpaca_keys: dict = None, session_manager=None):
+    def __init__(self, assets=None, alpaca_keys: dict = None, bybit_keys: dict = None, session_manager=None):
         self.logger = get_logger("NexusCore")
         self.session_manager = session_manager
         self.risk_guardian = RiskManager()
         self.market_stream = MarketStream()  # Use default (binanceusdm for futures)
         self.running = False
         self.alpaca_keys = alpaca_keys or {}
+        self.bybit_keys = bybit_keys or {}
         
         # Determine Assets
         if assets:
@@ -47,6 +48,16 @@ class NexusCore:
         ak = self.alpaca_keys.get('key')
         asec = self.alpaca_keys.get('secret')
         
+        # Bybit Adapter Registration
+        bk = self.bybit_keys.get('key')
+        bs = self.bybit_keys.get('secret')
+        if bk and bs:
+            from ..uplink.adapters.bybit_adapter import BybitAdapter
+            bybit_adapter = BybitAdapter(api_key=bk, api_secret=bs)
+            await bybit_adapter.initialize()
+            self.market_stream.register_adapter('bybit', bybit_adapter)
+            self.logger.info("🔌 Bybit Adapter registered for Data Engine")
+
         # Filter crypto symbols for WebSocket subscription
         crypto_symbols = [a for a in self.assets if 'USDT' in a]
         

@@ -766,20 +766,34 @@ async def main():
             from nexus_system.core.engine import NexusCore
             
             # --- KEY INJECTION FIX ---
-            # Try to get admin keys for Alpaca (background engine needs them)
+            # Try to get admin keys for Alpaca & Bybit (background engine needs them)
             admin_id = os.getenv('TELEGRAM_ADMIN_ID')
             alpaca_keys = {}
+            bybit_keys = {}
             
             if admin_id and session_manager:
                 admin_session = session_manager.get_session(str(admin_id))
                 if admin_session:
+                    # Alpaca
                     ak_key = admin_session.config.get('alpaca_key')
                     ak_sec = admin_session.config.get('alpaca_secret')
                     if ak_key and ak_sec:
                         alpaca_keys = {'key': ak_key, 'secret': ak_sec}
                         logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Admin", group=False)
+                    
+                    # Bybit
+                    bk_key = admin_session.config.get('bybit_api_key') or os.getenv('BYBIT_API_KEY')
+                    bk_sec = admin_session.config.get('bybit_api_secret') or os.getenv('BYBIT_API_SECRET')
+                    if bk_key and bk_sec:
+                        bybit_keys = {'key': bk_key, 'secret': bk_sec}
+                        logger.info(f"🔑 NexusCore: Keys Bybit inyectadas", group=False)
             
-            engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys, session_manager=session_manager)
+            engine = NexusCore(
+                assets=get_all_assets(), 
+                alpaca_keys=alpaca_keys, 
+                bybit_keys=bybit_keys,
+                session_manager=session_manager
+            )
             
             # --- BRIDGE: Inject Engine into Session Manager for Dashboard Data ---
             if session_manager:

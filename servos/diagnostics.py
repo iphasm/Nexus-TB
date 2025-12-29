@@ -155,10 +155,16 @@ async def run_diagnostics(
     cred_source = "Session" if api_key else "Environment"
     
     report.append(f"\n**🔑 Credentials Check ({cred_source}):**")
-    report.append(f"- API Key Present: {'✅' if used_api_key else '❌'}")
+    report.append(f"- Binance Key Present: {'✅' if used_api_key else '❌'}")
     if used_api_key:
-        report.append(f"- API Key Masked: {used_api_key[:4]}...{used_api_key[-4:]}")
-    report.append(f"- Secret Present: {'✅' if used_api_secret else '❌'}")
+        report.append(f"- Binance Key Masked: {used_api_key[:4]}...{used_api_key[-4:]}")
+    
+    # Bybit Keys
+    bybit_key = os.getenv('BYBIT_API_KEY')
+    bybit_secret = os.getenv('BYBIT_API_SECRET')
+    report.append(f"- Bybit Key Present: {'✅' if bybit_key else '❌'}")
+    if bybit_key:
+        report.append(f"- Bybit Key Masked: {bybit_key[:4]}...{bybit_key[-4:]}")
     
     # 3. IP Check (Crucial for Geo-blocking) - Async
     report.append("\n**🌍 Network / IP Check:**")
@@ -247,7 +253,24 @@ async def run_diagnostics(
             report.append("❌ Data Fetch: Empty response")
             
     except Exception as e:
-        report.append(f"❌ Public Connection Failed:\n`{str(e)}`")
+        report.append(f"❌ Binance Public Connection Failed:\n`{str(e)}`")
+
+    # 4b. Bybit Public Connectivity
+    report.append("\n**📡 Bybit Public API (v5):**")
+    try:
+        from nexus_system.uplink.adapters.bybit_adapter import BybitAdapter
+        bybit_temp = BybitAdapter()
+        if await bybit_temp.initialize():
+            df = await bybit_temp.fetch_candles("BTCUSDT", limit=1)
+            if not df.empty:
+                report.append(f"✅ Data Fetch: Success (BTC price: {df['close'].iloc[-1]})")
+            else:
+                report.append("❌ Data Fetch: Empty response")
+            await bybit_temp.close()
+        else:
+            report.append("❌ Bybit initialization failed")
+    except Exception as e:
+        report.append(f"❌ Bybit Connection Failed: {e}")
 
     # 5. Binance Authenticated Connectivity
     if used_api_key and used_api_secret:
@@ -273,9 +296,29 @@ async def run_diagnostics(
                 report.append(f"- Futures check failed: {str(fe)}")
                 
         except Exception as e:
-            report.append(f"❌ Auth Failed:\n`{str(e)}`")
+            report.append(f"❌ Binance Auth Failed:\n`{str(e)}`")
     else:
-        report.append("\n**🔐 Auth Test Skipped (No Keys)**")
+        report.append("\n**🔐 Binance Auth Test Skipped (No Keys)**")
+
+    # 5b. Bybit Authenticated Connectivity
+    if bybit_key and bybit_secret:
+        report.append("\n**🔐 Bybit Authenticated API:**")
+        try:
+            from nexus_system.uplink.adapters.bybit_adapter import BybitAdapter
+            bybit_auth = BybitAdapter(api_key=bybit_key, api_secret=bybit_secret)
+            if await bybit_auth.initialize():
+                balance = await bybit_auth.get_account_balance()
+                report.append(f"✅ Auth Success!")
+                report.append(f"- Balance Fetch: Success")
+                # Get total equity/balance
+                report.append(f"- Total Balance: {balance}")
+                await bybit_auth.close()
+            else:
+                report.append("❌ Bybit Auth Initialization Failed")
+        except Exception as e:
+            report.append(f"❌ Bybit Auth Failed: {e}")
+    else:
+        report.append("\n**🔐 Bybit Auth Test Skipped (No Keys)**")
 
     # 6. Full Asset Signal Diagnostics (BTC + TSLA)
     report.append("\n\n📊 **SIGNAL GENERATION DIAGNOSTICS**")
