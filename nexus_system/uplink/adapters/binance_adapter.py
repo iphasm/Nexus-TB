@@ -180,6 +180,22 @@ class BinanceAdapter(IExchangeAdapter):
             print(f"⚠️ BinanceAdapter: get_balance error: {err_msg}")
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 
+    async def set_leverage(self, symbol: str, leverage: int) -> bool:
+        """Set leverage for a symbol (required before placing orders)."""
+        if not self._exchange:
+            return False
+        try:
+            # Format symbol for CCXT
+            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+            await self._exchange.set_leverage(leverage, formatted)
+            return True
+        except Exception as e:
+            # Leverage already set is not an error
+            if 'leverage not changed' in str(e).lower() or 'no need to change' in str(e).lower():
+                return True
+            print(f"⚠️ BinanceAdapter: set_leverage error ({symbol}, {leverage}x): {e}")
+            return False
+
     async def place_order(
         self, 
         symbol: str, 

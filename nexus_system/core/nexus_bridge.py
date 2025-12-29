@@ -99,6 +99,14 @@ class NexusBridge:
             return await adapter.close_position(symbol)
         return False
 
+    async def set_leverage(self, symbol: str, leverage: int) -> bool:
+        """Set leverage for a symbol via adapter."""
+        target = self._route_symbol(symbol)
+        adapter = self.adapters.get(target)
+        if adapter and hasattr(adapter, 'set_leverage'):
+            return await adapter.set_leverage(symbol, leverage)
+        return True  # Return True if adapter doesn't support leverage (e.g., Alpaca)
+
     async def place_order(
         self, 
         symbol: str, 

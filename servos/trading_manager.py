@@ -1003,7 +1003,10 @@ class AsyncTradingSession:
             if (quantity * current_price) < min_notional:
                  return False, f"❌ {symbol}: Insufficient capital."
 
-            # 4. Execute Market Buy
+            # 4. Set Leverage BEFORE placing order (critical for margin calculation)
+            await self.bridge.set_leverage(symbol, leverage)
+            
+            # 5. Execute Market Buy
             res = await self.bridge.place_order(symbol, 'BUY', 'MARKET', quantity=quantity)
             if 'error' in res: return False, f"Bridge Error: {res['error']}"
             
@@ -1115,7 +1118,10 @@ class AsyncTradingSession:
             if (quantity * current_price) < min_notional:
                  return False, f"❌ {symbol}: Insufficient capital."
 
-            # 4. Execute Market Sell (SHORT)
+            # 4. Set Leverage BEFORE placing order (critical for margin calculation)
+            await self.bridge.set_leverage(symbol, leverage)
+            
+            # 5. Execute Market Sell (SHORT)
             res = await self.bridge.place_order(symbol, 'SELL', 'MARKET', quantity=quantity)
             if 'error' in res: return False, f"Bridge Error: {res['error']}"
             
