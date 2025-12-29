@@ -882,14 +882,14 @@ class AsyncTradingSession:
             abs_qty = abs(quantity)
             sl_side = 'SELL' if side == 'LONG' else 'BUY'
             
-            # Validation SL
+            # Validation SL - FIX: Correct direction check
             valid_sl = True
             if current_price > 0:
-                if side == 'LONG' and sl_price >= current_price:
-                    sl_msg = f"⚠️ SL Skipped: Price ({current_price}) < Stop ({sl_price})"
+                if side == 'LONG' and current_price <= sl_price:
+                    sl_msg = f"⚠️ SL Skipped: Price ({current_price}) at/below Stop ({sl_price})"
                     valid_sl = False
-                elif side == 'SHORT' and sl_price <= current_price:
-                    sl_msg = f"⚠️ SL Skipped: Price ({current_price}) > Stop ({sl_price})"
+                elif side == 'SHORT' and current_price >= sl_price:
+                    sl_msg = f"⚠️ SL Skipped: Price ({current_price}) at/above Stop ({sl_price})"
                     valid_sl = False
             
             if sl_price > 0 and valid_sl:
@@ -916,14 +916,14 @@ class AsyncTradingSession:
                 print(f"ℹ️ {symbol}: Skipping TP1 split (Position value < 2x MinNotional). Using Full Trailing.")
             
             if is_split:
-                # Validation TP1
+                # Validation TP1 - FIX: Correct direction check
                 valid_tp = True
                 if current_price > 0:
-                    if side == 'LONG' and tp_price <= current_price:
-                        tp_msg = f"⚠️ TP1 Skipped: Price ({current_price}) > TP ({tp_price})"
+                    if side == 'LONG' and current_price >= tp_price:
+                        tp_msg = f"⚠️ TP Skipped: Price ({current_price}) at/above TP ({tp_price})"
                         valid_tp = False
-                    elif side == 'SHORT' and tp_price >= current_price:
-                        tp_msg = f"⚠️ TP1 Skipped: Price ({current_price}) < TP ({tp_price})"
+                    elif side == 'SHORT' and current_price <= tp_price:
+                        tp_msg = f"⚠️ TP Skipped: Price ({current_price}) at/below TP ({tp_price})"
                         valid_tp = False
 
                 # TP1 (fixed)
@@ -1687,86 +1687,6 @@ class AsyncTradingSession:
             
         except Exception as e:
             return False, f"Breakeven Error: {e}"
-
-
-    async def synchronize_sl_tp_safe(
-        self, symbol: str, quantity: float, sl_price: float, tp_price: float, 
-        side: str, min_notional: float, qty_precision: int, 
-        entry_price: float = 0, current_price: float = 0
-    ) -> Tuple[bool, str]:
-        """
-        Surgically synchronize SL/TP orders.
-        1. Cancels existing SL/TP.
-        2. Places new SL/TP if prices > 0 and won't immediately trigger.
-        """
-        try:
-            # 1. Cancel Algo Orders
-            await self.bridge.cancel_orders(symbol)
-            messages = []
-            overall_success = True
-            
-            # Fetch current price if not provided
-            if current_price <= 0:
-                current_price = await self.bridge.get_last_price(symbol) or 0
-            
-            # 2. Place SL
-            if sl_price > 0:
-                sl_side = 'SELL' if side == 'LONG' else 'BUY'
-                
-                # Validate SL won't immediately trigger
-                sl_valid = True
-                if side == 'LONG' and current_price <= sl_price:
-                    sl_valid = False
-                    messages.append(f"SL Skipped (Price {current_price} already at/below SL {sl_price})")
-                elif side == 'SHORT' and current_price >= sl_price:
-                    sl_valid = False
-                    messages.append(f"SL Skipped (Price {current_price} already at/above SL {sl_price})")
-                
-                if sl_valid:
-                    res = await self.bridge.place_order(
-                        symbol, sl_side, 'STOP_MARKET', 
-                        quantity=quantity, price=sl_price, 
-                        stopPrice=sl_price,
-                        reduceOnly=True
-                    )
-                    if 'error' in res:
-                        messages.append(f"SL Fail: {res['error']}")
-                        overall_success = False
-                    else:
-                        messages.append(f"SL {sl_price}")
-            else:
-                messages.append("SL Skipped (0)")
-
-            # 3. Place TP
-            if tp_price > 0:
-                tp_side = 'SELL' if side == 'LONG' else 'BUY'
-                
-                # Validate TP won't immediately trigger
-                tp_valid = True
-                if side == 'LONG' and current_price >= tp_price:
-                    tp_valid = False
-                    messages.append(f"TP Skipped (Price {current_price} already at/above TP {tp_price})")
-                elif side == 'SHORT' and current_price <= tp_price:
-                    tp_valid = False
-                    messages.append(f"TP Skipped (Price {current_price} already at/below TP {tp_price})")
-                
-                if tp_valid:
-                    res = await self.bridge.place_order(
-                        symbol, tp_side, 'TAKE_PROFIT_MARKET', 
-                        quantity=quantity, price=tp_price, 
-                        stopPrice=tp_price,
-                        reduceOnly=True
-                    )
-                    if 'error' in res:
-                        messages.append(f"TP Fail: {res['error']}")
-                        overall_success = False
-                    else:
-                        messages.append(f"TP {tp_price}")
-                
-            return overall_success, " | ".join(messages)
-            
-        except Exception as e:
-            return False, f"Sync Exception: {e}"
 
 
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
