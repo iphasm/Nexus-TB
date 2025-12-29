@@ -90,7 +90,7 @@ async def cmd_start(message: Message, **kwargs):
         sl = session.config.get('stop_loss_pct', 0.02)
         if lev == 20: risk_label = "⚔️ Ronin"
         elif lev == 3: risk_label = "🛡️ Guardian"
-        elif lev == 5: risk_label = "🌌 Quantum"
+        elif lev == 5: risk_label = "🌌 Nexus"
 
     # 3. Status Icons
     mode_icon = {
@@ -258,7 +258,7 @@ async def cmd_help(message: Message):
         "├ /pilot - Trading 100% autónomo\n"
         "├ /copilot - Confirmación manual\n"
         "├ /watcher - Solo alertas\n"
-        "├ /mode PRESET - Ronin/Guardian/Quantum\n"
+        "├ /mode PRESET - Ronin/Guardian/Nexus\n"
         "└ /resetpilot - Reset Circuit Breaker\n"
     )
     
@@ -740,7 +740,7 @@ async def cmd_migrate_security(message: Message, **kwargs):
 
 @router.message(Command("mode"))
 async def cmd_mode(message: Message, **kwargs):
-    """Risk presets: /mode RONIN|GUARDIAN|QUANTUM"""
+    """Risk presets: /mode RONIN|GUARDIAN|NEXUS"""
     session_manager = kwargs.get('session_manager')
     if not session_manager:
         await message.answer("⚠️ Session manager not available.")
@@ -755,7 +755,7 @@ async def cmd_mode(message: Message, **kwargs):
     
     args = message.text.upper().split()
     if len(args) < 2:
-        await message.answer("⚠️ Uso: `/mode <RONIN | GUARDIAN | QUANTUM>`", parse_mode='Markdown')
+        await message.answer("⚠️ Uso: `/mode <RONIN | GUARDIAN | NEXUS>`", parse_mode='Markdown')
         return
     
     profile = args[1]
@@ -790,7 +790,7 @@ async def cmd_mode(message: Message, **kwargs):
             "_Prioridad: Protección de Capital._",
             parse_mode='Markdown'
         )
-    elif profile == 'QUANTUM':
+    elif profile == 'NEXUS' or profile == 'QUANTUM':  # Support both for backward compatibility
         # Balanced
         session.update_config('leverage', 5)
         session.update_config('stop_loss_pct', 0.02)
@@ -798,7 +798,7 @@ async def cmd_mode(message: Message, **kwargs):
         session.update_config('sentiment_threshold', -0.6)
         session_manager.save_sessions()
         await message.answer(
-            "🌌 **MODO QUANTUM ACTIVADO**\n"
+            "🌌 **MODO NEXUS ACTIVADO**\n"
             "- Apalancamiento: 5x\n"
             "- Stop Loss: Estándar (2.0 ATR)\n"
             "- Filtro IA: Balanceado (-0.6)\n"
@@ -806,7 +806,7 @@ async def cmd_mode(message: Message, **kwargs):
             parse_mode='Markdown'
         )
     else:
-        await message.answer("⚠️ Perfil desconocido. Usa: RONIN, GUARDIAN, QUANTUM.")
+        await message.answer("⚠️ Perfil desconocido. Usa: RONIN, GUARDIAN, NEXUS.")
 
 
 @router.message(Command("resetpilot"))
@@ -878,12 +878,12 @@ async def cmd_risk(message: Message, **kwargs):
 @router.message(Command("news"))
 async def cmd_news(message: Message, **kwargs):
     """AI market briefing"""
-    from servos.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import NexusAnalyst
     
     msg = await message.answer("🗞️ *Leyendo las noticias...* (Consultando via AI)", parse_mode='Markdown')
     
     try:
-        analyst = QuantumAnalyst()
+        analyst = NexusAnalyst()
         if not analyst.client:
             await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
             return
@@ -897,12 +897,12 @@ async def cmd_news(message: Message, **kwargs):
 @router.message(Command("sentiment"))
 async def cmd_sentiment(message: Message, **kwargs):
     """Global sentiment analysis"""
-    from servos.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import NexusAnalyst
     
     msg = await message.answer("✨ *Escaneando Redes y Noticias...*", parse_mode='Markdown')
     
     try:
-        analyst = QuantumAnalyst()
+        analyst = NexusAnalyst()
         if not analyst.client:
             await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
             return
@@ -936,7 +936,7 @@ async def cmd_sentiment(message: Message, **kwargs):
 @router.message(Command("fomc"))
 async def cmd_fomc(message: Message, **kwargs):
     """Federal Reserve (FED) analysis"""
-    from servos.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import NexusAnalyst
     
     session_manager = kwargs.get('session_manager')
     chat_id = str(message.chat.id)
@@ -947,7 +947,7 @@ async def cmd_fomc(message: Message, **kwargs):
     msg = await message.answer("🏦 *Analizando situación de la FED...* (Tasas, Bonos, Powell)", parse_mode='Markdown')
     
     try:
-        analyst = QuantumAnalyst()
+        analyst = NexusAnalyst()
         if not analyst.client:
             await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
             return
@@ -961,7 +961,7 @@ async def cmd_fomc(message: Message, **kwargs):
 @router.message(Command("analyze"))
 async def cmd_analyze(message: Message, **kwargs):
     """Per-asset AI analysis: /analyze BTC - Uses active personality"""
-    from servos.ai_analyst import QuantumAnalyst
+    from servos.ai_analyst import NexusAnalyst
     from servos.fetcher import get_market_data
     from servos.personalities import PersonalityManager
     
@@ -1011,7 +1011,7 @@ async def cmd_analyze(message: Message, **kwargs):
         volume = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0
         avg_vol = float(df['volume'].mean()) if 'volume' in df.columns else 1
         
-        analyst = QuantumAnalyst()
+        analyst = NexusAnalyst()
         if not analyst.client:
             await msg.edit_text("⚠️ IA no disponible.")
             return
@@ -1741,8 +1741,8 @@ async def owner_chat_handler(message: Message, **kwargs):
     personality = session.config.get('personality', 'STANDARD_ES')
     
     # Get OpenAI client
-    from servos.ai_analyst import QuantumAnalyst
-    analyst = QuantumAnalyst()
+    from servos.ai_analyst import NexusAnalyst
+    analyst = NexusAnalyst()
     
     if not analyst.client:
         await message.reply("⚠️ OpenAI no configurado. Verifica `OPENAI_API_KEY`.")

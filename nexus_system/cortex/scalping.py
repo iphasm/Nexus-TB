@@ -26,7 +26,7 @@ class ScalpingStrategy(IStrategy):
         # If we want 1m, we need to ensure the engine passes it.
         # For this step, we will use the 'dataframe' (which is 15m) but prepare logic for 1m.
         
-        # ACTUALLY: The user wants "Quantum/Nexus" power. 
+        # ACTUALLY: The user wants "Nexus" power. 
         # The best way is to treat the incoming 'dataframe' as the TRIGGER timeframe.
         # If the WS is streaming 15m bars, we are triggering at 15m close.
         # If we want 1m triggers, we need to subscribe to 1m bars.

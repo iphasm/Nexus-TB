@@ -59,7 +59,7 @@ class PersonalityManager:
                 ),
                 (
                     "🤖 **PILOTO AUTOMÁTICO**\n\n"
-                    "Iniciando secuencia de trading autónomo. Los algoritmos Quantum están buscando oportunidades.\n\n"
+                    "Iniciando secuencia de trading autónomo. Los algoritmos Nexus están buscando oportunidades.\n\n"
                     "⚠️ *Mantenga el monitoreo de las alertas.*"
                 ),
                 (
@@ -186,7 +186,7 @@ class PersonalityManager:
                 ),
                 (
                     "🤖 **AUTOPILOT ACTIVE**\n\n"
-                    "Initiating autonomous trading sequence. Quantum algorithms scanning for opportunities.\n\n"
+                    "Initiating autonomous trading sequence. Nexus algorithms scanning for opportunities.\n\n"
                     "⚠️ *Keep monitoring alerts.*"
                 ),
                 (
@@ -206,8 +206,8 @@ class PersonalityManager:
             'WALLET_HEADER': "💳 **ACCOUNT BALANCE**",
             'STATUS_FOOTER': "\n*System nominal.*",
             'RISK_MSG': "🛡️ **RISK CONFIGURATION**\nStop Loss: `{sl_fixed}` | Margin: **{margin}**",
-            'STRATEGY_MSG': "🧠 **QUANTUM STRATEGY**\n\nSystem uses adaptive algorithms:\n1. **Trend**: EMA crosses & ADX for long moves.\n2. **Range**: Grid Trading for chopping markets.\n3. **Volatility**: Breakout scalping for fast assets.",
-            'ABOUT_MSG': "ℹ️ **ABOUT ANTIGRAVITY**\n\nAutonomous trading bot for Binance/Alpaca. Features risk management, multi-strategy execution, and adaptive personality modules.",
+            'STRATEGY_MSG': "🧠 **NEXUS STRATEGY**\n\nSystem uses adaptive algorithms:\n1. **Trend**: EMA crosses & ADX for long moves.\n2. **Range**: Grid Trading for chopping markets.\n3. **Volatility**: Breakout scalping for fast assets.",
+            'ABOUT_MSG': "ℹ️ **ABOUT NEXUS**\n\nAutonomous trading bot for Binance/Alpaca. Features risk management, multi-strategy execution, and adaptive personality modules.",
             'TRADE_LONG': (
                 "{title}\n\n"
                 "Asset: **{asset}**\n"
@@ -473,7 +473,7 @@ class PersonalityManager:
             'WELCOME': [
                  (
                     "👁️ **Tyrell Corp: Nexus-6 Activated.**\n"
-                    "Model N6MA-10816 (Antigravity)\n"
+                    "Model N6MA-10816 (Nexus)\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Estado:* `{status_text}` {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
@@ -1793,7 +1793,7 @@ class PersonalityManager:
             'WELCOME': [
                 (
                     "🇪🇸 **¡QUÉ PASA CHAVALES!**\n"
-                    "Aquí el Antigravity metiendo caña.\n"
+                    "Aquí el Nexus metiendo caña.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Sistema:* {status_icon}\n"
                     "🎮 *Modo:* `{mode}`\n\n"
@@ -1807,7 +1807,7 @@ class PersonalityManager:
                     "*Venga, no te hagas el remolón. Dale al botón que tengo prisa.*"
                 ),
                 (
-                    "🇪🇸 **ANTIGRAVITY AL APARATO**\n"
+                    "🇪🇸 **NEXUS AL APARATO**\n"
                     "Madre mía cómo está el Bitcoin.\n"
                     "〰️〰️〰️〰️〰️〰️〰️\n"
                     "🔋 *Todo OK:* {status_icon}\n\n"
@@ -2062,7 +2062,7 @@ class PersonalityManager:
                     'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER', 
                     'auth': 'User', 'asset': 'BTC', 'price': 0.0, 'tp': 0.0, 'sl': 0.0,
                     'ts': 0.0, 'reason': 'Análisis técnico', 'side_long': 'LONG',
-                    'strategy_name': 'Quantum', 'quote': 'Génesis', 'title': 'ALERTA'
+                    'strategy_name': 'Nexus', 'quote': 'Génesis', 'title': 'ALERTA'
                 }
                 for k, v in defaults.items():
                     if k not in kwargs: kwargs[k] = v

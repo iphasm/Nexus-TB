@@ -1,3 +1,3 @@
-# antigravity_quantum/risk package
+# nexus_system/shield package
 # Risk management modules
 

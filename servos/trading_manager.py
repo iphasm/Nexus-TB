@@ -19,7 +19,7 @@ from nexus_system.core.nexus_bridge import NexusBridge
 from nexus_system.core.shadow_wallet import ShadowWallet
 
 # AI Analyst
-from servos.ai_analyst import QuantumAnalyst
+from servos.ai_analyst import NexusAnalyst
 
 # Shield 2.0
 from nexus_system.shield.correlation import CorrelationManager
@@ -63,7 +63,7 @@ class AsyncTradingSession:
         self.cb_ignore_until = 0  
         
         # AI Analyst
-        self.ai_analyst = QuantumAnalyst()
+        self.ai_analyst = NexusAnalyst()
 
         # Shield 2.0: Portfolio Correlation Guard
         self.correlation_manager = CorrelationManager()

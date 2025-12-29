@@ -108,5 +108,5 @@ Nexus-TB/
 ```
 
 ## 6. Credits
-Engineered by **Antigravity** (Google DeepMind) & User (Fabio).
+Engineered by **Nexus** & User (Fabio).
 Top Tier Algorithmic Trading System.

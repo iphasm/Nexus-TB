@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class QuantumAnalyst:
+class NexusAnalyst:
     def __init__(self):
         """Initializes the Nexus Analyst with OpenAI API."""
         self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")

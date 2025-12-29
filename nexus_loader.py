@@ -616,10 +616,10 @@ async def main():
         # Register action handlers for scheduled tasks
         async def handle_analyze(user_id, params, bot_instance):
             symbol = params.get('symbol', 'BTC')
-            from servos.ai_analyst import QuantumAnalyst
+            from servos.ai_analyst import NexusAnalyst
             from nexus_system.memory_archives.fetcher import get_market_data
             
-            analyst = QuantumAnalyst()
+            analyst = NexusAnalyst()
             df = get_market_data(f"{symbol}USDT", timeframe='4h', limit=50)
             if not df.empty:
                 indicators = {
@@ -634,8 +634,8 @@ async def main():
                 await bot_instance.send_message(user_id, f"📊 **Nexus Analysis: {symbol}**\n\n{analysis}", parse_mode="Markdown")
         
         async def handle_news(user_id, params, bot_instance):
-            from servos.ai_analyst import QuantumAnalyst
-            analyst = QuantumAnalyst()
+            from servos.ai_analyst import NexusAnalyst
+            analyst = NexusAnalyst()
             briefing = await asyncio.get_event_loop().run_in_executor(None, analyst.generate_market_briefing)
             await bot_instance.send_message(user_id, f"📰 **Nexus Intelligence Briefing**\n\n{briefing}", parse_mode="Markdown")
         
@@ -651,8 +651,8 @@ async def main():
                 await bot_instance.send_message(user_id, f"📊 **System Status Report**\n💰 Capital: `${net:,.2f}`", parse_mode="Markdown")
         
         async def handle_sentiment(user_id, params, bot_instance):
-            from servos.ai_analyst import QuantumAnalyst
-            analyst = QuantumAnalyst()
+            from servos.ai_analyst import NexusAnalyst
+            analyst = NexusAnalyst()
             symbol = params.get('symbol', 'BTC')
             if analyst.client:
                 sent = analyst.check_market_sentiment(f"{symbol}USDT")
@@ -759,9 +759,9 @@ async def main():
 
     # 6. Initialize Nexus Core (formerly Nexus Core)
     engine_task = None
-    USE_QUANTUM_ENGINE = os.getenv('USE_QUANTUM_ENGINE', 'true').lower() == 'true'
+    USE_NEXUS_ENGINE = os.getenv('USE_NEXUS_ENGINE', 'true').lower() == 'true'
     
-    if USE_QUANTUM_ENGINE:
+    if USE_NEXUS_ENGINE:
         try:
             from nexus_system.core.engine import NexusCore
             
@@ -848,7 +848,7 @@ async def main():
                     "🟢 *Nexus Systems Online*\n\n"
                     f"Links: {len(session_manager.sessions)}\n"
                     f"Assets: {len(get_all_assets())}\n"
-                    f"Core: {'✅' if USE_QUANTUM_ENGINE else '❌'}",
+                    f"Core: {'✅' if USE_NEXUS_ENGINE else '❌'}",
                     parse_mode="Markdown"
                 )
             except Exception as e:

@@ -16,7 +16,7 @@ from system_directive import (
 )
 
 # Global Settings
-USE_QUANTUM_ENGINE = True
+USE_NEXUS_ENGINE = True
 
 # Per-symbol last update timestamp (in-memory, persists during bot session)
 SLTP_LAST_UPDATE = {}  # {symbol: timestamp}

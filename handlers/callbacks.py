@@ -168,7 +168,7 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_personality
         await cmd_personality(callback.message, session_manager=session_manager, edit_message=True)
 
-    # Mode presets (Ronin/Guardian/Quantum)
+    # Mode presets (Ronin/Guardian/Nexus)
     elif cmd.startswith("mode_"):
         preset = cmd.split("_")[1]
         session = session_manager.get_session(str(callback.message.chat.id)) if session_manager else None
@@ -188,11 +188,11 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
             await session.update_config('max_capital_pct', 0.05)
             await session.update_config('atr_multiplier', 3.0)
             msg = "🛡️ *Modo GUARDIAN Activado*\n\n• Leverage: 3x\n• Margen: 5%\n• SL Amplio: 3x ATR\n\n_Perfil conservador para proteger capital._"
-        elif preset == "QUANTUM":
+        elif preset == "NEXUS" or preset == "QUANTUM":  # Support both for backward compatibility
             await session.update_config('leverage', 5)
             await session.update_config('max_capital_pct', 0.10)
             await session.update_config('atr_multiplier', 2.0)
-            msg = "🌌 *Modo QUANTUM Activado*\n\n• Leverage: 5x\n• Margen: 10%\n• SL Balanceado: 2x ATR\n\n_Perfil equilibrado recomendado._"
+            msg = "🌌 *Modo NEXUS Activado*\n\n• Leverage: 5x\n• Margen: 10%\n• SL Balanceado: 2x ATR\n\n_Perfil equilibrado recomendado._"
         else:
             msg = f"❓ Preset desconocido: {preset}"
         
@@ -870,7 +870,7 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
         is_now_disabled = session.toggle_asset_blacklist(asset)
         await session_manager.save_sessions()
         
-        # ALSO update GLOBAL DISABLED_ASSETS (used by QuantumEngine)
+        # ALSO update GLOBAL DISABLED_ASSETS (used by NexusCore)
         from system_directive import DISABLED_ASSETS
         from system_directive import ASSET_GROUPS, GROUP_CONFIG
         from servos.db import save_bot_state
