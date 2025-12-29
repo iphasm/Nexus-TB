@@ -280,13 +280,7 @@ class BinanceAdapter(IExchangeAdapter):
                     symbol, 'limit', side.lower(), quantity, price, params
                 )
             else:
-                # For conditional orders, use raw exchange API
-                params['type'] = order_type
-                params['side'] = side.upper()
-                params['symbol'] = symbol
-                params['quantity'] = quantity
-                
-                # Determine limit price vs trigger price
+                # For conditional orders (STOP_MARKET, etc.)
                 # If order type implies MARKET, limit_price must be None
                 limit_price = price
                 if 'MARKET' in order_type.upper():
