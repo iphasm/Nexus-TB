@@ -2487,9 +2487,15 @@ class AsyncTradingSession:
         Returns: (sl_price, tp_price, ts_price)
         """
         try:
-            price_precision = 2
-            if current_price < 1.0: price_precision = 4
-            if current_price < 0.01: price_precision = 6
+            # Estimación de tick_size basada en el precio (fallback para función síncrona)
+            if current_price >= 1000:
+                tick_size = 0.1
+            elif current_price >= 1:
+                tick_size = 0.01
+            elif current_price >= 0.1:
+                tick_size = 0.001
+            else:
+                tick_size = 0.0001
             
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
