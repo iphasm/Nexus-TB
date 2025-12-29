@@ -1687,23 +1687,23 @@ class AsyncTradingSession:
                 if side == 'LONG':
                     # If in 1% profit, SL = Entry. Else, SL = Entry - Default %
                     if is_in_profit_1pct:
-                        sl_price = round(entry_price, price_prec)
+                        sl_price = round_to_tick_size(entry_price, tick_size)
                         sl_label = "Breakeven"
                     else:
-                        sl_price = round(entry_price * (1 - stop_loss_pct), price_prec)
+                        sl_price = round_to_tick_size(entry_price * (1 - stop_loss_pct), tick_size)
                         sl_label = f"{stop_loss_pct*100}%"
                     
-                    tp_price = round(entry_price * (1 + (stop_loss_pct * 3)), price_prec)
+                    tp_price = round_to_tick_size(entry_price * (1 + (stop_loss_pct * 3)), tick_size)
                 else:
                     # Short: If in 1% profit, SL = Entry. Else, SL = Entry + Default %
                     if is_in_profit_1pct:
-                        sl_price = round(entry_price, price_prec)
+                        sl_price = round_to_tick_size(entry_price, tick_size)
                         sl_label = "Breakeven"
                     else:
-                        sl_price = round(entry_price * (1 + stop_loss_pct), price_prec)
+                        sl_price = round_to_tick_size(entry_price * (1 + stop_loss_pct), tick_size)
                         sl_label = f"{stop_loss_pct*100}%"
                         
-                    tp_price = round(entry_price * (1 - (stop_loss_pct * 3)), price_prec)
+                    tp_price = round_to_tick_size(entry_price * (1 - (stop_loss_pct * 3)), tick_size)
                 
                 # --- MAX SL SHIELD (Emergency Clamp) ---
                 max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
