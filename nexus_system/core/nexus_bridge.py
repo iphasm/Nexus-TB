@@ -174,6 +174,16 @@ class NexusBridge:
         
         return 'BINANCE'  # Default if nothing connected
 
+    async def get_symbol_info(self, symbol: str) -> dict:
+        """Get symbol precision/limits from appropriate adapter."""
+        target = self._route_symbol(symbol)
+        if target and target in self.adapters:
+            adapter = self.adapters[target]
+            if hasattr(adapter, 'get_symbol_info'):
+                 return await adapter.get_symbol_info(symbol)
+        return {}
+
+
     async def close_all(self):
         """Shutdown all connections."""
         for name, adapter in self.adapters.items():

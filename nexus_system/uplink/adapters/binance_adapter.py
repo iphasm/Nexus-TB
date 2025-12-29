@@ -220,6 +220,33 @@ class BinanceAdapter(IExchangeAdapter):
             print(f"⚠️ BinanceAdapter: set_margin_mode error ({symbol}, {mode}): {e}")
             return False
 
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """Get symbol precision and limits."""
+        if not self._exchange: return {}
+        
+        try:
+            formatted = self._format_symbol(symbol)
+            # Check if market is loaded?
+            # CCXT usually loads on init. But safe to check?
+            # Just try .market()
+            try:
+                market = self._exchange.market(formatted)
+            except:
+                # Reload if missing
+                await self._exchange.load_markets()
+                market = self._exchange.market(formatted)
+
+            return {
+                'symbol': symbol,
+                # CCXT precision mode for Binance is DECIMAL_PLACES (int)
+                'price_precision': int(market['precision']['price']),
+                'quantity_precision': int(market['precision']['amount']),
+                'min_notional': float(market['limits']['cost']['min']) if 'cost' in market['limits'] else 5.0
+            }
+        except Exception as e:
+            print(f"⚠️ BinanceAdapter Info Error: {e}")
+            return {}
+
     async def place_order(
         self, 
         symbol: str, 

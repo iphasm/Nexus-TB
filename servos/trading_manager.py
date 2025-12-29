@@ -456,22 +456,22 @@ class AsyncTradingSession:
     
     async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
         """Returns (quantityPrecision, pricePrecision, minNotional)"""
-        if not self.client:
+        # Use Bridge to fetch info from Adapter (CCXT)
+        # Fallback defaults: 2, 2, 5.0
+        if not self.bridge: 
             return 2, 2, 5.0
         
         try:
-            info = await self.client.futures_exchange_info()
-            for s in info['symbols']:
-                if s['symbol'] == symbol:
-                    min_notional = 5.0
-                    for f in s['filters']:
-                        if f['filterType'] == 'MIN_NOTIONAL':
-                            min_notional = float(f.get('notional', 5.0))
-                            break
-                    return s['quantityPrecision'], s['pricePrecision'], min_notional
+            info = await self.bridge.get_symbol_info(symbol)
+            if info:
+                return (
+                    info.get('quantity_precision', 2),
+                    info.get('price_precision', 2),
+                    info.get('min_notional', 5.0)
+                )
         except Exception as e:
-            print(f"Precision Error for {symbol}: {e}")
-        
+            print(f"⚠️ Precision Error (Bridge) {symbol}: {e}")
+            
         return 2, 2, 5.0
     
     async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
