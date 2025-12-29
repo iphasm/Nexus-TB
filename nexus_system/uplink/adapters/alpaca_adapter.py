@@ -321,6 +321,77 @@ class AlpacaAdapter(IExchangeAdapter):
             print(f"⚠️ AlpacaAdapter: close_position error ({symbol}): {e}")
             return False
 
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """
+        Get symbol precision/limits for Alpaca stocks.
+        Returns: {quantity_precision, price_precision, min_notional, tick_size}
+        """
+        if not self._trading_client:
+            return {}
+        
+        try:
+            from alpaca.trading.requests import GetAssetsRequest
+            from alpaca.trading.enums import AssetStatus, AssetClass
+            
+            # Get asset info from Alpaca
+            search_params = GetAssetsRequest(
+                symbol=symbol,
+                status=AssetStatus.ACTIVE,
+                asset_class=AssetClass.US_EQUITY
+            )
+            assets = self._trading_client.get_all_assets(search_params)
+            
+            if not assets:
+                # Try crypto if not found in equities
+                search_params_crypto = GetAssetsRequest(
+                    symbol=symbol,
+                    status=AssetStatus.ACTIVE,
+                    asset_class=AssetClass.CRYPTO
+                )
+                assets = self._trading_client.get_all_assets(search_params_crypto)
+            
+            if assets and len(assets) > 0:
+                asset = assets[0]
+                
+                # Alpaca stocks typically use:
+                # - Tick size: $0.01 (penny increments) for most stocks
+                # - Price precision: 2 decimal places
+                # - Quantity precision: 0 (whole shares)
+                # - Min notional: $1.00 (Alpaca minimum)
+                
+                tick_size = 0.01  # Standard for US stocks
+                price_precision = 2  # Standard for USD prices
+                quantity_precision = 0  # Whole shares only
+                min_notional = 1.0  # Alpaca minimum order value
+                
+                return {
+                    'symbol': symbol,
+                    'tick_size': tick_size,
+                    'price_precision': price_precision,
+                    'quantity_precision': quantity_precision,
+                    'min_notional': min_notional
+                }
+            else:
+                # Asset not found, return defaults
+                return {
+                    'symbol': symbol,
+                    'tick_size': 0.01,
+                    'price_precision': 2,
+                    'quantity_precision': 0,
+                    'min_notional': 1.0
+                }
+                
+        except Exception as e:
+            print(f"⚠️ AlpacaAdapter: get_symbol_info error ({symbol}): {e}")
+            # Return defaults on error
+            return {
+                'symbol': symbol,
+                'tick_size': 0.01,
+                'price_precision': 2,
+                'quantity_precision': 0,
+                'min_notional': 1.0
+            }
+
     async def close(self):
         """Close connections."""
         self._trading_client = None
