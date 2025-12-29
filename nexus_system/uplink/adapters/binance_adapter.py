@@ -305,22 +305,20 @@ class BinanceAdapter(IExchangeAdapter):
                     # For now, let's fix the MARKET case which is the immediate crash.
                     if price:
                         params['stopPrice'] = price
-                        # Only set limit_price if it's NOT a MARKET order
-                        if 'MARKET' not in order_type.upper():
-                            if 'price' in params:
-                                limit_price = params.pop('price') # Move to argument
-                            else:
-                                # If no separate limit price provided, use trigger as limit?
-                                limit_price = price 
-                        else:
-                            # For MARKET, limit_price MUST be None
-                            limit_price = None 
+                if 'MARKET' not in order_type.upper():
+                    # Check if it is a LIMIT order (STOP, TAKE_PROFIT)
+                    if 'price' in params:
+                        limit_price = params.pop('price')
                 
+                # FIX: Pass 'market' to CCXT to ensure correct symbol resolution, 
+                # but override 'type' in params to specify STOP_MARKET/etc.
+                params['type'] = order_type # 'STOP_MARKET'
                 
                 # --- RETRY LOGIC FOR INVALID SYMBOL (-1121) ---
                 try:
+                    # Pass 'market' as CCXT type, but actual type is in params
                     result = await self._exchange.create_order(
-                        symbol, order_type.lower(), side.lower(), quantity, limit_price, params
+                        symbol, 'market', side.lower(), quantity, limit_price, params
                     )
                 except Exception as e_order:
                     # Check for Invalid Symbol / Param (-1121)
@@ -336,8 +334,10 @@ class BinanceAdapter(IExchangeAdapter):
                         for alt in [alt1, alt2]:
                             try:
                                 print(f"🔄 Retrying with: {alt}", flush=True)
+                                print(f"🔄 Retrying with: {alt}", flush=True)
+                                # Retry with 'market' type + override
                                 result = await self._exchange.create_order(
-                                    alt, order_type.lower(), side.lower(), quantity, limit_price, params
+                                    alt, 'market', side.lower(), quantity, limit_price, params
                                 )
                                 symbol = alt # Update symbol for return
                                 success_alt = True
