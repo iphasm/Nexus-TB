@@ -898,6 +898,14 @@ class AsyncTradingSession:
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
+        # Force-sync balance before checking limits (avoid stale ShadowWallet data)
+        if self.bridge and 'BINANCE' in self.bridge.adapters:
+            try:
+                fresh_balance = await self.bridge.adapters['BINANCE'].get_account_balance()
+                self.shadow_wallet.update_balance('BINANCE', fresh_balance)
+            except Exception as sync_err:
+                print(f"⚠️ Balance Sync Error: {sync_err}")
+        
         # 0. Guardián de Límites (NUEVO)
         allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
         if not allowed:
@@ -1042,6 +1050,14 @@ class AsyncTradingSession:
 
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
+        
+        # Force-sync balance before checking limits (avoid stale ShadowWallet data)
+        if self.bridge and 'BINANCE' in self.bridge.adapters:
+            try:
+                fresh_balance = await self.bridge.adapters['BINANCE'].get_account_balance()
+                self.shadow_wallet.update_balance('BINANCE', fresh_balance)
+            except Exception as sync_err:
+                print(f"⚠️ Balance Sync Error: {sync_err}")
         
         # 0. Guardián de Límites (NUEVO)
         allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
