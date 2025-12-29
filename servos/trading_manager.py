@@ -469,12 +469,24 @@ class AsyncTradingSession:
                 p = info.get('price_precision', default_p)
                 n = info.get('min_notional', default_n)
                 
+                # Smart Precision Check based on Price if possible
+                # Low price assets (PEPE) need high precision. High price (BTC) ok with 2.
+                try:
+                    curr_price = await self.bridge.get_last_price(symbol)
+                    if curr_price > 0:
+                        if curr_price < 0.001 and p < 7: p = 7
+                        elif curr_price < 0.01 and p < 6: p = 6
+                        elif curr_price < 1.0 and p < 5: p = 5
+                        elif curr_price < 50.0 and p < 3: p = 3 # e.g. RENDER around 1-10
+                except:
+                    pass
+                
                 # Check for bad data (0 precision)
                 if p <= 0: 
                     p = 6
                     print(f"⚠️ Precision 0 detected for {symbol}. Forcing 6.", flush=True)
                 
-                print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n}", flush=True)
+                print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n} (Price-Adjusted)", flush=True)
                 return (q, p, n)
             else:
                 print(f"⚠️ No Info for {symbol}, using defaults (P={default_p})", flush=True)
@@ -688,11 +700,12 @@ class AsyncTradingSession:
                         order_side = 'BUY'
                     
                     # SAFETY: Dynamic Precision Upgrade
-                    # If SL/TP rounded to 0 due to low precision (e.g. PEPE with prec=2), force 8 decimals
+                    # Smart Fallback: match price precision logic
                     if sl_price == 0 and entry > 0:
-                        sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, 8)
+                        # If still 0, force basic low-price precision
+                        sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, 6)
                     if tp_price == 0 and entry > 0:
-                        tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), 8)
+                        tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), 6)
 
                         
                     # Place missing orders
