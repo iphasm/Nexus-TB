@@ -19,7 +19,9 @@ ASSET_GROUPS = {
         '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
         'PONKEUSDT', 'BRETTUSDT',
         # DeFi
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT'
+        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT',
+        # AI / Tech
+        'TAOUSDT'
     ],
     'BYBIT': [
         # Bybit Perpetuals (cross-listed on Binance until Bybit fetcher is ready)
