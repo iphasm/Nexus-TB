@@ -550,17 +550,52 @@ class BinanceAdapter(IExchangeAdapter):
                 })
             
             # 2) Órdenes ALGO (condicionales puras: STOP/TP/Trailing)
+            # Usar API directa ya que CCXT no tiene método para algos
             algo_orders = []
             try:
-                params = {}
+                import aiohttp
+                import hmac
+                import hashlib
+                import time
+                from urllib.parse import urlencode
+                
+                base_url = 'https://fapi.binance.com'
+                endpoint = '/fapi/v1/algo/openOrders'
+                timestamp = int(time.time() * 1000)
+                
+                params_algo = {'timestamp': timestamp}
                 if raw_symbol:
-                    params['symbol'] = raw_symbol
-                # Endpoint específico de algos
-                algo_orders = await self._exchange.fapiPrivateGetAlgoOpenOrders(params)
+                    params_algo['symbol'] = raw_symbol
+                
+                query_string = urlencode(params_algo)
+                
+                signature = hmac.new(
+                    self._api_secret.encode('utf-8'),
+                    query_string.encode('utf-8'),
+                    hashlib.sha256
+                ).hexdigest()
+                
+                url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
+                headers = {'X-MBX-APIKEY': self._api_key}
+                
+                proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, proxy=proxy_url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if isinstance(data, dict) and 'orders' in data:
+                                algo_orders = data['orders']
+                            elif isinstance(data, list):
+                                algo_orders = data
+                        elif resp.status == 404:
+                            # No hay órdenes ALGO, no es un error
+                            algo_orders = []
+                        else:
+                            error_text = await resp.text()
+                            print(f"⚠️ BinanceAdapter: Algo openOrders error ({symbol}): {resp.status} - {error_text}")
             except Exception as e:
                 # No todos los usuarios tienen habilitado el endpoint; no es crítico
                 print(f"ℹ️ BinanceAdapter: Algo openOrders no disponible ({symbol}): {e}")
-                algo_orders = []
             
             for ao in algo_orders or []:
                 # Campos típicos: algoId, symbol, type, side, quantity, triggerPrice/stopPrice
@@ -606,15 +641,51 @@ class BinanceAdapter(IExchangeAdapter):
                 orders = []
             
             # 2. Obtener órdenes ALGO (condicionales puras)
+            # Usar API directa ya que CCXT no tiene método para algos
             algo_orders = []
             try:
-                params = {}
+                import aiohttp
+                import hmac
+                import hashlib
+                import time
+                from urllib.parse import urlencode
+                
+                base_url = 'https://fapi.binance.com'
+                endpoint = '/fapi/v1/algo/openOrders'
+                timestamp = int(time.time() * 1000)
+                
+                params_algo = {'timestamp': timestamp}
                 if raw_symbol:
-                    params['symbol'] = raw_symbol
-                algo_orders = await self._exchange.fapiPrivateGetAlgoOpenOrders(params)
+                    params_algo['symbol'] = raw_symbol
+                
+                query_string = urlencode(params_algo)
+                
+                signature = hmac.new(
+                    self._api_secret.encode('utf-8'),
+                    query_string.encode('utf-8'),
+                    hashlib.sha256
+                ).hexdigest()
+                
+                url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
+                headers = {'X-MBX-APIKEY': self._api_key}
+                
+                proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, proxy=proxy_url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if isinstance(data, dict) and 'orders' in data:
+                                algo_orders = data['orders']
+                            elif isinstance(data, list):
+                                algo_orders = data
+                        elif resp.status == 404:
+                            # No hay órdenes ALGO, no es un error
+                            algo_orders = []
+                        else:
+                            error_text = await resp.text()
+                            print(f"⚠️ BinanceAdapter: Algo openOrders error ({symbol}): {resp.status} - {error_text}")
             except Exception as e:
                 print(f"ℹ️ BinanceAdapter: Algo openOrders no disponible ({symbol}): {e}")
-                algo_orders = []
             
             total_orders = (orders or []) + (algo_orders or [])
             if not total_orders:
@@ -645,25 +716,94 @@ class BinanceAdapter(IExchangeAdapter):
                         print(f"   ❌ Error cancelando orden {order_id}: {e}")
             
             # 4. Cancelar órdenes ALGO individualmente
-            for order in algo_orders or []:
+            # Primero intentar cancelar todas las algos de una vez (más eficiente)
+            if algo_orders:
                 try:
-                    algo_id = order.get('algoId') or order.get('orderId') or order.get('id')
-                    order_type = order.get('type', order.get('algoType', 'ALGO'))
-                    params = {'algoId': algo_id}
-                    if raw_symbol:
-                        params['symbol'] = raw_symbol
-                    if algo_id:
-                        await self._exchange.fapiPrivateDeleteAlgoOrder(params)
-                        cancelled_count += 1
-                        print(f"   ✅ Cancelled ALGO {order_type} {algo_id}")
+                    # Intentar cancelar todas las algos del símbolo con DELETE /fapi/v1/algo/openOrders
+                    import aiohttp
+                    import hmac
+                    import hashlib
+                    import time
+                    from urllib.parse import urlencode
+                    
+                    base_url = 'https://fapi.binance.com'
+                    endpoint = '/fapi/v1/algo/openOrders'
+                    timestamp = int(time.time() * 1000)
+                    
+                    params_cancel = {'symbol': raw_symbol, 'timestamp': timestamp}
+                    query_string = urlencode(params_cancel)
+                    
+                    signature = hmac.new(
+                        self._api_secret.encode('utf-8'),
+                        query_string.encode('utf-8'),
+                        hashlib.sha256
+                    ).hexdigest()
+                    
+                    url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
+                    headers = {'X-MBX-APIKEY': self._api_key}
+                    
+                    proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
+                    async with aiohttp.ClientSession() as session:
+                        async with session.delete(url, headers=headers, proxy=proxy_url) as resp:
+                            if resp.status == 200:
+                                cancelled_count += len(algo_orders)
+                                print(f"   ✅ Cancelled all {len(algo_orders)} ALGO orders for {symbol}")
+                            else:
+                                # Si falla cancelar todas, cancelar individualmente
+                                raise Exception(f"Failed to cancel all algos: {resp.status}")
                 except Exception as e:
-                    error_msg = str(e).lower()
-                    if 'does not exist' in error_msg or 'not found' in error_msg or '-2011' in str(e):
-                        cancelled_count += 1
-                        print(f"   ℹ️ Algo order already cancelled or not found")
-                    else:
-                        failed_count += 1
-                        print(f"   ❌ Error cancelando ALGO order: {e}")
+                    # Si falla cancelar todas, cancelar individualmente
+                    print(f"   ⚠️ Bulk ALGO cancel failed, trying individual: {e}")
+                    for order in algo_orders:
+                        try:
+                            algo_id = order.get('algoId') or order.get('orderId') or order.get('id')
+                            order_type = order.get('type', order.get('algoType', 'ALGO'))
+                            
+                            if algo_id:
+                                import aiohttp
+                                import hmac
+                                import hashlib
+                                import time
+                                from urllib.parse import urlencode
+                                
+                                base_url = 'https://fapi.binance.com'
+                                endpoint = '/fapi/v1/algo/order'
+                                timestamp = int(time.time() * 1000)
+                                
+                                params_cancel = {'algoId': algo_id, 'symbol': raw_symbol, 'timestamp': timestamp}
+                                query_string = urlencode(params_cancel)
+                                
+                                signature = hmac.new(
+                                    self._api_secret.encode('utf-8'),
+                                    query_string.encode('utf-8'),
+                                    hashlib.sha256
+                                ).hexdigest()
+                                
+                                url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
+                                headers = {'X-MBX-APIKEY': self._api_key}
+                                
+                                proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
+                                async with aiohttp.ClientSession() as session:
+                                    async with session.delete(url, headers=headers, proxy=proxy_url) as resp:
+                                        if resp.status == 200:
+                                            cancelled_count += 1
+                                            print(f"   ✅ Cancelled ALGO {order_type} {algo_id}")
+                                        else:
+                                            error_text = await resp.text()
+                                            if '-2011' in error_text or 'not found' in error_text.lower():
+                                                cancelled_count += 1
+                                                print(f"   ℹ️ Algo order {algo_id} already cancelled")
+                                            else:
+                                                failed_count += 1
+                                                print(f"   ❌ Error cancelando ALGO {algo_id}: {error_text}")
+                        except Exception as e:
+                            error_msg = str(e).lower()
+                            if 'does not exist' in error_msg or 'not found' in error_msg or '-2011' in str(e):
+                                cancelled_count += 1
+                                print(f"   ℹ️ Algo order already cancelled or not found")
+                            else:
+                                failed_count += 1
+                                print(f"   ❌ Error cancelando ALGO: {e}")
             
             # 5. Respaldo: intentar cancel_all_orders (por si algo queda)
             try:
