@@ -993,8 +993,16 @@ class AsyncTradingSession:
                 self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
                 sl_price = round(min_allowed_sl, price_precision)
 
-            # Assign Margin & Calculate Qty
+            # Assign Margin & Calculate Qty (Safety Clamp)
             margin_assignment = total_equity * size_pct
+            
+            # Clamp to Available Balance (Buffer 5%)
+            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+            available_balance = bin_bal.get('available', 0)
+            if margin_assignment > available_balance * 0.95:
+                print(f"⚠️ Sizing Clamp (Long): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Clamping.")
+                margin_assignment = available_balance * 0.95
+
             raw_quantity = (margin_assignment * leverage) / current_price
             
             # Dynamic Size Check (Risk/Budget) - Re-uses helper
@@ -1137,8 +1145,16 @@ class AsyncTradingSession:
                 self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
                 sl_price = round(max_allowed_sl, price_precision)
             
-            # Assign Margin & Calculate Qty
+            # Assign Margin & Calculate Qty (Safety Clamp)
             margin_assignment = total_equity * size_pct
+
+            # Clamp to Available Balance (Buffer 5%)
+            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+            available_balance = bin_bal.get('available', 0)
+            if margin_assignment > available_balance * 0.95:
+                print(f"⚠️ Sizing Clamp (Short): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Clamping.")
+                margin_assignment = available_balance * 0.95
+
             raw_quantity = (margin_assignment * leverage) / current_price
             
             quantity = float(round(raw_quantity, qty_precision))
