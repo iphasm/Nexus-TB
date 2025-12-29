@@ -1729,18 +1729,29 @@ class AsyncTradingSession:
         
         # 1. Force Sync via Bridge (ensure fresh data)
         if self.bridge:
+            # Track all symbols currently on exchange
+            exchange_symbols = set()
+            
             for name, adapter in self.bridge.adapters.items():
                 try:
                     # Sync Positions
                     positions = await adapter.get_positions()
                     for pos in positions:
-                        self.shadow_wallet.update_position(pos['symbol'], pos)
+                        symbol = pos['symbol']
+                        exchange_symbols.add(symbol)
+                        self.shadow_wallet.update_position(symbol, pos)
                         
                     # Sync Balance (fast enough to do here)
                     balance = await adapter.get_account_balance()
                     self.shadow_wallet.update_balance(name, balance)
                 except Exception as e:
                     print(f"⚠️ Dashboard Sync Error ({name}): {e}")
+            
+            # Remove closed positions (symbols in cache but not on exchange)
+            stale_symbols = [s for s in self.shadow_wallet.positions.keys() if s not in exchange_symbols]
+            for stale in stale_symbols:
+                del self.shadow_wallet.positions[stale]
+                print(f"🧹 ShadowWallet: Removed stale position {stale}")
 
         # 2. Read from Shadow Wallet
         for symbol, p in self.shadow_wallet.positions.items():
