@@ -316,9 +316,40 @@ class BinanceAdapter(IExchangeAdapter):
                             # For MARKET, limit_price MUST be None
                             limit_price = None 
                 
-                result = await self._exchange.create_order(
-                    symbol, order_type.lower(), side.lower(), quantity, limit_price, params
-                )
+                
+                # --- RETRY LOGIC FOR INVALID SYMBOL (-1121) ---
+                try:
+                    result = await self._exchange.create_order(
+                        symbol, order_type.lower(), side.lower(), quantity, limit_price, params
+                    )
+                except Exception as e_order:
+                    # Check for Invalid Symbol / Param (-1121)
+                    err_str = str(e_order)
+                    if "-1121" in err_str or "Invalid symbol" in err_str:
+                        print(f"⚠️ Symbol {symbol} rejected (-1121). Retrying alternates...", flush=True)
+                        # Alternate 1: Standard (UNI/USDT)
+                        alt1 = symbol.replace(':USDT', '')
+                        # Alternate 2: Raw (UNIUSDT)
+                        alt2 = symbol.replace('/USDT:USDT', 'USDT').replace('/', '')
+                        
+                        success_alt = False
+                        for alt in [alt1, alt2]:
+                            try:
+                                print(f"🔄 Retrying with: {alt}", flush=True)
+                                result = await self._exchange.create_order(
+                                    alt, order_type.lower(), side.lower(), quantity, limit_price, params
+                                )
+                                symbol = alt # Update symbol for return
+                                success_alt = True
+                                break
+                            except Exception as e_alt:
+                                print(f"⚠️ Retry {alt} failed: {e_alt}", flush=True)
+                        
+                        if not success_alt:
+                            raise e_order # Raise original if all fail
+                    else:
+                        raise e_order # Raise other errors
+                # ---------------------------------------------
             
             ret = {
                 'orderId': result.get('id'),
