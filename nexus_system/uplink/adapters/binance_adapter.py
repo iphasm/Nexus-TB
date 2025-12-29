@@ -514,110 +514,124 @@ class BinanceAdapter(IExchangeAdapter):
 
     async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
         """
-        Obtener órdenes abiertas (estándar + algos) para un símbolo.
+        Obtener órdenes abiertas (estándar + condicionales) para un símbolo.
         
-        Notas Binance:
-        - Las órdenes condicionales (SL/TP/Trailing) se manejan como "algo orders".
-        - fetch_open_orders puede no traer todas las algos; se consulta el endpoint de algos.
+        Notas Binance Futures:
+        - STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET son órdenes condicionales
+          que aparecen en /fapi/v1/openOrders (NO en /algo/openOrders)
+        - /fapi/v1/algo/openOrders es para TWAP/VP algorithmic orders, no para SL/TP
+        - Usamos API directa primero para mayor confiabilidad, CCXT como fallback
         """
         if not self._exchange:
             return []
+        
+        raw_symbol = symbol  # Original format: BTCUSDT
+        result = []
+        
         try:
-            formatted = None
-            raw_symbol = symbol
-            if symbol:
-                formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+            # === PRIMARY: Direct Binance API call (most reliable for conditional orders) ===
+            import aiohttp
+            import hmac
+            import hashlib
+            import time
+            from urllib.parse import urlencode
             
-            result = []
+            base_url = 'https://fapi.binance.com'
+            endpoint = '/fapi/v1/openOrders'
+            timestamp = int(time.time() * 1000)
             
-            # 1) Órdenes estándar (incluye algunas condicionales)
+            params = {'timestamp': timestamp}
+            if raw_symbol:
+                params['symbol'] = raw_symbol
+            
+            query_string = urlencode(params)
+            
+            signature = hmac.new(
+                self._api_secret.encode('utf-8'),
+                query_string.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
+            headers = {'X-MBX-APIKEY': self._api_key}
+            
+            proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
+            
+            direct_orders = []
             try:
-                orders = await self._exchange.fetch_open_orders(formatted)
-            except Exception as e:
-                print(f"⚠️ BinanceAdapter: fetch_open_orders error ({symbol}): {e}")
-                orders = []
-            
-            for o in orders:
-                result.append({
-                    'orderId': o.get('id'),
-                    'symbol': o.get('symbol', '').replace('/USDT:USDT', 'USDT'),
-                    'type': (o.get('type') or '').upper(),
-                    'side': (o.get('side') or '').upper(),
-                    'quantity': float(o.get('amount') or 0),
-                    'price': float(o.get('price') or 0),
-                    'stopPrice': float(o.get('stopPrice') or o.get('triggerPrice') or 0),
-                    'status': o.get('status')
-                })
-            
-            # 2) Órdenes ALGO (condicionales puras: STOP/TP/Trailing)
-            # Usar API directa ya que CCXT no tiene método para algos
-            algo_orders = []
-            try:
-                import aiohttp
-                import hmac
-                import hashlib
-                import time
-                from urllib.parse import urlencode
-                
-                base_url = 'https://fapi.binance.com'
-                endpoint = '/fapi/v1/algo/openOrders'
-                timestamp = int(time.time() * 1000)
-                
-                params_algo = {'timestamp': timestamp}
-                if raw_symbol:
-                    params_algo['symbol'] = raw_symbol
-                
-                query_string = urlencode(params_algo)
-                
-                signature = hmac.new(
-                    self._api_secret.encode('utf-8'),
-                    query_string.encode('utf-8'),
-                    hashlib.sha256
-                ).hexdigest()
-                
-                url = f"{base_url}{endpoint}?{query_string}&signature={signature}"
-                headers = {'X-MBX-APIKEY': self._api_key}
-                
-                proxy_url = os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY')
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, proxy=proxy_url) as resp:
+                    async with session.get(url, headers=headers, proxy=proxy_url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                         if resp.status == 200:
-                            data = await resp.json()
-                            if isinstance(data, dict) and 'orders' in data:
-                                algo_orders = data['orders']
-                            elif isinstance(data, list):
-                                algo_orders = data
-                        elif resp.status == 404:
-                            # No hay órdenes ALGO, no es un error
-                            algo_orders = []
+                            direct_orders = await resp.json()
+                            # Debug: Log raw response for diagnosis
+                            if direct_orders:
+                                print(f"🔍 BinanceAdapter: /fapi/v1/openOrders {symbol or 'ALL'} returned {len(direct_orders)} orders")
+                                for order in direct_orders[:3]:  # Log first 3 for debugging
+                                    print(f"   - {order.get('symbol')} | {order.get('type')} | {order.get('side')} | stopPrice: {order.get('stopPrice')}")
                         else:
                             error_text = await resp.text()
-                            print(f"⚠️ BinanceAdapter: Algo openOrders error ({symbol}): {resp.status} - {error_text}")
-            except Exception as e:
-                # No todos los usuarios tienen habilitado el endpoint; no es crítico
-                print(f"ℹ️ BinanceAdapter: Algo openOrders no disponible ({symbol}): {e}")
+                            print(f"⚠️ BinanceAdapter: Direct API error ({resp.status}): {error_text[:200]}")
+            except Exception as api_err:
+                print(f"⚠️ BinanceAdapter: Direct API exception: {api_err}")
             
-            for ao in algo_orders or []:
-                # Campos típicos: algoId, symbol, type, side, quantity, triggerPrice/stopPrice
+            # Parse direct API response
+            for o in direct_orders:
                 result.append({
-                    'orderId': ao.get('algoId') or ao.get('orderId'),
-                    'symbol': (ao.get('symbol') or '').replace('/USDT:USDT', 'USDT'),
-                    'type': (ao.get('type') or ao.get('algoType') or '').upper(),
-                    'side': (ao.get('side') or '').upper(),
-                    'quantity': float(ao.get('quantity') or ao.get('origQty') or 0),
-                    'price': float(ao.get('price') or 0),
-                    'stopPrice': float(ao.get('triggerPrice') or ao.get('stopPrice') or 0),
-                    'status': ao.get('status'),
-                    'isAlgo': True
+                    'orderId': str(o.get('orderId', '')),
+                    'symbol': o.get('symbol', ''),
+                    'type': (o.get('type') or '').upper(),
+                    'side': (o.get('side') or '').upper(),
+                    'quantity': float(o.get('origQty') or 0),
+                    'price': float(o.get('price') or 0),
+                    'stopPrice': float(o.get('stopPrice') or 0),
+                    'status': o.get('status'),
+                    'source': 'direct'
                 })
-
-            # Log resumido para diagnóstico
-            print(f"📋 BinanceAdapter.get_open_orders {symbol or 'ALL'} -> std:{len(orders)} algo:{len(algo_orders)} total:{len(result)}")
-
+            
+            # === FALLBACK: CCXT (in case direct API fails) ===
+            if not result:
+                try:
+                    formatted = None
+                    if symbol:
+                        formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+                    
+                    ccxt_orders = await self._exchange.fetch_open_orders(formatted)
+                    
+                    if ccxt_orders:
+                        print(f"🔄 BinanceAdapter: CCXT fallback found {len(ccxt_orders)} orders for {symbol}")
+                        
+                    for o in ccxt_orders:
+                        # Check if order already exists (avoid duplicates)
+                        existing_ids = {r['orderId'] for r in result}
+                        order_id = str(o.get('id', ''))
+                        
+                        if order_id not in existing_ids:
+                            result.append({
+                                'orderId': order_id,
+                                'symbol': o.get('symbol', '').replace('/USDT:USDT', 'USDT'),
+                                'type': (o.get('type') or '').upper(),
+                                'side': (o.get('side') or '').upper(),
+                                'quantity': float(o.get('amount') or 0),
+                                'price': float(o.get('price') or 0),
+                                'stopPrice': float(o.get('stopPrice') or o.get('triggerPrice') or 0),
+                                'status': o.get('status'),
+                                'source': 'ccxt'
+                            })
+                except Exception as ccxt_err:
+                    print(f"⚠️ BinanceAdapter: CCXT fallback error: {ccxt_err}")
+            
+            # Count by type for diagnostics
+            conditional_count = sum(1 for o in result if o['type'] in ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 'STOP', 'TAKE_PROFIT'])
+            standard_count = len(result) - conditional_count
+            
+            print(f"📋 BinanceAdapter.get_open_orders {symbol or 'ALL'} -> std:{standard_count} conditional:{conditional_count} total:{len(result)}")
+            
             return result
+            
         except Exception as e:
             print(f"⚠️ BinanceAdapter: get_open_orders error: {e}")
             return []
+
 
     async def cancel_orders(self, symbol: str) -> bool:
         """

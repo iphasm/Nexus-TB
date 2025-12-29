@@ -1208,7 +1208,7 @@ class AsyncTradingSession:
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
             
-            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
             # 3. Calculate Sizing & Risk Parameters
             leverage = self.config['leverage']
@@ -1419,8 +1419,7 @@ class AsyncTradingSession:
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
             
-
-            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
             # 3. Calculate Sizing & Risk Parameters
             leverage = self.config['leverage']
