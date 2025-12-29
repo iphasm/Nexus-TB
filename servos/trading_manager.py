@@ -683,14 +683,34 @@ class AsyncTradingSession:
                         tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), 6)
 
                         
-                    # Place missing orders
+                    # Place missing orders with validation
                     if not has_sl:
-                        # FIX: Pass kwargs directly
-                        await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, stopPrice=sl_price, reduceOnly=True)
-                    if not has_tp:
-                        await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, stopPrice=tp_price, reduceOnly=True)
+                        # Validate SL won't trigger immediately
+                        sl_valid = True
+                        if side == 'LONG' and curr <= sl_price:
+                            sl_valid = False
+                            report.append(f"⚠️ {symbol}: SL Skipped (Price {curr} at/below SL {sl_price})")
+                        elif side == 'SHORT' and curr >= sl_price:
+                            sl_valid = False
+                            report.append(f"⚠️ {symbol}: SL Skipped (Price {curr} at/above SL {sl_price})")
                         
-                    report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
+                        if sl_valid:
+                            await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, stopPrice=sl_price, reduceOnly=True)
+                            
+                    if not has_tp:
+                        # Validate TP won't trigger immediately
+                        tp_valid = True
+                        if side == 'LONG' and curr >= tp_price:
+                            tp_valid = False
+                            report.append(f"⚠️ {symbol}: TP Skipped (Price {curr} at/above TP {tp_price})")
+                        elif side == 'SHORT' and curr <= tp_price:
+                            tp_valid = False
+                            report.append(f"⚠️ {symbol}: TP Skipped (Price {curr} at/below TP {tp_price})")
+                        
+                        if tp_valid:
+                            await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, stopPrice=tp_price, reduceOnly=True)
+                            report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
+
                     
         except Exception as e:
             report.append(f"❌ Sync Error: {str(e)}")
