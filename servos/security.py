@@ -55,6 +55,10 @@ def decrypt_value(text: str) -> str:
         
     cipher = get_cipher()
     if not cipher:
+        # DIAGNOSTIC: No cipher means ENCRYPTION_KEY not set
+        # If the stored text looks like a Fernet token (starts with gAAA), it's encrypted but we can't decrypt
+        if text.startswith('gAAA'):
+            print("⚠️ SECURITY WARNING: Encrypted data found but ENCRYPTION_KEY not set! Credentials may be invalid.")
         return text
         
     try:
@@ -62,6 +66,9 @@ def decrypt_value(text: str) -> str:
         decrypted_bytes = cipher.decrypt(text.encode('utf-8'))
         return decrypted_bytes.decode('utf-8')
     except Exception:
+        # If decryption fails, check if it looks like encrypted data
+        if text.startswith('gAAA'):
+            print("⚠️ DECRYPTION FAILED: Data appears encrypted but couldn't be decrypted. ENCRYPTION_KEY may have changed!")
         # If decryption fails, assume it's legacy plain text
         # (or the key changed and data is lost, but we return text to be safe)
         return text

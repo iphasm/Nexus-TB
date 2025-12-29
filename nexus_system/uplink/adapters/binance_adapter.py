@@ -36,6 +36,10 @@ class BinanceAdapter(IExchangeAdapter):
                 print(f"❌ BinanceAdapter: Missing API credentials!")
                 return False
             
+            # Diagnostic: Show masked credentials for debugging
+            key_preview = f"{self._api_key[:4]}...{self._api_key[-4:]}" if len(self._api_key) > 8 else "TOO_SHORT"
+            print(f"🔑 BinanceAdapter: Using key [{key_preview}] (len={len(self._api_key)})")
+            
             config = {
                 'apiKey': self._api_key,
                 'secret': self._api_secret,
@@ -56,6 +60,13 @@ class BinanceAdapter(IExchangeAdapter):
             return True
         except Exception as e:
             print(f"❌ BinanceAdapter: Init failed - {e}")
+            # Clean up resources to prevent "Unclosed client session" warnings
+            if self._exchange:
+                try:
+                    await self._exchange.close()
+                except:
+                    pass
+                self._exchange = None
             return False
 
     async def fetch_candles(
