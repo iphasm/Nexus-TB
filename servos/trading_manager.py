@@ -1135,13 +1135,18 @@ class AsyncTradingSession:
         
         # Log de inicio de ejecución de posición LONG
         self.logger.debug(f"Ejecutando posición LONG: {symbol}, ATR={atr}")
-        # Force-sync balance before checking limits (avoid stale ShadowWallet data)
-        if self.bridge and 'BINANCE' in self.bridge.adapters:
+        
+        # Determine target exchange based on symbol
+        is_crypto = 'USDT' in symbol or 'BTC' in symbol
+        target_exchange = 'BINANCE' if is_crypto else 'ALPACA'
+        
+        # Force-sync balance for target exchange (avoid stale ShadowWallet data)
+        if self.bridge and target_exchange in self.bridge.adapters:
             try:
-                fresh_balance = await self.bridge.adapters['BINANCE'].get_account_balance()
-                self.shadow_wallet.update_balance('BINANCE', fresh_balance)
+                fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
+                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
-                print(f"⚠️ Balance Sync Error: {sync_err}")
+                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
         
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
@@ -1165,16 +1170,16 @@ class AsyncTradingSession:
             current_price = await self.bridge.get_last_price(symbol)
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
-            # Prioritize Exchange-Specific Equity (e.g. BINANCE) to avoid cross-asset sizing pollution
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            total_equity = bin_bal.get('total', 0)
+            # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
+            exchange_bal = self.shadow_wallet.balances.get(target_exchange, {})
+            total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
             
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
             # 3. Calculate Sizing & Risk Parameters
-            leverage = self.config['leverage']
+            leverage = self.config['leverage'] if is_crypto else 1  # No leverage for stocks
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
             size_pct = self.config['max_capital_pct'] # Default
@@ -1230,8 +1235,7 @@ class AsyncTradingSession:
             margin_assignment = total_equity * size_pct
             
             # Clamp to Available Balance (Buffer 5%)
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            available_balance = bin_bal.get('available', 0)
+            available_balance = exchange_bal.get('available', 0)
             if margin_assignment > available_balance * 0.95:
                 new_margin = available_balance * size_pct
                 print(f"⚠️ Sizing Clamp (Long): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Reducing to {size_pct:.1%} of Avail (${new_margin:.2f}).")
@@ -1340,13 +1344,17 @@ class AsyncTradingSession:
         # Log de inicio de ejecución de posición SHORT
         self.logger.debug(f"Ejecutando posición SHORT: {symbol}, ATR={atr}")
         
+        # Determine target exchange based on symbol
+        is_crypto = 'USDT' in symbol or 'BTC' in symbol
+        target_exchange = 'BINANCE' if is_crypto else 'ALPACA'
+        
         # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)
-        if self.bridge and 'BINANCE' in self.bridge.adapters:
+        if self.bridge and target_exchange in self.bridge.adapters:
             try:
-                fresh_balance = await self.bridge.adapters['BINANCE'].get_account_balance()
-                self.shadow_wallet.update_balance('BINANCE', fresh_balance)
+                fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
+                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
-                print(f"⚠️ Balance Sync Error: {sync_err}")
+                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
         
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
@@ -1370,16 +1378,16 @@ class AsyncTradingSession:
             current_price = await self.bridge.get_last_price(symbol)
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
-            # Prioritize Exchange-Specific Equity (e.g. BINANCE) to avoid cross-asset sizing pollution
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            total_equity = bin_bal.get('total', 0)
+            # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
+            exchange_bal = self.shadow_wallet.balances.get(target_exchange, {})
+            total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
             
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
             # 3. Calculate Sizing & Risk Parameters
-            leverage = self.config['leverage']
+            leverage = self.config['leverage'] if is_crypto else 1  # No leverage for stocks
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
             size_pct = self.config['max_capital_pct']
@@ -1425,8 +1433,7 @@ class AsyncTradingSession:
             margin_assignment = total_equity * size_pct
 
             # Clamp to Available Balance (Buffer 5%)
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            available_balance = bin_bal.get('available', 0)
+            available_balance = exchange_bal.get('available', 0)
             if margin_assignment > available_balance * 0.95:
                 new_margin = available_balance * size_pct
                 print(f"⚠️ Sizing Clamp (Short): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Reducing to {size_pct:.1%} of Avail (${new_margin:.2f}).")
