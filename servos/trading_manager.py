@@ -1161,8 +1161,8 @@ class AsyncTradingSession:
             entry_price = float(res.get('price', current_price) or current_price)
             
             # 5. Place SL/TP (Separate to ensure logic holds)
-            await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
-            await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
+            await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, stopPrice=sl_price, reduceOnly=True)
+            await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, stopPrice=tp_price, reduceOnly=True)
 
             return True, (
                 f"✅ Long Executed: {symbol}\n"
@@ -1294,9 +1294,9 @@ class AsyncTradingSession:
             
             # 5. Place SL/TP (Buy Orders)
             # SL (Buy Stop)
-            await self.bridge.place_order(symbol, 'BUY', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
+            await self.bridge.place_order(symbol, 'BUY', 'STOP_MARKET', quantity=quantity, price=sl_price, stopPrice=sl_price, reduceOnly=True)
             # TP (Buy Take Profit)
-            await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
+            await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, stopPrice=tp_price, reduceOnly=True)
 
             return True, (
                 f"✅ Short Executed: {symbol}\n"

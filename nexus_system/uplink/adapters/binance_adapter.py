@@ -357,8 +357,8 @@ class BinanceAdapter(IExchangeAdapter):
                         for alt in [alt1, alt2]:
                             try:
                                 print(f"🔄 Retrying with: {alt}", flush=True)
-                                print(f"🔄 Retrying with: {alt}", flush=True)
                                 # Retry with 'market' type + override
+
                                 result = await self._exchange.create_order(
                                     alt, 'market', side.lower(), quantity, limit_price, params
                                 )
@@ -472,30 +472,6 @@ class BinanceAdapter(IExchangeAdapter):
                  
             print(f"⚠️ BinanceAdapter: get_positions error: {err_msg}")
             return []
-
-    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
-        """Get symbol precision and limits."""
-        if not self._exchange:
-            return {}
-        try:
-            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
-            market = self._exchange.market(formatted)
-            # Precision: Handle Tick Size (0.001) vs Decimals (3)
-            p_val = market['precision']['price']
-            if isinstance(p_val, float) and p_val < 1:
-                import math
-                price_prec = int(round(-math.log10(p_val)))
-            else:
-                price_prec = int(p_val)
-                
-            return {
-                'qty_precision': int(market['precision']['amount']), # Usually 0, 1, etc (decimals) for Binance
-                'price_precision': price_prec,
-                'min_notional': float(market['limits']['cost']['min'])
-            }
-        except Exception as e:
-            # print(f"⚠️ BinanceAdapter Info Error: {e}")
-            return {}
 
     async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
         """Get open orders for a symbol (or all if symbol is None)."""
