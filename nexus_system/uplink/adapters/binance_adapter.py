@@ -43,12 +43,13 @@ class BinanceAdapter(IExchangeAdapter):
                 'options': {'defaultType': 'future'}
             }
             
-            # Proxy Config
-            http_proxy = kwargs.get('http_proxy') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            https_proxy = kwargs.get('https_proxy') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-            
+            # Unified Proxy Config (CCXT Standard)
+            http_proxy = kwargs.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
             if http_proxy:
-                config['httpProxy'] = http_proxy
+                config['proxies'] = {
+                    'http': http_proxy,
+                    'https': http_proxy,
+                }
 
             self._exchange = ccxt.binanceusdm(config)
             await self._exchange.load_markets()

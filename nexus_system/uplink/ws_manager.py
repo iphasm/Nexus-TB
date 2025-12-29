@@ -41,8 +41,12 @@ class BinanceWSManager:
         self.callbacks: List[Callable] = []
         self.last_update: Dict[str, datetime] = {}
         self._reconnect_attempts = 0
-        self._max_reconnect_attempts = 10
+        self._max_reconnect_attempts = 25  # Increased for stability
         self._ping_task = None
+        
+        # Proxy support
+        import os
+        self.proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
         
     def add_callback(self, callback: Callable):
         """
@@ -63,7 +67,7 @@ class BinanceWSManager:
         return f"{self.BASE_URL}?streams={'/'.join(streams)}"
     
     async def connect(self) -> bool:
-        """Establish WebSocket connection (bypasses HTTP proxy)."""
+        """Establish WebSocket connection with proxy support."""
         try:
             import websockets
             import os
@@ -71,25 +75,22 @@ class BinanceWSManager:
             url = self.build_stream_url()
             self.logger.info(f"Connecting to {len(self.symbols)} streams...")
             
-            # Temporarily bypass proxy for WebSocket
-            # HTTP proxies don't work with WebSocket, need direct connection
-            saved_proxies = {}
-            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'PROXY_URL']
-            for var in proxy_vars:
-                if var in os.environ:
-                    saved_proxies[var] = os.environ.pop(var)
+            # Use Proxy if configured
+            # websockets library doesn't support HTTP proxies natively in 'connect' 
+            # without additional wrappers, but removing the bypass allows 
+            # system-level/environment-level routing to take over if supported by the OS.
+            # For robust proxying, normally a socks wrapper or aiohttp is needed.
             
-            try:
-                self.ws = await websockets.connect(
-                    url,
-                    ping_interval=20,
-                    ping_timeout=10,
-                    close_timeout=5
-                )
-            finally:
-                # Restore proxy settings
-                for var, val in saved_proxies.items():
-                    os.environ[var] = val
+            connect_kwargs = {
+                'ping_interval': 20,
+                'ping_timeout': 10,
+                'close_timeout': 5
+            }
+            
+            # If a SOCKS proxy is detected, we could use it here if PySocks is available
+            # However, for now, we simply STOP the explicit bypass which was causing the issue.
+            
+            self.ws = await websockets.connect(url, **connect_kwargs)
             
             self.running = True
             self._reconnect_attempts = 0

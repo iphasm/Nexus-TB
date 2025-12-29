@@ -244,7 +244,8 @@ async def cmd_help(message: Message):
         "├ /scanner - Diagnóstico de mercado\n"
         "├ /price - Cotización rápida\n"
         "├ /pnl - Historial de ganancias\n"
-        "└ /sync - Sincronizar SL/TP\n\n"
+        "├ /sync - Sincronizar SL/TP\n"
+        "└ /net - Red y Latencia\n\n"
         
         "🎯 *TRADING MANUAL*\n"
         "├ /long SYMBOL - Abrir LONG\n"
@@ -2080,3 +2081,68 @@ async def cmd_icons(message: Message, **kwargs):
     report.append("3. Asegúrate de que sean fondos transparentes para mejor visualización.")
     
     await message.answer("\n".join(report), parse_mode="Markdown")
+
+
+# =================================================================
+# /net - Network & Connectivity Diagnostics
+# =================================================================
+@router.message(Command(F.text.regexp(r"^/net|^/ping")))
+async def cmd_network_diag(message: Message, **kwargs):
+    """
+    Diagnostic command to check connectivity and latency to exchanges.
+    """
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+    
+    if not session or not session.bridge:
+        return await message.answer("❌ No hay una sesión activa para diagnosticar.")
+        
+    msg_wait = await message.answer("📡 **Escaneando conectividad...**\n_Nexus está probando los túneles de red..._")
+    
+    report = [
+        "🌐 **Diagnóstico de Red Nexus**",
+        f"📍 Chat ID: `{chat_id}`",
+        f"📅 Hora: `{datetime.now().strftime('%H:%M:%S')}`",
+        "━" * 15
+    ]
+    
+    import time
+    
+    for name, adapter in session.bridge.adapters.items():
+        try:
+            start_time = time.time()
+            # Fast ping: get balance or fetch candles (1m/1 limit)
+            if name == 'ALPACA':
+                # Alpaca is REST, just get balance
+                await adapter.get_account_balance()
+            else:
+                # Crypto: fetch 1 candle
+                await adapter.fetch_candles('BTCUSDT', limit=1)
+                
+            latency = int((time.time() - start_time) * 1000)
+            
+            status_icon = "🟢 OK" if latency < 500 else "🟡 LAG"
+            if latency > 1500: status_icon = "🟠 SLOW"
+            
+            report.append(f"🔌 **{name}**: {status_icon}")
+            report.append(f"   ⏱️ Latencia: `{latency}ms`")
+            
+        except Exception as e:
+            report.append(f"🔌 **{name}**: 🔴 ERROR")
+            report.append(f"   ⚠️ Detalle: `{str(e)[:40]}`")
+            
+    # WebSocket Status (Binance specific currently)
+    try:
+        if hasattr(session, 'ws_manager') and session.ws_manager:
+            ws_status = session.ws_manager.get_status()
+            icon = "🟢 ACTIVO" if ws_status['connected'] else "🔴 OFFLINE"
+            report.append(f"\n📡 **Stream (WS)**: {icon}")
+            if not ws_status['connected']:
+                report.append(f"   🔄 Reintentos: `{ws_status.get('reconnect_attempts', 0)}/25`")
+    except:
+        pass
+        
+    report.append("\n💡 *Tip:* Si ves reintentos altos o errores persistentes, verifica tu configuración de PROXY.")
+    
+    await msg_wait.edit_text("\n".join(report), parse_mode="Markdown")

@@ -50,9 +50,13 @@ class BybitAdapter(IExchangeAdapter):
                 }
             }
             
-            # Apply proxies if present
-            if config_options.get('http_proxy'):
-                config['httpProxy'] = config_options['http_proxy']
+            # Unified Proxy Config (CCXT Standard)
+            http_proxy = config_options.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
+            if http_proxy:
+                config['proxies'] = {
+                    'http': http_proxy,
+                    'https': http_proxy,
+                }
             
             # Testnet support
             if self._testnet:
