@@ -1697,53 +1697,77 @@ class AsyncTradingSession:
         """
         Surgically synchronize SL/TP orders.
         1. Cancels existing SL/TP.
-        2. Places new SL/TP if prices > 0.
+        2. Places new SL/TP if prices > 0 and won't immediately trigger.
         """
         try:
-            # 1. Cancel Algo Orders
             # 1. Cancel Algo Orders
             await self.bridge.cancel_orders(symbol)
             messages = []
             overall_success = True
             
+            # Fetch current price if not provided
+            if current_price <= 0:
+                current_price = await self.bridge.get_last_price(symbol) or 0
+            
             # 2. Place SL
             if sl_price > 0:
                 sl_side = 'SELL' if side == 'LONG' else 'BUY'
-                # FIX: Pass params as kwargs, NOT nested params dict
-                # Hedge Mode: reduceOnly is forbidden. positionSide implies reduction.
-                res = await self.bridge.place_order(
-                    symbol, sl_side, 'STOP_MARKET', 
-                    quantity=quantity, price=sl_price, 
-                    stopPrice=sl_price,
-                    positionSide=side 
-                )
-                if 'error' in res:
-                    messages.append(f"SL Fail: {res['error']}")
-                    overall_success = False
-                else:
-                    messages.append(f"SL {sl_price}")
+                
+                # Validate SL won't immediately trigger
+                sl_valid = True
+                if side == 'LONG' and current_price <= sl_price:
+                    sl_valid = False
+                    messages.append(f"SL Skipped (Price {current_price} already at/below SL {sl_price})")
+                elif side == 'SHORT' and current_price >= sl_price:
+                    sl_valid = False
+                    messages.append(f"SL Skipped (Price {current_price} already at/above SL {sl_price})")
+                
+                if sl_valid:
+                    res = await self.bridge.place_order(
+                        symbol, sl_side, 'STOP_MARKET', 
+                        quantity=quantity, price=sl_price, 
+                        stopPrice=sl_price,
+                        reduceOnly=True
+                    )
+                    if 'error' in res:
+                        messages.append(f"SL Fail: {res['error']}")
+                        overall_success = False
+                    else:
+                        messages.append(f"SL {sl_price}")
             else:
                 messages.append("SL Skipped (0)")
 
             # 3. Place TP
             if tp_price > 0:
                 tp_side = 'SELL' if side == 'LONG' else 'BUY'
-                res = await self.bridge.place_order(
-                    symbol, tp_side, 'TAKE_PROFIT_MARKET', 
-                    quantity=quantity, price=tp_price, 
-                    stopPrice=tp_price,
-                    positionSide=side
-                )
-                if 'error' in res:
-                    messages.append(f"TP Fail: {res['error']}")
-                    overall_success = False
-                else:
-                    messages.append(f"TP {tp_price}")
+                
+                # Validate TP won't immediately trigger
+                tp_valid = True
+                if side == 'LONG' and current_price >= tp_price:
+                    tp_valid = False
+                    messages.append(f"TP Skipped (Price {current_price} already at/above TP {tp_price})")
+                elif side == 'SHORT' and current_price <= tp_price:
+                    tp_valid = False
+                    messages.append(f"TP Skipped (Price {current_price} already at/below TP {tp_price})")
+                
+                if tp_valid:
+                    res = await self.bridge.place_order(
+                        symbol, tp_side, 'TAKE_PROFIT_MARKET', 
+                        quantity=quantity, price=tp_price, 
+                        stopPrice=tp_price,
+                        reduceOnly=True
+                    )
+                    if 'error' in res:
+                        messages.append(f"TP Fail: {res['error']}")
+                        overall_success = False
+                    else:
+                        messages.append(f"TP {tp_price}")
                 
             return overall_success, " | ".join(messages)
             
         except Exception as e:
             return False, f"Sync Exception: {e}"
+
 
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
         """
