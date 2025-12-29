@@ -1103,7 +1103,7 @@ class AsyncTradingSession:
                     tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
                 else:
                     sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
+                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio)), price_precision)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1127,19 +1127,24 @@ class AsyncTradingSession:
 
             raw_quantity = (margin_assignment * leverage) / current_price
             
-            # Dynamic Size Check (Risk/Budget) - Re-uses helper
-            # Need to reverse-calc size if calculate_dynamic_size expects total_equity
-            # Actually, `calculate_dynamic_size` accounts for risk.
-            # Strategy strict sizing vs Risk Manager safe sizing?
-            # Strategy wins on 'size_pct', but we should clamp it to max robust checks?
-            if atr:
-                # Use robust sizer to clamp if needed, but respect Strategy's size_pct as target
-                # We can't easily inject "target_size_pct" into calculate_dynamic_size easily without refactoring.
-                # So we stick to raw calc above. logic.
-                pass
+            # --- USE RISK-BASED SIZING WHEN ATR IS AVAILABLE ---
+            if atr and sl_price > 0:
+                risk_based_qty = self.calculate_dynamic_size(
+                    equity=total_equity, 
+                    price=current_price, 
+                    sl_price=sl_price, 
+                    leverage=leverage, 
+                    min_notional=min_notional
+                )
+                if risk_based_qty > 0:
+                    # Use the more conservative of the two approaches
+                    if risk_based_qty < raw_quantity:
+                        print(f"📊 Risk-Based Sizing: {risk_based_qty:.4f} < Capital-Based: {raw_quantity:.4f}")
+                    raw_quantity = min(raw_quantity, risk_based_qty)
             
             quantity = float(round(raw_quantity, qty_precision))
             if (quantity * current_price) < min_notional:
+
                  return False, f"❌ {symbol}: Insufficient capital."
 
             # Diagnostic logging
@@ -1255,7 +1260,7 @@ class AsyncTradingSession:
                     tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
                 else:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
+                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio)), price_precision)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1279,9 +1284,25 @@ class AsyncTradingSession:
 
             raw_quantity = (margin_assignment * leverage) / current_price
             
+            # --- USE RISK-BASED SIZING WHEN ATR IS AVAILABLE ---
+            if atr and sl_price > 0:
+                risk_based_qty = self.calculate_dynamic_size(
+                    equity=total_equity, 
+                    price=current_price, 
+                    sl_price=sl_price, 
+                    leverage=leverage, 
+                    min_notional=min_notional
+                )
+                if risk_based_qty > 0:
+                    # Use the more conservative of the two approaches
+                    if risk_based_qty < raw_quantity:
+                        print(f"📊 Risk-Based Sizing (Short): {risk_based_qty:.4f} < Capital-Based: {raw_quantity:.4f}")
+                    raw_quantity = min(raw_quantity, risk_based_qty)
+            
             quantity = float(round(raw_quantity, qty_precision))
             if (quantity * current_price) < min_notional:
                  return False, f"❌ {symbol}: Insufficient capital."
+
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
             await self.bridge.set_leverage(symbol, leverage)
