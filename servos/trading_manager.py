@@ -1746,11 +1746,12 @@ class AsyncTradingSession:
             if sl_price > 0:
                 sl_side = 'SELL' if side == 'LONG' else 'BUY'
                 # FIX: Pass params as kwargs, NOT nested params dict
+                # Hedge Mode: reduceOnly is forbidden. positionSide implies reduction.
                 res = await self.bridge.place_order(
                     symbol, sl_side, 'STOP_MARKET', 
                     quantity=quantity, price=sl_price, 
-                    stopPrice=sl_price, reduceOnly=True,
-                    positionSide=side # Explicitly state position side (LONG/SHORT)
+                    stopPrice=sl_price,
+                    positionSide=side 
                 )
                 if 'error' in res:
                     messages.append(f"SL Fail: {res['error']}")
@@ -1766,8 +1767,8 @@ class AsyncTradingSession:
                 res = await self.bridge.place_order(
                     symbol, tp_side, 'TAKE_PROFIT_MARKET', 
                     quantity=quantity, price=tp_price, 
-                    stopPrice=tp_price, reduceOnly=True,
-                    positionSide=side # Explicitly state position side (LONG/SHORT)
+                    stopPrice=tp_price,
+                    positionSide=side
                 )
                 if 'error' in res:
                     messages.append(f"TP Fail: {res['error']}")
