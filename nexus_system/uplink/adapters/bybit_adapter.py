@@ -409,7 +409,6 @@ class BybitAdapter(IExchangeAdapter):
                         'takeProfit': float(p.get('takeProfitPrice', 0) or 0),
                         'stopLoss': float(p.get('stopLossPrice', 0) or 0),
                         'exchange': 'BYBIT'
-                    })
             return active
         except Exception as e:
             # Parse error
@@ -424,6 +423,80 @@ class BybitAdapter(IExchangeAdapter):
                  
             print(f"⚠️ BybitAdapter: get_positions error: {err_msg}")
             return []
+
+    async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
+        """Get open orders for a symbol."""
+        if not self._exchange:
+            return []
+            
+        try:
+            formatted = self._format_symbol(symbol) if symbol else None
+            # CCXT fetch_open_orders handles V5 unified logic
+            orders = await self._exchange.fetch_open_orders(formatted)
+            
+            result = []
+            for o in orders:
+                result.append({
+                    'orderId': str(o.get('id', '')),
+                    'symbol': self._unformat_symbol(o.get('symbol', '')),
+                    'type': (o.get('type') or '').upper(),
+                    'side': (o.get('side') or '').upper(),
+                    'quantity': float(o.get('amount') or 0),
+                    'price': float(o.get('price') or 0),
+                    'stopPrice': float(o.get('stopPrice') or o.get('triggerPrice') or 0),
+                    'status': o.get('status'),
+                    'source': 'ccxt'
+                })
+                
+            # Bybit V5 might classify stop orders separately in some contexts,
+            # but usually fetch_open_orders returns conditional ones too if implemented in ccxt.
+            # If standard orders are empty, let's verify if we need a specific 'algo' fetch (like Binance).
+            # Note: CCXT for Bybit usually merges them or has 'fetchOpenOrders' cover standard.
+            
+            return result
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: get_open_orders error: {e}")
+            return []
+
+    async def close_position(self, symbol: str) -> bool:
+        """Close specific position (Market)."""
+        if not self._exchange:
+            return False
+            
+        try:
+            # 1. Get positions
+            positions = await self.get_positions()
+            
+            # Normalize symbol
+            # Bybit 'symbol' in our get_positions is unformatted (BTCUSDT). 
+            target_pos = next((p for p in positions if p['symbol'] == symbol), None)
+            
+            if not target_pos:
+                # If quantity 0 is returned in get_positions, it's filtered out usually.
+                # But if simply not found, return True (already closed).
+                return True
+            
+            qty = target_pos['quantity']
+            side = target_pos['side']  # LONG or SHORT
+            
+            if qty <= 0:
+                return True
+                
+            # 2. Place opposing order
+            close_side = 'sell' if side == 'LONG' else 'buy'
+            formatted = self._format_symbol(symbol)
+            
+            print(f"🔒 BybitAdapter: Closing {symbol} - {close_side} {qty}")
+            
+            # Bybit V5 requires reduceOnly for closing
+            await self._exchange.create_order(
+                formatted, 'market', close_side, qty, params={'reduceOnly': True}
+            )
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: close_position error: {e}")
+            return False
 
     async def close(self):
         """Close connections."""
