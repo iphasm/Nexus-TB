@@ -392,17 +392,19 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
             
             f"💰 **Net Worth:** `${net_worth:,.2f}`\n"
             f"📈 **PnL Binance:** {'🟢' if pos.get('binance', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('binance', {}).get('pnl', 0):,.2f}`\n"
+            f"📈 **PnL Bybit:** {'🟢' if pos.get('bybit', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('bybit', {}).get('pnl', 0):,.2f}`\n"
             f"📈 **PnL Alpaca:** {'🟢' if pos.get('alpaca', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('alpaca', {}).get('pnl', 0):,.2f}`\n\n"
             
             "**💰 Balances**\n"
             f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`\n"
             f"• Binance Futures: `${wallet.get('futures_balance', 0):,.0f}`\n"
-            f"• Bybit: `${wallet.get('bybit_balance', 0):,.0f}`\n"
-            f"• Alpaca: `${wallet.get('alpaca_equity', 0):,.0f}`\n\n"
+            f"• Bybit Futures: `${wallet.get('bybit_balance', 0):,.0f}`\n"
+            f"• Alpaca Equity: `${wallet.get('alpaca_equity', 0):,.0f}`\n\n"
             
             "**⚙️ Estado**\n"
             f"• Modo: {mode_display}\n"
             f"• Posiciones Binance: `{pos.get('binance', {}).get('count', 0)}` ({pos.get('binance', {}).get('longs', 0)}L / {pos.get('binance', {}).get('shorts', 0)}S)\n"
+            f"• Posiciones Bybit: `{pos.get('bybit', {}).get('count', 0)}` ({pos.get('bybit', {}).get('longs', 0)}L / {pos.get('bybit', {}).get('shorts', 0)}S)\n"
             f"• Posiciones Alpaca: `{pos.get('alpaca', {}).get('count', 0)}` ({pos.get('alpaca', {}).get('longs', 0)}L / {pos.get('alpaca', {}).get('shorts', 0)}S)\n\n"
             
             "**🌡️ Mercado Global**\n"

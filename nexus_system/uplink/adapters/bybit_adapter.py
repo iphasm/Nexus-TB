@@ -104,11 +104,36 @@ class BybitAdapter(IExchangeAdapter):
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
             
         try:
-            balance = await self._exchange.fetch_balance({'type': 'swap', 'coin': 'USDT'})
+            # CCXT's fetch_balance for Bybit V5 usually handles both Classic and Unified
+            balance = await self._exchange.fetch_balance({'accountType': 'UNIFIED'})
+            
+            # 1. Try CCXT standard mapping
             usdt = balance.get('USDT', {})
+            total = float(usdt.get('total', 0))
+            available = float(usdt.get('free', 0))
+            
+            # 2. UTA Fallback: If standard mapping is empty, check 'info' for UTA fields
+            # In Unified Trading Accounts, Bybit reports net worth in USD/USDT via totalEquity
+            if total <= 0 and 'info' in balance:
+                try:
+                    # Bybit V5 structure
+                    infoList = balance['info'].get('result', {}).get('list', [])
+                    if infoList:
+                        uta = infoList[0]
+                        # Use totalEquity which represents the whole account value in USD
+                        total = float(uta.get('totalEquity', 0))
+                        available = float(uta.get('totalAvailableBalance', 0))
+                except Exception as e:
+                    print(f"⚠️ BybitAdapter: UTA info parsing error: {e}")
+            
+            # 3. Last Resort: Check CCXT total dict
+            if total <= 0:
+                total = float(balance.get('total', {}).get('USDT', 0))
+                available = float(balance.get('free', {}).get('USDT', 0))
+
             return {
-                'total': float(usdt.get('total', 0)),
-                'available': float(usdt.get('free', 0)),
+                'total': total,
+                'available': available,
                 'currency': 'USDT'
             }
         except Exception as e:

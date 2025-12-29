@@ -241,6 +241,20 @@ class AsyncTradingSession:
             return adapter._exchange  # CCXT binanceusdm instance
         return None
     
+    @property
+    def bybit_client(self):
+        """Returns the Bybit adapter instance if connected."""
+        if self.bridge and 'BYBIT' in self.bridge.adapters:
+            return self.bridge.adapters['BYBIT']
+        return None
+    
+    @property
+    def alpaca_adapter(self):
+        """Returns the Alpaca adapter instance if connected."""
+        if self.bridge and 'ALPACA' in self.bridge.adapters:
+            return self.bridge.adapters['ALPACA']
+        return None
+    
 
 
     async def initialize(self, verbose: bool = True) -> bool:
@@ -2362,7 +2376,8 @@ class AsyncTradingSession:
         shorts = len([p for p in positions if p['amt'] < 0])
         
         # Split by Exchange
-        bin_pos = [p for p in positions if p.get('source') == 'BINANCE'] # Default if None
+        bin_pos = [p for p in positions if p.get('source') == 'BINANCE']
+        bybit_pos = [p for p in positions if p.get('source') == 'BYBIT']
         
         # Only include Alpaca positions if user has their OWN credentials
         user_has_alpaca = self.config.get('alpaca_key') and self.config.get('alpaca_secret')
@@ -2371,12 +2386,16 @@ class AsyncTradingSession:
         bin_longs = len([p for p in bin_pos if p['amt'] > 0])
         bin_shorts = len([p for p in bin_pos if p['amt'] < 0])
         
+        bybit_longs = len([p for p in bybit_pos if p['amt'] > 0])
+        bybit_shorts = len([p for p in bybit_pos if p['amt'] < 0])
+        
         alp_longs = len([p for p in alp_pos if p['amt'] > 0])
         alp_shorts = len([p for p in alp_pos if p['amt'] < 0])
 
         # 3. Aggregated PnL
         calc_pnl = sum(p['pnl'] for p in positions)
         bin_pnl = sum(p['pnl'] for p in bin_pos)
+        bybit_pnl = sum(p['pnl'] for p in bybit_pos)
         alp_pnl = sum(p['pnl'] for p in alp_pos)
         
         # 4. Allocations
@@ -2384,9 +2403,10 @@ class AsyncTradingSession:
         if total_equity > 0:
             alloc_binance_fut = (wallet['futures_balance'] / total_equity) * 100
             alloc_binance_spot = ((wallet['spot_usdt'] + wallet['earn_usdt']) / total_equity) * 100
+            alloc_bybit = (wallet['bybit_balance'] / total_equity) * 100
             alloc_alpaca = (wallet['alpaca_equity'] / total_equity) * 100
         else:
-            alloc_binance_fut = alloc_binance_spot = alloc_alpaca = 0
+            alloc_binance_fut = alloc_binance_spot = alloc_bybit = alloc_alpaca = 0
 
         # 5. Macro Stats
         macro = {"btc_dominance": 0.0, "global_state": "N/A"}
@@ -2406,6 +2426,12 @@ class AsyncTradingSession:
                     "longs": bin_longs,
                     "shorts": bin_shorts,
                     "pnl": bin_pnl
+                },
+                "bybit": {
+                    "count": len(bybit_pos),
+                    "longs": bybit_longs,
+                    "shorts": bybit_shorts,
+                    "pnl": bybit_pnl
                 },
                 "alpaca": {
                     "count": len(alp_pos),
