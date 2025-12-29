@@ -598,6 +598,97 @@ class AsyncTradingSession:
             print(f"⚠️ Error fetching algo orders for {symbol}: {e}")
             return []
 
+    async def smart_breakeven_check(self, breakeven_roi_threshold: float = 0.10) -> str:
+        """Check positions and move SL to Beakeven if ROI > threshold."""
+        report = []
+        try:
+            positions = await self.bridge.get_positions()
+            for pos in positions:
+                symbol = pos['symbol']
+                qty = float(pos['quantity'])
+                if qty == 0: continue
+                
+                entry = float(pos['entry_price'])
+                if entry <= 0: continue
+                
+                curr = await self.bridge.get_last_price(symbol)
+                side = pos['side']
+                
+                # Check current price validity
+                if curr <= 0: continue
+
+                pnl_pct = (curr - entry)/entry if side == 'LONG' else (entry - curr)/entry
+                
+                if pnl_pct >= breakeven_roi_threshold:
+                    # Cancel existing SL
+                    await self.bridge.cancel_orders(symbol)
+                    
+                    # Place New SL at Entry
+                    qty_prec, price_prec, _ = await self.get_symbol_precision(symbol)
+                    sl_price = round(entry, price_prec)
+                    
+                    sl_side = 'SELL' if side == 'LONG' else 'BUY'
+                    await self.bridge.place_order(
+                        symbol, sl_side, 'STOP_MARKET', 
+                        quantity=qty, price=sl_price, 
+                        params={'stopPrice': sl_price, 'reduceOnly': True}
+                    )
+                    report.append(f"✅ {symbol}: Reset SL to Entry (ROI {pnl_pct:.1%})")
+                    
+        except Exception as e:
+            report.append(f"❌ Breakeven Check Error: {str(e)}")
+            
+        return "\n".join(report) if report else "No changes."
+
+    async def execute_refresh_all_orders(self) -> str:
+        """Ensure all open positions have SL/TP attached."""
+        report = []
+        try:
+            positions = await self.bridge.get_positions()
+            for pos in positions:
+                symbol = pos['symbol']
+                qty = float(pos['quantity'])
+                if qty == 0: continue
+                
+                # Check existing orders
+                orders = await self.get_open_algo_orders(symbol)
+                has_sl = any(o.get('type') in ['STOP_MARKET', 'STOP'] for o in orders)
+                has_tp = any(o.get('type') in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT'] for o in orders)
+                
+                if not has_sl or not has_tp:
+                    # Recalculate and Place
+                    entry = float(pos['entry_price'])
+                    curr = await self.bridge.get_last_price(symbol)
+                    
+                    stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                    tp_ratio = self.config.get('tp_ratio', 1.5)
+                    qty_prec, price_prec, _ = await self.get_symbol_precision(symbol)
+                    
+                    sl_dist = entry * stop_loss_pct
+                    side = pos['side']
+                    
+                    if side == 'LONG':
+                        sl_price = round(entry - sl_dist, price_prec)
+                        tp_price = round(entry + (sl_dist * tp_ratio), price_prec)
+                        order_side = 'SELL'
+                    else: # SHORT
+                        sl_price = round(entry + sl_dist, price_prec)
+                        tp_price = round(entry - (sl_dist * tp_ratio), price_prec)
+                        order_side = 'BUY'
+                        
+                    # Place missing orders
+                    if not has_sl:
+                        await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
+                    if not has_tp:
+                        await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
+                        
+                    report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
+                    
+        except Exception as e:
+            report.append(f"❌ Sync Error: {str(e)}")
+            
+        return "\n".join(report) if report else "All positions synced."
+
     async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
         """
         Robustly cancel all open orders for a symbol (standard + algo).
