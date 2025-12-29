@@ -499,15 +499,34 @@ class BinanceAdapter(IExchangeAdapter):
                     })
             return active
         except Exception as e:
-            # Parse error
+            # Parse error - try to extract meaningful error message
             err_msg = str(e)
+            error_type = type(e).__name__
+            
+            # Try to extract Binance error code/message from exception
             import re, json
             match = re.search(r'\{.*"code":.*\}', err_msg)
             if match:
-                 try:
-                     data = json.loads(match.group(0))
-                     err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
-                 except: pass
+                try:
+                    data = json.loads(match.group(0))
+                    err_code = data.get('code', 'Unknown')
+                    err_msg_binance = data.get('msg', err_msg)
+                    err_msg = f"Binance Error {err_code}: {err_msg_binance}"
+                except: 
+                    pass
+            
+            # If error message is just a URL, it's likely a network/timeout issue
+            if 'GET https://' in err_msg or 'POST https://' in err_msg:
+                if 'timeout' in err_msg.lower() or 'timed out' in err_msg.lower():
+                    err_msg = f"Network timeout connecting to Binance API"
+                elif 'connection' in err_msg.lower() or 'reset' in err_msg.lower():
+                    err_msg = f"Connection error: Unable to reach Binance API (check proxy/network)"
+                else:
+                    err_msg = f"Network error: {error_type} - Check proxy/network connectivity"
+            
+            # Truncate long error messages
+            if len(err_msg) > 150:
+                err_msg = err_msg[:147] + "..."
                  
             print(f"⚠️ BinanceAdapter: get_positions error: {err_msg}")
             return []

@@ -589,8 +589,11 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("TOGGLEGRP|"))
 async def handle_group_toggle(callback: CallbackQuery, **kwargs):
-    """Toggle asset group on/off"""
-    group = callback.data.split("|")[1]
+    """Toggle asset group on/off - Supports display name mapping"""
+    parts = callback.data.split("|")
+    group = parts[1]  # Internal group name (CRYPTO, BYBIT, STOCKS, ETFS)
+    display_name = parts[2] if len(parts) > 2 else group  # Friendly name (Binance, Bybit, etc.)
+    
     session_manager = kwargs.get('session_manager')
     
     if not session_manager:
@@ -607,7 +610,8 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
-        await safe_answer(callback, f"{group}: {new_state}")
+        # Use display name in confirmation message
+        await safe_answer(callback, f"{display_name}: {new_state}")
         
         # Rebuild buttons + Volver
         # Use simple reload of cmd_assets to update view properly
@@ -757,16 +761,17 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
             return
         
         # === GLOBAL SCANNER: Show Category Selector ===
+        # Show: CRYPTO | STOCKS | ETFs
+        # When CRYPTO is pressed, show Binance and Bybit options
         crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
         bybit_count = len(ASSET_GROUPS.get('BYBIT', []))
         stocks_count = len(ASSET_GROUPS.get('STOCKS', []))
         etfs_count = len(ASSET_GROUPS.get('ETFS', []))
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🟡 Binance ({crypto_count})", callback_data="ASSETS_CAT|CRYPTO")],
-            [InlineKeyboardButton(text=f"⬛ Bybit ({bybit_count})", callback_data="ASSETS_CAT|BYBIT")],
-            [InlineKeyboardButton(text=f"🦙 Alpaca: Stocks ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
-            [InlineKeyboardButton(text=f"🦙 Alpaca: ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
+            [InlineKeyboardButton(text=f"🟡 CRYPTO ({crypto_count + bybit_count})", callback_data="ASSETS_CAT|CRYPTO")],
+            [InlineKeyboardButton(text=f"📈 STOCKS ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
+            [InlineKeyboardButton(text=f"📦 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
             [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
         ])
         
@@ -784,7 +789,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("ASSETS_CAT|"))
 async def handle_assets_category(callback: CallbackQuery, **kwargs):
-    """Handle category-specific asset list"""
+    """Handle category-specific asset list - Special handling for CRYPTO"""
     category = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
     
@@ -793,13 +798,37 @@ async def handle_assets_category(callback: CallbackQuery, **kwargs):
     try:
         from system_directive import DISABLED_ASSETS, ASSET_GROUPS, TICKER_MAP
         
+        # Special case: If CRYPTO is selected, show Binance and Bybit options
+        if category == 'CRYPTO':
+            crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
+            bybit_count = len(ASSET_GROUPS.get('BYBIT', []))
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"🟡 Binance ({crypto_count})", callback_data="ASSETS_CAT|BINANCE")],
+                [InlineKeyboardButton(text=f"⬛ Bybit ({bybit_count})", callback_data="ASSETS_CAT|BYBIT")],
+                [InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|GLOBAL")]
+            ])
+            
+            await callback.message.edit_text(
+                "🟡 *CRYPTO*\n\n"
+                "Selecciona un exchange:",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            return
+        
+        # Map BINANCE to CRYPTO group for asset retrieval
+        if category == 'BINANCE':
+            category = 'CRYPTO'
+        
         assets = ASSET_GROUPS.get(category, [])
         
         titles = {
             'CRYPTO': '🟡 BINANCE',
+            'BINANCE': '🟡 BINANCE',
             'BYBIT': '⬛ BYBIT',
-            'STOCKS': '🦙 ALPACA (Stocks)',
-            'ETFS': '🦙 ALPACA (ETFs)'
+            'STOCKS': '📈 STOCKS (Alpaca)',
+            'ETFS': '📦 ETFs (Alpaca)'
         }
         title = titles.get(category, category)
         

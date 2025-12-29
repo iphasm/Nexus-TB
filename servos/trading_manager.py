@@ -81,6 +81,105 @@ def round_to_tick_size(price: float, tick_size: float) -> float:
     return result
 
 
+def format_price_smart(price: float, max_decimals: int = 12) -> str:
+    """
+    Formatea un precio mostrando solo las cifras significativas.
+    Muestra 3 cifras después del último cero antes de los dígitos significativos.
+    
+    Ejemplos:
+        - 0.0073094399999999995 -> 0.007309 (3 cifras después del último cero)
+        - 0.00793152 -> 0.007931 (3 cifras después del último cero)
+        - 0.007776 -> 0.007776 (3 cifras después del último cero)
+        - 1.523 -> 1.523 (sin ceros iniciales, mostrar 3 decimales)
+    
+    Args:
+        price: Precio a formatear
+        max_decimals: Máximo de decimales a considerar
+    
+    Returns:
+        String formateado del precio
+    """
+    if price <= 0:
+        return "0.0"
+    
+    # Convertir a string con suficientes decimales SIN eliminar trailing zeros todavía
+    price_str_full = f"{price:.{max_decimals}f}"
+    
+    # Si tiene punto decimal
+    if '.' in price_str_full:
+        parts = price_str_full.split('.')
+        integer_part = parts[0]
+        decimal_part = parts[1] if len(parts) > 1 else ""
+        
+        # Si la parte entera es 0 o vacía
+        if integer_part == '0' or integer_part == '':
+            # Para números pequeños, mostrar hasta 6 dígitos después del punto
+            # Esto captura "00" + "7309" = "007309" para 0.0073094399999999995
+            result_decimal = decimal_part[:6]
+            # Eliminar solo trailing zeros al final
+            result_decimal = result_decimal.rstrip('0')
+            if result_decimal:
+                return f"0.{result_decimal}"
+            else:
+                return "0.0"
+        else:
+            # Parte entera no es 0, mostrar normalmente con hasta 3 decimales
+            return f"{integer_part}.{decimal_part[:3]}".rstrip('0').rstrip('.')
+    else:
+        return price_str_full
+
+
+def ensure_price_separation(price: float, entry_price: float, tick_size: float, side: str, is_sl: bool) -> float:
+    """
+    Asegura que SL/TP tengan una separación mínima del precio de entrada.
+    
+    Args:
+        price: Precio calculado (SL o TP)
+        entry_price: Precio de entrada
+        tick_size: Tick size del símbolo
+        side: 'LONG' o 'SHORT'
+        is_sl: True si es SL, False si es TP
+    
+    Returns:
+        Precio ajustado con separación mínima garantizada
+    """
+    if price <= 0 or entry_price <= 0:
+        return price
+    
+    # Calcular separación mínima (al menos 2 ticks para evitar problemas de redondeo)
+    min_separation = max(tick_size * 2, entry_price * 0.0001)  # Al menos 0.01% o 2 ticks
+    
+    if side == 'LONG':
+        if is_sl:
+            # SL debe ser < entry, asegurar al menos min_separation de diferencia
+            if price >= entry_price:
+                price = entry_price - min_separation
+            elif (entry_price - price) < min_separation:
+                price = entry_price - min_separation
+        else:
+            # TP debe ser > entry, asegurar al menos min_separation de diferencia
+            if price <= entry_price:
+                price = entry_price + min_separation
+            elif (price - entry_price) < min_separation:
+                price = entry_price + min_separation
+    else:  # SHORT
+        if is_sl:
+            # SL debe ser > entry, asegurar al menos min_separation de diferencia
+            if price <= entry_price:
+                price = entry_price + min_separation
+            elif (price - entry_price) < min_separation:
+                price = entry_price + min_separation
+        else:
+            # TP debe ser < entry, asegurar al menos min_separation de diferencia
+            if price >= entry_price:
+                price = entry_price - min_separation
+            elif (entry_price - price) < min_separation:
+                price = entry_price - min_separation
+    
+    # Re-redondear después del ajuste
+    return round_to_tick_size(price, tick_size)
+
+
 class AsyncTradingSession:
     """
     Async Trading Session using Nexus Bridge.
@@ -1281,6 +1380,10 @@ class AsyncTradingSession:
             
             entry_price = float(res.get('price', current_price) or current_price)
             
+            # Ensure SL/TP have minimum separation from entry price after rounding
+            sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
+            tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
+            
             # 5. Place SL/TP (Separate to ensure logic holds)
             # For conditional orders, price arg = stopPrice (trigger price)
             # Validate prices before placing orders to avoid -2021 error
@@ -1469,6 +1572,10 @@ class AsyncTradingSession:
             if 'error' in res: return False, f"Bridge Error: {res['error']}"
             
             entry_price = float(res.get('price', current_price) or current_price)
+            
+            # Ensure SL/TP have minimum separation from entry price after rounding
+            sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
+            tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'SHORT', is_sl=False)
             
             # 5. Place SL/TP (Buy Orders)
             # SL (Buy Stop) - For SHORT, SL is above entry
@@ -1746,8 +1853,12 @@ class AsyncTradingSession:
                 status_icon = "✅" if success else "⚠️"
                 report.append(f"**{symbol}** ({side}) {status_icon}")
                 if success:
-                    report.append(f"   SL: {sl_price} ({sl_label}) | TP: {tp_price}")
-                    report.append(f"   TS Act: {entry_price} (Entry)")
+                    # Formatear precios de forma inteligente (3 cifras después del último cero)
+                    sl_formatted = format_price_smart(sl_price)
+                    tp_formatted = format_price_smart(tp_price)
+                    entry_formatted = format_price_smart(entry_price)
+                    report.append(f"   SL: {sl_formatted} ({sl_label}) | TP: {tp_formatted}")
+                    report.append(f"   TS Act: {entry_formatted} (Entry)")
                 else:
                     report.append(f"   Err: {msg}")
                 report.append("")
