@@ -681,11 +681,25 @@ class AsyncTradingSession:
                     
                     # SAFETY: Dynamic Precision Upgrade
                     # Smart Fallback: match price precision logic
-                    if sl_price == 0 and entry > 0:
-                        # If still 0, force basic low-price precision
-                        sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, 6)
-                    if tp_price == 0 and entry > 0:
-                        tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), 6)
+                    if sl_price <= 0 and entry > 0:
+                        # If still 0, force basic low-price precision (incrementar precisión)
+                        for prec in [6, 8, 10]:
+                            sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, prec)
+                            if sl_price > 0:
+                                break
+                    
+                    if tp_price <= 0 and entry > 0:
+                        # If still 0, force basic low-price precision (incrementar precisión)
+                        for prec in [6, 8, 10]:
+                            tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), prec)
+                            if tp_price > 0:
+                                break
+                    
+                    # Validación final: Si aún son 0, usar valor sin redondeo
+                    if sl_price <= 0:
+                        sl_price = entry - sl_dist if side=='LONG' else entry + sl_dist
+                    if tp_price <= 0:
+                        tp_price = entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio)
 
                         
                     # Place missing orders with validation
