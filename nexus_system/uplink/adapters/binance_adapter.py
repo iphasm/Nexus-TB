@@ -305,12 +305,16 @@ class BinanceAdapter(IExchangeAdapter):
                     # For now, let's fix the MARKET case which is the immediate crash.
                     if price:
                         params['stopPrice'] = price
-                        # If params has 'price', use it as limit, else use None (which might fail for Limit orders)
-                        if 'price' in params:
-                            limit_price = params.pop('price') # Move to argument
+                        # Only set limit_price if it's NOT a MARKET order
+                        if 'MARKET' not in order_type.upper():
+                            if 'price' in params:
+                                limit_price = params.pop('price') # Move to argument
+                            else:
+                                # If no separate limit price provided, use trigger as limit?
+                                limit_price = price 
                         else:
-                            # If no separate limit price provided, use trigger as limit?
-                            limit_price = price 
+                            # For MARKET, limit_price MUST be None
+                            limit_price = None 
                 
                 result = await self._exchange.create_order(
                     symbol, order_type.lower(), side.lower(), quantity, limit_price, params
@@ -328,6 +332,7 @@ class BinanceAdapter(IExchangeAdapter):
             return ret
             
         except Exception as e:
+            print(f"DEBUG ADAPTER EXCEPTION: {e}", flush=True)
             # Standardized Error Handling
             error_msg = str(e)
             
