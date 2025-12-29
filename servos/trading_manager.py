@@ -1002,8 +1002,9 @@ class AsyncTradingSession:
             bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
             available_balance = bin_bal.get('available', 0)
             if margin_assignment > available_balance * 0.95:
-                print(f"⚠️ Sizing Clamp (Long): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Clamping.")
-                margin_assignment = available_balance * 0.95
+                new_margin = available_balance * size_pct
+                print(f"⚠️ Sizing Clamp (Long): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Reducing to {size_pct:.1%} of Avail (${new_margin:.2f}).")
+                margin_assignment = new_margin
 
             raw_quantity = (margin_assignment * leverage) / current_price
             
@@ -1154,8 +1155,9 @@ class AsyncTradingSession:
             bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
             available_balance = bin_bal.get('available', 0)
             if margin_assignment > available_balance * 0.95:
-                print(f"⚠️ Sizing Clamp (Short): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Clamping.")
-                margin_assignment = available_balance * 0.95
+                new_margin = available_balance * size_pct
+                print(f"⚠️ Sizing Clamp (Short): Requested ${margin_assignment:.2f} > Avail ${available_balance:.2f}. Reducing to {size_pct:.1%} of Avail (${new_margin:.2f}).")
+                margin_assignment = new_margin
 
             raw_quantity = (margin_assignment * leverage) / current_price
             
