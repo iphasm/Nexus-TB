@@ -28,6 +28,14 @@ class BinanceAdapter(IExchangeAdapter):
     def name(self) -> str:
         return "binance"
 
+    def _format_symbol(self, symbol: str) -> str:
+        """Format symbol for CCXT: BTCUSDT -> BTC/USDT:USDT"""
+        if not symbol:
+            return symbol
+        if 'USDT' in symbol and '/' not in symbol and ':' not in symbol:
+            return symbol.replace('USDT', '/USDT:USDT')
+        return symbol
+
     async def initialize(self, verbose: bool = False, **kwargs) -> bool:
         """Initialize Binance connection."""
         try:
@@ -132,7 +140,7 @@ class BinanceAdapter(IExchangeAdapter):
             
         try:
             # Format symbol for CCXT (BTC/USDT:USDT for futures)
-            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
+            formatted = self._format_symbol(symbol)
             ohlcv = await self._exchange.fetch_ohlcv(formatted, timeframe, limit=limit)
             
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -196,6 +204,21 @@ class BinanceAdapter(IExchangeAdapter):
             print(f"⚠️ BinanceAdapter: set_leverage error ({symbol}, {leverage}x): {e}")
             return False
 
+    async def set_margin_mode(self, symbol: str, mode: str = 'CROSS') -> bool:
+        """Set margin mode (CROSS or ISOLATED) for a symbol."""
+        if not self._exchange:
+            return False
+        try:
+            formatted = self._format_symbol(symbol)
+            await self._exchange.set_margin_mode(mode.lower(), formatted)
+            return True
+        except Exception as e:
+            # Already set to requested mode is not an error
+            if 'no need to change' in str(e).lower() or 'already' in str(e).lower():
+                return True
+            print(f"⚠️ BinanceAdapter: set_margin_mode error ({symbol}, {mode}): {e}")
+            return False
+
     async def place_order(
         self, 
         symbol: str, 
@@ -208,6 +231,9 @@ class BinanceAdapter(IExchangeAdapter):
         """Place order on Binance Futures."""
         if not self._exchange:
             return {'error': 'Not initialized'}
+        
+        # Format symbol for CCXT (BTCUSDT -> BTC/USDT:USDT)
+        symbol = self._format_symbol(symbol)
             
         try:
             params = kwargs.copy()
