@@ -69,13 +69,9 @@ warnings.filterwarnings('ignore', message='.*sklearn.utils.parallel.delayed.*')
 warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # --- CONFIGURATION ---
-# Set up logging (stream to stdout so Railway doesn't show as red/error)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
-logger = logging.getLogger('NTB_Loader')
+# Usar NexusLogger para agrupación de logs
+from nexus_system.utils.logger import get_logger
+logger = get_logger('NTB_Loader')
 
 # Suppress noisy loggers
 logging.getLogger('httpx').setLevel(logging.WARNING)
