@@ -1260,21 +1260,28 @@ class AsyncTradingSession:
             if not active_pos:
                 return "ℹ️ No hay posiciones activas para sincronizar."
 
-            # Filter: Only sync Binance positions (Alpaca uses different SL/TP mechanism)
-            binance_pos = [p for p in active_pos if p.get('source') == 'BINANCE']
+            # Filter: Binance & Bybit (Crypto) vs Alpaca (Stocks)
+            crypto_pos = [p for p in active_pos if p.get('source') in ['BINANCE', 'BYBIT']]
             alpaca_count = len([p for p in active_pos if p.get('source') == 'ALPACA'])
             
-            if not binance_pos:
+            if not crypto_pos:
                 if alpaca_count > 0:
                     return f"ℹ️ {alpaca_count} posiciones Alpaca activas (no requieren sync de SL/TP)."
                 return "ℹ️ No hay posiciones activas para sincronizar."
 
             report = ["🔄 **Reporte de Sincronización:**", ""]
-            if alpaca_count > 0:
-                report.append(f"ℹ️ {alpaca_count} posiciones Alpaca omitidas (Binance sync only)")
-                report.append("")
             
-            for p in binance_pos:
+            # Count details for the report
+            binance_count = len([p for p in crypto_pos if p.get('source') == 'BINANCE'])
+            bybit_count = len([p for p in crypto_pos if p.get('source') == 'BYBIT'])
+            
+            if binance_count > 0: report.append(f"🔌 Binance: {binance_count} posiciones")
+            if bybit_count > 0: report.append(f"🔌 Bybit: {bybit_count} posiciones")
+            if alpaca_count > 0:
+                report.append(f"ℹ️ {alpaca_count} posiciones Alpaca omitidas (Binance/Bybit sync only)")
+            report.append("")
+            
+            for p in crypto_pos:
                 symbol = p['symbol']
                 qty = float(p['amt'])
                 if qty == 0: continue

@@ -128,12 +128,22 @@ class NexusBridge:
         return result
 
     def _route_symbol(self, symbol: str) -> str:
-        """Smart routing logic."""
-        if 'USDT' not in symbol and 'USD' not in symbol: # Rough check for stocks
+        """Smart routing logic based on system_directive groups."""
+        from system_directive import ASSET_GROUPS
+        
+        # 1. Check Bybit Group
+        if symbol in ASSET_GROUPS.get('BYBIT', []):
+            return 'BYBIT'
+            
+        # 2. Check Crypto (Binance) Group
+        if symbol in ASSET_GROUPS.get('CRYPTO', []):
+            return 'BINANCE'
+            
+        # 3. Fallback: Rough check for stocks
+        if 'USDT' not in symbol and 'USD' not in symbol:
             return 'ALPACA'
-        if 'BTC' in symbol or 'ETH' in symbol:
-             # Could check spread here in future
-             return self.primary_exchange
+            
+        # 4. Ultimate Fallback
         return self.primary_exchange
 
     async def close_all(self):
