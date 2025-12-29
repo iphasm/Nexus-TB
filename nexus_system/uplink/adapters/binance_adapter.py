@@ -47,6 +47,13 @@ class BinanceAdapter(IExchangeAdapter):
                 'options': {'defaultType': 'future'}
             }
             
+            # Check for testnet mode
+            use_testnet = kwargs.get('testnet') or os.getenv('BINANCE_TESTNET', '').lower() == 'true'
+            if use_testnet:
+                config['options']['defaultType'] = 'future'
+                config['options']['test'] = True
+                print(f"🧪 BinanceAdapter: TESTNET mode enabled")
+            
             # Unified Proxy Config (CCXT Standard)
             http_proxy = kwargs.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
             if http_proxy:
@@ -56,8 +63,35 @@ class BinanceAdapter(IExchangeAdapter):
                 }
 
             self._exchange = ccxt.binanceusdm(config)
-            await self._exchange.load_markets()
-            return True
+            
+            # Step 1: Test public endpoint first (no auth needed)
+            try:
+                await self._exchange.load_markets()
+                print(f"✅ BinanceAdapter: Markets loaded (public endpoint OK)")
+            except Exception as market_err:
+                print(f"⚠️ BinanceAdapter: load_markets failed - {market_err}")
+                # Markets load can fail for non-auth reasons, try to continue
+            
+            # Step 2: Test authenticated endpoint
+            try:
+                balance = await self._exchange.fetch_balance()
+                print(f"✅ BinanceAdapter: Auth OK (balance fetched)")
+                return True
+            except Exception as auth_err:
+                err_str = str(auth_err)
+                print(f"❌ BinanceAdapter: Auth failed - {auth_err}")
+                
+                # Specific error guidance
+                if '-2015' in err_str:
+                    print(f"   💡 Error -2015 = Invalid API-key, IP not whitelisted, or missing Futures permission")
+                    print(f"   💡 Check: 1) API key exists in Binance, 2) IP whitelisted, 3) 'Enable Futures' checked")
+                elif '-1021' in err_str:
+                    print(f"   💡 Error -1021 = Timestamp sync issue. Server time differs from Binance.")
+                elif '-2014' in err_str:
+                    print(f"   💡 Error -2014 = API key format is invalid")
+                    
+                raise auth_err
+                
         except Exception as e:
             print(f"❌ BinanceAdapter: Init failed - {e}")
             # Clean up resources to prevent "Unclosed client session" warnings
