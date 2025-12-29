@@ -963,6 +963,11 @@ class AsyncTradingSession:
             await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
             await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
 
+            # 6. Store SPS Metadata in ShadowWallet for real-time monitoring
+            if symbol in self.shadow_wallet.positions:
+                self.shadow_wallet.positions[symbol]['sps_tp'] = tp_price
+                self.shadow_wallet.positions[symbol]['sps_entry'] = entry_price
+
             return True, (
                 f"✅ Long Executed: {symbol}\n"
                 f"Qty: {quantity} | Entry: {entry_price}\n"
@@ -1062,6 +1067,11 @@ class AsyncTradingSession:
             await self.bridge.place_order(symbol, 'BUY', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
             # TP (Buy Take Profit)
             await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
+
+            # 6. Store SPS Metadata in ShadowWallet for real-time monitoring
+            if symbol in self.shadow_wallet.positions:
+                self.shadow_wallet.positions[symbol]['sps_tp'] = tp_price
+                self.shadow_wallet.positions[symbol]['sps_entry'] = entry_price
 
             return True, (
                 f"✅ Short Executed: {symbol}\n"
@@ -1383,6 +1393,66 @@ class AsyncTradingSession:
         finally:
             self._operation_locks.pop(symbol, None)
     
+    async def execute_move_to_breakeven(self, symbol: str) -> Tuple[bool, str]:
+        """
+        Surgical Breakeven: Moves SL to entry price + buffer for a specific symbol.
+        Used by the real-time Sniper Profit Safeguard (SPS).
+        """
+        try:
+            # 1. Get position details from Shadow Wallet
+            pos = self.shadow_wallet.positions.get(symbol)
+            if not pos:
+                return False, "No active position."
+            
+            qty = abs(float(pos.get('quantity', 0) or pos.get('amt', 0)))
+            entry_price = float(pos.get('entryPrice', 0))
+            side = str(pos.get('side', 'LONG')).upper()
+            
+            if qty <= 0 or entry_price <= 0:
+                return False, "Invalid position data."
+            
+            # 2. Get symbol info
+            qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+            current_price = await self.bridge.get_last_price(symbol)
+            
+            # 3. Calculate Breakeven SL
+            # Buffer: 0.1% to cover trading fees
+            buffer = 0.001 
+            if side == 'LONG':
+                new_sl = round(entry_price * (1 + buffer), price_prec)
+                # Keep TP where it was or adjust if too close
+                tp_pct = self.config.get('take_profit_pct', 0.05)
+                new_tp = round(entry_price * (1 + tp_pct), price_prec)
+            else:
+                new_sl = round(entry_price * (1 - buffer), price_prec)
+                tp_pct = self.config.get('take_profit_pct', 0.05)
+                new_tp = round(entry_price * (1 - tp_pct), price_prec)
+                
+            # 4. Apply via Bridge
+            success, msg = await self.synchronize_sl_tp_safe(
+                symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
+                entry_price=entry_price, current_price=current_price
+            )
+            
+            if success:
+                # Send alert to Telegram
+                try:
+                    await self.manager.bot.send_message(
+                        self.chat_id, 
+                        f"🛡️ **SPS: POSITION SECURED**\n"
+                        f"Asset: `{symbol}`\n"
+                        f"Status: SL moved to Break-Even ({new_sl})\n"
+                        f"Reason: 50% TP Progress reached.",
+                        parse_mode="Markdown"
+                    )
+                except:
+                    pass
+            
+            return success, msg
+            
+        except Exception as e:
+            return False, f"Breakeven Error: {e}"
+
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
         """
         Cancel orders for symbols without positions (Standard + Algo).

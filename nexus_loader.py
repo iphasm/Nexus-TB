@@ -774,7 +774,7 @@ async def main():
                         alpaca_keys = {'key': ak_key, 'secret': ak_sec}
                         logger.info(f"🔑 NexusCore: Injected Alpaca keys from Admin ({admin_id})")
             
-            engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys)
+            engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys, session_manager=session_manager)
             
             # --- BRIDGE: Inject Engine into Session Manager for Dashboard Data ---
             if session_manager:
