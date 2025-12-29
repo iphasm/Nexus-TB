@@ -158,6 +158,16 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_assets
         await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
 
+    # Strategies
+    elif cmd == "strategies":
+        from handlers.config import cmd_strategies
+        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
+
+    # Personality
+    elif cmd == "personality":
+        from handlers.config import cmd_personality
+        await cmd_personality(callback.message, session_manager=session_manager, edit_message=True)
+
     # Mode presets (Ronin/Guardian/Quantum)
     elif cmd.startswith("mode_"):
         preset = cmd.split("_")[1]
@@ -199,9 +209,10 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
         await cmd_sentiment(callback.message, session_manager=session_manager)
     
         
-    elif cmd == "dashboard":
-        from handlers.commands import cmd_dashboard
-        await cmd_dashboard(callback.message, session_manager=session_manager)
+    # Scanner
+    elif cmd == "scanner":
+        from handlers.commands import cmd_scanner
+        await cmd_scanner(callback.message, session_manager=session_manager, edit_message=True)
         
     elif cmd == "price":
         from handlers.commands import cmd_price
