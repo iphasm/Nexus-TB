@@ -52,124 +52,112 @@ def get_fear_and_greed_index() -> str:
 @router.message(CommandStart())
 async def cmd_start(message: Message, **kwargs):
     """
-    v4 CENTRAL HUB
-    Single message navigation center.
+    Centro de Comando Principal (Hub v5)
+    
+    Interfaz unificada y organizada que proporciona acceso rápido a todas las
+    funcionalidades del bot de forma lógica y estructurada.
     """
     edit_message = kwargs.get('edit_message', False)
     session_manager = kwargs.get('session_manager')
     
-    # 1. Loading State (only if new message)
+    # 1. Estado de carga (solo si es mensaje nuevo)
     if not edit_message:
-        msg_load = await message.answer("🔄 _Iniciando v4 Hub..._", parse_mode="Markdown")
-        await asyncio.sleep(0.3)
+        msg_load = await message.answer("🔄 _Iniciando Hub..._", parse_mode="Markdown")
+        await asyncio.sleep(0.2)  # Reducido para mejor UX
     else:
         msg_load = message
 
-    # 2. Session Data
+    # 2. Obtener datos de sesión
     chat_id = str(message.chat.id)
     session = session_manager.get_session(chat_id) if session_manager else None
     user_name = get_user_name(chat_id)
     
-    # Defaults
+    # 3. Valores por defecto
     mode = "WATCHER"
     p_name = "Estándar"
     risk_label = "Personalizado"
     p_key = "STANDARD_ES"
+    ai_enabled = True
     
+    # 4. Obtener configuración de sesión
     if session:
-        # Mode
         mode = session.config.get('mode', 'WATCHER')
-        
-        # Personality
         p_key = session.config.get('personality', 'STANDARD_ES')
-        from servos.personalities import PersonalityManager
-        p_name = PersonalityManager().get_profile(p_key).get('NAME', p_key)
+        ai_enabled = session.config.get('sentiment_filter', True)
         
-        # Risk
+        # Obtener nombre de personalidad
+        from servos.personalities import PersonalityManager
+        pm = PersonalityManager()
+        profile = pm.get_profile(p_key)
+        p_name = profile.get('NAME', p_key)
+        
+        # Determinar etiqueta de riesgo
         lev = session.config.get('leverage', 5)
-        sl = session.config.get('stop_loss_pct', 0.02)
-        if lev == 20: risk_label = "⚔️ Ronin"
-        elif lev == 3: risk_label = "🛡️ Guardian"
-        elif lev == 5: risk_label = "🌌 Nexus"
+        if lev == 20: 
+            risk_label = "⚔️ Ronin"
+        elif lev == 3: 
+            risk_label = "🛡️ Guardian"
+        elif lev == 5: 
+            risk_label = "🌌 Nexus"
 
-    # 3. Status Icons
-    mode_icon = {
+    # 5. Iconos y estado
+    mode_icons = {
         'PILOT': '🤖',
         'COPILOT': '👨‍✈️',
         'WATCHER': '👀'
-    }.get(mode, '❓')
+    }
+    mode_icon = mode_icons.get(mode, '❓')
+    ai_suffix = " ✨" if ai_enabled else ""
     
-    # 4. Message Content (Personalized)
-    from servos.personalities import PersonalityManager
-    pm = PersonalityManager()
-    
-    # AI Filter Status (Moved up for header construction)
-    ai_enabled = True
-    if session:
-        ai_enabled = session.config.get('sentiment_filter', True)
-    ai_status = "🟢" if ai_enabled else "🔴"
-    ai_header_suffix = " ✨" if ai_enabled else ""
-
-    # 4. Message Content (Custom Layout)
+    # 6. Obtener saludo personalizado
     from servos.personalities import PersonalityManager
     pm = PersonalityManager()
     profile = pm.get_profile(p_key)
-    p_name = profile.get('NAME', p_name)
     
-    # Get a greeting quote and format it with user_name
     raw_greeting = profile.get('GREETING', ["Ready."])
-    if isinstance(raw_greeting, list):
-        quote = random.choice(raw_greeting)
-    else:
-        quote = raw_greeting
-        
+    quote = random.choice(raw_greeting) if isinstance(raw_greeting, list) else raw_greeting
+    
     try:
         quote = quote.format(user_name=user_name)
     except:
         pass
     
-    # Strip trailing punctuation to avoid "message., Name."
+    # Limpiar puntuación final para evitar duplicados
     quote = quote.rstrip('.!?,;:')
-        
-    # Indent the quote for the UI with user name
     formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
+    # 7. Construir mensaje de bienvenida
     welcome = (
-        f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_header_suffix}**\n"
+        f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_suffix}**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🧠 **Personalidad:** {p_name}\n"
         f"{formatted_quote}\n"
         f"⚖️ **Riesgo:** {risk_label}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Selecciona un módulo operativo:"
+        "**Selecciona un módulo:**"
     )
     
-    # 5. v4 Interactive Keyboard
+    # 8. Teclado interactivo organizado por categorías
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        # Main Operations
+        # Operaciones principales
         [
             InlineKeyboardButton(text="📊 Dashboard", callback_data="CMD|dashboard"),
             InlineKeyboardButton(text="🔄 Sync All", callback_data="SYNC_ORDERS")
         ],
-        # Selection Modules
+        # Módulos de selección
         [
             InlineKeyboardButton(text="📡 Intel Center", callback_data="MENU|INTEL"),
             InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
         ],
-        # Settings
+        # Configuración y ayuda
         [
-            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
-        ],
-        # Info
-        [
-            InlineKeyboardButton(text="❓ Ayuda / Docs", callback_data="CMD|help")
+            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
+            InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
         ]
     ])
     
-    if edit_message:
-        await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
-    else:
-        await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+    # 9. Enviar/editar mensaje
+    await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
 
 
 # --- NEW MENU HANDLERS ---
@@ -229,107 +217,110 @@ async def cmd_startup(message: Message):
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
-    """Command reference - DYNAMIC based on ROLE"""
+    """
+    Guía de Comandos - Referencia Completa
     
+    Proporciona una referencia organizada de todos los comandos disponibles,
+    agrupados por categorías lógicas para facilitar la navegación.
+    """
     is_admin = is_authorized_admin(str(message.chat.id))
     
-    # Part 1: Core Commands
+    # Parte 1: Comandos Principales
     help_part1 = (
-        "🤖 *NEXUS TRADING BOT v7*\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🤖 **NEXUS TRADING BOT v7**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        "📊 *DASHBOARD & MERCADO*\n"
-        "├ /start - Centro de mando\n"
-        "├ /dashboard - Balance, posiciones, PnL\n"
-        "├ /scanner - Diagnóstico de mercado\n"
-        "├ /price - Cotización rápida\n"
-        "├ /pnl - Historial de ganancias\n"
-        "├ /sync - Sincronizar SL/TP\n"
-        "└ /net - Red y Latencia\n\n"
+        "📊 **DASHBOARD & MERCADO**\n"
+        "• `/start` - Centro de comando principal\n"
+        "• `/dashboard` - Balance, posiciones, PnL\n"
+        "• `/scanner` - Diagnóstico de mercado\n"
+        "• `/price SYMBOL` - Cotización rápida\n"
+        "• `/pnl` - Historial de ganancias\n"
+        "• `/sync` - Sincronizar SL/TP\n"
+        "• `/net` - Red y latencia\n\n"
         
-        "🎯 *TRADING MANUAL*\n"
-        "├ /long SYMBOL - Abrir LONG\n"
-        "├ /short SYMBOL - Abrir SHORT\n"
-        "├ /buy SYMBOL - Compra SPOT\n"
-        "├ /close SYMBOL - Cerrar posición\n"
-        "└ /closeall - Cierre de emergencia\n\n"
+        "🎯 **TRADING MANUAL**\n"
+        "• `/long SYMBOL` - Abrir posición LONG\n"
+        "• `/short SYMBOL` - Abrir posición SHORT\n"
+        "• `/buy SYMBOL` - Compra SPOT\n"
+        "• `/close SYMBOL` - Cerrar posición\n"
+        "• `/closeall` - Cierre de emergencia\n\n"
         
-        "🕹️ *MODOS OPERATIVOS*\n"
-        "├ /pilot - Trading 100% autónomo\n"
-        "├ /copilot - Confirmación manual\n"
-        "├ /watcher - Solo alertas\n"
-        "├ /mode PRESET - Ronin/Guardian/Nexus\n"
-        "└ /resetpilot - Reset Circuit Breaker\n"
+        "🕹️ **MODOS OPERATIVOS**\n"
+        "• `/pilot` - Trading 100% autónomo\n"
+        "• `/copilot` - Confirmación manual\n"
+        "• `/watcher` - Solo alertas\n"
+        "• `/mode PRESET` - Ronin/Guardian/Nexus\n"
+        "• `/resetpilot` - Reset Circuit Breaker\n"
     )
     
-    # Part 2: AI & Config
+    # Parte 2: IA y Configuración
     help_part2 = (
-        "✨ *INTELIGENCIA ARTIFICIAL*\n"
-        "├ /analyze SYMBOL - Análisis IA profundo\n"
-        "├ /news - Boletín de mercado\n"
-        "├ /sentiment - Sentimiento crypto/macro\n"
-        "└ /fomc - Análisis de la FED\n\n"
+        "✨ **INTELIGENCIA ARTIFICIAL**\n"
+        "• `/analyze SYMBOL` - Análisis IA profundo\n"
+        "• `/news` - Boletín de mercado\n"
+        "• `/sentiment` - Sentimiento crypto/macro\n"
+        "• `/fomc` - Análisis de la FED\n\n"
         
-        "⚙️ *CONFIGURACIÓN*\n"
-        "├ /config - Panel interactivo\n"
-        "├ /strategies - Motores de señales\n"
-        "├ /assets - Gestión de activos\n"
-        "├ /icons - Gestión de logos (NUEVO)\n"
-        "├ /togglegroup - Filtrar grupos\n"
-        "├ /personality - Cambiar voz del bot\n"
-        "├ /set\\_leverage - Apalancamiento\n"
-        "└ /set\\_margin - Margen por trade\n\n"
+        "⚙️ **CONFIGURACIÓN**\n"
+        "• `/config` - Panel interactivo ⭐\n"
+        "• `/strategies` - Motores de señales\n"
+        "• `/assets` - Gestión de activos\n"
+        "• `/icons` - Gestión de logos\n"
+        "• `/togglegroup` - Filtrar grupos\n"
+        "• `/personality` - Cambiar voz del bot\n"
+        "• `/set_leverage` - Apalancamiento\n"
+        "• `/set_margin` - Margen por trade\n\n"
         
-        "🔐 *SEGURIDAD & EXCHANGES*\n"
-        "├ /exchanges -  Panel de Conexiones ⭐\n"
-        "├ /set\\_binance - (Legacy) API Keys\n"
-        "└ /delete\\_keys - Borrar sesión\n\n"
+        "🔐 **SEGURIDAD & EXCHANGES**\n"
+        "• `/exchanges` - Panel de conexiones ⭐\n"
+        "• `/set_binance` - (Legacy) API Keys\n"
+        "• `/delete_keys` - Borrar sesión\n\n"
         
-        "📅 *UTILIDADES*\n"
-        "├ /schedule - Programar alertas\n"
-        "├ /tasks - Ver tareas activas\n"
-        "├ /cancel ID - Cancelar tarea\n"
-        "├ /timezone - Zona horaria\n"
-        "└ /cooldowns - Ver cooldowns\n"
+        "📅 **UTILIDADES**\n"
+        "• `/schedule` - Programar alertas\n"
+        "• `/tasks` - Ver tareas activas\n"
+        "• `/cancel ID` - Cancelar tarea\n"
+        "• `/timezone` - Zona horaria\n"
+        "• `/cooldowns` - Ver cooldowns\n"
     )
     
-    # Part 3: Admin + Info
+    # Parte 3: Admin e Información
     help_part3 = ""
     
     if is_admin:
         help_part3 += (
-            "\n👑 *ADMINISTRACIÓN*\n"
-            "├ /subs - Listar usuarios\n"
-            "├ /addsub - Agregar suscriptor\n"
-            "├ /addadmin - Agregar admin\n"
-            "├ /remsub - Eliminar usuario\n"
-            "├ /wsstatus - Estado WebSocket\n"
-            "├ /ml\\_mode - Toggle ML Classifier\n"
-            "├ /retrain - Reentrenar modelo\n"
-            "├ /reset\\_assets - Limpiar assets\n"
-            "└ /debug - Diagnóstico sistema\n"
+            "\n👑 **ADMINISTRACIÓN**\n"
+            "• `/subs` - Listar usuarios\n"
+            "• `/addsub` - Agregar suscriptor\n"
+            "• `/addadmin` - Agregar admin\n"
+            "• `/remsub` - Eliminar usuario\n"
+            "• `/wsstatus` - Estado WebSocket\n"
+            "• `/ml_mode` - Toggle ML Classifier\n"
+            "• `/retrain` - Reentrenar modelo\n"
+            "• `/reset_assets` - Limpiar assets\n"
+            "• `/debug` - Diagnóstico sistema\n"
         )
     
     help_part3 += (
-        "\n📖 *INFORMACIÓN*\n"
-        "├ /about - Sobre Nexus\n"
-        "├ /strategy - Lógica de señales\n"
-        "└ /startup - Guía de inicio\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 _Tip: Usa /config para ajustes rápidos_"
+        "\n📖 **INFORMACIÓN**\n"
+        "• `/about` - Sobre Nexus\n"
+        "• `/strategy` - Lógica de señales\n"
+        "• `/startup` - Guía de inicio\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 _Tip: Usa `/start` para navegación rápida_"
     )
     
     try:
         await message.answer(help_part1, parse_mode="Markdown")
         await message.answer(help_part2 + help_part3, parse_mode="Markdown")
     except Exception as e:
-        print(f"⚠️ Help Command Error: {e}")
-        # Fallback without markdown
-        clean = (help_part1 + help_part2 + help_part3).replace('*', '').replace('`', '').replace('\\', '')
+        # Fallback sin markdown
+        clean = (help_part1 + help_part2 + help_part3).replace('*', '').replace('`', '').replace('\\_', '_')
         try:
-            await message.answer(clean[:4000])
+            await message.answer(clean)
         except:
-            await message.answer("❌ Error mostrando ayuda. Intenta /startup")
+            await message.answer("❌ Error mostrando ayuda. Usa /start para navegar.")
         
 
 
@@ -569,7 +560,6 @@ async def cmd_debug(message: Message, **kwargs):
     """System diagnostics - Full Network Report (User-Specific)"""
     # Import locally to avoid circular deps if any
     from servos.diagnostics import run_diagnostics
-    from functools import partial
     
     msg = await message.answer("⏳ Ejecutando diagnóstico de red y sistema...")
     
@@ -582,10 +572,12 @@ async def cmd_debug(message: Message, **kwargs):
         user_api_secret = session.config_api_secret if session else None
         user_proxy = session.config.get('http_proxy') or getattr(session, '_proxy', None)
         
-        # Run blocking diagnostics in thread pool with user's credentials
-        loop = asyncio.get_running_loop()
-        diag_func = partial(run_diagnostics, api_key=user_api_key, api_secret=user_api_secret, proxy_url=user_proxy)
-        report = await loop.run_in_executor(None, diag_func)
+        # Run async diagnostics directly (no executor needed)
+        report = await run_diagnostics(
+            api_key=user_api_key, 
+            api_secret=user_api_secret, 
+            proxy_url=user_proxy
+        )
         
         # Split report if too long (Telegram limit 4096)
         if len(report) > 4000:
@@ -960,9 +952,12 @@ async def cmd_fomc(message: Message, **kwargs):
 
 @router.message(Command("analyze"))
 async def cmd_analyze(message: Message, **kwargs):
-    """Per-asset AI analysis: /analyze BTC - Uses active personality"""
+    """
+    Análisis AI por activo: /analyze BTC - Usa la personalidad activa del usuario.
+    Migrado a versión async usando MarketStream.
+    """
     from servos.ai_analyst import NexusAnalyst
-    from servos.fetcher import get_market_data
+    from nexus_system.utils.market_data import get_market_data_async
     from servos.personalities import PersonalityManager
     
     # Get user's active personality from session
@@ -987,8 +982,8 @@ async def cmd_analyze(message: Message, **kwargs):
     msg = await message.answer(f"🔍 Analizando {symbol} con personalidad *{p_name}*...", parse_mode='Markdown')
     
     try:
-        # Get data with more indicators
-        df = get_market_data(symbol, timeframe='1h', limit=50)
+        # Obtener datos de forma async (usa MarketStream)
+        df = await get_market_data_async(symbol, timeframe='1h', limit=50)
         if df.empty:
             await msg.edit_text(f"❌ No data for {symbol}")
             return
@@ -1159,11 +1154,11 @@ async def cmd_long(message: Message, **kwargs):
     msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para {symbol}...")
     
     try:
-        from servos.fetcher import get_market_data, calculate_atr
+        from nexus_system.utils.market_data import get_market_data_async, calculate_atr_async
         
-        # Fetch 1h candles
-        df = get_market_data(symbol, timeframe='1h', limit=50)
-        atr_value = calculate_atr(df, period=14)
+        # Obtener velas 1h de forma async
+        df = await get_market_data_async(symbol, timeframe='1h', limit=50)
+        atr_value = await calculate_atr_async(df, period=14)
         
         atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A)"
         
@@ -1244,11 +1239,11 @@ async def cmd_short(message: Message, **kwargs):
     msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para {symbol}...")
     
     try:
-        from servos.fetcher import get_market_data, calculate_atr
+        from nexus_system.utils.market_data import get_market_data_async, calculate_atr_async
         
-        # Fetch 1h candles
-        df = get_market_data(symbol, timeframe='1h', limit=50)
-        atr_value = calculate_atr(df, period=14)
+        # Obtener velas 1h de forma async
+        df = await get_market_data_async(symbol, timeframe='1h', limit=50)
+        atr_value = await calculate_atr_async(df, period=14)
         
         atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A)"
         
@@ -1287,17 +1282,11 @@ async def cmd_sync(message: Message, **kwargs):
         parse_mode="Markdown"
     )
     
-    print(f"DEBUG SYNC: Triggered by {message.chat.id}", flush=True)
-
-    # Step 1: Apply breakeven to profitable positions
-    print("DEBUG SYNC: calling smart_breakeven_check", flush=True)
+    # Paso 1: Aplicar breakeven a posiciones rentables (ROI >= 10%)
     breakeven_report = await session.smart_breakeven_check(breakeven_roi_threshold=0.10)
-    print(f"DEBUG SYNC: breakeven done: {breakeven_report}", flush=True)
     
-    # Step 2: Apply standard SL/TP sync to all positions
-    print("DEBUG SYNC: calling execute_refresh_all_orders", flush=True)
+    # Paso 2: Aplicar sincronización estándar de SL/TP a todas las posiciones
     sync_report = await session.execute_refresh_all_orders()
-    print(f"DEBUG SYNC: refresh done: {sync_report}", flush=True)
     
     # Combine reports
     final_report = (
@@ -1914,7 +1903,7 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
     from system_directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
     from nexus_system.cortex.classifier import MarketClassifier
     from nexus_system.cortex.factory import StrategyFactory
-    from servos.fetcher import get_market_data
+    from nexus_system.utils.market_data import get_market_data_async
     from servos.indicators import calculate_rsi, calculate_adx, calculate_atr, calculate_ema, calculate_bollinger_bands
     import pandas as pd
     import html
@@ -1960,7 +1949,8 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
             tag = "⛔ " if asset in DISABLED_ASSETS else ""
             
             try:
-                df = get_market_data(asset, timeframe='15m', limit=250)
+                # Obtener datos de forma async
+                df = await get_market_data_async(asset, timeframe='15m', limit=250)
                 
                 if df is None or df.empty or len(df) < 50:
                     display = html.escape(get_display_name(asset))

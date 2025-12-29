@@ -1,20 +1,50 @@
+"""
+Nexus Trading Bot - Async System Diagnostics
+Migrated from synchronous requests to async aiohttp.
+"""
 import os
 import sys
-import requests
+import aiohttp
 import traceback
-from binance.client import Client
+from typing import Optional
+from binance.client import Client  # Keep for now, can be migrated to CCXT later
 
-def get_asset_diagnostics(symbol: str) -> dict:
+# Import config constants
+try:
+    from system_directive import (
+        IPIFY_URL,
+        IP_GEO_URL,
+        DIAG_SYMBOL_CRYPTO,
+        DIAG_SYMBOL_STOCK,
+        DIAG_TIMEFRAME,
+        DIAG_CANDLE_LIMIT,
+        DIAG_CANDLE_LIMIT_SHORT,
+        HTTP_TIMEOUT_SHORT,
+        HTTP_TIMEOUT
+    )
+except ImportError:
+    # Fallbacks
+    IPIFY_URL = "https://api.ipify.org?format=json"
+    IP_GEO_URL = "http://ip-api.com/json/{ip_addr}"
+    DIAG_SYMBOL_CRYPTO = "BTCUSDT"
+    DIAG_SYMBOL_STOCK = "TSLA"
+    DIAG_TIMEFRAME = "15m"
+    DIAG_CANDLE_LIMIT = 250
+    DIAG_CANDLE_LIMIT_SHORT = 1
+    HTTP_TIMEOUT_SHORT = 5
+    HTTP_TIMEOUT = 10
+
+async def get_asset_diagnostics(symbol: str) -> dict:
     """
     Fetch market data and calculate all signal indicators for an asset.
     Returns a dict with all indicator values.
     """
     try:
-        from servos.fetcher import get_market_data
+        from nexus_system.utils.market_data import get_market_data_async
         from strategies.engine import StrategyEngine
         
-        # Fetch data (needs 200+ candles for EMA200)
-        df = get_market_data(symbol, timeframe='15m', limit=250)
+        # Obtener datos de forma async (necesita 200+ velas para EMA200)
+        df = await get_market_data_async(symbol, timeframe=DIAG_TIMEFRAME, limit=DIAG_CANDLE_LIMIT)
         
         if df.empty or len(df) < 100:
             return {"error": f"Datos insuficientes para {symbol}", "symbol": symbol}
@@ -93,14 +123,23 @@ def format_indicator_report(data: dict) -> str:
 • **Señal**: {sig_icon} `{signal}`
 • Razón: _{data.get('reason', 'N/A')}_"""
 
-def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str = None):
+async def run_diagnostics(
+    api_key: Optional[str] = None, 
+    api_secret: Optional[str] = None, 
+    proxy_url: Optional[str] = None,
+    session: Optional[aiohttp.ClientSession] = None
+) -> str:
     """
-    Run system diagnostics.
+    Async system diagnostics using aiohttp.
     
     Args:
         api_key: Optional API key
         api_secret: Optional API secret
         proxy_url: Optional Proxy URL (overrides env)
+        session: Optional aiohttp session (creates new if not provided)
+    
+    Returns:
+        Diagnostic report as string
     """
     report = ["🔍 **SYSTEM DIAGNOSTICS REPORT** 🔍\n"]
     
@@ -121,47 +160,69 @@ def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str 
         report.append(f"- API Key Masked: {used_api_key[:4]}...{used_api_key[-4:]}")
     report.append(f"- Secret Present: {'✅' if used_api_secret else '❌'}")
     
-    # 3. IP Check (Crucial for Geo-blocking)
+    # 3. IP Check (Crucial for Geo-blocking) - Async
     report.append("\n**🌍 Network / IP Check:**")
     
     # Proxy Check
     proxy_url = proxy_url or os.getenv('PROXY_URL')
-    proxies = {'https': proxy_url} if proxy_url else None
     
     if proxy_url:
         report.append(f"🔄 Proxy Configured: `Yes`")
     else:
         report.append(f"🔄 Proxy Configured: `No`")
 
-    try:
-        # Check Direct IP
-        try:
-            direct_ip = requests.get("https://api.ipify.org?format=json", timeout=5).json().get('ip', 'Unknown')
-            report.append(f"- Direct IP (Server): `{direct_ip}`")
-        except:
-            report.append(f"- Direct IP: Failed to resolve")
+    # Use provided session or create new one
+    should_close = session is None
+    if session is None:
+        connector = aiohttp.TCPConnector()
+        timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
+        session = aiohttp.ClientSession(connector=connector, timeout=timeout)
 
-        # Check Proxy IP (what Binance sees)
-        ip_data = requests.get("https://api.ipify.org?format=json", proxies=proxies, timeout=10).json()
-        ip_addr = ip_data.get('ip', 'Unknown')
-        report.append(f"- Effective IP (Outgoing): `{ip_addr}`")
-        
-        # Optional: Get Geolocation attempt
+    try:
+        # Check Direct IP (async)
         try:
-            geo = requests.get(f"http://ip-api.com/json/{ip_addr}", timeout=5).json()
-            country = geo.get('country', 'Unknown')
-            region = geo.get('regionName', 'Unknown')
-            report.append(f"- Location: {country} ({region})")
-            
-            if country == "United States":
-                report.append("\n⚠️ **WARNING: Effective IP is in US. Binance International may block this.**")
-            else:
-                report.append("\n✅ **Location looks good (Not US).**")
-        except:
-            report.append("- Location: Could not determine")
-            
-    except Exception as e:
-        report.append(f"❌ Failed to get IP: {str(e)}")
+            async with session.get(IPIFY_URL) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    direct_ip = data.get('ip', 'Unknown')
+                    report.append(f"- Direct IP (Server): `{direct_ip}`")
+                else:
+                    report.append(f"- Direct IP: Failed (HTTP {resp.status})")
+        except Exception as e:
+            report.append(f"- Direct IP: Failed to resolve ({str(e)})")
+
+        # Check Proxy IP (what Binance sees) - async
+        try:
+            # Use proxy if configured
+            proxy = proxy_url if proxy_url else None
+            async with session.get(IPIFY_URL, proxy=proxy) as resp:
+                if resp.status == 200:
+                    ip_data = await resp.json()
+                    ip_addr = ip_data.get('ip', 'Unknown')
+                    report.append(f"- Effective IP (Outgoing): `{ip_addr}`")
+                    
+                    # Optional: Get Geolocation attempt (async)
+                    try:
+                        geo_url = IP_GEO_URL.format(ip_addr=ip_addr)
+                        async with session.get(geo_url, timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SHORT)) as geo_resp:
+                            if geo_resp.status == 200:
+                                geo = await geo_resp.json()
+                                country = geo.get('country', 'Unknown')
+                                region = geo.get('regionName', 'Unknown')
+                                report.append(f"- Location: {country} ({region})")
+                                
+                                if country == "United States":
+                                    report.append("\n⚠️ **WARNING: Effective IP is in US. Binance International may block this.**")
+                                else:
+                                    report.append("\n✅ **Location looks good (Not US).**")
+                            else:
+                                report.append("- Location: Could not determine (HTTP error)")
+                    except Exception as geo_e:
+                        report.append(f"- Location: Could not determine ({str(geo_e)})")
+                else:
+                    report.append(f"- Effective IP: Failed (HTTP {resp.status})")
+        except Exception as e:
+            report.append(f"❌ Failed to get IP: {str(e)}")
 
     # 4. Binance Public Connectivity
     report.append("\n**📡 Binance Public API (api.binance.com):**")
@@ -173,7 +234,7 @@ def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str 
         report.append("✅ Ping: Success")
         
         # Test Data Fetch
-        klines = client.get_klines(symbol='BTCUSDT', interval='15m', limit=1)
+        klines = client.get_klines(symbol=DIAG_SYMBOL_CRYPTO, interval=DIAG_TIMEFRAME, limit=DIAG_CANDLE_LIMIT_SHORT)
         if klines:
             report.append(f"✅ Data Fetch: Success (BTC price: {klines[0][4]})")
         else:
@@ -197,7 +258,7 @@ def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str 
             # Check Futures Balance specifically if that's what we use
             try:
                 futures_bal = auth_client.futures_account_balance()
-                usdt_bal = next((item['balance'] for item in futures_bal if item['asset'] == 'USDT'), 0)
+                usdt_bal = next((item['balance'] for item in futures_bal if item.get('asset') == 'USDT'), 0)
                 report.append(f"- Futures USDT Balance: {float(usdt_bal):.2f}")
             except Exception as fe:
                 report.append(f"- Futures check failed: {str(fe)}")
@@ -211,21 +272,45 @@ def run_diagnostics(api_key: str = None, api_secret: str = None, proxy_url: str 
     report.append("\n\n📊 **SIGNAL GENERATION DIAGNOSTICS**")
     report.append("━━━━━━━━━━━━━━━━━━")
     
-    # Test BTC (Crypto)
+    # Test BTC (Crypto) - Async
     try:
-        btc_data = get_asset_diagnostics("BTCUSDT")
+        btc_data = await get_asset_diagnostics(DIAG_SYMBOL_CRYPTO)
         report.append(format_indicator_report(btc_data))
     except Exception as e:
         report.append(f"\n❌ BTC Diagnostics Error: {e}")
     
-    # Test TSLA (Stock)
+    # Test TSLA (Stock) - Async
     try:
-        tsla_data = get_asset_diagnostics("TSLA")
+        tsla_data = await get_asset_diagnostics(DIAG_SYMBOL_STOCK)
         report.append(format_indicator_report(tsla_data))
     except Exception as e:
         report.append(f"\n❌ TSLA Diagnostics Error: {e}")
 
+    finally:
+        # Close session if we created it
+        if should_close and session:
+            await session.close()
+
     return "\n".join(report)
+
+
+# Backward compatibility: Sync wrapper (deprecated, use async version)
+def run_diagnostics_sync(api_key: str = None, api_secret: str = None, proxy_url: str = None):
+    """
+    DEPRECATED: Synchronous wrapper for backward compatibility.
+    Use run_diagnostics() async version instead.
+    """
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is running, this shouldn't be called
+            raise RuntimeError("Cannot run sync wrapper in async context. Use async run_diagnostics() instead.")
+        else:
+            return loop.run_until_complete(run_diagnostics(api_key, api_secret, proxy_url))
+    except RuntimeError:
+        # No event loop, create new one
+        return asyncio.run(run_diagnostics(api_key, api_secret, proxy_url))
 
 if __name__ == "__main__":
     print(run_diagnostics())

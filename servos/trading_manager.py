@@ -458,7 +458,8 @@ class AsyncTradingSession:
                     p = 6
                     print(f"⚠️ Precision 0 detected for {symbol}. Forcing 6.", flush=True)
                 
-                print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n} (Price-Adjusted)", flush=True)
+                # Log de precisión ajustada por precio (solo en modo debug)
+                self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n} (ajustado por precio)")
                 return (q, p, n)
             else:
                 print(f"⚠️ No Info for {symbol}, using defaults (P={default_p})", flush=True)
@@ -674,8 +675,9 @@ class AsyncTradingSession:
                         tp_price = round(entry - (sl_dist * tp_ratio), price_prec)
                         order_side = 'BUY'
                         
-                    print(f"DEBUG CALC {symbol}: Entry={entry} SL%={stop_loss_pct} Prec={price_prec}", flush=True)
-                    print(f"DEBUG CALC {symbol}: RawSL={entry-sl_dist if side=='LONG' else entry+sl_dist} -> Final={sl_price}", flush=True)
+                    # Log de cálculos de SL (solo en modo debug)
+                    raw_sl = entry - sl_dist if side == 'LONG' else entry + sl_dist
+                    self.logger.debug(f"Cálculo SL {symbol}: Entry={entry}, SL%={stop_loss_pct:.2%}, Prec={price_prec}, RawSL={raw_sl:.4f} -> Final={sl_price:.4f}")
                     
                     # SAFETY: Dynamic Precision Upgrade
                     # Smart Fallback: match price precision logic
@@ -860,14 +862,41 @@ class AsyncTradingSession:
             print(f"⚠️ {symbol}: Failed to place {order_type}: {e}")
             return False, str(e), None
 
-    async def synchronize_sl_tp_safe(self, symbol: str, quantity: float, sl_price: float, tp_price: float, side: str, min_notional: float, qty_precision: int, entry_price: float = 0.0, current_price: float = 0.0) -> Tuple[bool, str]:
+    async def synchronize_sl_tp_safe(
+        self, 
+        symbol: str, 
+        quantity: float, 
+        sl_price: float, 
+        tp_price: float, 
+        side: str, 
+        min_notional: float, 
+        qty_precision: int, 
+        entry_price: float = 0.0, 
+        current_price: float = 0.0
+    ) -> Tuple[bool, str]:
         """
-        Surgical SL/TP Synchronization (V2 - Anti-Spam):
-        1. Check if valid SL/TP already exists (skip if within 1% tolerance).
-        2. Cancel existing STOP_MARKET / TAKE_PROFIT_MARKET / TRAILING_STOP_MARKET.
-        3. Verify cancellation succeeded before proceeding.
-        4. Place new SL/TP with reduceOnly=True.
-        5. V3: Validate triggers against current price to avoid -2021.
+        Sincronización quirúrgica de SL/TP (V2 - Anti-Spam).
+        
+        Este método sincroniza stop loss y take profit de forma inteligente:
+        1. Verifica si ya existe SL/TP válido (omite si está dentro de 1% de tolerancia)
+        2. Cancela órdenes existentes (STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET)
+        3. Verifica que la cancelación fue exitosa antes de continuar
+        4. Coloca nuevos SL/TP con reduceOnly=True
+        5. Valida triggers contra precio actual para evitar error -2021
+        
+        Args:
+            symbol: Símbolo del activo
+            quantity: Cantidad de la posición
+            sl_price: Precio de stop loss
+            tp_price: Precio de take profit
+            side: Lado de la posición ('LONG' o 'SHORT')
+            min_notional: Valor mínimo de orden
+            qty_precision: Precisión de cantidad
+            entry_price: Precio de entrada (para validación)
+            current_price: Precio actual del mercado (para validación)
+        
+        Returns:
+            Tuple[bool, str]: (éxito, mensaje descriptivo)
         """
         try:
             # 1. Fetch existing orders via bridge
@@ -1041,7 +1070,8 @@ class AsyncTradingSession:
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
-        print(f"🔧 [DEBUG v2] execute_long_position called: {symbol}, ATR={atr}")  # VISIBLE LOG
+        # Log de inicio de ejecución de posición LONG
+        self.logger.debug(f"Ejecutando posición LONG: {symbol}, ATR={atr}")
         # Force-sync balance before checking limits (avoid stale ShadowWallet data)
         if self.bridge and 'BINANCE' in self.bridge.adapters:
             try:
@@ -1191,19 +1221,33 @@ class AsyncTradingSession:
             
             # 5. Place SL/TP (Separate to ensure logic holds)
             # For conditional orders, price arg = stopPrice (trigger price)
-            sl_result = await self.bridge.place_order(
-                symbol, 'SELL', 'STOP_MARKET', 
-                quantity=quantity, price=sl_price, reduceOnly=True
-            )
-            if sl_result.get('error'):
-                print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            # Validate prices before placing orders to avoid -2021 error
+            sl_valid = True
+            if entry_price <= sl_price:
+                print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) <= SL ({sl_price})")
+                sl_valid = False
             
-            tp_result = await self.bridge.place_order(
-                symbol, 'SELL', 'TAKE_PROFIT_MARKET', 
-                quantity=quantity, price=tp_price, reduceOnly=True
-            )
-            if tp_result.get('error'):
-                print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+            if sl_valid:
+                sl_result = await self.bridge.place_order(
+                    symbol, 'SELL', 'STOP_MARKET', 
+                    quantity=quantity, price=sl_price, reduceOnly=True
+                )
+                if sl_result.get('error'):
+                    print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            
+            # Validate TP: For LONG, TP should be above entry
+            tp_valid = True
+            if entry_price >= tp_price:
+                print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) >= TP ({tp_price})")
+                tp_valid = False
+            
+            if tp_valid:
+                tp_result = await self.bridge.place_order(
+                    symbol, 'SELL', 'TAKE_PROFIT_MARKET', 
+                    quantity=quantity, price=tp_price, reduceOnly=True
+                )
+                if tp_result.get('error'):
+                    print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
             return True, (
                 f"✅ Long Executed: {symbol}\n"
@@ -1217,10 +1261,29 @@ class AsyncTradingSession:
 
 
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
-        """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
+        """
+        Ejecuta una posición SHORT de forma asíncrona mediante Nexus Bridge.
         
-        print(f"🔧 [DEBUG v2] execute_short_position called: {symbol}, ATR={atr}")  # VISIBLE LOG
-        # Force-sync balance before checking limits (avoid stale ShadowWallet data)
+        Este método maneja todo el flujo de ejecución de una posición SHORT:
+        1. Sincroniza balance para evitar datos obsoletos
+        2. Verifica límites de capital y posición existente
+        3. Calcula tamaño de posición (capital-based y risk-based)
+        4. Calcula SL/TP basado en ATR o porcentaje fijo
+        5. Coloca orden de entrada y órdenes condicionales (SL/TP)
+        
+        Args:
+            symbol: Símbolo del activo (ej: 'BTCUSDT')
+            atr: Valor de ATR para cálculo de riesgo (opcional)
+            strategy: Nombre de la estrategia para parámetros personalizados
+            skip_limits: Si True, omite verificación de límites de capital
+        
+        Returns:
+            Tuple[bool, str]: (éxito, mensaje descriptivo)
+        """
+        # Log de inicio de ejecución de posición SHORT
+        self.logger.debug(f"Ejecutando posición SHORT: {symbol}, ATR={atr}")
+        
+        # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)
         if self.bridge and 'BINANCE' in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters['BINANCE'].get_account_balance()
@@ -1350,22 +1413,35 @@ class AsyncTradingSession:
             entry_price = float(res.get('price', current_price) or current_price)
             
             # 5. Place SL/TP (Buy Orders)
-            # SL (Buy Stop)
+            # SL (Buy Stop) - For SHORT, SL is above entry
             # For conditional orders, price arg = stopPrice (trigger price)
-            sl_result = await self.bridge.place_order(
-                symbol, 'BUY', 'STOP_MARKET', 
-                quantity=quantity, price=sl_price, reduceOnly=True
-            )
-            if sl_result.get('error'):
-                print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            # Validate prices before placing orders to avoid -2021 error
+            sl_valid = True
+            if entry_price >= sl_price:
+                print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) >= SL ({sl_price})")
+                sl_valid = False
             
-            # TP (Buy Take Profit)
-            tp_result = await self.bridge.place_order(
-                symbol, 'BUY', 'TAKE_PROFIT_MARKET', 
-                quantity=quantity, price=tp_price, reduceOnly=True
-            )
-            if tp_result.get('error'):
-                print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+            if sl_valid:
+                sl_result = await self.bridge.place_order(
+                    symbol, 'BUY', 'STOP_MARKET', 
+                    quantity=quantity, price=sl_price, reduceOnly=True
+                )
+                if sl_result.get('error'):
+                    print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            
+            # Validate TP: For SHORT, TP should be below entry
+            tp_valid = True
+            if entry_price <= tp_price:
+                print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) <= TP ({tp_price})")
+                tp_valid = False
+            
+            if tp_valid:
+                tp_result = await self.bridge.place_order(
+                    symbol, 'BUY', 'TAKE_PROFIT_MARKET', 
+                    quantity=quantity, price=tp_price, reduceOnly=True
+                )
+                if tp_result.get('error'):
+                    print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
             return True, (
                 f"✅ Short Executed: {symbol}\n"
@@ -1671,22 +1747,25 @@ class AsyncTradingSession:
             stop_loss_pct = self.config['stop_loss_pct']
             
             # Calculate updated SL/TP
+            # Use consistent tp_ratio from config (same as execute_long/short_position)
+            tp_ratio = self.config.get('tp_ratio', 1.5)
+            
             if atr and atr > 0:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 if side == 'LONG':
                     sl_price = round(current_price - sl_dist, price_precision)
-                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                    tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
                 else:
                     sl_price = round(current_price + sl_dist, price_precision)
-                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+                    tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
             else:
                 if side == 'LONG':
                     sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 + (stop_loss_pct * 3)), price_precision)
+                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio)), price_precision)
                 else:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
+                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio)), price_precision)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1701,9 +1780,15 @@ class AsyncTradingSession:
                     self.logger.warning(f"🛡️ Max SL Shield Triggered (Update {symbol}): Clamped to {max_sl_allowed:.1%}")
                     sl_price = round(max_allowed_sl, price_precision)
             
+            # Get actual entry price from position (not current market price)
+            entry_price = float(pos.get('entryPrice', 0) or pos.get('entry_price', 0) or current_price)
+            if entry_price <= 0:
+                entry_price = current_price  # Fallback to current if entry not available
+            
             # Delegate to Surgical Sync
             success, sync_msg = await self.synchronize_sl_tp_safe(
-                symbol, qty, sl_price, tp_price, side, min_notional, qty_precision, entry_price=current_price
+                symbol, abs(qty), sl_price, tp_price, side, min_notional, qty_precision, 
+                entry_price=entry_price, current_price=current_price
             )
             
             if success:
@@ -2080,7 +2165,7 @@ class AsyncTradingSession:
                 "earn_usdt": 0.0,
                 "futures_balance": futures_balance,
                 "bybit_balance": bybit_total, # Added Bybit
-                "futures_pnl": 0.0, # TODO: Aggregated PnL
+                "futures_pnl": 0.0,  # PnL agregado (se calcula desde posiciones activas)
                 "alpaca_equity": alpaca_equity,
                 "total": total
             }

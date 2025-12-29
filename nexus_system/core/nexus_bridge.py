@@ -1,7 +1,21 @@
 """
-Nexus Bridge - Unified Exchange Interface
-Abstracts multiple exchanges into a single control plane.
-Integrates with Shadow Wallet for real-time state.
+Nexus Bridge - Interfaz Unificada de Exchanges
+
+Este módulo proporciona una interfaz unificada para interactuar con múltiples exchanges
+(Binance, Bybit, Alpaca) a través de un único punto de control. Se integra con Shadow
+Wallet para mantener el estado en tiempo real de balances y posiciones.
+
+Arquitectura:
+- NexusBridge: Router principal que delega a adapters específicos
+- IExchangeAdapter: Interfaz común para todos los adapters
+- ShadowWallet: Estado en memoria sincronizado con exchanges
+
+Flujo:
+1. Cliente llama a NexusBridge.place_order()
+2. Bridge determina exchange mediante _route_symbol()
+3. Bridge delega al adapter correspondiente
+4. Adapter ejecuta orden usando CCXT async
+5. ShadowWallet se actualiza vía WebSocket o sync explícito
 """
 
 from typing import Dict, Any, Optional
@@ -18,13 +32,35 @@ except ImportError:
     ASSET_GROUPS = {}
 
 class NexusBridge:
+    """
+    Interfaz unificada para múltiples exchanges.
+    
+    Proporciona un punto de entrada único para operaciones de trading,
+    enrutando automáticamente a los adapters correctos según el símbolo.
+    """
+    
     def __init__(self, shadow_wallet: ShadowWallet):
+        """
+        Inicializa Nexus Bridge.
+        
+        Args:
+            shadow_wallet: Instancia de ShadowWallet para mantener estado en memoria
+        """
         self.shadow_wallet = shadow_wallet
-        self.adapters: Dict[str, IExchangeAdapter] = {}
-        self.primary_exchange = 'BINANCE'
+        self.adapters: Dict[str, IExchangeAdapter] = {}  # Diccionario de adapters conectados
+        self.primary_exchange = 'BINANCE'  # Exchange por defecto
 
     async def connect_exchange(self, name: str, **credentials) -> bool:
-        """Initialize and register an exchange adapter."""
+        """
+        Inicializa y registra un adapter de exchange.
+        
+        Args:
+            name: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
+            **credentials: Credenciales del exchange (api_key, api_secret, etc.)
+        
+        Returns:
+            bool: True si la conexión fue exitosa, False en caso contrario
+        """
         name = name.upper()
         adapter = None
         
@@ -64,7 +100,15 @@ class NexusBridge:
         return False
 
     async def get_position(self, symbol: str) -> Dict[str, Any]:
-        """Get position from Shadow Wallet (Unified)."""
+        """
+        Obtiene la posición de un símbolo desde Shadow Wallet.
+        
+        Args:
+            symbol: Símbolo del activo (ej: 'BTCUSDT')
+        
+        Returns:
+            Dict con información de la posición o dict vacío si no existe
+        """
         return self.shadow_wallet.positions.get(symbol, {})
 
     async def get_last_price(self, symbol: str) -> float:
@@ -133,7 +177,21 @@ class NexusBridge:
         exchange: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Unified order placement routing."""
+        """
+        Coloca una orden de forma unificada, enrutando automáticamente al exchange correcto.
+        
+        Args:
+            symbol: Símbolo del activo (ej: 'BTCUSDT')
+            side: Lado de la orden ('BUY' o 'SELL')
+            order_type: Tipo de orden ('MARKET', 'LIMIT', 'STOP_MARKET', 'TAKE_PROFIT_MARKET', etc.)
+            quantity: Cantidad a operar
+            price: Precio (requerido para órdenes LIMIT, usado como stopPrice para condicionales)
+            exchange: Exchange específico (opcional, se determina automáticamente si no se proporciona)
+            **kwargs: Parámetros adicionales (reduceOnly, stopPrice, etc.)
+        
+        Returns:
+            Dict con resultado de la orden o error si falla
+        """
         target_exchange = exchange or self._route_symbol(symbol)
         adapter = self.adapters.get(target_exchange)
         
@@ -157,8 +215,20 @@ class NexusBridge:
 
     def _route_symbol(self, symbol: str) -> str:
         """
-        Smart routing logic based on system_directive groups.
-        IMPORTANT: Only routes to an exchange if its adapter is connected!
+        Lógica de enrutamiento inteligente basada en grupos de activos.
+        
+        Determina automáticamente qué exchange usar para un símbolo basándose en:
+        1. Grupos de activos definidos en system_directive (BYBIT, CRYPTO, STOCKS, ETFS)
+        2. Disponibilidad de adapters conectados
+        3. Fallback al exchange primario si no hay match
+        
+        IMPORTANTE: Solo enruta a un exchange si su adapter está conectado.
+        
+        Args:
+            symbol: Símbolo del activo
+        
+        Returns:
+            str: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
         """
         # 1. Check Bybit Group - BUT only if Bybit adapter is connected
         if symbol in ASSET_GROUPS.get('BYBIT', []):

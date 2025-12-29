@@ -85,9 +85,8 @@ logging.getLogger('aiogram').setLevel(logging.INFO)
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
-# --- DIAGNOSTICS: LOG ENV VARS (Masked, One-Liner) ---
+# --- DIAGNOSTICS: LOG ENV VARS (Agrupado) ---
 _vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
-logger.info("🔧 SYSTEM DIRECTIVE CHECK (Env Vars):")
 status_parts = []
 for v in _vars_to_log:
     val = os.getenv(v, '').strip().strip("'\"")
@@ -95,7 +94,7 @@ for v in _vars_to_log:
     short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
     if v == 'PROXY_URL': short_name = "PROXY"
     status_parts.append(f"{short_name}:{found}")
-logger.info(" | ".join(status_parts))
+logger.info(f"🔧 Env Vars: {' | '.join(status_parts)}", group=False)  # No agrupar, es un resumen único
 # ------------------------------------------
 
 
@@ -228,7 +227,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         
     # === SENTINEL / PANIC HANDLING ===
     if action == 'EXIT_LONG':
-        logger.warning(f"🚨 SENTINEL: Processing ACTION EXIT_LONG for {symbol}")
+        logger.warning(f"🚨 SENTINEL: EXIT_LONG {symbol}", group=True)
         import asyncio
         for session in session_manager.get_all_sessions():
              # Fire and forget (concurrent)
@@ -236,27 +235,27 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         return
 
     if action == 'EXIT_ALL':
-        logger.warning(f"🚨 SENTINEL: Processing ACTION EXIT_ALL for {symbol}")
+        logger.warning(f"🚨 SENTINEL: EXIT_ALL {symbol}", group=True)
         for session in session_manager.get_all_sessions():
              asyncio.create_task(session.execute_close_position(symbol))
         return
 
     # === CLOSE HANDLING (Trend Reversal / Exit Signals) ===
     if action in ['CLOSE_LONG', 'EXIT_LONG']:
-        logger.info(f"📉 SIGNAL: Exiting LONG for {symbol} (Reason: {getattr(signal, 'metadata', 'Trend Change')})")
+        logger.info(f"📉 SIGNAL: Salida LONG {symbol}", group=True)
         for session in session_manager.get_all_sessions():
              asyncio.create_task(session.execute_close_position(symbol, only_side='LONG'))
         return
 
     if action in ['CLOSE_SHORT', 'EXIT_SHORT']:
-        logger.info(f"📈 SIGNAL: Exiting SHORT for {symbol} (Reason: {getattr(signal, 'metadata', 'Trend Change')})")
+        logger.info(f"📈 SIGNAL: Salida SHORT {symbol}", group=True)
         for session in session_manager.get_all_sessions():
              asyncio.create_task(session.execute_close_position(symbol, only_side='SHORT'))
         return
     
     # === TEMPORAL FILTER: Skip if on cooldown ===
     if cooldown_manager.is_on_cooldown(symbol):
-        logger.debug(f"⏳ Signal for {symbol} skipped (cooldown active)")
+        logger.info(f"⏳ Signal {symbol} omitido (cooldown)", group=True)
         return
     
     # Map action to side
@@ -287,7 +286,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     params_str = " | ".join(meta_params)
     reason = f"[{strategy} | Conf: {confidence:.0%} | {params_str}]"
     
-    logger.info(f"📡 Nexus Signal: {action} {symbol} (Conf: {confidence:.2f}, Strategy: {strategy} -> Key: {strategy_config_key})")
+    logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.0%}, {strategy})", group=True)
     
     # Dispatch to all sessions
     from system_directive import ASSET_GROUPS
@@ -307,17 +306,17 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         # --- FILTER: Strategy Enabled? ---
         # Use mapped config key instead of raw strategy name
         if not session.is_strategy_enabled(strategy_config_key):
-            logger.debug(f"  ⏭️ {session.chat_id}: Strategy {strategy_config_key} disabled in Synapse")
+            logger.info(f"⏭️ {session.chat_id}: Estrategia {strategy_config_key} deshabilitada", group=True)
             continue
             
         # --- FILTER: Group Enabled? ---
         if asset_group and not session.is_group_enabled(asset_group):
-            logger.debug(f"  ⏭️ {session.chat_id}: Group {asset_group} disabled")
+            logger.info(f"⏭️ {session.chat_id}: Grupo {asset_group} deshabilitado", group=True)
             continue
             
         # --- FILTER: Blacklisted? ---
         if session.is_asset_disabled(symbol):
-            logger.debug(f"  ⏭️ {session.chat_id}: Asset {symbol} blacklisted")
+            logger.info(f"⏭️ {session.chat_id}: Asset {symbol} en blacklist", group=True)
             continue
             
         try:
@@ -403,10 +402,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         is_signal_long = (side == 'LONG')
                         
                         if is_existing_long == is_signal_long:
-                             logger.debug(f"⏭️ {symbol}: Active {side} position exists. Skipping redundancy.")
+                             logger.info(f"⏭️ {symbol}: Posición {side} activa, omitiendo", group=True)
                              continue
                         else:
-                             logger.info(f"🔄 FLIP DETECTED: {symbol} switching from {'LONG' if is_existing_long else 'SHORT'} to {side}")
+                             logger.info(f"🔄 FLIP: {symbol} {'LONG→SHORT' if is_existing_long else 'SHORT→LONG'}", group=True)
                              # Proceed to execution (trading_manager handles the flip)
                 except:
                     pass  # If check fails, proceed with trade attempt
@@ -596,7 +595,7 @@ async def main():
                     for asset in assets:
                          DISABLED_ASSETS.add(asset)
             
-            logger.info(f"✅ Loaded System State: {len(DISABLED_ASSETS)} disabled assets, AI Filter: {system_directive.AI_FILTER_ENABLED}, ML Cortex: {system_directive.ML_CLASSIFIER_ENABLED}")
+            logger.info(f"✅ Estado cargado: {len(DISABLED_ASSETS)} assets deshabilitados, AI: {system_directive.AI_FILTER_ENABLED}, ML: {system_directive.ML_CLASSIFIER_ENABLED}", group=False)
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")
@@ -615,12 +614,17 @@ async def main():
         
         # Register action handlers for scheduled tasks
         async def handle_analyze(user_id, params, bot_instance):
+            """
+            Handler async para análisis programado de activos.
+            Usa MarketStream para obtener datos de forma async.
+            """
             symbol = params.get('symbol', 'BTC')
             from servos.ai_analyst import NexusAnalyst
-            from nexus_system.memory_archives.fetcher import get_market_data
+            from nexus_system.utils.market_data import get_market_data_async
             
             analyst = NexusAnalyst()
-            df = get_market_data(f"{symbol}USDT", timeframe='4h', limit=50)
+            # Obtener datos de forma async
+            df = await get_market_data_async(f"{symbol}USDT", timeframe='4h', limit=50)
             if not df.empty:
                 indicators = {
                     'rsi': df['rsi'].iloc[-1] if 'rsi' in df.columns else 50,
@@ -728,7 +732,7 @@ async def main():
         
         # Aggregated Log
         actions = list(scheduler.action_handlers.keys())
-        logger.info(f"📅 TaskScheduler: Initialized actions [{', '.join(actions)}]")
+        logger.info(f"📅 TaskScheduler: {len(actions)} acciones registradas", group=False)
         
     except Exception as e:
         logger.warning(f"⚠️ Task Scheduler init skipped: {e}")
@@ -755,7 +759,7 @@ async def main():
     dp.include_router(trading_router)
     dp.include_router(callbacks_router)
     
-    logger.info("✅ Neural Pathways (Routers) registered.")
+    logger.info("✅ Routers registrados", group=False)
 
     # 6. Initialize Nexus Core (formerly Nexus Core)
     engine_task = None
@@ -777,7 +781,7 @@ async def main():
                     ak_sec = admin_session.config.get('alpaca_secret')
                     if ak_key and ak_sec:
                         alpaca_keys = {'key': ak_key, 'secret': ak_sec}
-                        logger.info(f"🔑 NexusCore: Injected Alpaca keys from Admin ({admin_id})")
+                        logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Admin", group=False)
             
             engine = NexusCore(assets=get_all_assets(), alpaca_keys=alpaca_keys, session_manager=session_manager)
             
@@ -791,15 +795,15 @@ async def main():
             
             engine.set_callback(on_signal)
             
-            logger.info("🌌 Nexus Core initialized and standing by.")
+            logger.info("🌌 Nexus Core inicializado", group=False)
             
             # Wrapper to catch and log exceptions from engine task
             async def run_engine_with_logging():
                 try:
-                    logger.info("🚀 Engaging Nexus Core loop...")
+                    logger.info("🚀 Nexus Core: Loop iniciado", group=False)
                     await engine.run()
                 except Exception as e:
-                    logger.error(f"❌ Nexus Core critical failure: {e}", exc_info=True)
+                    logger.error(f"❌ Nexus Core: Error crítico - {e}", exc_info=True)
             
             # Create engine task (will run concurrently with bot)
             engine_task = asyncio.create_task(run_engine_with_logging())
@@ -807,14 +811,19 @@ async def main():
         except Exception as e:
             logger.warning(f"⚠️ Nexus Core init failed: {e}", exc_info=True)
 
-    # 7. Start Shark Sentinel (Black Swan Defense)
+    # 7. Start Shark Sentinel (Black Swan Defense) - Async Version
     try:
         from strategies.shark_mode import SharkSentinel
         
-        def notify_send(msg):
-             # Broadcast alert to all active sessions
-             for chat_id in session_manager.get_active_chat_ids():
-                 asyncio.create_task(bot.send_message(chat_id, msg, parse_mode='Markdown'))
+        async def notify_send(msg):
+             # Broadcast alert to all active sessions (async)
+             chat_ids = session_manager.get_active_chat_ids()
+             tasks = [
+                 bot.send_message(chat_id, msg, parse_mode='Markdown')
+                 for chat_id in chat_ids
+             ]
+             if tasks:
+                 await asyncio.gather(*tasks, return_exceptions=True)
 
         # Check function for Sentinel
         def is_shark_enabled():
@@ -826,16 +835,24 @@ async def main():
             notify_callback=notify_send,
             enabled_check_callback=is_shark_enabled
         )
-        sentinel.start()
-        logger.info("🦈 Shark Sentinel (Shield Protocol) STARTED.")
+        await sentinel.start()  # Async start
+        logger.info("🦈 Shark Sentinel: Activo (Async)", group=False)
         
     except Exception as e:
-        logger.error(f"❌ Failed to start Shark Sentinel: {e}")
+        logger.error(f"❌ Failed to start Shark Sentinel: {e}", exc_info=True)
 
     # 8. Startup Message (Web Server removed - feature deprecated)
 
-    # 9. Startup Message
-    logger.info("🚀 Nexus Trading Bot (Model-7) starting...")
+    # 9. Startup Summary
+    from nexus_system.utils.logger import log_startup_summary
+    startup_components = {
+        'DB': True,  # Asumimos OK si no hay excepción
+        'SessionManager': True,
+        'TaskScheduler': scheduler is not None,
+        'NexusCore': engine_task is not None,
+        'SharkSentinel': True  # Asumimos OK si no hay excepción
+    }
+    log_startup_summary(logger, startup_components)
     
     raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
     if raw_admin_ids:

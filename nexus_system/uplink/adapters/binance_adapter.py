@@ -278,7 +278,8 @@ class BinanceAdapter(IExchangeAdapter):
         # Format symbol for CCXT (BTCUSDT -> BTC/USDT:USDT)
         symbol = self._format_symbol(symbol)
         
-        print(f"DEBUG ADAPTER PLACE_ORDER: {symbol} {side} {order_type} Qty={quantity} Price={price} Params={kwargs}", flush=True)
+        # Log de orden a colocar (solo en modo debug)
+        # self.logger.debug(f"Colocando orden: {symbol} {side} {order_type} Qty={quantity} Price={price}")
 
         try:
             params = kwargs.copy()
@@ -357,10 +358,10 @@ class BinanceAdapter(IExchangeAdapter):
                         for alt in [alt1, alt2]:
                             try:
                                 print(f"🔄 Retrying with: {alt}", flush=True)
-                                # Retry with 'market' type + override
-
+                                # Retry with original order type (not 'market')
+                                # Keep the conditional order type for SL/TP orders
                                 result = await self._exchange.create_order(
-                                    alt, 'market', side.lower(), quantity, limit_price, params
+                                    alt, ccxt_order_type, side.lower(), quantity, limit_price, params
                                 )
                                 symbol = alt # Update symbol for return
                                 success_alt = True
@@ -383,11 +384,12 @@ class BinanceAdapter(IExchangeAdapter):
                 'quantity': quantity,
                 'price': result.get('price') or price
             }
-            print(f"DEBUG ADAPTER RESULT: ID={result.get('id')} Status={result.get('status')}", flush=True)
+            # Log de resultado de orden (solo en modo debug)
+            # self.logger.debug(f"Orden colocada: ID={result.get('id')} Status={result.get('status')}")
             return ret
             
         except Exception as e:
-            print(f"DEBUG ADAPTER EXCEPTION: {e}", flush=True)
+            # Log de excepción (ya se maneja más abajo)
             # Standardized Error Handling
             error_msg = str(e)
             

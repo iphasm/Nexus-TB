@@ -122,6 +122,32 @@ PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
 CMC_API_KEY = os.getenv("CMC_API_KEY", "")
 CMC_POLL_INTERVAL = 600  # 10 Minutes (Preserve API Credits)
 
+# --- NETWORK & HTTP CONFIG ---
+# Timeouts (seconds)
+HTTP_TIMEOUT = 10
+HTTP_TIMEOUT_SHORT = 5
+HTTP_TIMEOUT_LONG = 30
+
+# URLs (External APIs)
+IPIFY_URL = "https://api.ipify.org?format=json"
+IP_GEO_URL = "http://ip-api.com/json/{ip_addr}"
+TELEGRAM_API_BASE = "https://api.telegram.org/bot{token}/sendMessage"
+BINANCE_PUBLIC_API = "https://api.binance.com/api/v3"
+
+# --- SHARK MODE CONFIG ---
+SHARK_CRASH_THRESHOLD_PCT = 3.0  # Percentage drop to trigger
+SHARK_WINDOW_SECONDS = 60  # Rolling window size
+SHARK_MAX_WORKERS = 10  # Thread pool workers (legacy, will be removed)
+SHARK_HEARTBEAT_SECONDS = 1  # Price check interval
+SHARK_COOLDOWN_SECONDS = 300  # Cooldown after trigger (5 minutes)
+
+# --- DIAGNOSTICS CONFIG ---
+DIAG_SYMBOL_CRYPTO = "BTCUSDT"
+DIAG_SYMBOL_STOCK = "TSLA"
+DIAG_TIMEFRAME = "15m"
+DIAG_CANDLE_LIMIT = 250
+DIAG_CANDLE_LIMIT_SHORT = 1
+
 # --- TRADING SESSION DEFAULTS ---
 DEFAULT_SESSION_CONFIG = {
     "mode": "WATCHER",
