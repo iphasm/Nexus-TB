@@ -1737,8 +1737,10 @@ class AsyncTradingSession:
         """
         try:
             # 1. Cancel Algo Orders
+            # 1. Cancel Algo Orders
             await self.bridge.cancel_orders(symbol)
             messages = []
+            overall_success = True
             
             # 2. Place SL
             if sl_price > 0:
@@ -1747,10 +1749,12 @@ class AsyncTradingSession:
                 res = await self.bridge.place_order(
                     symbol, sl_side, 'STOP_MARKET', 
                     quantity=quantity, price=sl_price, 
-                    stopPrice=sl_price, reduceOnly=True
+                    stopPrice=sl_price, reduceOnly=True,
+                    positionSide=side # Explicitly state position side (LONG/SHORT)
                 )
                 if 'error' in res:
                     messages.append(f"SL Fail: {res['error']}")
+                    overall_success = False
                 else:
                     messages.append(f"SL {sl_price}")
             else:
@@ -1762,14 +1766,16 @@ class AsyncTradingSession:
                 res = await self.bridge.place_order(
                     symbol, tp_side, 'TAKE_PROFIT_MARKET', 
                     quantity=quantity, price=tp_price, 
-                    stopPrice=tp_price, reduceOnly=True
+                    stopPrice=tp_price, reduceOnly=True,
+                    positionSide=side # Explicitly state position side (LONG/SHORT)
                 )
                 if 'error' in res:
                     messages.append(f"TP Fail: {res['error']}")
+                    overall_success = False
                 else:
                     messages.append(f"TP {tp_price}")
                 
-            return True, " | ".join(messages)
+            return overall_success, " | ".join(messages)
             
         except Exception as e:
             return False, f"Sync Exception: {e}"
