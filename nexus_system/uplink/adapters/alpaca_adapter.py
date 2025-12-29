@@ -129,12 +129,15 @@ class AlpacaAdapter(IExchangeAdapter):
             end = datetime.now(ZoneInfo("America/New_York"))
             start = end - timedelta(days=7)  # Get enough data for limit
             
+            from alpaca.data.enums import DataFeed
+
             request = StockBarsRequest(
                 symbol_or_symbols=symbol,
                 timeframe=alpaca_tf,
                 start=start,
                 end=end,
-                limit=limit
+                limit=limit,
+                feed=DataFeed.IEX  # Use IEX for free tier compatibility
             )
             
             bars = self._data_client.get_stock_bars(request)
@@ -241,9 +244,9 @@ class AlpacaAdapter(IExchangeAdapter):
             return False
             
         try:
-            from alpaca.trading.enums import OrderStatusFilter
+            from alpaca.trading.enums import QueryOrderStatus
             orders = self._trading_client.get_orders(
-                status=OrderStatusFilter.OPEN,
+                status=QueryOrderStatus.OPEN,
                 symbols=[symbol]
             )
             for order in orders:
@@ -301,10 +304,13 @@ class AlpacaAdapter(IExchangeAdapter):
             
             close_side = OrderSide.SELL if side == 'LONG' else OrderSide.BUY
             
+            from alpaca.trading.enums import TimeInForce
+
             request = MarketOrderRequest(
                 symbol=symbol,
                 qty=qty,
-                side=close_side
+                side=close_side,
+                time_in_force=TimeInForce.DAY
             )
             
             self._trading_client.submit_order(request)
