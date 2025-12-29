@@ -54,19 +54,19 @@ class BybitAdapter(IExchangeAdapter):
                 }
             }
             
-            # Unified Proxy Config (CCXT Standard)
+            # Unified Proxy Config (CCXT Async uses aiohttp_proxy, NOT proxies dict)
             http_proxy = config_options.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            if http_proxy:
-                config['proxies'] = {
-                    'http': http_proxy,
-                    'https': http_proxy,
-                }
             
             # Testnet support
             if self._testnet:
                 config['sandbox'] = True
                 
             self._exchange = ccxt.bybit(config)
+            
+            # For async CCXT, proxy must be set via aiohttp_proxy property AFTER creation
+            if http_proxy:
+                self._exchange.aiohttp_proxy = http_proxy
+            
             await self._exchange.load_markets()
             return True
             

@@ -71,15 +71,14 @@ class BinanceAdapter(IExchangeAdapter):
                 config['options']['test'] = True
                 print(f"🧪 BinanceAdapter: TESTNET mode enabled")
             
-            # Unified Proxy Config (CCXT Standard)
+            # Unified Proxy Config (CCXT Async uses aiohttp_proxy, NOT proxies dict)
             http_proxy = kwargs.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            if http_proxy:
-                config['proxies'] = {
-                    'http': http_proxy,
-                    'https': http_proxy,
-                }
 
             self._exchange = ccxt.binanceusdm(config)
+            
+            # For async CCXT, proxy must be set via aiohttp_proxy property AFTER creation
+            if http_proxy:
+                self._exchange.aiohttp_proxy = http_proxy
             
             # Step 1: Test public endpoint first (no auth needed)
             try:
