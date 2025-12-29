@@ -318,16 +318,16 @@ class BinanceAdapter(IExchangeAdapter):
             elif code == -2011:
                 return {'error': 'UNKNOWN_ORDER'}
             elif code == -4003: # Quantity too large?
-                return {'error': 'QUANTITY_ERROR'}
+                return {'error': f'QUANTITY_ERROR: {msg}'}
             elif code == -2019: # Margin is insufficient
-                return {'error': 'INSUFFICIENT_MARGIN'}
+                return {'error': f'INSUFFICIENT_MARGIN: {msg}'}
             
             # Fallback text matching (if code parsing failed)
             lower_msg = error_msg.lower()
             if "insufficient margin" in lower_msg:
-                return {'error': 'INSUFFICIENT_MARGIN'}
+                return {'error': f'INSUFFICIENT_MARGIN: {error_msg}'}
             elif "min_notional" in lower_msg:
-                return {'error': 'MIN_NOTIONAL'}
+                return {'error': f'MIN_NOTIONAL: {error_msg}'}
             
             clean_msg = f"Binance Error {code}: {msg}" if code else f"Error: {error_msg}"
             return {'error': clean_msg}
