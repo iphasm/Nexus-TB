@@ -346,8 +346,16 @@ class BinanceAdapter(IExchangeAdapter):
                                 print(f"⚠️ Retry {alt} failed: {e_alt}", flush=True)
                         
                         if not success_alt:
-                            # DIAGNOSTIC: Dump available markets
+                            # DIAGNOSTIC: Deep Inspection
                             if self._exchange.markets:
+                                mkt = self._exchange.markets.get(symbol)
+                                print(f"DEBUG MARKET OBJ: {mkt}", flush=True)
+                                try:
+                                    tick = await self._exchange.fetch_ticker(symbol)
+                                    print(f"DEBUG TICKER PROBE: OK {tick['last']}", flush=True)
+                                except Exception as e_tick:
+                                    print(f"DEBUG TICKER PROBE: FAILED {e_tick}", flush=True)
+                                
                                 keys = list(self._exchange.markets.keys())[:10]
                                 print(f"DEBUG MARKETS DUMP: {keys}", flush=True)
                             else:
