@@ -260,6 +260,9 @@ class BinanceAdapter(IExchangeAdapter):
         if not self._exchange:
             return {'error': 'Not initialized'}
         
+        # FIX: Ensure quantity is positive for CCXT
+        quantity = abs(quantity)
+
         # Format symbol for CCXT (BTCUSDT -> BTC/USDT:USDT)
         symbol = self._format_symbol(symbol)
         
@@ -321,6 +324,8 @@ class BinanceAdapter(IExchangeAdapter):
                 'quantity': quantity,
                 'price': result.get('price') or price
             }
+            print(f"DEBUG ADAPTER RESULT: ID={result.get('id')} Status={result.get('status')}", flush=True)
+            return ret
             
         except Exception as e:
             # Standardized Error Handling
