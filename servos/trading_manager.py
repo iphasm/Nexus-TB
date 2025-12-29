@@ -178,7 +178,7 @@ class AsyncTradingSession:
         return True
     
     # --- RISK HELPER ---
-    def check_capital_limits(self, symbol: str) -> Tuple[bool, str]:
+    def check_capital_limits(self, symbol: str, bypass_cupo: bool = False) -> Tuple[bool, str]:
         """
         Guardián de Límites (Limit Guardian):
         1. Check Max Open Positions (Cupo).
@@ -198,22 +198,23 @@ class AsyncTradingSession:
                 return False, "SILENT_REJECTION"
 
         # 1. Max Open Positions
-        max_pos = self.config.get('max_open_positions', 10)
-        # Count only active positions (amt != 0)
-        active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
-        
-        # Exclude current symbol if already open (re-entry or pyramid) - debated, better to block unless strictly pyramiding
-        # For now, simplistic count
-        if len(active_positions) >= max_pos:
-            # Check if we are already in this position (allow close/reduce, but block new adds if limiting)
-            # Actually, standard logic: strict limit
-            is_new_symbol = symbol not in [p.get('symbol') for p in active_positions]
+        if not bypass_cupo:
+            max_pos = self.config.get('max_open_positions', 10)
+            # Count only active positions (amt != 0)
+            active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
             
-            if is_new_symbol:
-                reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
-                print(f"🛑 Limit Guardian: {reason} for {symbol}")
-                self._rejection_cache[spam_key] = now
-                return False, reason
+            # Exclude current symbol if already open (re-entry or pyramid) - debated, better to block unless strictly pyramiding
+            # For now, simplistic count
+            if len(active_positions) >= max_pos:
+                # Check if we are already in this position (allow close/reduce, but block new adds if limiting)
+                # Actually, standard logic: strict limit
+                is_new_symbol = symbol not in [p.get('symbol') for p in active_positions]
+                
+                if is_new_symbol:
+                    reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
+                    print(f"🛑 Limit Guardian: {reason} for {symbol}")
+                    self._rejection_cache[spam_key] = now
+                    return False, reason
 
         # 2. Min Free Margin
         min_margin = self.config.get('min_free_margin', 10.0) # $10 USD
@@ -853,11 +854,11 @@ class AsyncTradingSession:
              
         return True, balance, "OK"
 
-    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
         # 0. Guardián de Límites (NUEVO)
-        allowed, reason = self.check_capital_limits(symbol)
+        allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
         if not allowed:
             return False, reason
             
@@ -972,11 +973,11 @@ class AsyncTradingSession:
             return False, f"Execution Error: {e}"
 
 
-    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
         
         # 0. Guardián de Límites (NUEVO)
-        allowed, reason = self.check_capital_limits(symbol)
+        allowed, reason = self.check_capital_limits(symbol, bypass_cupo=skip_limits)
         if not allowed:
             return False, reason
             
@@ -2020,9 +2021,9 @@ class AsyncTradingSession:
         
         # 4. Open New
         if new_side == 'LONG':
-            return await self.execute_long_position(symbol, atr)
+            return await self.execute_long_position(symbol, atr, skip_limits=True)
         elif new_side == 'SHORT':
-            return await self.execute_short_position(symbol, atr)
+            return await self.execute_short_position(symbol, atr, skip_limits=True)
         else:
             return False, f"Invalid Side: {new_side}"
 
