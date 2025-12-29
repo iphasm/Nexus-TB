@@ -233,7 +233,7 @@ class BinanceAdapter(IExchangeAdapter):
             return False
 
     async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
-        """Get symbol precision and limits."""
+        """Get symbol precision, tick size, and limits."""
         if not self._exchange: return {}
         
         try:
@@ -248,11 +248,42 @@ class BinanceAdapter(IExchangeAdapter):
                 await self._exchange.load_markets()
                 market = self._exchange.market(formatted)
 
+            # Extract tick size from PRICE_FILTER (Binance requirement)
+            tick_size = None
+            try:
+                info = market.get('info', {})
+                filters = info.get('filters', [])
+                price_filter = next((f for f in filters if f.get('filterType') == 'PRICE_FILTER'), None)
+                if price_filter:
+                    tick_size = float(price_filter.get('tickSize', '0'))
+            except Exception as e:
+                print(f"⚠️ BinanceAdapter: Error extracting tick_size: {e}")
+            
+            # Fallback: Use precision['price'] if it's a float (tick size), or calculate from decimal precision
+            if tick_size is None or tick_size <= 0:
+                price_prec = market.get('precision', {}).get('price', 0)
+                if isinstance(price_prec, (int, float)) and price_prec > 0:
+                    if price_prec < 1:  # It's already a tick size (e.g., 0.1)
+                        tick_size = float(price_prec)
+                    else:  # It's decimal places, convert to tick size (e.g., 2 -> 0.01)
+                        tick_size = 10 ** (-int(price_prec))
+                else:
+                    tick_size = 0.01  # Default fallback
+            
+            # Calculate decimal precision from tick_size for backward compatibility
+            if tick_size >= 1:
+                price_precision = 0
+            elif tick_size > 0:
+                # Calculate number of decimal places needed
+                price_precision = len(str(tick_size).rstrip('0').split('.')[-1]) if '.' in str(tick_size) else 0
+            else:
+                price_precision = 8  # Safe default
+            
             return {
                 'symbol': symbol,
-                # CCXT precision mode for Binance is DECIMAL_PLACES (int)
-                'price_precision': int(market['precision']['price']),
-                'quantity_precision': int(market['precision']['amount']),
+                'tick_size': tick_size,  # NEW: Real tick size from Binance
+                'price_precision': price_precision,  # For backward compatibility
+                'quantity_precision': int(market.get('precision', {}).get('amount', 0)),
                 'min_notional': float(market['limits']['cost']['min']) if 'cost' in market['limits'] else 5.0
             }
         except Exception as e:

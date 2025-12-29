@@ -31,6 +31,30 @@ from nexus_system.cortex.base import Signal
 from nexus_system.cortex.registry import StrategyRegistry
 
 
+# Helper function to round price to tick size
+def round_to_tick_size(price: float, tick_size: float) -> float:
+    """
+    Redondea un precio al múltiplo más cercano del tick size de Binance.
+    
+    Args:
+        price: Precio a redondear
+        tick_size: Tick size del símbolo (ej: 0.001, 0.01, 0.1)
+    
+    Returns:
+        Precio redondeado al múltiplo más cercano del tick size
+    """
+    if tick_size <= 0 or price <= 0:
+        return price
+    
+    # Redondear al múltiplo más cercano: round(price / tick_size) * tick_size
+    rounded = round(price / tick_size) * tick_size
+    
+    # Evitar errores de punto flotante usando formato y parse
+    # Esto asegura que 0.001 * 100 = 0.1 exactamente
+    decimals = len(str(tick_size).rstrip('0').split('.')[-1]) if '.' in str(tick_size) else 0
+    return float(f"{rounded:.{decimals}f}")
+
+
 class AsyncTradingSession:
     """
     Async Trading Session using Nexus Bridge.
@@ -426,13 +450,16 @@ class AsyncTradingSession:
     
     # --- HELPER METHODS ---
     
-    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
-        """Returns (quantityPrecision, pricePrecision, minNotional)"""
+    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float, float]:
+        """
+        Returns (quantityPrecision, pricePrecision, minNotional, tickSize)
+        tickSize es el tamaño de tick real de Binance para redondeo correcto.
+        """
         # Default Fallback High Precision (6) to avoid 0.0 on PEPE/SHIB
-        default_q, default_p, default_n = 2, 6, 5.0
+        default_q, default_p, default_n, default_tick = 2, 6, 5.0, 0.01
         
         if not self.bridge: 
-            return default_q, default_p, default_n
+            return default_q, default_p, default_n, default_tick
         
         try:
             info = await self.bridge.get_symbol_info(symbol)
@@ -440,34 +467,22 @@ class AsyncTradingSession:
                 q = info.get('quantity_precision', default_q)
                 p = info.get('price_precision', default_p)
                 n = info.get('min_notional', default_n)
+                tick_size = info.get('tick_size', default_tick)  # NEW: Get real tick size
                 
-                # Smart Precision Check based on Price if possible
-                # Low price assets (PEPE) need high precision. High price (BTC) ok with 2.
-                try:
-                    curr_price = await self.bridge.get_last_price(symbol)
-                    if curr_price > 0:
-                        if curr_price < 0.001 and p < 7: p = 7
-                        elif curr_price < 0.01 and p < 6: p = 6
-                        elif curr_price < 1.0 and p < 5: p = 5
-                        elif curr_price < 50.0 and p < 3: p = 3 # e.g. RENDER around 1-10
-                except:
-                    pass
+                # Validar tick_size
+                if tick_size <= 0:
+                    tick_size = default_tick
                 
-                # Check for bad data (0 precision)
-                if p <= 0: 
-                    p = 6
-                    print(f"⚠️ Precision 0 detected for {symbol}. Forcing 6.", flush=True)
-                
-                # Log de precisión ajustada por precio (solo en modo debug)
-                self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n} (ajustado por precio)")
-                return (q, p, n)
+                # Log de precisión ajustada (solo en modo debug)
+                self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n}, TickSize={tick_size}")
+                return (q, p, n, tick_size)
             else:
-                print(f"⚠️ No Info for {symbol}, using defaults (P={default_p})", flush=True)
+                print(f"⚠️ No Info for {symbol}, using defaults (P={default_p}, TickSize={default_tick})", flush=True)
                 
         except Exception as e:
             print(f"⚠️ Precision Error (Bridge) {symbol}: {e}", flush=True)
             
-        return default_q, default_p, default_n
+        return default_q, default_p, default_n, default_tick
     
     async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
         """Fetch historical klines for chart generation."""
@@ -619,8 +634,8 @@ class AsyncTradingSession:
                     await self.bridge.cancel_orders(symbol)
                     
                     # Place New SL at Entry
-                    qty_prec, price_prec, _ = await self.get_symbol_precision(symbol)
-                    sl_price = round(entry, price_prec)
+                    qty_prec, price_prec, _, tick_size = await self.get_symbol_precision(symbol)
+                    sl_price = round_to_tick_size(entry, tick_size)
                     
                     sl_side = 'SELL' if side == 'LONG' else 'BUY'
                     # Place conditional order - price arg is stopPrice for conditional orders
@@ -661,41 +676,35 @@ class AsyncTradingSession:
                     
                     stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
                     tp_ratio = self.config.get('tp_ratio', 1.5)
-                    qty_prec, price_prec, _ = await self.get_symbol_precision(symbol)
+                    qty_prec, price_prec, _, tick_size = await self.get_symbol_precision(symbol)
                     
                     sl_dist = entry * stop_loss_pct
                     side = pos['side']
                     
                     if side == 'LONG':
-                        sl_price = round(entry - sl_dist, price_prec)
-                        tp_price = round(entry + (sl_dist * tp_ratio), price_prec)
+                        sl_price = round_to_tick_size(entry - sl_dist, tick_size)
+                        tp_price = round_to_tick_size(entry + (sl_dist * tp_ratio), tick_size)
                         order_side = 'SELL'
                     else: # SHORT
-                        sl_price = round(entry + sl_dist, price_prec)
-                        tp_price = round(entry - (sl_dist * tp_ratio), price_prec)
+                        sl_price = round_to_tick_size(entry + sl_dist, tick_size)
+                        tp_price = round_to_tick_size(entry - (sl_dist * tp_ratio), tick_size)
                         order_side = 'BUY'
                         
                     # Log de cálculos de SL (solo en modo debug)
                     raw_sl = entry - sl_dist if side == 'LONG' else entry + sl_dist
                     self.logger.debug(f"Cálculo SL {symbol}: Entry={entry}, SL%={stop_loss_pct:.2%}, Prec={price_prec}, RawSL={raw_sl:.4f} -> Final={sl_price:.4f}")
                     
-                    # SAFETY: Dynamic Precision Upgrade
-                    # Smart Fallback: match price precision logic
+                    # SAFETY: Re-apply tick size rounding if prices are invalid
+                    # Esto asegura que los precios sean válidos después del redondeo
                     if sl_price <= 0 and entry > 0:
-                        # If still 0, force basic low-price precision (incrementar precisión)
-                        for prec in [6, 8, 10]:
-                            sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, prec)
-                            if sl_price > 0:
-                                break
+                        raw_sl = entry - sl_dist if side=='LONG' else entry + sl_dist
+                        sl_price = round_to_tick_size(raw_sl, tick_size)
                     
                     if tp_price <= 0 and entry > 0:
-                        # If still 0, force basic low-price precision (incrementar precisión)
-                        for prec in [6, 8, 10]:
-                            tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), prec)
-                            if tp_price > 0:
-                                break
+                        raw_tp = entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio)
+                        tp_price = round_to_tick_size(raw_tp, tick_size)
                     
-                    # Validación final: Si aún son 0, usar valor sin redondeo
+                    # Validación final: Si aún son 0, usar valor sin redondeo (caso edge)
                     if sl_price <= 0:
                         sl_price = entry - sl_dist if side=='LONG' else entry + sl_dist
                     if tp_price <= 0:
@@ -1064,13 +1073,6 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Sync Error: {e}"
 
-    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
-        """Get qty_precision, price_precision, min_notional via Bridge."""
-        info = await self.bridge.get_symbol_info(symbol)
-        qty_prec = info.get('qty_precision', 3)
-        price_prec = info.get('price_precision', 2)
-        min_notional = info.get('min_notional', 5.0)
-        return qty_prec, price_prec, min_notional
 
     async def check_liquidity(self, symbol: str) -> Tuple[bool, float, str]:
         """
@@ -1078,7 +1080,7 @@ class AsyncTradingSession:
         Returns: (is_sufficient, available_balance, message)
         """
         # 1. Get Min Notional (Minimum trade size allowed by exchange)
-        qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+        qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
         
         # 2. Get Available Balance (Unified via ShadowWallet/Bridge)
         # Note: We need 'available' balance, not total equity
@@ -1189,11 +1191,11 @@ class AsyncTradingSession:
                 if atr and atr > 0:
                     mult = self.config.get('atr_multiplier', 2.0)
                     sl_dist = mult * atr
-                    sl_price = round(current_price - sl_dist, price_precision)
-                    tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price - sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price + (tp_ratio * sl_dist), tick_size)
                 else:
-                    sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio)), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 - stop_loss_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 + (stop_loss_pct * tp_ratio)), tick_size)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1202,7 +1204,7 @@ class AsyncTradingSession:
             if sl_price < min_allowed_sl:
                 actual_pct = (current_price - sl_price) / current_price
                 self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
-                sl_price = round(min_allowed_sl, price_precision)
+                sl_price = round_to_tick_size(min_allowed_sl, tick_size)
 
             # Assign Margin & Calculate Qty (Safety Clamp)
             margin_assignment = total_equity * size_pct
@@ -1391,11 +1393,11 @@ class AsyncTradingSession:
                 if atr and atr > 0:
                     mult = self.config.get('atr_multiplier', 2.0)
                     sl_dist = mult * atr
-                    sl_price = round(current_price + sl_dist, price_precision)
-                    tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price + sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price - (tp_ratio * sl_dist), tick_size)
                 else:
-                    sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio)), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 + stop_loss_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 - (stop_loss_pct * tp_ratio)), tick_size)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1673,7 +1675,7 @@ class AsyncTradingSession:
                 current_price = await self.bridge.get_last_price(symbol)
                 
                 # Get precision
-                qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+                qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
                 # Standard SL/TP logic:
                 stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
@@ -1708,12 +1710,12 @@ class AsyncTradingSession:
                 if side == 'LONG':
                     min_allowed_sl = entry_price * (1 - max_sl_allowed)
                     if sl_price < min_allowed_sl:
-                        sl_price = round(min_allowed_sl, price_prec)
+                        sl_price = round_to_tick_size(min_allowed_sl, tick_size)
                         sl_label = f"SHIELD ({max_sl_allowed:.1%})"
                 else:
                     max_allowed_sl = entry_price * (1 + max_sl_allowed)
                     if sl_price > max_allowed_sl:
-                        sl_price = round(max_allowed_sl, price_prec)
+                        sl_price = round_to_tick_size(max_allowed_sl, tick_size)
                         sl_label = f"SHIELD ({max_sl_allowed:.1%})"
 
                 # Execute Sync
@@ -1809,12 +1811,12 @@ class AsyncTradingSession:
                 min_allowed_sl = current_price * (1 - max_sl_allowed)
                 if sl_price < min_allowed_sl:
                     self.logger.warning(f"🛡️ Max SL Shield Triggered (Update {symbol}): Clamped to {max_sl_allowed:.1%}")
-                    sl_price = round(min_allowed_sl, price_precision)
+                    sl_price = round_to_tick_size(min_allowed_sl, tick_size)
             else:
                 max_allowed_sl = current_price * (1 + max_sl_allowed)
                 if sl_price > max_allowed_sl:
                     self.logger.warning(f"🛡️ Max SL Shield Triggered (Update {symbol}): Clamped to {max_sl_allowed:.1%}")
-                    sl_price = round(max_allowed_sl, price_precision)
+                    sl_price = round_to_tick_size(max_allowed_sl, tick_size)
             
             # Get actual entry price from position (not current market price)
             entry_price = float(pos.get('entryPrice', 0) or pos.get('entry_price', 0) or current_price)
@@ -1861,21 +1863,21 @@ class AsyncTradingSession:
                 return False, "Invalid position data."
             
             # 2. Get symbol info
-            qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+            qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
             current_price = await self.bridge.get_last_price(symbol)
             
             # 3. Calculate Breakeven SL
             # Buffer: 0.1% to cover trading fees
             buffer = 0.001 
             if side == 'LONG':
-                new_sl = round(entry_price * (1 + buffer), price_prec)
+                new_sl = round_to_tick_size(entry_price * (1 + buffer), tick_size)
                 # Keep TP where it was or adjust if too close
                 tp_pct = self.config.get('take_profit_pct', 0.05)
-                new_tp = round(entry_price * (1 + tp_pct), price_prec)
+                new_tp = round_to_tick_size(entry_price * (1 + tp_pct), tick_size)
             else:
-                new_sl = round(entry_price * (1 - buffer), price_prec)
+                new_sl = round_to_tick_size(entry_price * (1 - buffer), tick_size)
                 tp_pct = self.config.get('take_profit_pct', 0.05)
-                new_tp = round(entry_price * (1 - tp_pct), price_prec)
+                new_tp = round_to_tick_size(entry_price * (1 - tp_pct), tick_size)
                 
             # 4. Apply via Bridge
             success, msg = await self.synchronize_sl_tp_safe(
@@ -2028,16 +2030,16 @@ class AsyncTradingSession:
                 # Check if ROI >= threshold (10%)
                 if roi >= breakeven_roi_threshold:
                     # Time to move SL to breakeven!
-                    qty_prec, price_prec, min_notional = await self.get_symbol_precision(symbol)
+                    qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
                     
                     # Breakeven SL with small buffer (0.1% above entry for LONG, below for SHORT)
                     buffer = 0.001  # 0.1% buffer to cover fees
                     if side == 'LONG':
-                        new_sl = round(entry_price * (1 + buffer), price_prec)
-                        new_tp = round(current_price * 1.15, price_prec)  # Keep TP at +15% from current
+                        new_sl = round_to_tick_size(entry_price * (1 + buffer), tick_size)
+                        new_tp = round_to_tick_size(current_price * 1.15, tick_size)  # Keep TP at +15% from current
                     else:
-                        new_sl = round(entry_price * (1 - buffer), price_prec)
-                        new_tp = round(current_price * 0.85, price_prec)  # Keep TP at -15% from current
+                        new_sl = round_to_tick_size(entry_price * (1 - buffer), tick_size)
+                        new_tp = round_to_tick_size(current_price * 0.85, tick_size)  # Keep TP at -15% from current
                     
                     # Apply the new SL
                     try:
