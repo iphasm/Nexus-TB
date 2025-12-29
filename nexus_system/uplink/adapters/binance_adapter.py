@@ -262,7 +262,9 @@ class BinanceAdapter(IExchangeAdapter):
         
         # Format symbol for CCXT (BTCUSDT -> BTC/USDT:USDT)
         symbol = self._format_symbol(symbol)
-            
+        
+        print(f"DEBUG ADAPTER PLACE_ORDER: {symbol} {side} {order_type} Qty={quantity} Price={price} Params={kwargs}", flush=True)
+
         try:
             params = kwargs.copy()
             

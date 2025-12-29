@@ -1287,11 +1287,17 @@ async def cmd_sync(message: Message, **kwargs):
         parse_mode="Markdown"
     )
     
+    print(f"DEBUG SYNC: Triggered by {message.chat.id}", flush=True)
+
     # Step 1: Apply breakeven to profitable positions
+    print("DEBUG SYNC: calling smart_breakeven_check", flush=True)
     breakeven_report = await session.smart_breakeven_check(breakeven_roi_threshold=0.10)
+    print(f"DEBUG SYNC: breakeven done: {breakeven_report}", flush=True)
     
     # Step 2: Apply standard SL/TP sync to all positions
+    print("DEBUG SYNC: calling execute_refresh_all_orders", flush=True)
     sync_report = await session.execute_refresh_all_orders()
+    print(f"DEBUG SYNC: refresh done: {sync_report}", flush=True)
     
     # Combine reports
     final_report = (
