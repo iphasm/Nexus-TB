@@ -223,6 +223,9 @@ async def run_diagnostics(
                     report.append(f"- Effective IP: Failed (HTTP {resp.status})")
         except Exception as e:
             report.append(f"❌ Failed to get IP: {str(e)}")
+            
+    except Exception as e:
+        report.append(f"❌ Network Diagnosis Error: {str(e)}")
 
     # 4. Binance Public Connectivity
     report.append("\n**📡 Binance Public API (api.binance.com):**")
