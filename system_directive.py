@@ -114,7 +114,9 @@ ML_CLASSIFIER_ENABLED = True
 RISK_PER_TRADE_PCT = 0.01
 ALLOW_SLTP_UPDATE = True
 SLTP_UPDATE_COOLDOWN = 1800  # 30 minutes
+COOLDOWN_SECONDS = 180  # Default signal cooldown (3 minutes)
 PREMIUM_SIGNALS_ENABLED = True  # Enable multi-timeframe analysis
+
 
 # --- COINMARKETCAP SENTINEL CONFIG ---
 CMC_API_KEY = os.getenv("CMC_API_KEY", "")
