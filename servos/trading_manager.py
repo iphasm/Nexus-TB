@@ -635,10 +635,11 @@ class AsyncTradingSession:
                     sl_price = round(entry, price_prec)
                     
                     sl_side = 'SELL' if side == 'LONG' else 'BUY'
+                    # FIX parameter passing
                     await self.bridge.place_order(
                         symbol, sl_side, 'STOP_MARKET', 
                         quantity=qty, price=sl_price, 
-                        params={'stopPrice': sl_price, 'reduceOnly': True}
+                        stopPrice=sl_price, reduceOnly=True
                     )
                     report.append(f"✅ {symbol}: Reset SL to Entry (ROI {pnl_pct:.1%})")
                     
@@ -685,9 +686,10 @@ class AsyncTradingSession:
                         
                     # Place missing orders
                     if not has_sl:
-                        await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
+                        # FIX: Pass kwargs directly
+                        await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, stopPrice=sl_price, reduceOnly=True)
                     if not has_tp:
-                        await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
+                        await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, stopPrice=tp_price, reduceOnly=True)
                         
                     report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
                     
@@ -1709,28 +1711,38 @@ class AsyncTradingSession:
         try:
             # 1. Cancel Algo Orders
             await self.bridge.cancel_orders(symbol)
+            messages = []
             
             # 2. Place SL
             if sl_price > 0:
                 sl_side = 'SELL' if side == 'LONG' else 'BUY'
-                await self.bridge.place_order(
+                # FIX: Pass params as kwargs, NOT nested params dict
+                res = await self.bridge.place_order(
                     symbol, sl_side, 'STOP_MARKET', 
                     quantity=quantity, price=sl_price, 
-                    params={'stopPrice': sl_price, 'reduceOnly': True}
+                    stopPrice=sl_price, reduceOnly=True
                 )
+                if 'error' in res:
+                    messages.append(f"SL Fail: {res['error']}")
+                else:
+                    messages.append(f"SL {sl_price}")
             else:
-                return True, f"Skipped SL (Price 0.0)"
+                messages.append("SL Skipped (0)")
 
             # 3. Place TP
             if tp_price > 0:
                 tp_side = 'SELL' if side == 'LONG' else 'BUY'
-                await self.bridge.place_order(
+                res = await self.bridge.place_order(
                     symbol, tp_side, 'TAKE_PROFIT_MARKET', 
                     quantity=quantity, price=tp_price, 
-                    params={'stopPrice': tp_price, 'reduceOnly': True}
+                    stopPrice=tp_price, reduceOnly=True
                 )
+                if 'error' in res:
+                    messages.append(f"TP Fail: {res['error']}")
+                else:
+                    messages.append(f"TP {tp_price}")
                 
-            return True, "Synced"
+            return True, " | ".join(messages)
             
         except Exception as e:
             return False, f"Sync Exception: {e}"
