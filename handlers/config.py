@@ -254,11 +254,24 @@ async def cmd_assets(message: Message, **kwargs):
             if 'COMMODITY' in session_groups:
                 session_groups['ETFS'] = session_groups.pop('COMMODITY')
             
+    # Map friendly display names to internal group names
+    # Binance controls CRYPTO, Bybit controls BYBIT
+    group_mapping = {
+        'Binance': 'CRYPTO',
+        'Bybit': 'BYBIT',
+        'Stocks': 'STOCKS',
+        'ETFs': 'ETFS'
+    }
+    
     group_buttons = []
-    for grp, enabled in session_groups.items():
-        if grp.startswith('_'): continue # Skip internal keys
+    for display_name, internal_group in group_mapping.items():
+        enabled = session_groups.get(internal_group, False)
         icon = "✅" if enabled else "❌"
-        group_buttons.append(InlineKeyboardButton(text=f"{icon} {grp}", callback_data=f"TOGGLEGRP|{grp}"))
+        # Use display name in button, but store internal group in callback
+        group_buttons.append(InlineKeyboardButton(
+            text=f"{icon} {display_name}", 
+            callback_data=f"TOGGLEGRP|{internal_group}|{display_name}"
+        ))
     
     # 2. Specific Asset Lists
     list_buttons = [
@@ -274,8 +287,9 @@ async def cmd_assets(message: Message, **kwargs):
     
     msg_text = (
         "📦 *GESTIÓN DE ACTIVOS*\n\n"
-        "1. **Grupos:** Activa sectores completos.\n"
-        "2. **Listas:** Configura activos individuales."
+        "**Grupos:** Activa/desactiva exchanges completos.\n"
+        "Al desactivar un exchange, no recibirás señales de ese exchange.\n\n"
+        "**Listas:** Configura activos individuales."
     )
     
     if edit_message:
