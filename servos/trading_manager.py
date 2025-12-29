@@ -456,30 +456,33 @@ class AsyncTradingSession:
     
     async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float]:
         """Returns (quantityPrecision, pricePrecision, minNotional)"""
+        # Default Fallback High Precision (6) to avoid 0.0 on PEPE/SHIB
+        default_q, default_p, default_n = 2, 6, 5.0
+        
         if not self.bridge: 
-            return 2, 4, 5.0 # Better default
+            return default_q, default_p, default_n
         
         try:
             info = await self.bridge.get_symbol_info(symbol)
             if info:
-                q = info.get('quantity_precision', 2)
-                p = info.get('price_precision', 2)
-                n = info.get('min_notional', 5.0)
+                q = info.get('quantity_precision', default_q)
+                p = info.get('price_precision', default_p)
+                n = info.get('min_notional', default_n)
                 
-                # FALLBACK: If precision is 0 (integer rounding), it breaks low-value assets (PEPE, DOGE)
-                # We enforce minimum 4 decimals if p=0, or just use 4 if p<2 for testing?
-                # Actually, 0 IS valid for SHIB (no, that's quantity).
-                # For Price, 0 is almost never right for altcoins.
+                # Check for bad data (0 precision)
                 if p <= 0: 
-                    p = 5 # Force high precision for safety
-                    print(f"⚠️ Precision 0 detected for {symbol}. Forcing 5.", flush=True)
+                    p = 6
+                    print(f"⚠️ Precision 0 detected for {symbol}. Forcing 6.", flush=True)
                 
                 print(f"DEBUG PRECISION {symbol}: Q={q}, P={p}, N={n}", flush=True)
                 return (q, p, n)
+            else:
+                print(f"⚠️ No Info for {symbol}, using defaults (P={default_p})", flush=True)
+                
         except Exception as e:
             print(f"⚠️ Precision Error (Bridge) {symbol}: {e}", flush=True)
             
-        return 2, 4, 5.0
+        return default_q, default_p, default_n
     
     async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
         """Fetch historical klines for chart generation."""
