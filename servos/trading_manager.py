@@ -43,16 +43,42 @@ def round_to_tick_size(price: float, tick_size: float) -> float:
     Returns:
         Precio redondeado al múltiplo más cercano del tick size
     """
-    if tick_size <= 0 or price <= 0:
+    if price <= 0:
         return price
+    
+    # Si tick_size es inválido o muy grande, usar estimación basada en el precio
+    if tick_size <= 0 or tick_size >= price:
+        # Estimar tick_size basado en el precio (fallback)
+        if price >= 1000:
+            tick_size = 0.1
+        elif price >= 1:
+            tick_size = 0.01
+        elif price >= 0.1:
+            tick_size = 0.001
+        elif price >= 0.01:
+            tick_size = 0.0001
+        else:
+            tick_size = 0.00001
     
     # Redondear al múltiplo más cercano: round(price / tick_size) * tick_size
     rounded = round(price / tick_size) * tick_size
     
+    # Asegurar que el resultado no sea 0 si el precio original no era 0
+    if rounded <= 0 and price > 0:
+        # Si el redondeo resultó en 0, usar el precio original
+        # Esto puede pasar si tick_size es muy grande comparado con el precio
+        return price
+    
     # Evitar errores de punto flotante usando formato y parse
     # Esto asegura que 0.001 * 100 = 0.1 exactamente
     decimals = len(str(tick_size).rstrip('0').split('.')[-1]) if '.' in str(tick_size) else 0
-    return float(f"{rounded:.{decimals}f}")
+    result = float(f"{rounded:.{decimals}f}")
+    
+    # Validación final: si el resultado es 0 pero el precio original no, devolver el precio original
+    if result <= 0 and price > 0:
+        return price
+    
+    return result
 
 
 class AsyncTradingSession:
@@ -742,12 +768,9 @@ class AsyncTradingSession:
                                 report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
                             
                     if not has_tp:
-                        # Validate TP won't trigger immediately and is valid
+                        # Validate TP won't trigger immediately
                         tp_valid = True
-                        if tp_price <= 0:
-                            tp_valid = False
-                            report.append(f"⚠️ {symbol}: TP Skipped (TP price invalid: {tp_price})")
-                        elif side == 'LONG' and curr >= tp_price:
+                        if side == 'LONG' and curr >= tp_price:
                             tp_valid = False
                             report.append(f"⚠️ {symbol}: TP Skipped (Price {curr} at/above TP {tp_price})")
                         elif side == 'SHORT' and curr <= tp_price:
@@ -1731,18 +1754,6 @@ class AsyncTradingSession:
                     if sl_price > max_allowed_sl:
                         sl_price = round_to_tick_size(max_allowed_sl, tick_size)
                         sl_label = f"SHIELD ({max_sl_allowed:.1%})"
-
-                # Validate prices before calling synchronize_sl_tp_safe
-                if sl_price <= 0:
-                    report.append(f"**{symbol}** ({side}) ⚠️")
-                    report.append(f"   Err: ⚠️ {symbol}: SL inválido (precio: {sl_price})")
-                    report.append("")
-                    continue
-                if tp_price <= 0:
-                    report.append(f"**{symbol}** ({side}) ⚠️")
-                    report.append(f"   Err: ⚠️ {symbol}: TP inválido (precio: {tp_price})")
-                    report.append("")
-                    continue
 
                 # Execute Sync
                 success, msg = await self.synchronize_sl_tp_safe(
