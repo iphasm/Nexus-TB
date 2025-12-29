@@ -230,7 +230,10 @@ async def run_diagnostics(
     # 4. Binance Public Connectivity
     report.append("\n**📡 Binance Public API (api.binance.com):**")
     try:
-        request_params = {'proxies': proxies} if proxies else None
+        # Format proxy for python-binance Client
+        request_params = None
+        if proxy_url:
+            request_params = {'proxies': {'http': proxy_url, 'https': proxy_url}}
         client = Client(tld='com', requests_params=request_params)
         # Test Ping
         client.ping()
@@ -250,7 +253,10 @@ async def run_diagnostics(
     if used_api_key and used_api_secret:
         report.append("\n**🔐 Binance Authenticated API:**")
         try:
-            request_params = {'proxies': proxies} if proxies else None
+            # Format proxy for python-binance Client
+            request_params = None
+            if proxy_url:
+                request_params = {'proxies': {'http': proxy_url, 'https': proxy_url}}
             auth_client = Client(used_api_key, used_api_secret, tld='com', requests_params=request_params)
             account = auth_client.get_account()
             can_trade = account.get('canTrade', False)
