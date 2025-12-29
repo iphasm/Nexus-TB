@@ -457,7 +457,6 @@ class BinanceAdapter(IExchangeAdapter):
         try:
             formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
             market = self._exchange.market(formatted)
-            return {
             # Precision: Handle Tick Size (0.001) vs Decimals (3)
             p_val = market['precision']['price']
             if isinstance(p_val, float) and p_val < 1:
