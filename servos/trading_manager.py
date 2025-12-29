@@ -1214,10 +1214,13 @@ class AsyncTradingSession:
             current_price = await self.bridge.get_last_price(symbol)
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
-            total_equity = self.shadow_wallet.get_unified_equity()
+            # Prioritize Exchange-Specific Equity (e.g. BINANCE) to avoid cross-asset sizing pollution
+            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+            total_equity = bin_bal.get('total', 0)
             if total_equity == 0:
-                 total_equity = self.shadow_wallet.balances.get('BINANCE', {}).get('total', 0)
+                 total_equity = self.shadow_wallet.get_unified_equity()
             
+
             qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
 
             # 3. Calculate Sizing & Risk Parameters
