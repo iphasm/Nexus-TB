@@ -686,6 +686,14 @@ class AsyncTradingSession:
                         sl_price = round(entry + sl_dist, price_prec)
                         tp_price = round(entry - (sl_dist * tp_ratio), price_prec)
                         order_side = 'BUY'
+                    
+                    # SAFETY: Dynamic Precision Upgrade
+                    # If SL/TP rounded to 0 due to low precision (e.g. PEPE with prec=2), force 8 decimals
+                    if sl_price == 0 and entry > 0:
+                        sl_price = round(entry - sl_dist if side=='LONG' else entry + sl_dist, 8)
+                    if tp_price == 0 and entry > 0:
+                        tp_price = round(entry + (sl_dist * tp_ratio) if side=='LONG' else entry - (sl_dist * tp_ratio), 8)
+
                         
                     # Place missing orders
                     if not has_sl:
