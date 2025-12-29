@@ -25,6 +25,10 @@ from nexus_system.shield.correlation import CorrelationManager
 
 import pandas as pd
 
+# Cortex / Strategy System
+from nexus_system.cortex.base import Signal
+from nexus_system.cortex.registry import StrategyRegistry
+
 
 class AsyncTradingSession:
     """
@@ -1085,9 +1089,8 @@ class AsyncTradingSession:
 
                 
         except Exception as e:
-            print(f"⚠️ Cancel Orders Error ({symbol}): {e}")
-        
-        return cancelled
+            print(f"⚠️ Execution Error (Short {symbol}): {e}")
+            return False, f"Execution Error: {e}"
 
     async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
         """
