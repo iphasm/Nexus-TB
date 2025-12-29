@@ -316,7 +316,7 @@ class BinanceAdapter(IExchangeAdapter):
                     symbol, order_type.lower(), side.lower(), quantity, limit_price, params
                 )
             
-            return {
+            ret = {
                 'orderId': result.get('id'),
                 'status': result.get('status'),
                 'symbol': symbol,
