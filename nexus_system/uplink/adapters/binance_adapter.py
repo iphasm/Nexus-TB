@@ -194,8 +194,9 @@ class BinanceAdapter(IExchangeAdapter):
             return False
         try:
             # Format symbol for CCXT
-            formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
+            formatted = self._format_symbol(symbol)
             await self._exchange.set_leverage(leverage, formatted)
+            print(f"✅ BinanceAdapter: Leverage set to {leverage}x for {symbol}")
             return True
         except Exception as e:
             # Leverage already set is not an error
