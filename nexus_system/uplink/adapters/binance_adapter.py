@@ -513,28 +513,69 @@ class BinanceAdapter(IExchangeAdapter):
             return []
 
     async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
-        """Get open orders for a symbol (or all if symbol is None)."""
+        """
+        Obtener órdenes abiertas (estándar + algos) para un símbolo.
+        
+        Notas Binance:
+        - Las órdenes condicionales (SL/TP/Trailing) se manejan como "algo orders".
+        - fetch_open_orders puede no traer todas las algos; se consulta el endpoint de algos.
+        """
         if not self._exchange:
             return []
         try:
             formatted = None
+            raw_symbol = symbol
             if symbol:
                 formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
             
-            orders = await self._exchange.fetch_open_orders(formatted)
-            
             result = []
+            
+            # 1) Órdenes estándar (incluye algunas condicionales)
+            try:
+                orders = await self._exchange.fetch_open_orders(formatted)
+            except Exception as e:
+                print(f"⚠️ BinanceAdapter: fetch_open_orders error ({symbol}): {e}")
+                orders = []
+            
             for o in orders:
                 result.append({
                     'orderId': o.get('id'),
                     'symbol': o.get('symbol', '').replace('/USDT:USDT', 'USDT'),
-                    'type': o.get('type', '').upper(),
-                    'side': o.get('side', '').upper(),
+                    'type': (o.get('type') or '').upper(),
+                    'side': (o.get('side') or '').upper(),
                     'quantity': float(o.get('amount') or 0),
                     'price': float(o.get('price') or 0),
                     'stopPrice': float(o.get('stopPrice') or o.get('triggerPrice') or 0),
                     'status': o.get('status')
                 })
+            
+            # 2) Órdenes ALGO (condicionales puras: STOP/TP/Trailing)
+            algo_orders = []
+            try:
+                params = {}
+                if raw_symbol:
+                    params['symbol'] = raw_symbol
+                # Endpoint específico de algos
+                algo_orders = await self._exchange.fapiPrivateGetAlgoOpenOrders(params)
+            except Exception as e:
+                # No todos los usuarios tienen habilitado el endpoint; no es crítico
+                print(f"ℹ️ BinanceAdapter: Algo openOrders no disponible ({symbol}): {e}")
+                algo_orders = []
+            
+            for ao in algo_orders or []:
+                # Campos típicos: algoId, symbol, type, side, quantity, triggerPrice/stopPrice
+                result.append({
+                    'orderId': ao.get('algoId') or ao.get('orderId'),
+                    'symbol': (ao.get('symbol') or '').replace('/USDT:USDT', 'USDT'),
+                    'type': (ao.get('type') or ao.get('algoType') or '').upper(),
+                    'side': (ao.get('side') or '').upper(),
+                    'quantity': float(ao.get('quantity') or ao.get('origQty') or 0),
+                    'price': float(ao.get('price') or 0),
+                    'stopPrice': float(ao.get('triggerPrice') or ao.get('stopPrice') or 0),
+                    'status': ao.get('status'),
+                    'isAlgo': True
+                })
+            
             return result
         except Exception as e:
             print(f"⚠️ BinanceAdapter: get_open_orders error: {e}")
@@ -551,45 +592,79 @@ class BinanceAdapter(IExchangeAdapter):
             return False
         
         formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and '/' not in symbol else symbol
+        raw_symbol = symbol
         
         try:
-            # 1. Obtener todas las órdenes abiertas (incluyendo condicionales)
-            orders = await self._exchange.fetch_open_orders(formatted)
+            # 1. Obtener órdenes estándar (CCXT)
+            try:
+                orders = await self._exchange.fetch_open_orders(formatted)
+            except Exception as e:
+                print(f"⚠️ BinanceAdapter: fetch_open_orders error ({symbol}): {e}")
+                orders = []
             
-            if not orders:
+            # 2. Obtener órdenes ALGO (condicionales puras)
+            algo_orders = []
+            try:
+                params = {}
+                if raw_symbol:
+                    params['symbol'] = raw_symbol
+                algo_orders = await self._exchange.fapiPrivateGetAlgoOpenOrders(params)
+            except Exception as e:
+                print(f"ℹ️ BinanceAdapter: Algo openOrders no disponible ({symbol}): {e}")
+                algo_orders = []
+            
+            total_orders = (orders or []) + (algo_orders or [])
+            if not total_orders:
                 return True  # No hay órdenes para cancelar
             
-            print(f"🔍 BinanceAdapter: Found {len(orders)} orders to cancel for {symbol}")
+            print(f"🔍 BinanceAdapter: Found {len(total_orders)} orders to cancel for {symbol}")
             
-            # 2. Cancelar TODAS las órdenes individualmente (más seguro que confiar en cancel_all_orders)
-            # Binance puede no cancelar órdenes condicionales correctamente con cancel_all_orders()
             cancelled_count = 0
             failed_count = 0
             
-            for order in orders:
+            # 3. Cancelar TODAS las órdenes individualmente (estándar)
+            for order in orders or []:
                 try:
                     order_id = order.get('id')
                     order_type = order.get('type', 'UNKNOWN')
-                    
                     if order_id:
                         await self._exchange.cancel_order(order_id, formatted)
                         cancelled_count += 1
                         print(f"   ✅ Cancelled {order_type} order {order_id}")
                 except Exception as e:
                     error_msg = str(e).lower()
-                    # Ignorar errores si la orden ya fue cancelada o no existe
                     if 'does not exist' in error_msg or 'not found' in error_msg or '-2011' in str(e):
-                        cancelled_count += 1  # Considerar como cancelada
+                        cancelled_count += 1
                         print(f"   ℹ️ Order {order_id} already cancelled or not found")
                     else:
                         failed_count += 1
-                        print(f"   ❌ Error cancelando orden {order_id} ({order_type}): {e}")
+                        print(f"   ❌ Error cancelando orden {order_id}: {e}")
             
-            # 3. También intentar cancel_all_orders como respaldo (por si alguna se nos escapó)
+            # 4. Cancelar órdenes ALGO individualmente
+            for order in algo_orders or []:
+                try:
+                    algo_id = order.get('algoId') or order.get('orderId') or order.get('id')
+                    order_type = order.get('type', order.get('algoType', 'ALGO'))
+                    params = {'algoId': algo_id}
+                    if raw_symbol:
+                        params['symbol'] = raw_symbol
+                    if algo_id:
+                        await self._exchange.fapiPrivateDeleteAlgoOrder(params)
+                        cancelled_count += 1
+                        print(f"   ✅ Cancelled ALGO {order_type} {algo_id}")
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if 'does not exist' in error_msg or 'not found' in error_msg or '-2011' in str(e):
+                        cancelled_count += 1
+                        print(f"   ℹ️ Algo order already cancelled or not found")
+                    else:
+                        failed_count += 1
+                        print(f"   ❌ Error cancelando ALGO order: {e}")
+            
+            # 5. Respaldo: intentar cancel_all_orders (por si algo queda)
             try:
                 await self._exchange.cancel_all_orders(formatted)
-            except Exception as e:
-                # No es crítico si falla, ya cancelamos individualmente
+            except Exception:
                 pass
             
             print(f"✅ BinanceAdapter: Cancelled {cancelled_count} orders for {symbol} ({failed_count} failed)")
