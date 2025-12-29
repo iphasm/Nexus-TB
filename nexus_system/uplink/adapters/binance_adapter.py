@@ -346,21 +346,7 @@ class BinanceAdapter(IExchangeAdapter):
                                 print(f"⚠️ Retry {alt} failed: {e_alt}", flush=True)
                         
                         if not success_alt:
-                            # DIAGNOSTIC: Deep Inspection
-                            if self._exchange.markets:
-                                mkt = self._exchange.markets.get(symbol)
-                                print(f"DEBUG MARKET OBJ: {mkt}", flush=True)
-                                try:
-                                    tick = await self._exchange.fetch_ticker(symbol)
-                                    print(f"DEBUG TICKER PROBE: OK {tick['last']}", flush=True)
-                                except Exception as e_tick:
-                                    print(f"DEBUG TICKER PROBE: FAILED {e_tick}", flush=True)
-                                
-                                keys = list(self._exchange.markets.keys())[:10]
-                                print(f"DEBUG MARKETS DUMP: {keys}", flush=True)
-                            else:
-                                print("DEBUG MARKETS DUMP: Markets NOT loaded!", flush=True)
-                                
+                            print(f"❌ ALL RETRIES FAILED for {symbol}", flush=True)
                             raise e_order # Raise original if all fail
                     else:
                         raise e_order # Raise other errors
@@ -472,8 +458,17 @@ class BinanceAdapter(IExchangeAdapter):
             formatted = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol and '/' not in symbol else symbol
             market = self._exchange.market(formatted)
             return {
-                'qty_precision': int(market['precision']['amount']),
-                'price_precision': int(market['precision']['price']),
+            # Precision: Handle Tick Size (0.001) vs Decimals (3)
+            p_val = market['precision']['price']
+            if isinstance(p_val, float) and p_val < 1:
+                import math
+                price_prec = int(round(-math.log10(p_val)))
+            else:
+                price_prec = int(p_val)
+                
+            return {
+                'qty_precision': int(market['precision']['amount']), # Usually 0, 1, etc (decimals) for Binance
+                'price_precision': price_prec,
                 'min_notional': float(market['limits']['cost']['min'])
             }
         except Exception as e:
