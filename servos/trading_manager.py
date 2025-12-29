@@ -1406,7 +1406,7 @@ class AsyncTradingSession:
             if sl_price > max_allowed_sl:
                 actual_pct = (sl_price - current_price) / current_price
                 self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
-                sl_price = round(max_allowed_sl, price_precision)
+                sl_price = round_to_tick_size(max_allowed_sl, tick_size)
             
             # Assign Margin & Calculate Qty (Safety Clamp)
             margin_assignment = total_equity * size_pct
@@ -2496,21 +2496,21 @@ class AsyncTradingSession:
                 sl_dist = mult * atr
                 
                 if side == 'LONG':
-                    sl_price = round(current_price - sl_dist, price_precision)
-                    tp_price = round(current_price + (1.5 * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price - sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price + (1.5 * sl_dist), tick_size)
                 else:
-                    sl_price = round(current_price + sl_dist, price_precision)
-                    tp_price = round(current_price - (1.5 * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price + sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price - (1.5 * sl_dist), tick_size)
             else:
                 sl_pct = self.config.get('stop_loss_pct', 0.02)
                 tp_pct = sl_pct * 1.5
                 
                 if side == 'LONG':
-                    sl_price = round(current_price * (1 - sl_pct), price_precision)
-                    tp_price = round(current_price * (1 + tp_pct), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 - sl_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 + tp_pct), tick_size)
                 else:
-                    sl_price = round(current_price * (1 + sl_pct), price_precision)
-                    tp_price = round(current_price * (1 - tp_pct), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 + sl_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 - tp_pct), tick_size)
             
             # TS Activation is usually set to TP1 price in our logic
             ts_price = tp_price
