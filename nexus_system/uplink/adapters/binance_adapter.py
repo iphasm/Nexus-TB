@@ -346,6 +346,13 @@ class BinanceAdapter(IExchangeAdapter):
                                 print(f"⚠️ Retry {alt} failed: {e_alt}", flush=True)
                         
                         if not success_alt:
+                            # DIAGNOSTIC: Dump available markets
+                            if self._exchange.markets:
+                                keys = list(self._exchange.markets.keys())[:10]
+                                print(f"DEBUG MARKETS DUMP: {keys}", flush=True)
+                            else:
+                                print("DEBUG MARKETS DUMP: Markets NOT loaded!", flush=True)
+                                
                             raise e_order # Raise original if all fail
                     else:
                         raise e_order # Raise other errors
