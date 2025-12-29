@@ -742,9 +742,12 @@ class AsyncTradingSession:
                                 report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
                             
                     if not has_tp:
-                        # Validate TP won't trigger immediately
+                        # Validate TP won't trigger immediately and is valid
                         tp_valid = True
-                        if side == 'LONG' and curr >= tp_price:
+                        if tp_price <= 0:
+                            tp_valid = False
+                            report.append(f"⚠️ {symbol}: TP Skipped (TP price invalid: {tp_price})")
+                        elif side == 'LONG' and curr >= tp_price:
                             tp_valid = False
                             report.append(f"⚠️ {symbol}: TP Skipped (Price {curr} at/above TP {tp_price})")
                         elif side == 'SHORT' and curr <= tp_price:
