@@ -75,14 +75,10 @@ class NexusCore:
         if current_price <= 0:
             return
 
-        # 1. Sniper Profit Safeguard (SPS) - REAL TIME MONITORING (Per Tick)
-        if self.session_manager:
-            # We don't await this to keep the price stream moving fast
-            asyncio.create_task(self._sentry_profit_monitor(symbol, current_price))
-
-        # 2. Strategy Analysis (Only on candle CLOSE)
+        # Strategy Analysis (Only on candle CLOSE)
         if not candle.get('is_closed', False):
             return
+
 
         # Rate Limiting: Max 1 analysis per symbol per second (prevent double triggers)
         now = asyncio.get_running_loop().time()
@@ -98,80 +94,9 @@ class NexusCore:
         # Run Analysis Task (Fire and Forget)
         asyncio.create_task(self._process_symbol_event(symbol))
 
-    async def _sentry_profit_monitor(self, symbol: str, current_price: float):
-        """
-        Sentry Profit Monitor (SPS Core Logic)
-        Monitors active positions in real-time to protect profits.
-        """
-        try:
-            sessions = self.session_manager.get_all_sessions()
-            for session in sessions:
-                # Check if session has an active position in this symbol
-                positions = session.shadow_wallet.positions
-                if symbol not in positions:
-                    continue
-                
-                pos = positions[symbol]
-                qty = abs(float(pos.get('quantity', 0) or pos.get('amt', 0)))
-                if qty <= 0:
-                    continue
-
-                # Use ACTUAL TP/Entry from SPS metadata if available
-                entry = float(pos.get('sps_entry') or pos.get('entryPrice', 0))
-                tp_price = float(pos.get('sps_tp', 0))
-                side = str(pos.get('side', 'LONG')).upper()
-                
-                if entry <= 0 or tp_price <= 0:
-                    # Fallback to config only if metadata is MIA
-                    tp_pct = session.config.get('take_profit_pct', 0.05)
-                    tp_price = entry * (1 + tp_pct) if side == 'LONG' else entry * (1 - tp_pct)
-                
-                if entry <= 0:
-                    continue
-                
-                # SPS Phase 1: Break-Even (Move SL when 50% way to TP)
-                # SPS Phase 2: Shadow Close (Reversal near TP)
-                
-                progress = 0
-                if side == 'LONG':
-                    if current_price > entry:
-                        progress = (current_price - entry) / (tp_price - entry)
-                else: 
-                    if current_price < entry:
-                        progress = (entry - current_price) / (entry - tp_price)
-
-                # --- 1. MOVE TO BREAK-EVEN (50% Progress) ---
-                if 0.5 <= progress < 0.8:
-                    # Check if already at BE (we don't want to spam bridge)
-                    # This logic needs session state for 'is_be_moved'
-                    if not pos.get('sps_lock_be'):
-                        self.logger.info(f"🛡️ SPS: Moving {symbol} to Break-Even ({progress:.1%} progress)")
-                        pos['sps_lock_be'] = True # Temporary in-memory flag
-                        await session.execute_move_to_breakeven(symbol)
-
-                # --- 2. SHADOW CLOSE (80% Progress + Reversal) ---
-                if progress >= 0.8:
-                    # Track Peak Price
-                    peak = pos.get('sps_peak_price', current_price)
-                    if side == 'LONG':
-                        peak = max(peak, current_price)
-                        reversal = (peak - current_price) / peak
-                    else:
-                        peak = min(peak, current_price)
-                        reversal = (current_price - peak) / peak
-                    
-                    pos['sps_peak_price'] = peak
-                    
-                    # If reversal > 0.3%, close immediately
-                    if reversal > 0.003: # 0.3% drop from peak
-                        self.logger.warning(f"🎯 SPS SHADOW CLOSE: {symbol} reversal ({reversal:.2%}) detected at {progress:.1%} TP progress. Securing Profits.")
-                        await session.execute_close_position(symbol, reason="SPS Profit Safeguard")
-
-        except Exception as e:
-            # We don't log every tick error to avoid spam
-            pass
 
     async def _process_symbol_event(self, asset: str):
+
         """Execute strategy analysis for a single symbol."""
         async with self._semaphore:
             try:

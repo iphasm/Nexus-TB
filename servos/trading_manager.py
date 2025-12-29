@@ -77,9 +77,7 @@ class AsyncTradingSession:
         
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
-        
-        # Anti-Spam Cache: {symbol_reason: timestamp}
-        self._rejection_cache = {}
+
     
     @property
     def client(self):
@@ -189,31 +187,7 @@ class AsyncTradingSession:
         Guardián de Límites (Limit Guardian):
         1. Check Max Open Positions (Cupo).
         2. Check Available Margin (Liquidez).
-        3. Double-entry prevention.
-        4. Anti-Spam (Silenciador).
         """
-        # Anti-Spam Check
-        import time
-        now = time.time()
-        
-        # 0. Check if symbol already locked/rejected recently (Cooldown 5 mins)
-        spam_key = f"{symbol}_limit_rechazo"
-        global_key = "global_limit_rechazo"
-        
-        # Per-symbol cooldown
-        if spam_key in self._rejection_cache:
-            if now - self._rejection_cache[spam_key] < 300:
-                remaining = int(300 - (now - self._rejection_cache[spam_key]))
-                self.logger.debug(f"🔇 {symbol}: Silenced ({remaining}s remaining)")
-                return False, "SILENT_REJECTION"
-        
-        # Global "Cupo lleno" cooldown (stop spamming many symbols at once)
-        if global_key in self._rejection_cache:
-            if now - self._rejection_cache[global_key] < 60: # 1 minute global silence
-                remaining = int(60 - (now - self._rejection_cache[global_key]))
-                self.logger.debug(f"🔇 Global silence active ({remaining}s remaining)")
-                return False, "SILENT_REJECTION"
-
         # 1. Max Open Positions
         if not bypass_cupo:
             max_pos = self.config.get('max_open_positions', 10)
@@ -226,8 +200,6 @@ class AsyncTradingSession:
                 if is_new_symbol:
                     reason = f"Cupo lleno ({len(active_positions)}/{max_pos})"
                     print(f"🛑 Limit Guardian: {reason} for {symbol}")
-                    self._rejection_cache[spam_key] = now
-                    self._rejection_cache[global_key] = now # Lock globally for 1 min
                     return False, reason
 
         # 2. Min Free Margin
@@ -238,10 +210,10 @@ class AsyncTradingSession:
         if available < min_margin:
             reason = f"Margen insuficiente (${available:.2f} < ${min_margin})"
             print(f"🛑 Limit Guardian: {reason} for {symbol}")
-            self._rejection_cache[spam_key] = now
             return False, reason
             
         return True, ""
+
 
     def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
         """
@@ -1172,13 +1144,9 @@ class AsyncTradingSession:
             await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, params={'stopPrice': sl_price, 'reduceOnly': True})
             await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
 
-            # 6. Store SPS Metadata in ShadowWallet for real-time monitoring
-            if symbol in self.shadow_wallet.positions:
-                self.shadow_wallet.positions[symbol]['sps_tp'] = tp_price
-                self.shadow_wallet.positions[symbol]['sps_entry'] = entry_price
-
             return True, (
                 f"✅ Long Executed: {symbol}\n"
+
                 f"Qty: {quantity} | Entry: {entry_price}\n"
                 f"SL: {sl_price} | TP: {tp_price}"
             )
@@ -1307,13 +1275,9 @@ class AsyncTradingSession:
             # TP (Buy Take Profit)
             await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, params={'stopPrice': tp_price, 'reduceOnly': True})
 
-            # 6. Store SPS Metadata in ShadowWallet for real-time monitoring
-            if symbol in self.shadow_wallet.positions:
-                self.shadow_wallet.positions[symbol]['sps_tp'] = tp_price
-                self.shadow_wallet.positions[symbol]['sps_entry'] = entry_price
-
             return True, (
                 f"✅ Short Executed: {symbol}\n"
+
                 f"Qty: {quantity} | Entry: {entry_price}\n"
                 f"SL: {sl_price} | TP: {tp_price}"
             )
