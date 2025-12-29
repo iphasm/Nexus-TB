@@ -622,12 +622,15 @@ class AsyncTradingSession:
                     sl_price = round(entry, price_prec)
                     
                     sl_side = 'SELL' if side == 'LONG' else 'BUY'
-                    # FIX parameter passing
-                    await self.bridge.place_order(
+                    # Place conditional order - price arg is stopPrice for conditional orders
+                    result = await self.bridge.place_order(
                         symbol, sl_side, 'STOP_MARKET', 
-                        quantity=qty, price=sl_price, 
-                        stopPrice=sl_price, reduceOnly=True
+                        quantity=qty, price=sl_price,
+                        reduceOnly=True
                     )
+                    if result.get('error'):
+                        report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
+                        continue
                     report.append(f"✅ {symbol}: Reset SL to Entry (ROI {pnl_pct:.1%})")
                     
         except Exception as e:
@@ -695,7 +698,12 @@ class AsyncTradingSession:
                             report.append(f"⚠️ {symbol}: SL Skipped (Price {curr} at/above SL {sl_price})")
                         
                         if sl_valid:
-                            await self.bridge.place_order(symbol, order_side, 'STOP_MARKET', quantity=qty, price=sl_price, stopPrice=sl_price, reduceOnly=True)
+                            result = await self.bridge.place_order(
+                                symbol, order_side, 'STOP_MARKET', 
+                                quantity=qty, price=sl_price, reduceOnly=True
+                            )
+                            if result.get('error'):
+                                report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
                             
                     if not has_tp:
                         # Validate TP won't trigger immediately
@@ -708,8 +716,14 @@ class AsyncTradingSession:
                             report.append(f"⚠️ {symbol}: TP Skipped (Price {curr} at/below TP {tp_price})")
                         
                         if tp_valid:
-                            await self.bridge.place_order(symbol, order_side, 'TAKE_PROFIT_MARKET', quantity=qty, price=tp_price, stopPrice=tp_price, reduceOnly=True)
-                            report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
+                            result = await self.bridge.place_order(
+                                symbol, order_side, 'TAKE_PROFIT_MARKET', 
+                                quantity=qty, price=tp_price, reduceOnly=True
+                            )
+                            if result.get('error'):
+                                report.append(f"⚠️ {symbol}: TP Error - {result['error']}")
+                            else:
+                                report.append(f"✅ {symbol}: Refreshed SL/TP (SL: {sl_price}, TP: {tp_price})")
 
                     
         except Exception as e:
@@ -918,7 +932,11 @@ class AsyncTradingSession:
                     quantity=abs_qty, price=sl_price, reduceOnly=True
                 )
                 if result.get('error'):
-                    sl_msg = f"⚠️ SL Error: {result['error']}"
+                    error_code = result.get('code')
+                    if error_code == -2021:
+                        sl_msg = f"⚠️ SL Error: Precio de activación ya alcanzado. Ajusta el stopPrice."
+                    else:
+                        sl_msg = f"⚠️ SL Error: {result['error']}"
                 else:
                     sl_msg = f"SL: {sl_price}"
                 
@@ -948,26 +966,32 @@ class AsyncTradingSession:
 
                 # TP1 (fixed)
                 if valid_tp:
-                    await self.bridge.place_order(
+                    tp1_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
                         quantity=qty_tp1, price=tp_price, reduceOnly=True
                     )
+                    if tp1_result.get('error'):
+                        print(f"⚠️ {symbol}: TP1 Error - {tp1_result['error']}")
                 # Trailing for rest
                 activation = tp_price  # Activate at TP1
-                await self.bridge.place_order(
+                trail_result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
                     quantity=qty_trail, price=activation, callbackRate=1.0, reduceOnly=True
                 )
+                if trail_result.get('error'):
+                    print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
                 tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
             else:
                 # Full trailing
                 # Fix: Use tp_price as activation. entry_price can be invalid if currently in profit
                 # (e.g. SHORT Entry 100, Current 90. Activation cannot be 100 for BUY Trailing)
                 activation = tp_price 
-                await self.bridge.place_order(
+                trail_result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
                     quantity=abs_qty, price=activation, callbackRate=1.0, reduceOnly=True
                 )
+                if trail_result.get('error'):
+                    print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
                 tp_msg = f"Trail: {activation} (1.0%)"
             
             return True, f"{sl_msg}\n{tp_msg}"
@@ -1166,8 +1190,20 @@ class AsyncTradingSession:
             entry_price = float(res.get('price', current_price) or current_price)
             
             # 5. Place SL/TP (Separate to ensure logic holds)
-            await self.bridge.place_order(symbol, 'SELL', 'STOP_MARKET', quantity=quantity, price=sl_price, stopPrice=sl_price, reduceOnly=True)
-            await self.bridge.place_order(symbol, 'SELL', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, stopPrice=tp_price, reduceOnly=True)
+            # For conditional orders, price arg = stopPrice (trigger price)
+            sl_result = await self.bridge.place_order(
+                symbol, 'SELL', 'STOP_MARKET', 
+                quantity=quantity, price=sl_price, reduceOnly=True
+            )
+            if sl_result.get('error'):
+                print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            
+            tp_result = await self.bridge.place_order(
+                symbol, 'SELL', 'TAKE_PROFIT_MARKET', 
+                quantity=quantity, price=tp_price, reduceOnly=True
+            )
+            if tp_result.get('error'):
+                print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
             return True, (
                 f"✅ Long Executed: {symbol}\n"
@@ -1315,9 +1351,21 @@ class AsyncTradingSession:
             
             # 5. Place SL/TP (Buy Orders)
             # SL (Buy Stop)
-            await self.bridge.place_order(symbol, 'BUY', 'STOP_MARKET', quantity=quantity, price=sl_price, stopPrice=sl_price, reduceOnly=True)
+            # For conditional orders, price arg = stopPrice (trigger price)
+            sl_result = await self.bridge.place_order(
+                symbol, 'BUY', 'STOP_MARKET', 
+                quantity=quantity, price=sl_price, reduceOnly=True
+            )
+            if sl_result.get('error'):
+                print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+            
             # TP (Buy Take Profit)
-            await self.bridge.place_order(symbol, 'BUY', 'TAKE_PROFIT_MARKET', quantity=quantity, price=tp_price, stopPrice=tp_price, reduceOnly=True)
+            tp_result = await self.bridge.place_order(
+                symbol, 'BUY', 'TAKE_PROFIT_MARKET', 
+                quantity=quantity, price=tp_price, reduceOnly=True
+            )
+            if tp_result.get('error'):
+                print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
             return True, (
                 f"✅ Short Executed: {symbol}\n"
@@ -1346,15 +1394,16 @@ class AsyncTradingSession:
         
         conditional_orders = []
         
-        # 1. First, check standard open orders for conditional types
-        # (This is the reliable fallback that always works)
+        # 1. Use Bridge to get open orders (consistent format)
         try:
-            standard_orders = await self.client.futures_get_open_orders(symbol=symbol)
+            standard_orders = await self.bridge.get_open_orders(symbol)
             conditional_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 
-                                'STOP', 'TAKE_PROFIT', 'TRAILING_STOP']
+                                'STOP', 'TAKE_PROFIT', 'TRAILING_STOP',
+                                'stop_market', 'take_profit_market', 'trailing_stop_market']
             
             for order in standard_orders:
-                if order.get('type', '') in conditional_types:
+                order_type = order.get('type', '')
+                if order_type.upper() in [t.upper() for t in conditional_types]:
                     conditional_orders.append(order)
         except Exception as e:
             print(f"⚠️ Standard order check error ({symbol}): {e}")

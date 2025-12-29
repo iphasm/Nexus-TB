@@ -212,6 +212,11 @@ class BybitAdapter(IExchangeAdapter):
             print(f"⚠️ BybitAdapter: cancel_order error: {e}")
             return False
 
+    async def cancel_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for a symbol (required by IExchangeAdapter)."""
+        result = await self.cancel_all_orders(symbol)
+        return result.get('success', False)
+
     # =========================================================================
     # ENHANCED ORDER MANAGEMENT (Key Bybit Advantage)
     # =========================================================================

@@ -5,12 +5,17 @@ Integrates with Shadow Wallet for real-time state.
 """
 
 from typing import Dict, Any, Optional
-import asyncio
 from nexus_system.uplink.adapters.base import IExchangeAdapter
 from nexus_system.uplink.adapters.binance_adapter import BinanceAdapter
 from nexus_system.uplink.adapters.bybit_adapter import BybitAdapter
 from nexus_system.uplink.adapters.alpaca_adapter import AlpacaAdapter
 from nexus_system.core.shadow_wallet import ShadowWallet
+
+# Lazy import to avoid circular dependencies
+try:
+    from system_directive import ASSET_GROUPS
+except ImportError:
+    ASSET_GROUPS = {}
 
 class NexusBridge:
     def __init__(self, shadow_wallet: ShadowWallet):
@@ -23,28 +28,39 @@ class NexusBridge:
         name = name.upper()
         adapter = None
         
-        if name == 'BINANCE':
-            adapter = BinanceAdapter(**credentials)
-        elif name == 'BYBIT':
-            adapter = BybitAdapter(**credentials)
-        elif name == 'ALPACA':
-            adapter = AlpacaAdapter(**credentials)
-        
-        if adapter:
-            if await adapter.initialize(**credentials):
-                self.adapters[name] = adapter
-                
-                # Initial sync to Shadow Wallet (Balance & Positions) - silent
-                balance = await adapter.get_account_balance()
-                self.shadow_wallet.update_balance(name, balance)
-                
-                positions = await adapter.get_positions()
-                for pos in positions:
-                    self.shadow_wallet.update_position(pos['symbol'], pos)
-                    
-                return True
+        try:
+            if name == 'BINANCE':
+                adapter = BinanceAdapter(**credentials)
+            elif name == 'BYBIT':
+                adapter = BybitAdapter(**credentials)
+            elif name == 'ALPACA':
+                adapter = AlpacaAdapter(**credentials)
             else:
-                print(f"❌ NexusBridge: Failed to connect {name}")
+                print(f"❌ NexusBridge: Unknown exchange {name}")
+                return False
+            
+            if adapter:
+                if await adapter.initialize(**credentials):
+                    self.adapters[name] = adapter
+                    
+                    # Initial sync to Shadow Wallet (Balance & Positions) - silent
+                    try:
+                        balance = await adapter.get_account_balance()
+                        self.shadow_wallet.update_balance(name, balance)
+                        
+                        positions = await adapter.get_positions()
+                        for pos in positions:
+                            self.shadow_wallet.update_position(pos['symbol'], pos)
+                    except Exception as e:
+                        print(f"⚠️ NexusBridge: Error syncing {name} to Shadow Wallet: {e}")
+                        # Continue anyway - adapter is connected
+                        
+                    return True
+                else:
+                    print(f"❌ NexusBridge: Failed to connect {name}")
+        except Exception as e:
+            print(f"❌ NexusBridge: Error connecting {name}: {e}")
+        
         return False
 
     async def get_position(self, symbol: str) -> Dict[str, Any]:
@@ -126,22 +142,24 @@ class NexusBridge:
         
         print(f"🌉 Bridge: Routing {side} {symbol} -> {target_exchange}")
         
-        # Execute Order
-        result = await adapter.place_order(
-            symbol, side, order_type, quantity, price, **kwargs
-        )
-        
-        # Immediate Shadow update if successful (optimistic)
-        # Real confirmation comes via WebSocket usually, but this helps responsiveness
-        return result
+        try:
+            # Execute Order
+            result = await adapter.place_order(
+                symbol, side, order_type, quantity, price, **kwargs
+            )
+            
+            # Note: Shadow Wallet updates come via WebSocket streams or explicit sync
+            # This method returns the order result for immediate feedback
+            return result
+        except Exception as e:
+            print(f"❌ Bridge: Order placement error ({symbol}): {e}")
+            return {'error': str(e), 'symbol': symbol, 'side': side}
 
     def _route_symbol(self, symbol: str) -> str:
         """
         Smart routing logic based on system_directive groups.
         IMPORTANT: Only routes to an exchange if its adapter is connected!
         """
-        from system_directive import ASSET_GROUPS
-        
         # 1. Check Bybit Group - BUT only if Bybit adapter is connected
         if symbol in ASSET_GROUPS.get('BYBIT', []):
             if 'BYBIT' in self.adapters:
@@ -159,18 +177,23 @@ class NexusBridge:
             if 'BYBIT' in self.adapters:
                 return 'BYBIT'
             
-        # 3. Fallback: Rough check for stocks
+        # 3. Check Stocks/ETFs Group
+        if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', []):
+            if 'ALPACA' in self.adapters:
+                return 'ALPACA'
+        
+        # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
         if 'USDT' not in symbol and 'USD' not in symbol:
             if 'ALPACA' in self.adapters:
                 return 'ALPACA'
             
-        # 4. Ultimate Fallback - use primary if connected
+        # 5. Ultimate Fallback - use primary if connected
         if self.primary_exchange in self.adapters:
             return self.primary_exchange
         
-        # 5. Last resort - return first connected adapter
-        for name in self.adapters.keys():
-            return name
+        # 6. Last resort - return first connected adapter
+        if self.adapters:
+            return next(iter(self.adapters.keys()))
         
         return 'BINANCE'  # Default if nothing connected
 
@@ -178,5 +201,10 @@ class NexusBridge:
     async def close_all(self):
         """Shutdown all connections."""
         for name, adapter in self.adapters.items():
-            print(f"🔌 Bridge: Disconnecting {name}...")
-            await adapter.close()
+            try:
+                print(f"🔌 Bridge: Disconnecting {name}...")
+                await adapter.close()
+            except Exception as e:
+                print(f"⚠️ Bridge: Error disconnecting {name}: {e}")
+        
+        self.adapters.clear()

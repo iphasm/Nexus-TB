@@ -235,6 +235,24 @@ class AlpacaAdapter(IExchangeAdapter):
             print(f"⚠️ AlpacaAdapter: cancel_order error: {e}")
             return False
 
+    async def cancel_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for a symbol."""
+        if not self._trading_client:
+            return False
+            
+        try:
+            from alpaca.trading.enums import OrderStatusFilter
+            orders = self._trading_client.get_orders(
+                status=OrderStatusFilter.OPEN,
+                symbols=[symbol]
+            )
+            for order in orders:
+                self._trading_client.cancel_order_by_id(order.id)
+            return True
+        except Exception as e:
+            print(f"⚠️ AlpacaAdapter: cancel_orders error: {e}")
+            return False
+
     async def get_positions(self) -> List[Dict[str, Any]]:
         """Get active positions."""
         if not self._trading_client:
@@ -257,6 +275,45 @@ class AlpacaAdapter(IExchangeAdapter):
         except Exception as e:
             print(f"⚠️ AlpacaAdapter: get_positions error: {e}")
             return []
+
+    async def close_position(self, symbol: str) -> bool:
+        """Close specific position (Market)."""
+        if not self._trading_client:
+            return False
+            
+        try:
+            positions = await self.get_positions()
+            target_pos = next((p for p in positions if p['symbol'] == symbol), None)
+            
+            if not target_pos:
+                print(f"ℹ️ AlpacaAdapter: No position found for {symbol} (already closed)")
+                return True  # Already closed
+            
+            qty = target_pos['quantity']
+            side = target_pos['side']
+            
+            if qty == 0:
+                return True
+            
+            # Execute close (opposite side)
+            from alpaca.trading.requests import MarketOrderRequest
+            from alpaca.trading.enums import OrderSide
+            
+            close_side = OrderSide.SELL if side == 'LONG' else OrderSide.BUY
+            
+            request = MarketOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=close_side
+            )
+            
+            self._trading_client.submit_order(request)
+            print(f"🔒 AlpacaAdapter: Closing {symbol} - {close_side.value} {qty}")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ AlpacaAdapter: close_position error ({symbol}): {e}")
+            return False
 
     async def close(self):
         """Close connections."""

@@ -1,0 +1,25 @@
+# Git Aliases para Nexus Trading Bot
+# Copia estas líneas a tu .gitconfig global o local
+# Ejecuta: git config --global --add alias.deploy '!f() { git add . && git commit -m "$1" && git push; }; f'
+
+[alias]
+    # Deploy rápido con mensaje
+    deploy = "!f() { git add . && git commit -m \"$1\" && git push; }; f"
+    
+    # Deploy con mensaje auto-generado
+    deploy-auto = "!f() { git add . && git commit -m \"🔧 Update: $(git diff --name-only HEAD | wc -l) archivo(s)\" && git push; }; f"
+    
+    # Deploy con todos los cambios (incluyendo eliminados)
+    deploy-all = "!f() { git add -A && git commit -m \"$1\" && git push; }; f"
+    
+    # Solo mostrar estado
+    status-short = "!git status --short"
+    
+    # Ver últimos commits
+    log-short = "!git log --oneline -10"
+
+# Uso:
+# git deploy "Mensaje de commit"
+# git deploy-auto
+# git deploy-all "Mensaje de commit"
+

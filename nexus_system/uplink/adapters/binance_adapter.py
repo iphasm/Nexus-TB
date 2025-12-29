@@ -309,39 +309,39 @@ class BinanceAdapter(IExchangeAdapter):
                     symbol, 'limit', side.lower(), quantity, price, params
                 )
             else:
-                # For conditional orders (STOP_MARKET, etc.)
-                # If order type implies MARKET, limit_price must be None
-                limit_price = price
-                if 'MARKET' in order_type.upper():
-                    limit_price = None
-                    if price:
-                        params['stopPrice'] = price
-                else:
-                    # STOP (Limit) or TAKE_PROFIT (Limit)
-                    # If it's a Limit conditional, we normally need 2 prices:
-                    # 1. Trigger (stopPrice)
-                    # 2. Limit (price)
-                    # The 'price' arg here is ambiguously used as Trigger in trading_manager.
-                    # We assume 'price' arg is TRIGGER. limit_price must come from params or be same?
-                    # STANDARD NEXUS CONVENTION: price arg = TRIGGER PRICE for conditional.
-                    # Limit Price should be in params['price'] if needed, or we assume Trigger=Limit (risky).
-                    # For now, let's fix the MARKET case which is the immediate crash.
-                    if price:
-                        params['stopPrice'] = price
-                if 'MARKET' not in order_type.upper():
-                    # Check if it is a LIMIT order (STOP, TAKE_PROFIT)
-                    if 'price' in params:
-                        limit_price = params.pop('price')
+                # For conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, etc.)
+                # CCXT requires specific handling for conditional orders
                 
-                # FIX: Pass 'market' to CCXT to ensure correct symbol resolution, 
-                # but override 'type' in params to specify STOP_MARKET/etc.
-                params['type'] = order_type # 'STOP_MARKET'
+                # Extract stopPrice from params if passed, otherwise use price arg
+                stop_price = params.pop('stopPrice', None) or price
+                
+                if not stop_price:
+                    return {'error': 'stopPrice is required for conditional orders'}
+                
+                # For MARKET conditional orders, limit_price must be None
+                # For LIMIT conditional orders, limit_price is the execution price
+                limit_price = None
+                if 'MARKET' not in order_type.upper():
+                    # STOP_LIMIT or TAKE_PROFIT_LIMIT - use price as limit execution price
+                    limit_price = params.pop('price', stop_price)  # Default to stop_price if not provided
+                
+                # Map order types to CCXT format
+                # CCXT uses lowercase with underscores: stop_market, take_profit_market
+                # Convert STOP_MARKET -> stop_market, TAKE_PROFIT_MARKET -> take_profit_market
+                ccxt_order_type = order_type.lower()
+                
+                # Ensure reduceOnly is in params (not as kwarg)
+                if 'reduceOnly' not in params and kwargs.get('reduceOnly'):
+                    params['reduceOnly'] = kwargs.pop('reduceOnly')
+                
+                # Set stopPrice in params (required by Binance)
+                params['stopPrice'] = stop_price
                 
                 # --- RETRY LOGIC FOR INVALID SYMBOL (-1121) ---
                 try:
-                    # Pass 'market' as CCXT type, but actual type is in params
+                    # Use the correct order type for CCXT
                     result = await self._exchange.create_order(
-                        symbol, 'market', side.lower(), quantity, limit_price, params
+                        symbol, ccxt_order_type, side.lower(), quantity, limit_price, params
                     )
                 except Exception as e_order:
                     # Check for Invalid Symbol / Param (-1121)
@@ -415,6 +415,10 @@ class BinanceAdapter(IExchangeAdapter):
                 return {'error': f'QUANTITY_ERROR: {msg}'}
             elif code == -2019: # Margin is insufficient
                 return {'error': f'INSUFFICIENT_MARGIN: {msg}'}
+            elif code == -2021: # ORDER_WOULD_IMMEDIATELY_TRIGGER
+                return {'error': 'ORDER_WOULD_IMMEDIATELY_TRIGGER', 'code': -2021, 'message': 'El precio de activación ya fue alcanzado. Ajusta el stopPrice.'}
+            elif code == -1121: # Invalid symbol
+                return {'error': 'INVALID_SYMBOL', 'code': -1121, 'message': f'Símbolo inválido: {msg}'}
             
             # Fallback text matching (if code parsing failed)
             lower_msg = error_msg.lower()
@@ -422,6 +426,8 @@ class BinanceAdapter(IExchangeAdapter):
                 return {'error': f'INSUFFICIENT_MARGIN: {error_msg}'}
             elif "min_notional" in lower_msg:
                 return {'error': f'MIN_NOTIONAL: {error_msg}'}
+            elif "would immediately trigger" in lower_msg or "-2021" in error_msg:
+                return {'error': 'ORDER_WOULD_IMMEDIATELY_TRIGGER', 'message': 'El precio de activación ya fue alcanzado. Ajusta el stopPrice.'}
             
             clean_msg = f"Binance Error {code}: {msg}" if code else f"Error: {error_msg}"
             return {'error': clean_msg}
