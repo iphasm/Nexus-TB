@@ -698,6 +698,9 @@ class AsyncTradingSession:
                         sl_price = round(entry + sl_dist, price_prec)
                         tp_price = round(entry - (sl_dist * tp_ratio), price_prec)
                         order_side = 'BUY'
+                        
+                    print(f"DEBUG CALC {symbol}: Entry={entry} SL%={stop_loss_pct} Prec={price_prec}", flush=True)
+                    print(f"DEBUG CALC {symbol}: RawSL={entry-sl_dist if side=='LONG' else entry+sl_dist} -> Final={sl_price}", flush=True)
                     
                     # SAFETY: Dynamic Precision Upgrade
                     # Smart Fallback: match price precision logic
