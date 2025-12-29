@@ -112,14 +112,29 @@ def calculate_stoch_rsi(rsi_series: pd.Series, period: int = 14, k_period: int =
 def calculate_vwap(df: pd.DataFrame) -> pd.Series:
     """Volume Weighted Average Price."""
     try:
-        # ta.vwap requires a DatetimeIndex and it MUST be ordered
-        if not df.index.is_monotonic_increasing:
-             df.sort_index(inplace=True)
-             
-        vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'])
-        if vwap is None or vwap.isna().all():
-            raise ValueError("VWAP returned None or all NaN")
-        return vwap
+        # Make a copy to avoid modifying original
+        df_copy = df.copy()
+        
+        # Ensure DatetimeIndex (required by pandas-ta vwap)
+        if 'timestamp' in df_copy.columns and not isinstance(df_copy.index, pd.DatetimeIndex):
+            df_copy.set_index('timestamp', inplace=True)
+        
+        # Ensure index is monotonic
+        if not df_copy.index.is_monotonic_increasing:
+            df_copy.sort_index(inplace=True)
+        
+        # Only call ta.vwap if we have a proper DatetimeIndex
+        if isinstance(df_copy.index, pd.DatetimeIndex):
+            vwap = ta.vwap(df_copy['high'], df_copy['low'], df_copy['close'], df_copy['volume'])
+            if vwap is not None and not vwap.isna().all():
+                # Re-align to original index if needed
+                if not df.index.equals(df_copy.index):
+                    vwap.index = df.index[:len(vwap)]
+                return vwap
+        
+        # Fallback to manual calculation if DatetimeIndex not available
+        raise ValueError("No DatetimeIndex available")
+        
     except Exception:
         # Fallback: Manual VWAP calculation (cumulative)
         # VWAP = cumsum(typical_price * volume) / cumsum(volume)

@@ -51,6 +51,7 @@ class BybitAdapter(IExchangeAdapter):
                 'options': {
                     'defaultType': 'linear',  # USDT Perpetuals
                     'adjustForTimeDifference': True,
+                    'recvWindow': 10000,  # Increase from 5000 to handle clock sync
                 }
             }
             
