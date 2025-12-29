@@ -12,6 +12,7 @@ import time
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any, Tuple, List
+from nexus_system.utils.logger import get_logger
 
 # Nexus Core
 from nexus_system.core.nexus_bridge import NexusBridge
@@ -44,6 +45,7 @@ class AsyncTradingSession:
         # Nexus Core
         self.shadow_wallet = ShadowWallet()
         self.bridge = NexusBridge(self.shadow_wallet)
+        self.logger = get_logger("AsyncTradingSession")
         
         self.manager = manager
         
@@ -941,6 +943,15 @@ class AsyncTradingSession:
                 else:
                     sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
                     tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio * 2)), price_precision)
+            
+            # --- MAX SL SHIELD (Emergency Clamp) ---
+            max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
+            min_allowed_sl = current_price * (1 - max_sl_allowed)
+            
+            if sl_price < min_allowed_sl:
+                actual_pct = (current_price - sl_price) / current_price
+                self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
+                sl_price = round(min_allowed_sl, price_precision)
 
             # Assign Margin & Calculate Qty
             margin_assignment = total_equity * size_pct
@@ -1055,6 +1066,15 @@ class AsyncTradingSession:
                 else:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
                     tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio * 2)), price_precision)
+            
+            # --- MAX SL SHIELD (Emergency Clamp) ---
+            max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
+            max_allowed_sl = current_price * (1 + max_sl_allowed)
+            
+            if sl_price > max_allowed_sl:
+                actual_pct = (sl_price - current_price) / current_price
+                self.logger.warning(f"🛡️ Max SL Shield Triggered ({symbol}): Strategy requested {actual_pct:.1%} Stop. Clamped to {max_sl_allowed:.1%}")
+                sl_price = round(max_allowed_sl, price_precision)
             
             # Assign Margin & Calculate Qty
             margin_assignment = total_equity * size_pct
@@ -1295,6 +1315,19 @@ class AsyncTradingSession:
                         sl_label = f"{stop_loss_pct*100}%"
                         
                     tp_price = round(entry_price * (1 - (stop_loss_pct * 3)), price_prec)
+                
+                # --- MAX SL SHIELD (Emergency Clamp) ---
+                max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
+                if side == 'LONG':
+                    min_allowed_sl = entry_price * (1 - max_sl_allowed)
+                    if sl_price < min_allowed_sl:
+                        sl_price = round(min_allowed_sl, price_prec)
+                        sl_label = f"SHIELD ({max_sl_allowed:.1%})"
+                else:
+                    max_allowed_sl = entry_price * (1 + max_sl_allowed)
+                    if sl_price > max_allowed_sl:
+                        sl_price = round(max_allowed_sl, price_prec)
+                        sl_label = f"SHIELD ({max_sl_allowed:.1%})"
 
                 # Execute Sync
                 success, msg = await self.synchronize_sl_tp_safe(
@@ -1379,6 +1412,19 @@ class AsyncTradingSession:
                 else:
                     sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
                     tp_price = round(current_price * (1 - (stop_loss_pct * 3)), price_precision)
+            
+            # --- MAX SL SHIELD (Emergency Clamp) ---
+            max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
+            if side == 'LONG':
+                min_allowed_sl = current_price * (1 - max_sl_allowed)
+                if sl_price < min_allowed_sl:
+                    self.logger.warning(f"🛡️ Max SL Shield Triggered (Update {symbol}): Clamped to {max_sl_allowed:.1%}")
+                    sl_price = round(min_allowed_sl, price_precision)
+            else:
+                max_allowed_sl = current_price * (1 + max_sl_allowed)
+                if sl_price > max_allowed_sl:
+                    self.logger.warning(f"🛡️ Max SL Shield Triggered (Update {symbol}): Clamped to {max_sl_allowed:.1%}")
+                    sl_price = round(max_allowed_sl, price_precision)
             
             # Delegate to Surgical Sync
             success, sync_msg = await self.synchronize_sl_tp_safe(

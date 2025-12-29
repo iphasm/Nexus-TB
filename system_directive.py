@@ -124,6 +124,7 @@ DEFAULT_SESSION_CONFIG = {
     "leverage": 5,
     "max_capital_pct": 0.10,
     "stop_loss_pct": 0.02,
+    "max_stop_loss_pct": 0.05, # Emergency Clamp: No SL ever wider than 5%
     "tp_ratio": 1.5,
     "spot_allocation_pct": 0.20,
     "personality": "STANDARD_ES",
