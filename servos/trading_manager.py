@@ -1732,6 +1732,18 @@ class AsyncTradingSession:
                         sl_price = round_to_tick_size(max_allowed_sl, tick_size)
                         sl_label = f"SHIELD ({max_sl_allowed:.1%})"
 
+                # Validate prices before calling synchronize_sl_tp_safe
+                if sl_price <= 0:
+                    report.append(f"**{symbol}** ({side}) ⚠️")
+                    report.append(f"   Err: ⚠️ {symbol}: SL inválido (precio: {sl_price})")
+                    report.append("")
+                    continue
+                if tp_price <= 0:
+                    report.append(f"**{symbol}** ({side}) ⚠️")
+                    report.append(f"   Err: ⚠️ {symbol}: TP inválido (precio: {tp_price})")
+                    report.append("")
+                    continue
+
                 # Execute Sync
                 success, msg = await self.synchronize_sl_tp_safe(
                     symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, entry_price=entry_price, current_price=current_price
