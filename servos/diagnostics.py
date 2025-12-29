@@ -309,9 +309,8 @@ async def run_diagnostics(
             if await bybit_auth.initialize():
                 balance = await bybit_auth.get_account_balance()
                 report.append(f"✅ Auth Success!")
-                report.append(f"- Balance Fetch: Success")
-                # Get total equity/balance
-                report.append(f"- Total Balance: {balance}")
+                report.append(f"- Total Balance: ${balance.get('total', 0):,.2f} USDT")
+                report.append(f"- Available: ${balance.get('available', 0):,.2f} USDT")
                 await bybit_auth.close()
             else:
                 report.append("❌ Bybit Auth Initialization Failed")
@@ -319,6 +318,7 @@ async def run_diagnostics(
             report.append(f"❌ Bybit Auth Failed: {e}")
     else:
         report.append("\n**🔐 Bybit Auth Test Skipped (No Keys)**")
+
 
     # 6. Full Asset Signal Diagnostics (BTC + TSLA)
     report.append("\n\n📊 **SIGNAL GENERATION DIAGNOSTICS**")

@@ -441,20 +441,54 @@ async def cmd_set_bybit(message: Message, **kwargs):
     secret = args[2].strip().strip('<>').strip()
     
     try:
-        await session.update_config('bybit_key', key)
-        await session.update_config('bybit_secret', secret)
+        # Save to config (use consistent names with trading_manager)
+        session.update_config('bybit_api_key', key)
+        session.update_config('bybit_api_secret', secret)
+        
+        # Initialize the adapter immediately
+        loading_msg = await message.answer("⏳ Conectando a Bybit...")
+        
+        connected = await session.bridge.connect_exchange(
+            'BYBIT',
+            api_key=key,
+            api_secret=secret
+        )
+        
         await session_manager.save_sessions()
         
-        await message.answer(
-            "✅ *Bybit Keys Configuradas*\n\n"
-            "🔐 Credenciales guardadas.\n\n"
-            "**Para usar Bybit para crypto:**\n"
-            "Contacta al admin para cambiar `crypto_exchange` a `BYBIT`.",
-            parse_mode="Markdown"
-        )
+        if connected:
+            # Test connection by getting balance
+            bybit_adapter = session.bridge.adapters.get('BYBIT')
+            if bybit_adapter:
+                balance = await bybit_adapter.get_account_balance()
+                await loading_msg.edit_text(
+                    "✅ *Bybit Conectado Exitosamente*\n\n"
+                    f"💰 Balance: `${balance.get('total', 0):,.2f} USDT`\n"
+                    f"💵 Disponible: `${balance.get('available', 0):,.2f} USDT`\n\n"
+                    "🔗 El bot ahora puede operar en Bybit.\n"
+                    "Los activos del grupo **BYBIT** serán ruteados automáticamente.",
+                    parse_mode="Markdown"
+                )
+            else:
+                await loading_msg.edit_text(
+                    "✅ *Bybit Keys Configuradas*\n\n"
+                    "⚠️ Adapter registrado pero no verificado.\n"
+                    "Reinicia el bot o usa `/debug` para verificar.",
+                    parse_mode="Markdown"
+                )
+        else:
+            await loading_msg.edit_text(
+                "⚠️ *Keys Guardadas pero Conexión Fallida*\n\n"
+                "Verifica que las API keys tengan permisos de:\n"
+                "• Lectura de cuenta\n"
+                "• Trading de derivados\n\n"
+                "Usa `/debug` para más detalles.",
+                parse_mode="Markdown"
+            )
         
     except Exception as e:
         await message.answer(f"❌ Error: {e}")
+
 
 
 @router.message(Command("delete_keys", "deletekeys"))

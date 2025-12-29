@@ -82,15 +82,16 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 
 # --- DIAGNOSTICS: LOG ENV VARS (Agrupado) ---
-_vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
+_vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_SECRET', 'BYBIT_API_KEY', 'BYBIT_API_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
 status_parts = []
 for v in _vars_to_log:
     val = os.getenv(v, '').strip().strip("'\"")
     found = "✅" if val else "❌"
-    short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
+    short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('BYBIT_', 'BYB_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
     if v == 'PROXY_URL': short_name = "PROXY"
     status_parts.append(f"{short_name}:{found}")
 logger.info(f"🔧 Env Vars: {' | '.join(status_parts)}", group=False)  # No agrupar, es un resumen único
+
 # ------------------------------------------
 
 
@@ -417,13 +418,19 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     from datetime import datetime, timezone
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     
-                    # Determine exchange based on symbol
+                    # Determine exchange based on Bridge routing
                     if 'USDT' not in symbol:
                         exchange = "Alpaca"
-                    elif session.config.get('primary_exchange', 'BINANCE') == 'BYBIT':
-                        exchange = "Bybit"
                     else:
-                        exchange = "Binance"
+                        # Use Bridge routing if available
+                        if session.bridge:
+                            routed_exchange = session.bridge._route_symbol(symbol)
+                            exchange = routed_exchange.title()  # BYBIT -> Bybit
+                        elif session.config.get('primary_exchange', 'BINANCE') == 'BYBIT':
+                            exchange = "Bybit"
+                        else:
+                            exchange = "Binance"
+
                     
                     # Direction styling
                     direction = "🟢 LONG (Activo)" if side == 'LONG' else "🔴 SHORT (Activo)"
@@ -472,13 +479,16 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     if any(x in result for x in ignore_phrases):
                         continue
 
-                    # Determine exchange for error messages
+                    # Determine exchange for error messages using Bridge routing
                     if 'USDT' not in symbol:
                         error_exchange = "Alpaca"
+                    elif session.bridge:
+                        error_exchange = session.bridge._route_symbol(symbol).title()
                     elif session.config.get('primary_exchange', 'BINANCE') == 'BYBIT':
                         error_exchange = "Bybit"
                     else:
                         error_exchange = "Binance"
+
                     
                     # Handle Margin Insufficient errors with friendly message
                     if "INSUFFICIENT_MARGIN" in result or "Margin is insufficient" in result:

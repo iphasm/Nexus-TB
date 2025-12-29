@@ -176,8 +176,8 @@ DEFAULT_SESSION_CONFIG = {
     
     # --- EXCHANGE ROUTING ---
     "crypto_exchange": "BINANCE", # BINANCE or BYBIT
-    "bybit_key": None,
-    "bybit_secret": None
+    "bybit_api_key": None,
+    "bybit_api_secret": None
 }
 
 # =================================================================

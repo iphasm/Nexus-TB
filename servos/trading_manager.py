@@ -1249,9 +1249,10 @@ class AsyncTradingSession:
         # Log de inicio de ejecución de posición LONG
         self.logger.debug(f"Ejecutando posición LONG: {symbol}, ATR={atr}")
         
-        # Determine target exchange based on symbol
+        # Determine target exchange using NexusBridge routing (respects BYBIT asset group)
         is_crypto = 'USDT' in symbol or 'BTC' in symbol
-        target_exchange = 'BINANCE' if is_crypto else 'ALPACA'
+        target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+        self.logger.debug(f"Routing {symbol} -> {target_exchange}")
         
         # Force-sync balance for target exchange (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
@@ -1260,6 +1261,7 @@ class AsyncTradingSession:
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
                 print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+
         
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
@@ -1461,9 +1463,10 @@ class AsyncTradingSession:
         # Log de inicio de ejecución de posición SHORT
         self.logger.debug(f"Ejecutando posición SHORT: {symbol}, ATR={atr}")
         
-        # Determine target exchange based on symbol
+        # Determine target exchange using NexusBridge routing (respects BYBIT asset group)
         is_crypto = 'USDT' in symbol or 'BTC' in symbol
-        target_exchange = 'BINANCE' if is_crypto else 'ALPACA'
+        target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+        self.logger.debug(f"Routing {symbol} -> {target_exchange}")
         
         # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)
         if self.bridge and target_exchange in self.bridge.adapters:
@@ -1472,6 +1475,7 @@ class AsyncTradingSession:
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
                 print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+
         
         # 1. Check existing position via Shadow Wallet
         current_pos = await self.bridge.get_position(symbol)
