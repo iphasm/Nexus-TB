@@ -899,6 +899,19 @@ class AsyncTradingSession:
             Tuple[bool, str]: (éxito, mensaje descriptivo)
         """
         try:
+            # Validación inicial: Precios deben ser válidos
+            if sl_price <= 0:
+                return False, f"⚠️ {symbol}: SL inválido (precio: {sl_price})"
+            if tp_price <= 0:
+                return False, f"⚠️ {symbol}: TP inválido (precio: {tp_price})"
+            
+            # Validación: Entry price debe ser válido para cálculos
+            if entry_price <= 0:
+                entry_price = current_price if current_price > 0 else sl_price
+            
+            # Validación: Current price debe ser válido
+            if current_price <= 0:
+                current_price = entry_price
             # 1. Fetch existing orders via bridge
             orders = await self.bridge.get_open_orders(symbol)
             
@@ -993,35 +1006,44 @@ class AsyncTradingSession:
                         tp_msg = f"⚠️ TP Skipped: Price ({current_price}) at/below TP ({tp_price})"
                         valid_tp = False
 
-                # TP1 (fixed)
-                if valid_tp:
+                # TP1 (fixed) - Validar que tp_price es válido
+                if valid_tp and tp_price > 0:
                     tp1_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
                         quantity=qty_tp1, price=tp_price, reduceOnly=True
                     )
                     if tp1_result.get('error'):
                         print(f"⚠️ {symbol}: TP1 Error - {tp1_result['error']}")
-                # Trailing for rest
-                activation = tp_price  # Activate at TP1
-                trail_result = await self.bridge.place_order(
-                    symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                    quantity=qty_trail, price=activation, callbackRate=1.0, reduceOnly=True
-                )
-                if trail_result.get('error'):
-                    print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
+                elif not valid_tp:
+                    print(f"⚠️ {symbol}: TP1 omitido - {tp_msg}")
+                
+                # Trailing for rest - Validar que activation es válido
+                activation = tp_price if tp_price > 0 else entry_price  # Activate at TP1 o entry
+                if activation > 0:
+                    trail_result = await self.bridge.place_order(
+                        symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
+                        quantity=qty_trail, price=activation, callbackRate=1.0, reduceOnly=True
+                    )
+                    if trail_result.get('error'):
+                        print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
+                else:
+                    print(f"⚠️ {symbol}: Trailing Stop omitido - activation price inválido")
                 tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
             else:
                 # Full trailing
                 # Fix: Use tp_price as activation. entry_price can be invalid if currently in profit
                 # (e.g. SHORT Entry 100, Current 90. Activation cannot be 100 for BUY Trailing)
-                activation = tp_price 
-                trail_result = await self.bridge.place_order(
-                    symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                    quantity=abs_qty, price=activation, callbackRate=1.0, reduceOnly=True
-                )
-                if trail_result.get('error'):
-                    print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
-                tp_msg = f"Trail: {activation} (1.0%)"
+                activation = tp_price if tp_price > 0 else entry_price
+                if activation > 0:
+                    trail_result = await self.bridge.place_order(
+                        symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
+                        quantity=abs_qty, price=activation, callbackRate=1.0, reduceOnly=True
+                    )
+                    if trail_result.get('error'):
+                        print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
+                    tp_msg = f"Trail: {activation} (1.0%)"
+                else:
+                    tp_msg = f"⚠️ Trailing Stop omitido - activation price inválido"
             
             return True, f"{sl_msg}\n{tp_msg}"
             
