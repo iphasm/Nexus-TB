@@ -1780,7 +1780,7 @@ class AsyncTradingSession:
             
             # Get precision via Bridge function already defined
             # (No change needed here, just verifying logic flow)
-            qty_precision, price_precision, min_notional = await self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
             
             stop_loss_pct = self.config['stop_loss_pct']
             
@@ -1792,18 +1792,18 @@ class AsyncTradingSession:
                 mult = self.config.get('atr_multiplier', 2.0)
                 sl_dist = mult * atr
                 if side == 'LONG':
-                    sl_price = round(current_price - sl_dist, price_precision)
-                    tp_price = round(current_price + (tp_ratio * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price - sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price + (tp_ratio * sl_dist), tick_size)
                 else:
-                    sl_price = round(current_price + sl_dist, price_precision)
-                    tp_price = round(current_price - (tp_ratio * sl_dist), price_precision)
+                    sl_price = round_to_tick_size(current_price + sl_dist, tick_size)
+                    tp_price = round_to_tick_size(current_price - (tp_ratio * sl_dist), tick_size)
             else:
                 if side == 'LONG':
-                    sl_price = round(current_price * (1 - stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 + (stop_loss_pct * tp_ratio)), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 - stop_loss_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 + (stop_loss_pct * tp_ratio)), tick_size)
                 else:
-                    sl_price = round(current_price * (1 + stop_loss_pct), price_precision)
-                    tp_price = round(current_price * (1 - (stop_loss_pct * tp_ratio)), price_precision)
+                    sl_price = round_to_tick_size(current_price * (1 + stop_loss_pct), tick_size)
+                    tp_price = round_to_tick_size(current_price * (1 - (stop_loss_pct * tp_ratio)), tick_size)
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
