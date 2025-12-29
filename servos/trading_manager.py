@@ -898,6 +898,7 @@ class AsyncTradingSession:
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
+        print(f"🔧 [DEBUG v2] execute_long_position called: {symbol}, ATR={atr}")  # VISIBLE LOG
         # Force-sync balance before checking limits (avoid stale ShadowWallet data)
         if self.bridge and 'BINANCE' in self.bridge.adapters:
             try:
@@ -1051,6 +1052,7 @@ class AsyncTradingSession:
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", skip_limits: bool = False) -> Tuple[bool, str]:
         """Execute a SHORT position asynchronously via Nexus Bridge (Refactored)."""
         
+        print(f"🔧 [DEBUG v2] execute_short_position called: {symbol}, ATR={atr}")  # VISIBLE LOG
         # Force-sync balance before checking limits (avoid stale ShadowWallet data)
         if self.bridge and 'BINANCE' in self.bridge.adapters:
             try:
