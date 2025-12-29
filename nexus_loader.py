@@ -312,10 +312,12 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             
         # --- FILTER: Group Enabled? ---
         if asset_group and not session.is_group_enabled(asset_group):
+            logger.debug(f"  ⏭️ {session.chat_id}: Group {asset_group} disabled")
             continue
             
         # --- FILTER: Blacklisted? ---
         if session.is_asset_disabled(symbol):
+            logger.debug(f"  ⏭️ {session.chat_id}: Asset {symbol} blacklisted")
             continue
             
         try:

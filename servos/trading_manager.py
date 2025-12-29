@@ -203,11 +203,15 @@ class AsyncTradingSession:
         # Per-symbol cooldown
         if spam_key in self._rejection_cache:
             if now - self._rejection_cache[spam_key] < 300:
+                remaining = int(300 - (now - self._rejection_cache[spam_key]))
+                self.logger.debug(f"🔇 {symbol}: Silenced ({remaining}s remaining)")
                 return False, "SILENT_REJECTION"
         
         # Global "Cupo lleno" cooldown (stop spamming many symbols at once)
         if global_key in self._rejection_cache:
             if now - self._rejection_cache[global_key] < 60: # 1 minute global silence
+                remaining = int(60 - (now - self._rejection_cache[global_key]))
+                self.logger.debug(f"🔇 Global silence active ({remaining}s remaining)")
                 return False, "SILENT_REJECTION"
 
         # 1. Max Open Positions

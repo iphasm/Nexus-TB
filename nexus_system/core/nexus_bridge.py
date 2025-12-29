@@ -128,23 +128,43 @@ class NexusBridge:
         return result
 
     def _route_symbol(self, symbol: str) -> str:
-        """Smart routing logic based on system_directive groups."""
+        """
+        Smart routing logic based on system_directive groups.
+        IMPORTANT: Only routes to an exchange if its adapter is connected!
+        """
         from system_directive import ASSET_GROUPS
         
-        # 1. Check Bybit Group
+        # 1. Check Bybit Group - BUT only if Bybit adapter is connected
         if symbol in ASSET_GROUPS.get('BYBIT', []):
-            return 'BYBIT'
+            if 'BYBIT' in self.adapters:
+                return 'BYBIT'
+            else:
+                # Bybit not connected, fallback to Binance for crypto
+                if 'BINANCE' in self.adapters:
+                    return 'BINANCE'
             
         # 2. Check Crypto (Binance) Group
         if symbol in ASSET_GROUPS.get('CRYPTO', []):
-            return 'BINANCE'
+            if 'BINANCE' in self.adapters:
+                return 'BINANCE'
+            # Fallback to Bybit if Binance not connected
+            if 'BYBIT' in self.adapters:
+                return 'BYBIT'
             
         # 3. Fallback: Rough check for stocks
         if 'USDT' not in symbol and 'USD' not in symbol:
-            return 'ALPACA'
+            if 'ALPACA' in self.adapters:
+                return 'ALPACA'
             
-        # 4. Ultimate Fallback
-        return self.primary_exchange
+        # 4. Ultimate Fallback - use primary if connected
+        if self.primary_exchange in self.adapters:
+            return self.primary_exchange
+        
+        # 5. Last resort - return first connected adapter
+        for name in self.adapters.keys():
+            return name
+        
+        return 'BINANCE'  # Default if nothing connected
 
     async def close_all(self):
         """Shutdown all connections."""
