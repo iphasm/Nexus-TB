@@ -2086,7 +2086,7 @@ async def cmd_icons(message: Message, **kwargs):
 # =================================================================
 # /net - Network & Connectivity Diagnostics
 # =================================================================
-@router.message(Command(F.text.regexp(r"^/net|^/ping")))
+@router.message(Command("net", "ping"))
 async def cmd_network_diag(message: Message, **kwargs):
     """
     Diagnostic command to check connectivity and latency to exchanges.
