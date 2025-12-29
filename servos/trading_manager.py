@@ -198,7 +198,7 @@ class AsyncTradingSession:
                 return False, "SILENT_REJECTION"
 
         # 1. Max Open Positions
-        max_pos = self.config.get('max_open_positions', 5)
+        max_pos = self.config.get('max_open_positions', 10)
         # Count only active positions (amt != 0)
         active_positions = [p for p in self.shadow_wallet.positions.values() if abs(float(p.get('quantity', 0) or p.get('amt', 0))) > 0]
         
