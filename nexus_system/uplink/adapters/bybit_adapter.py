@@ -37,6 +37,10 @@ class BybitAdapter(IExchangeAdapter):
     async def initialize(self, verbose: bool = False, **kwargs) -> bool:
         """Initialize Bybit V5 connection."""
         try:
+            # Clean credentials (strip whitespace/quotes)
+            self._api_key = self._api_key.strip().strip("'\"") if self._api_key else ''
+            self._api_secret = self._api_secret.strip().strip("'\"") if self._api_secret else ''
+            
             # Merge init kwargs with method kwargs
             config_options = {**self._proxy_config, **kwargs}
             

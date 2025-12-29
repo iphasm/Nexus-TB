@@ -104,7 +104,7 @@ class NexusCore:
         Monitors active positions in real-time to protect profits.
         """
         try:
-            sessions = self.session_manager.get_all_sessions().values()
+            sessions = self.session_manager.get_all_sessions()
             for session in sessions:
                 # Check if session has an active position in this symbol
                 positions = session.shadow_wallet.positions
