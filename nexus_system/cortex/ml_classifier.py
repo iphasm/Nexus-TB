@@ -75,138 +75,72 @@ class MLClassifier:
     def _extract_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
         """
         Extracts features from the dataframe for the model.
-        MUST match the training feature set (v3.1 - 21 features).
-        Returns DataFrame with named columns to avoid sklearn warning.
+        MUST match the training feature set (v3.2 - 79 features expandidas).
+        Uses the same pipeline as training: add_indicators() + add_all_new_features()
         """
         if df is None or df.empty or len(df) < 50:
             return None
-            
+
         try:
-            last = df.iloc[-1]
-            close = last.get('close', 1.0)
-            high = last.get('high', close)
-            low = last.get('low', close)
-            open_price = last.get('open', close)
-            
-            # === CORE FEATURES ===
-            rsi = last.get('rsi', 50)
-            adx = last.get('adx', 0)
-            atr = last.get('atr', 0)
-            atr_pct = (atr / close) * 100 if close > 0 else 0
-            
-            # Trend Strength
-            ema_20 = last.get('ema_20', close)
-            ema_50 = last.get('ema_50', close)
-            trend_str = (ema_20 - ema_50) / close * 100 if close > 0 else 0
-            
-            # Volume Change (rolling calculation)
-            vol = df['volume'].iloc[-5:].mean() if 'volume' in df.columns else 0
-            vol_20 = df['volume'].iloc[-20:].mean() if 'volume' in df.columns else 1
-            vol_change = (vol - vol_20) / (vol_20 + 1e-10)
-            
-            # === v3.0 FEATURES ===
-            
-            # MACD Histogram Normalized (Using pandas_ta directly)
-            macd_df = ta.macd(df['close'])
-            if macd_df is not None and len(macd_df.columns) >= 3:
-                macd_hist = macd_df.iloc[:, 2]  # MACDh column
-                macd_hist_norm = macd_hist.iloc[-1] / close * 100 if close > 0 else 0
-            else:
-                macd_hist_norm = 0
-            
-            # Bollinger Bands (Using pandas_ta directly)
-            bb = ta.bbands(df['close'], length=20, std=2.0)
-            if bb is not None and len(bb.columns) >= 5:
-                bb_width = bb.iloc[-1, 3]  # BBB (Bandwidth)
-                bb_pct = bb.iloc[-1, 4]    # BBP (Percent)
-            else:
-                bb_width = 0
-                bb_pct = 0.5
-            
-            # Rate of Change
-            close_5 = df['close'].iloc[-6] if len(df) > 5 else close
-            close_10 = df['close'].iloc[-11] if len(df) > 10 else close
-            roc_5 = (close - close_5) / close_5 * 100 if close_5 > 0 else 0
-            roc_10 = (close - close_10) / close_10 * 100 if close_10 > 0 else 0
-            
-            # OBV Change
-            obv_change = vol_change  # Simplified approximation
-            
-            # Price Position (20 period)
-            high_20 = df['high'].iloc[-20:].max() if 'high' in df.columns else high
-            low_20 = df['low'].iloc[-20:].min() if 'low' in df.columns else low
-            price_position = (close - low_20) / (high_20 - low_20 + 1e-10)
-            
-            # Candle Body Percentage
-            body_pct = abs(close - open_price) / (high - low + 1e-10)
-            
-            # Trend Direction (using pandas_ta EMA)
-            ema_200_val = calculate_ema(df['close'], period=200).iloc[-1] if len(df) >= 200 else ema_50
-            ema_9_val = calculate_ema(df['close'], period=9).iloc[-1]
-            above_ema200 = 1 if close > ema_200_val else 0
-            ema_cross = 1 if ema_9_val > ema_20 else 0
-            
-            # === NEW v3.1 FEATURES ===
-            
-            # EMA20 Slope (momentum direction)
-            ema_20_series = calculate_ema(df['close'], period=20)
-            ema20_current = ema_20_series.iloc[-1]
-            ema20_5back = ema_20_series.iloc[-6] if len(ema_20_series) > 5 else ema20_current
-            ema20_slope = (ema20_current - ema20_5back) / close * 100 if close > 0 else 0
-            
-            # MFI (Money Flow Index) - using pandas_ta
-            mfi_series = ta.mfi(df['high'], df['low'], df['close'], df['volume'], length=14)
-            mfi = mfi_series.iloc[-1] if mfi_series is not None and len(mfi_series) > 0 else 50
-            
-            # Distance to 50-period High/Low
-            high_50 = df['high'].iloc[-50:].max() if len(df) >= 50 and 'high' in df.columns else high
-            low_50 = df['low'].iloc[-50:].min() if len(df) >= 50 and 'low' in df.columns else low
-            dist_50_high = (close - high_50) / close * 100 if close > 0 else 0
-            dist_50_low = (close - low_50) / close * 100 if close > 0 else 0
-            
-            # Time-based features
-            if 'timestamp' in df.columns:
+            # Import functions from the organized ML module
+            try:
+                from src.ml.train_cortex import add_indicators
+                from src.ml.add_new_features import add_all_new_features
+            except ImportError:
+                # Fallback to compatibility imports
                 try:
-                    ts = df['timestamp'].iloc[-1]
-                    if hasattr(ts, 'hour'):
-                        hour_of_day = ts.hour
-                        day_of_week = ts.dayofweek
-                    else:
-                        hour_of_day = 12
-                        day_of_week = 2
-                except:
-                    hour_of_day = 12
-                    day_of_week = 2
-            else:
-                hour_of_day = 12
-                day_of_week = 2
-            
-            # Feature names MUST match training order (21 features for v3.1)
-            feature_names = [
+                    from compatibility_imports import fetch_data, add_indicators
+                    from compatibility_imports import add_all_new_features
+                except ImportError:
+                    # Last resort: calculate basic features only
+                    print("⚠️  ML features extraction failed - using basic features only")
+                    return cls._extract_basic_features(df)
+
+            # Apply the same feature engineering pipeline as training
+            df_with_indicators = add_indicators(df.copy())
+            df_with_all_features = add_all_new_features(df_with_indicators)
+
+            # Extract the feature columns that match training (X_cols from train_cortex.py)
+            X_cols = [
+                # Core (original)
                 'rsi', 'adx', 'atr_pct', 'trend_str', 'vol_change',
+                # v3.0 features
                 'macd_hist_norm', 'bb_pct', 'bb_width',
                 'roc_5', 'roc_10', 'obv_change',
                 'price_position', 'body_pct',
                 'above_ema200', 'ema_cross',
+                # NEW v3.1 features (reduce ATR dependence)
                 'ema20_slope', 'mfi', 'dist_50_high', 'dist_50_low',
-                'hour_of_day', 'day_of_week'
+                'hour_of_day', 'day_of_week',
+                # NEW v3.2 features (further reduce ATR dependence)
+                # Momentum features
+                'roc_21', 'roc_50', 'williams_r', 'cci', 'ultimate_osc',
+                # Volume features
+                'volume_roc_5', 'volume_roc_21', 'chaikin_mf', 'force_index', 'ease_movement',
+                # Structure features
+                'dist_sma20', 'dist_sma50', 'pivot_dist', 'fib_dist',
+                # Correlation features
+                'morning_volatility', 'afternoon_volatility', 'gap_up', 'gap_down', 'range_change',
+                # Sentiment features
+                'bull_power', 'bear_power', 'momentum_div', 'vpt', 'intraday_momentum'
             ]
-            
-            feature_values = [
-                rsi, adx, atr_pct, trend_str, vol_change,
-                macd_hist_norm, bb_pct, bb_width,
-                roc_5, roc_10, obv_change,
-                price_position, body_pct,
-                above_ema200, ema_cross,
-                ema20_slope, mfi, dist_50_high, dist_50_low,
-                hour_of_day, day_of_week
-            ]
-            
-            # Return as DataFrame with named columns (fixes sklearn warning)
-            features_df = pd.DataFrame([feature_values], columns=feature_names)
-            
-            # Replace NaNs and Infs
-            features_df = features_df.replace([np.inf, -np.inf], 0).fillna(0)
+
+            # Filter to available features (some may not be calculated if data is insufficient)
+            available_features = [col for col in X_cols if col in df_with_all_features.columns]
+
+            if len(available_features) < len(X_cols):
+                missing = [col for col in X_cols if col not in df_with_all_features.columns]
+                print(f"⚠️  Missing features during inference: {len(missing)} features")
+                print(f"   Missing: {missing[:5]}..." if len(missing) > 5 else f"   Missing: {missing}")
+
+            if not available_features:
+                print("❌ No features available for inference")
+                return None
+
+            # Return the feature vector (last row only, as numpy array)
+            features_df = df_with_all_features[available_features].iloc[-1:].copy()
+
+            return features_df
             
             return features_df
             
@@ -286,5 +220,60 @@ class MLClassifier:
             
         except Exception as e:
             print(f"⚠️ ML Inference Error: {e}")
+            return None
+
+    @staticmethod
+    def _extract_basic_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+        """
+        Fallback feature extraction with basic features only.
+        Used when expanded feature extraction fails.
+        """
+        if df is None or df.empty or len(df) < 50:
+            return None
+
+        try:
+            last = df.iloc[-1]
+            close = last.get('close', 1.0)
+            high = last.get('high', close)
+            low = last.get('low', close)
+            open_price = last.get('open', close)
+
+            # Basic features only (subset of training features)
+            features_dict = {
+                'rsi': last.get('rsi', 50),
+                'adx': last.get('adx', 0),
+                'atr_pct': (last.get('atr', 0) / close) * 100 if close > 0 else 0,
+                'trend_str': 0,  # Will be calculated if EMAs available
+                'vol_change': 0,  # Simplified
+                'macd_hist_norm': 0,
+                'bb_pct': 0.5,
+                'bb_width': 0,
+                'roc_5': 0,
+                'roc_10': 0,
+                'obv_change': 0,
+                'price_position': 0.5,
+                'body_pct': abs(close - open_price) / (high - low + 1e-10),
+                'above_ema200': 0,
+                'ema_cross': 0,
+                'ema20_slope': 0,
+                'mfi': 50,
+                'dist_50_high': 0,
+                'dist_50_low': 0,
+                'hour_of_day': 12,
+                'day_of_week': 0
+            }
+
+            # Calculate trend_str if EMAs are available
+            if 'ema_20' in last and 'ema_50' in last:
+                ema_20 = last.get('ema_20', close)
+                ema_50 = last.get('ema_50', close)
+                features_dict['trend_str'] = (ema_20 - ema_50) / close * 100 if close > 0 else 0
+
+            # Create DataFrame with single row
+            features_df = pd.DataFrame([features_dict])
+            return features_df
+
+        except Exception as e:
+            print(f"❌ Error in basic feature extraction: {e}")
             return None
 
