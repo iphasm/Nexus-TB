@@ -218,8 +218,10 @@ def walk_forward_validation(df, feature_names, label_encoder, n_splits=5):
         wf_accuracy_std = np.std(accuracies)
         wf_atr_avg = np.mean(atr_importances)
 
-        log_progress("
-🎯 RESULTADOS WALK-FORWARD:"        log_progress(".3f"        log_progress(".3f"        log_progress(".1f"
+        log_progress("\n🎯 RESULTADOS WALK-FORWARD:")
+        log_progress(".3f")
+        log_progress(".3f")
+        log_progress(".1f")
         # Análisis de estabilidad
         if wf_accuracy_std < 0.05:
             stability = "🔒 MUY ESTABLE"
@@ -299,8 +301,8 @@ def analyze_walk_forward_results(results):
     log_progress(f"🎯 Dependencia ATR: {atr_msg}")
 
     # Reporte de clasificación detallado
-    log_progress("
-📋 REPORTE DE CLASIFICACIÓN DETALLADO:"    from sklearn.metrics import classification_report
+    log_progress("\n📋 REPORTE DE CLASIFICACIÓN DETALLADO:")
+    from sklearn.metrics import classification_report
     report = classification_report(
         results['actuals'],
         results['predictions'],
@@ -359,11 +361,13 @@ def main():
 
             # Resumen final
             total_time = time.time() - start_time
-            print("
-" + "=" * 70)
+            print("\n" + "=" * 70)
             print("✅ VALIDACIÓN WALK-FORWARD COMPLETADA")
             print("=" * 70)
-            print(".1f"            print(".3f"            print(".1f"            print(f"📁 Resultados guardados: {saved_file}")
+            print(".1f")
+            print(".3f")
+            print(".1f")
+            print(f"📁 Resultados guardados: {saved_file}")
 
             if results['overall_accuracy'] > 0.55 and results['atr_importance_avg'] < 25:
                 print("🏆 RESULTADO: Modelo EXCELENTE para producción")

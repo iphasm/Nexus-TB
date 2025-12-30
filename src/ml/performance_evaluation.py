@@ -111,7 +111,7 @@ def evaluate_model_robustness(model_data, eval_df):
 
     # Evaluación básica
     accuracy = accuracy_score(y_encoded, predictions)
-    log_progress(".3f"
+    log_progress(".3f")
     # Reporte detallado
     report = classification_report(
         y_encoded, predictions,
@@ -222,12 +222,13 @@ def generate_performance_report(results, market_analysis, confidence_analysis):
     print("=" * 80)
 
     # Rendimiento general
-    print("
-📊 RENDIMIENTO GENERAL:"    print(".3f"    print(f"   • Estrategias analizadas: {len(results['strategy_analysis'])}")
+    print("\n📊 RENDIMIENTO GENERAL:")
+    print(".3f")
+    print(f"   • Estrategias analizadas: {len(results['strategy_analysis'])}")
 
     # Análisis por estrategia
-    print("
-🎯 RENDIMIENTO POR ESTRATEGIA:"    print("   Estrategia    | Accuracy | Precision | Recall | F1-Score | Muestras")
+    print("\n🎯 RENDIMIENTO POR ESTRATEGIA:")
+    print("   Estrategia    | Accuracy | Precision | Recall | F1-Score | Muestras")
     print("   --------------|----------|-----------|--------|----------|----------")
 
     for strategy, metrics in results['strategy_analysis'].items():
@@ -235,8 +236,8 @@ def generate_performance_report(results, market_analysis, confidence_analysis):
 
     # Análisis por condiciones de mercado
     if market_analysis:
-        print("
-🌍 RENDIMIENTO POR CONDICIONES DE MERCADO:"        print("   Condición          | Accuracy | Muestras")
+        print("\n🌍 RENDIMIENTO POR CONDICIONES DE MERCADO:")
+        print("   Condición          | Accuracy | Muestras")
         print("   -------------------|----------|----------")
 
         for condition, data in market_analysis.items():
@@ -244,8 +245,8 @@ def generate_performance_report(results, market_analysis, confidence_analysis):
 
     # Análisis de confianza
     if confidence_analysis:
-        print("
-🎖️  RENDIMIENTO POR NIVEL DE CONFIANZA:"        print("   Confianza | Accuracy | Muestras | Porcentaje")
+        print("\n🎖️  RENDIMIENTO POR NIVEL DE CONFIANZA:")
+        print("   Confianza | Accuracy | Muestras | Porcentaje")
         print("   ----------|----------|----------|------------")
 
         for conf_level, data in confidence_analysis.items():
@@ -268,15 +269,15 @@ def generate_performance_report(results, market_analysis, confidence_analysis):
         final_rating = "❌ MEJORABLE - Requiere optimizaciones adicionales"
         confidence_level = "❌ Confianza baja"
 
-    print("
-🎖️  EVALUACIÓN FINAL:"    print(f"   📊 Rendimiento general: {final_rating}")
+    print("\n🎖️  EVALUACIÓN FINAL:")
+    print(f"   📊 Rendimiento general: {final_rating}")
     print(f"   🎯 Nivel de confianza: {confidence_level}")
     print(f"   📈 Accuracy promedio: {overall_acc:.1f}%")
     print(f"   🏆 Mejor estrategia: {best_strategy_acc:.1f}%")
 
     # Recomendaciones
-    print("
-💡 RECOMENDACIONES:"    if overall_acc < 0.55:
+    print("\n💡 RECOMENDACIONES:")
+    if overall_acc < 0.55:
         print("   • Considerar agregar más features técnicas")
         print("   • Revisar balance de clases en el dataset")
         print("   • Experimentar con diferentes hiperparámetros")
@@ -291,8 +292,8 @@ def generate_performance_report(results, market_analysis, confidence_analysis):
             print("   • Rendimiento variable por condiciones de mercado")
             print("   • Considerar modelos adaptativos por régimen de mercado")
 
-    print("
-✅ EVALUACIÓN COMPLETADA"    print("=" * 80)
+    print("\n✅ EVALUACIÓN COMPLETADA")
+    print("=" * 80)
 
 def save_performance_results(results, market_analysis, confidence_analysis, filename="performance_results.pkl"):
     """Guarda resultados de evaluación de rendimiento"""
@@ -342,7 +343,7 @@ def main():
 
         # Tiempo total
         total_time = time.time() - start_time
-        log_progress(".1f"
+        log_progress(".1f")
     except Exception as e:
         log_progress(f"❌ Error en evaluación de rendimiento: {e}", "ERROR")
         import traceback
