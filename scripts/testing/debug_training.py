@@ -53,7 +53,7 @@ def test_config():
     print(f"  {test_symbol} is crypto: {is_crypto_result}", flush=True)
 
 def test_data_fetch():
-    from train_cortex import fetch_data
+    from src.ml.train_cortex import fetch_data
     from system_directive import is_crypto
     import time
 

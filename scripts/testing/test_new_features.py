@@ -2,8 +2,8 @@
 """
 Test para verificar que las nuevas features se agregan correctamente
 """
-from train_cortex import fetch_data, add_indicators
-from add_new_features import add_all_new_features
+from src.ml.train_cortex import fetch_data, add_indicators
+from src.ml.add_new_features import add_all_new_features
 
 def test_new_features():
     print("=" * 60)

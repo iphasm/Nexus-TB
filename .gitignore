@@ -25,16 +25,18 @@ data/sessions.json
 *.log
 backtest_results.txt
 
-# ML Model (old path - too large for GitHub)
-# Legacy: antigravity_quantum/data/ml_model.pkl (deprecated)
-# Allow nexus_system ML models to be committed
+# ML Models (organized structure)
+# Allow models in both locations for compatibility
 !nexus_system/memory_archives/ml_model.pkl
 !nexus_system/memory_archives/scaler.pkl
+!models/ml_model.pkl
+!models/scaler.pkl
 
-# Test outputs
+# Test outputs and temporary logs
 test_output.txt
 test_live_output.txt
 training_output.txt
+temp_logs/
 
 # OS
 .DS_Store

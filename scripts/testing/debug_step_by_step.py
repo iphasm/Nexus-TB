@@ -60,7 +60,7 @@ def step_system_config():
 def step_single_fetch():
     """Test single data fetch"""
     print("  Testing single data fetch...", end=" ", flush=True)
-    from train_cortex import fetch_data
+    from src.ml.train_cortex import fetch_data
     df = fetch_data("BTCUSDT", max_candles=100, verbose=True)
     if df is not None and not df.empty:
         print(f"✅ {len(df)} rows fetched", flush=True)
@@ -72,7 +72,7 @@ def step_single_fetch():
 def step_multiple_fetch():
     """Test multiple data fetch"""
     print("  Testing multiple data fetch (2 symbols)...", end=" ", flush=True)
-    from train_cortex import fetch_data
+    from src.ml.train_cortex import fetch_data
     symbols = ["BTCUSDT", "ETHUSDT"]
 
     for symbol in symbols:
@@ -93,7 +93,7 @@ def step_multiple_fetch():
 def step_indicators():
     """Test indicator calculation"""
     print("  Testing indicator calculation...", end=" ", flush=True)
-    from train_cortex import fetch_data, add_indicators
+    from src.ml.train_cortex import fetch_data, add_indicators
 
     df = fetch_data("BTCUSDT", max_candles=200, verbose=False)
     if df is None or df.empty:
@@ -110,7 +110,7 @@ def step_indicators():
 def step_new_features():
     """Test new feature addition"""
     print("  Testing new features addition...", end=" ", flush=True)
-    from train_cortex import fetch_data, add_indicators
+    from src.ml.train_cortex import fetch_data, add_indicators
     from add_new_features import add_all_new_features
 
     df = fetch_data("BTCUSDT", max_candles=200, verbose=False)
@@ -131,7 +131,7 @@ def step_new_features():
 def step_data_processing():
     """Test data processing pipeline"""
     print("  Testing data processing pipeline...", end=" ", flush=True)
-    from train_cortex import fetch_data, add_indicators
+    from src.ml.train_cortex import fetch_data, add_indicators
     from add_new_features import add_all_new_features
 
     symbols = ["BTCUSDT", "ETHUSDT"]

@@ -18,7 +18,7 @@ if "%choice%"=="1" (
     echo 🚀 Ejecutando Validación Walk-Forward...
     echo 💡 Esta evaluación puede tomar 5-15 minutos
     echo.
-    python walk_forward_validation.py
+    python src/ml/walk_forward_validation.py
     goto end
 )
 
@@ -27,7 +27,7 @@ if "%choice%"=="2" (
     echo 🚀 Ejecutando Evaluación de Rendimiento...
     echo 💡 Esta evaluación puede tomar 3-8 minutos
     echo.
-    python performance_evaluation.py
+    python src/ml/performance_evaluation.py
     goto end
 )
 
@@ -37,10 +37,10 @@ if "%choice%"=="3" (
     echo 💡 Ambas evaluaciones pueden tomar 10-25 minutos
     echo.
     echo Paso 1: Validación Walk-Forward
-    python walk_forward_validation.py
+    python src/ml/walk_forward_validation.py
     echo.
     echo Paso 2: Evaluación de Rendimiento
-    python performance_evaluation.py
+    python src/ml/performance_evaluation.py
     goto end
 )
 
@@ -49,7 +49,7 @@ if "%choice%"=="4" (
     echo 🚀 Ejecutando análisis rápido...
     echo 💡 Análisis básico del modelo actual
     echo.
-    python analyze_features.py
+    python src/ml/analyze_features.py
     goto end
 )
 
