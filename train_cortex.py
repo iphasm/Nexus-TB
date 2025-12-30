@@ -10,6 +10,9 @@ ML Model Training Script v3.1 - XGBoost with Enhanced Features
 import asyncio
 import os
 import sys
+import time
+import signal
+import logging
 import joblib
 import pandas as pd
 import numpy as np
@@ -22,11 +25,54 @@ from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.metrics import classification_report
 from binance.client import Client
 import warnings
+import requests
 warnings.filterwarnings('ignore')
 
 import yfinance as yf
 from system_directive import get_all_assets, is_crypto
 import pandas_ta as ta
+from add_new_features import add_all_new_features
+
+# Configure logging with timeout awareness
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Global timeout and retry settings
+REQUEST_TIMEOUT = 30  # seconds for HTTP requests
+MAX_RETRIES = 3  # maximum retry attempts
+BATCH_SIZE = 5  # Process symbols in small batches to avoid overwhelming APIs
+
+# Global flag for interruption handling
+interrupted = False
+
+def signal_handler(signum, frame):
+    """Handle Ctrl+C interruption gracefully"""
+    global interrupted
+    interrupted = True
+    logger.warning("⚠️  Interrupción detectada (Ctrl+C). Finalizando operaciones pendientes...")
+    print("\n⚠️  Operación interrumpida por el usuario. Esperando finalización limpia...", flush=True)
+
+
+def log_progress(message, start_time=None, phase="", force_flush=True):
+    """Enhanced logging with timestamps and elapsed time."""
+    current_time = time.time()
+    timestamp = time.strftime("%H:%M:%S", time.localtime(current_time))
+
+    if start_time:
+        elapsed = current_time - start_time
+        time_str = f"[{elapsed:.1f}s]"
+    else:
+        time_str = ""
+
+    if phase:
+        output = f"[{timestamp}] {phase} {message} {time_str}"
+    else:
+        output = f"[{timestamp}] {message} {time_str}"
+
+    print(output, flush=force_flush)
+    # Force flush stdout on Windows
+    if force_flush:
+        sys.stdout.flush()
 
 
 # Configuration
@@ -45,65 +91,110 @@ STRATEGY_PARAMS = {
 }
 
 
-def fetch_data(symbol, max_candles=35000):
-    """Fetches historical data from Binance (Crypto) or YFinance (Stocks)."""
-    # print(f"📥 Fetching data for {symbol}...")
-    
-    if is_crypto(symbol):
-        try:
-            client = Client()
-            all_klines = []
-            limit_per_request = 1500
-            end_time = None
-            
-            while len(all_klines) < max_candles:
-                if end_time:
-                    klines = client.futures_klines(
-                        symbol=symbol, interval=INTERVAL, 
-                        limit=limit_per_request, endTime=end_time
-                    )
-                else:
-                    klines = client.futures_klines(
-                        symbol=symbol, interval=INTERVAL, limit=limit_per_request
-                    )
-                
-                if not klines:
-                    break
-                all_klines = klines + all_klines
-                end_time = klines[0][0] - 1
-                if len(klines) < limit_per_request:
-                    break
-            
-            df = pd.DataFrame(all_klines[:max_candles], columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume', 
-                'close_time', 'quote_asset_volume', 'trades', 
-                'taker_buy_base', 'taker_buy_quote', 'ignore'
-            ])
-            df = df.astype(float)
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            df = df.sort_values('timestamp').reset_index(drop=True)
-            return df
-        except Exception as e:
-            print(f"   ⚠️ Binance error for {symbol}: {e}")
+def fetch_data_with_timeout(symbol, max_candles=35000, verbose=False):
+    """Fetches historical data with simple timeout handling."""
+    global interrupted
+
+    if interrupted:
+        if verbose:
+            print(f"  ⚠️  Fetch interrumpido para {symbol}", flush=True)
+        return None
+
+    try:
+        if verbose:
+            print(f"  📡 Conectando a API para {symbol}...", flush=True)
+
+        start_time = time.time()
+
+        if is_crypto(symbol):
+            return fetch_crypto_data(symbol, max_candles, verbose, start_time)
+        else:
+            return fetch_stock_data(symbol, max_candles, verbose, start_time)
+
+    except Exception as e:
+        if verbose:
+            print(f"  ❌ Error en {symbol}: {str(e)}", flush=True)
+        return None
+
+def fetch_crypto_data(symbol, max_candles, verbose, start_time):
+    """Fetch crypto data from Binance."""
+    global interrupted
+
+    try:
+        if verbose:
+            print(f"  🔧 Creando cliente Binance...", flush=True)
+
+        client = Client()
+
+        if verbose:
+            print(f"  📊 Descargando datos de {symbol}...", flush=True)
+
+        # Single request for simplicity
+        klines = client.futures_klines(
+            symbol=symbol,
+            interval=INTERVAL,
+            limit=min(max_candles, 1500)  # Limit to max 1500 per request
+        )
+
+        if verbose:
+            print(f"  ✅ Recibidos {len(klines)} registros de {symbol}", flush=True)
+
+        # Process data
+        df = pd.DataFrame(klines, columns=[
+            'timestamp', 'open', 'high', 'low', 'close', 'volume',
+            'close_time', 'quote_asset_volume', 'trades',
+            'taker_buy_base', 'taker_buy_quote', 'ignore'
+        ])
+        df = df.astype(float)
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df = df.sort_values('timestamp').reset_index(drop=True)
+
+        return df
+
+    except Exception as e:
+        if verbose:
+            print(f"  ❌ Error en Binance para {symbol}: {str(e)}", flush=True)
+        return None
+
+def fetch_stock_data(symbol, max_candles, verbose, start_time):
+    """Fetch stock data from Yahoo Finance."""
+    try:
+        if verbose:
+            print(f"  📊 Descargando datos de Yahoo Finance para {symbol}...", flush=True)
+
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="59d", interval="15m")
+
+        if df.empty:
+            if verbose:
+                print(f"  ❌ {symbol}: Yahoo Finance retornó datos vacíos", flush=True)
             return None
-    else:
-        try:
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period="59d", interval="15m")
-            if df.empty:
-                return None
-            df.reset_index(inplace=True)
-            df.rename(columns={
-                'Date': 'timestamp', 'Datetime': 'timestamp',
-                'Open': 'open', 'High': 'high', 'Low': 'low', 
-                'Close': 'close', 'Volume': 'volume'
-            }, inplace=True)
-            if df['timestamp'].dt.tz is not None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
-            return df
-        except Exception as e:
-            print(f"   ⚠️ YFinance error for {symbol}: {e}")
-            return None
+
+        if verbose:
+            print(f"  ✅ {symbol}: {len(df)} filas descargadas", flush=True)
+
+        # Process the data
+        df.reset_index(inplace=True)
+        df.rename(columns={
+            'Date': 'timestamp', 'Datetime': 'timestamp',
+            'Open': 'open', 'High': 'high', 'Low': 'low',
+            'Close': 'close', 'Volume': 'volume'
+        }, inplace=True)
+
+        if df['timestamp'].dt.tz is not None:
+            df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+
+        return df
+
+    except Exception as e:
+        if verbose:
+            print(f"  ❌ Error en Yahoo Finance para {symbol}: {str(e)}", flush=True)
+        return None
+
+# Alias for backward compatibility
+def fetch_data(symbol, max_candles=35000, verbose=False):
+    """Legacy function - redirects to timeout-aware version."""
+    return fetch_data_with_timeout(symbol, max_candles, verbose)
 
 
 def calculate_adx(df, period=14):
@@ -370,6 +461,10 @@ def label_data_v3(df):
     # Remove last 25 rows (no future data)
     df = df.iloc[:-25].copy()
     df.dropna(inplace=True)
+
+    # Add new features to reduce ATR dependence
+    df = add_all_new_features(df)
+
     return df
 
 
@@ -378,63 +473,190 @@ def train():
     CYAN = "\033[36m"
     GREEN = "\033[32m"
     RED = "\033[31m"
+    YELLOW = "\033[33m"
+    MAGENTA = "\033[35m"
     RESET = "\033[0m"
 
-    print(f"{CYAN}=" * 60)
-    print("🧠 NEXUS CORTEX TRAINING v3.1 - Interactive Mode")
-    print("=" * 60 + f"{RESET}")
-    
+    # Setup signal handling for graceful interruption
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Start timing
+    total_start_time = time.time()
+    logger.info("🚀 Iniciando proceso de entrenamiento ML")
+
+    print("=" * 70, flush=True)
+    print("🧠 NEXUS CORTEX TRAINING v3.1 - Enhanced Progress Mode", flush=True)
+    print("=" * 70, flush=True)
+    print(f"⏰ Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+    print(f"💻 Platform: {sys.platform}", flush=True)
+    print(f"🐍 Python: {sys.version.split()[0]}", flush=True)
+    print("", flush=True)
+    log_progress("🔧 Verificando dependencias del sistema...", total_start_time)
+
+    # Test basic imports before proceeding
+    try:
+        import pandas as pd
+        import numpy as np
+        import xgboost
+        from binance.client import Client
+        from system_directive import get_all_assets, is_crypto
+        print("✅ Todas las dependencias cargadas correctamente", flush=True)
+    except ImportError as e:
+        print(f"❌ Error de importación crítica: {e}", flush=True)
+        print("🔧 Verifica que todas las librerías estén instaladas: pip install -r requirements.txt", flush=True)
+        return
+    except Exception as e:
+        print(f"❌ Error inesperado en carga de dependencias: {e}", flush=True)
+        return
+
+    log_progress("📊 Cargando configuración de activos...", total_start_time)
+
+    # Test symbol configuration
+    try:
+        test_symbols = get_all_assets()
+        print(f"✅ Configuración de {len(test_symbols)} símbolos cargada", flush=True)
+    except Exception as e:
+        print(f"❌ Error cargando configuración de símbolos: {e}", flush=True)
+        return
+
+    log_progress("🚀 Iniciando proceso de entrenamiento ML", total_start_time)
+
     # Parse Arguments
-    parser = argparse.ArgumentParser(description='Nexus Cortex Trainer')
-    parser.add_argument('--candles', type=str, default='35000', help='Number of candles to analyze')
-    parser.add_argument('--auto', action='store_true', help='Run in non-interactive mode (skip pauses)')
+    log_progress("⚙️ Procesando argumentos de línea de comandos...", total_start_time)
+    parser = argparse.ArgumentParser(description='Nexus Cortex Trainer - Enhanced ML Training with Real-time Progress')
+    parser.add_argument('--candles', type=str, default='15000',
+                       help='Number of 15m candles to analyze (default: 15000 = ~15.6 days)')
+    parser.add_argument('--interactive', action='store_true',
+                       help='Run in interactive mode (ask for input instead of using defaults)')
+    parser.add_argument('--verbose', action='store_true',
+                       help='Extra verbose output with additional debugging info')
+    parser.add_argument('--symbols', type=int, default=None,
+                       help='Limit number of symbols to process (for testing)')
     args = parser.parse_args()
 
-    # Interactive Input (Only if not auto and candles default)
-    if not args.auto:
-        try:
-            user_input = input(f"⚡ Cantidad de velas a analizar? [Default {args.candles}]: ").strip()
-            max_candles = int(user_input) if user_input else int(args.candles)
-        except ValueError:
-            print(f"{RED}⚠️ Entrada inválida, usando default {args.candles}.{RESET}")
-            max_candles = int(args.candles)
-    else:
-        max_candles = int(args.candles)
+    print(f"📋 Argumentos parseados: candles={args.candles}, interactive={args.interactive}, symbols={args.symbols}", flush=True)
 
-    print(f"📊 Symbols: {len(SYMBOLS)}")
-    print(f"🕯️ Candles: {max_candles}")
-    print(f"⏰ Interval: {INTERVAL}")
-    
+    # Force flush output to ensure real-time display on Windows
+    sys.stdout.flush()
+
+    # Validate candles parameter
+    try:
+        max_candles = int(args.candles)
+        if max_candles < 1000:
+            print(f"{YELLOW}⚠️  Advertencia: {max_candles} velas es muy poco. Recomendado: mínimo 5000{RESET}", flush=True)
+        elif max_candles > 50000:
+            print(f"{YELLOW}⚠️  Advertencia: {max_candles} velas es mucho. Puede tomar mucho tiempo{RESET}", flush=True)
+    except ValueError:
+        print(f"{RED}❌ Error: '{args.candles}' no es un número válido{RESET}", flush=True)
+        max_candles = 15000
+
+    # Limit symbols if specified (for testing)
+    global SYMBOLS
+    if args.symbols:
+        SYMBOLS = SYMBOLS[:args.symbols]
+        print(f"{YELLOW}🧪 MODO TEST: Limitando a {args.symbols} símbolos{RESET}", flush=True)
+
+    # Interactive Input (Only if explicitly requested)
+    if args.interactive:
+        try:
+            user_input = input(f"⚡ Cantidad de velas a analizar? [Default {max_candles}]: ").strip()
+            if user_input:
+                max_candles = int(user_input)
+                print(f"{GREEN}✅ Usando {max_candles} velas por símbolo{RESET}", flush=True)
+        except ValueError:
+            print(f"{RED}⚠️ Entrada inválida, usando {max_candles}.{RESET}", flush=True)
+
+    # Show final configuration
+    days_estimate = max_candles * 15 / (60 * 24)  # 15min candles to days
+    log_progress(f"📊 Configuración final: {len(SYMBOLS)} símbolos, {max_candles} velas (≈{days_estimate:.1f} días), {INTERVAL} intervalo")
+    print(f"🕯️ Velas por símbolo: {max_candles:,} (≈{days_estimate:.1f} días de datos)", flush=True)
+    print(f"📈 Símbolos a procesar: {len(SYMBOLS)}", flush=True)
+    if args.verbose:
+        print(f"🔧 Modo verbose activado", flush=True)
+    print("", flush=True)
+    print(f"⏰ Intervalo temporal: {INTERVAL}")
+
     all_data = []
+    data_collection_start = time.time()
+    log_progress("📥 FASE 1: Descarga de datos históricos", data_collection_start, "📥")
     
-    # Progress bar for downloading
-    with tqdm(total=len(SYMBOLS), desc="Downloading Data", unit="sym") as pbar:
-        for symbol in SYMBOLS:
+    # Progress bar for downloading with enhanced progress and timeout handling
+    total_symbols = len(SYMBOLS)
+    symbols_processed = 0
+    successful_downloads = 0
+
+    log_progress(f"Iniciando descarga de {total_symbols} símbolos en lotes de {BATCH_SIZE}...", data_collection_start)
+
+    # Process symbols in batches to avoid overwhelming APIs
+    symbol_batches = [SYMBOLS[i:i + BATCH_SIZE] for i in range(0, len(SYMBOLS), BATCH_SIZE)]
+
+    with tqdm(total=total_symbols, desc="📥 Descargando Datos", unit="sym",
+              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
+
+        for batch_idx, batch in enumerate(symbol_batches):
+            if interrupted:
+                logger.warning("⚠️  Descarga interrumpida por el usuario")
+                break
+
+            log_progress(f"Procesando lote {batch_idx + 1}/{len(symbol_batches)}: {len(batch)} símbolos", data_collection_start)
+
+            for symbol in batch:
+                if interrupted:
+                    break
+
+                symbol_start_time = time.time()
+                log_progress(f"Descargando {symbol}...", symbol_start_time, f"📊 [{symbols_processed+1}/{total_symbols}]")
             try:
-                # Use interactive max_candles
-                df = fetch_data(symbol, max_candles=max_candles)
-                
+                log_progress(f"Descargando {symbol}...", symbol_start_time, f"📊 [{symbols_processed+1}/{total_symbols}]")
+
+                # Use interactive max_candles with verbose output
+                verbose_fetch = args.verbose or args.interactive
+                df = fetch_data(symbol, max_candles=max_candles, verbose=verbose_fetch)
+
                 if df is not None and not df.empty:
+                    log_progress(f"Calculando indicadores técnicos para {symbol}...", symbol_start_time)
                     df = add_indicators(df)
+
+                    log_progress(f"Simulando trades y etiquetando datos para {symbol}...", symbol_start_time)
                     df = label_data_v3(df)
+
                     if len(df) > 100:
                         all_data.append(df)
-                        pbar.set_postfix_str(f"{GREEN}✓ {symbol}{RESET}")
+                        successful_downloads += 1
+                        pbar.set_postfix_str(f"{GREEN}✓ {symbol} ({len(df)} muestras){RESET}")
+                        log_progress(f"✅ {symbol} completado - {len(df)} muestras válidas", symbol_start_time)
                     else:
-                        pbar.set_postfix_str(f"{RED}⚠ {symbol} (No Data){RESET}")
+                        pbar.set_postfix_str(f"{YELLOW}⚠ {symbol} (Datos insuficientes){RESET}")
+                        log_progress(f"⚠️ {symbol} - Datos insuficientes ({len(df)} muestras)", symbol_start_time)
                 else:
-                    pbar.set_postfix_str(f"{RED}✗ {symbol}{RESET}")
+                    pbar.set_postfix_str(f"{RED}✗ {symbol} (Sin datos){RESET}")
+                    log_progress(f"❌ {symbol} - Error en descarga", symbol_start_time)
+
             except Exception as e:
-                pbar.set_postfix_str(f"{RED}Error {symbol}{RESET}")
-            
+                pbar.set_postfix_str(f"{RED}💥 {symbol} (Error){RESET}")
+                log_progress(f"💥 Error procesando {symbol}: {str(e)[:50]}...", symbol_start_time)
+
+            symbols_processed += 1
             pbar.update(1)
-            
+
+    data_collection_time = time.time() - data_collection_start
+    log_progress(f"✅ FASE 1 completada en {data_collection_time:.1f}s", data_collection_start)
+    log_progress(f"📊 Resultados: {successful_downloads}/{total_symbols} símbolos exitosos")
+
     if not all_data:
+        log_progress("❌ ERROR CRÍTICO: No se pudo recolectar datos de ningún símbolo", data_collection_start)
         print(f"\n{RED}❌ No data collected.{RESET}")
         return
 
+    # FASE 2: Preparación de datos
+    data_prep_start = time.time()
+    log_progress("🔧 FASE 2: Preparación y preprocesamiento de datos", data_prep_start, "🔧")
+
+    log_progress("Uniendo datasets de todos los símbolos...", data_prep_start)
     full_df = pd.concat(all_data, ignore_index=True)
-    
+
+    log_progress(f"✅ Dataset consolidado: {len(full_df):,} filas totales", data_prep_start)
+
     # EXTENDED FEATURE SET for v3.1 (21 features)
     X_cols = [
         # Core (original)
@@ -446,42 +668,73 @@ def train():
         'above_ema200', 'ema_cross',
         # NEW v3.1 features (reduce ATR dependence)
         'ema20_slope', 'mfi', 'dist_50_high', 'dist_50_low',
-        'hour_of_day', 'day_of_week'
+        'hour_of_day', 'day_of_week',
+        # NEW v3.2 features (further reduce ATR dependence)
+        # Momentum features
+        'roc_21', 'roc_50', 'williams_r', 'cci', 'ultimate_osc',
+        # Volume features
+        'volume_roc_5', 'volume_roc_21', 'chaikin_mf', 'force_index', 'ease_movement',
+        # Structure features
+        'dist_sma20', 'dist_sma50', 'pivot_dist', 'fib_dist',
+        # Correlation features
+        'morning_volatility', 'afternoon_volatility', 'gap_up', 'gap_down', 'range_change',
+        # Sentiment features
+        'bull_power', 'bear_power', 'momentum_div', 'vpt', 'intraday_momentum'
     ]
-    
+
+    log_progress(f"Seleccionando {len(X_cols)} features del dataset...", data_prep_start)
     X = full_df[X_cols]
     y = full_df['target']
-    
-    print()
-    print("=" * 60)
-    print(f"📊 Total samples: {len(X)}")
+
+    print(f"\n{YELLOW}{'='*70}")
+    print(f"📊 ESTADÍSTICAS DEL DATASET:")
+    print(f"{'='*70}{RESET}")
+    print(f"📊 Total muestras: {len(X):,}")
     print(f"📈 Features: {len(X_cols)}")
-    print(f"📈 Class distribution:")
+    print(f"🎯 Estrategias disponibles: {y.nunique()}")
+    print(f"📈 Distribución de clases:")
     for label, count in y.value_counts().items():
         pct = count / len(y) * 100
-        print(f"   • {label}: {count} ({pct:.1f}%)")
+        bar = "█" * int(pct / 2)  # Visual bar
+        print(f"   • {label:8}: {count:>8,} ({pct:5.1f}%) {bar}")
     print()
+
+    # Check for data quality
+    missing_data = X.isnull().sum().sum()
+    if missing_data > 0:
+        log_progress(f"⚠️ Detectados {missing_data} valores faltantes - serán tratados", data_prep_start)
+    else:
+        log_progress("✅ No se detectaron valores faltantes en el dataset", data_prep_start)
     
-    # Encode labels for XGBoost
+    # FASE 3: Preprocesamiento de features
+    preprocessing_start = time.time()
+    log_progress("🔄 FASE 3: Preprocesamiento y transformación de datos", preprocessing_start, "🔄")
+
+    log_progress("Codificando etiquetas de estrategia...", preprocessing_start)
     label_encoder = LabelEncoder()
     y_encoded = label_encoder.fit_transform(y)
     class_names = label_encoder.classes_
-    
-    # Apply RobustScaler (handles crypto outliers better than StandardScaler)
-    print("🔧 Applying RobustScaler...")
+    log_progress(f"✅ Etiquetas codificadas: {len(class_names)} clases ({', '.join(class_names)})", preprocessing_start)
+
+    log_progress("Aplicando RobustScaler (maneja outliers de cripto)...", preprocessing_start)
     scaler = RobustScaler()
     X_scaled = scaler.fit_transform(X)
-    
-    # TimeSeriesSplit for proper chronological validation
-    print("🔄 TimeSeriesSplit Cross-Validation (5-fold)...")
+    log_progress("✅ Features escalados con RobustScaler", preprocessing_start)
+
+    log_progress("Configurando TimeSeriesSplit para validación chronológica...", preprocessing_start)
     tscv = TimeSeriesSplit(n_splits=5)
-    
-    # Calculate sample weights for class balancing (fixes scalp 1.5% imbalance)
-    print("⚖️ Computing sample weights for class balance...")
+    log_progress("✅ Validación cross-temporal configurada (5-fold)", preprocessing_start)
+
+    log_progress("Calculando pesos de muestra para balanceo de clases...", preprocessing_start)
     sample_weights = compute_sample_weight('balanced', y_encoded)
+    weight_stats = pd.Series(sample_weights).describe()
+    log_progress(f"✅ Pesos calculados - Media: {weight_stats['mean']:.3f}, Rango: [{weight_stats['min']:.3f}, {weight_stats['max']:.3f}]", preprocessing_start)
     
-    # XGBoost Classifier
-    print("🚀 Training XGBoost Classifier...")
+    # FASE 4: Entrenamiento del modelo XGBoost
+    training_start = time.time()
+    log_progress("🚀 FASE 4: Entrenamiento del modelo XGBoost", training_start, "🚀")
+
+    log_progress("Configurando hiperparámetros del modelo...", training_start)
     model = XGBClassifier(
         objective='multi:softprob',
         num_class=len(class_names),
@@ -497,101 +750,179 @@ def train():
         use_label_encoder=False,
         eval_metric='mlogloss'
     )
-    
+
+    hyperparams = {
+        "Profundidad máxima": model.max_depth,
+        "Estimadores": model.n_estimators,
+        "Tasa de aprendizaje": model.learning_rate,
+        "Subsample": model.subsample,
+        "Regularización L1": model.reg_alpha,
+        "Regularización L2": model.reg_lambda
+    }
+
+    print(f"{CYAN}Hiperparámetros del modelo:")
+    for param, value in hyperparams.items():
+        print(f"   • {param}: {value}")
+    print(f"{RESET}")
+
     # TimeSeriesSplit Cross-Validation (manual to support sample_weight)
     cv_scores = []
-    print("   Running 5-fold TimeSeriesSplit CV...")
-    
-    # Progress bar for CV
-    for fold, (train_idx, val_idx) in enumerate(tqdm(tscv.split(X_scaled), total=5, desc="Cross-Validation", unit="fold")):
-        X_cv_train, X_cv_val = X_scaled[train_idx], X_scaled[val_idx]
-        y_cv_train, y_cv_val = y_encoded[train_idx], y_encoded[val_idx]
-        weights_cv = sample_weights[train_idx]
-        
-        cv_model = XGBClassifier(
-            objective='multi:softprob',
-            num_class=len(class_names),
-            max_depth=5,
-            n_estimators=300,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            reg_alpha=0.1,
-            reg_lambda=1.0,
-            random_state=42,
-            n_jobs=-1,
-            verbosity=0
-        )
-        cv_model.fit(X_cv_train, y_cv_train, sample_weight=weights_cv)
-        score = cv_model.score(X_cv_val, y_cv_val)
-        cv_scores.append(score)
-        # print(f"      Fold {fold+1}: {score:.3f}")
-    
+    log_progress("Ejecutando validación cruzada chronológica (5-fold)...", training_start)
+
+    fold_start_time = time.time()
+
+    # Progress bar for CV with enhanced formatting
+    with tqdm(total=5, desc="🔍 Cross-Validation", unit="fold",
+              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as cv_pbar:
+
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(X_scaled)):
+            fold_start = time.time()
+            log_progress(f"Entrenando fold {fold+1}/5...", fold_start, f"📊 Fold {fold+1}")
+
+            X_cv_train, X_cv_val = X_scaled[train_idx], X_scaled[val_idx]
+            y_cv_train, y_cv_val = y_encoded[train_idx], y_encoded[val_idx]
+            weights_cv = sample_weights[train_idx]
+
+            log_progress(f"Preparando datos: {len(X_cv_train):,} train, {len(X_cv_val):,} val", fold_start)
+
+            cv_model = XGBClassifier(
+                objective='multi:softprob',
+                num_class=len(class_names),
+                max_depth=5,
+                n_estimators=300,
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                reg_alpha=0.1,
+                reg_lambda=1.0,
+                random_state=42,
+                n_jobs=-1,
+                verbosity=0
+            )
+
+            cv_model.fit(X_cv_train, y_cv_train, sample_weight=weights_cv)
+            score = cv_model.score(X_cv_val, y_cv_val)
+            cv_scores.append(score)
+
+            fold_time = time.time() - fold_start
+            log_progress(f"✅ Fold {fold+1} completado - Accuracy: {score:.3f} ({fold_time:.1f}s)", fold_start)
+            cv_pbar.update(1)
+
     cv_scores = np.array(cv_scores)
-    print(f"   CV Accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+    cv_time = time.time() - fold_start_time
+    log_progress(f"✅ Validación cruzada completada en {cv_time:.1f}s", training_start)
+
+    print(f"\n{GREEN}📊 RESULTADOS CROSS-VALIDATION:")
+    print(f"   • Accuracy promedio: {cv_scores.mean():.3f}")
+    print(f"   • Desviación estándar: {cv_scores.std():.3f}")
+    print(f"   • Rango: [{cv_scores.min():.3f}, {cv_scores.max():.3f}]")
+    print(f"   • Intervalo confianza (95%): {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+    print(f"{RESET}")
     
-    # Final training on full data with sample weights
-    print("🏋️ Final training on full dataset...")
+    # FASE 5: Entrenamiento final y evaluación
+    final_training_start = time.time()
+    log_progress("🏋️ FASE 5: Entrenamiento final en dataset completo", final_training_start, "🏋️")
+
+    log_progress("Entrenando modelo final con todos los datos...", final_training_start)
     model.fit(X_scaled, y_encoded, sample_weight=sample_weights)
-    
+    training_time = time.time() - final_training_start
+    log_progress(f"✅ Entrenamiento completado en {training_time:.1f}s", final_training_start)
+
     # Evaluate on last 20% (time-respecting split)
+    log_progress("Evaluando modelo en conjunto de test (últimas 20% muestras chronológicas)...", final_training_start)
     split_idx = int(len(X_scaled) * 0.8)
     X_test = X_scaled[split_idx:]
     y_test = y_encoded[split_idx:]
-    
-    print()
-    print("📈 Test Set Evaluation (last 20% chronologically):")
-    print("-" * 60)
+
+    log_progress(f"Conjunto de test: {len(X_test):,} muestras ({len(X_test)/len(X_scaled)*100:.1f}% del total)", final_training_start)
+
+    print(f"\n{MAGENTA}{'='*70}")
+    print(f"📈 EVALUACIÓN EN CONJUNTO DE TEST:")
+    print(f"{'='*70}{RESET}")
+
     preds = model.predict(X_test)
-    print(classification_report(y_test, preds, target_names=class_names))
-    
+    # Use explicit labels to avoid errors when test set doesn't contain all classes
+    print(classification_report(y_test, preds, target_names=class_names, 
+                                labels=range(len(class_names)), zero_division=0))
+
     # Feature Importance (top 15)
-    print("🔑 Top 15 Feature Importance:")
+    log_progress("Analizando importancia de features...", final_training_start)
+    print(f"\n{YELLOW}🔑 TOP 15 FEATURES MÁS IMPORTANTES:")
+    print(f"{'='*50}{RESET}")
+
     importance_pairs = sorted(zip(X_cols, model.feature_importances_), key=lambda x: -x[1])
-    for feat, imp in importance_pairs[:15]:
+    for i, (feat, imp) in enumerate(importance_pairs[:15], 1):
         bar = "█" * int(imp * 50)
-        print(f"   {feat:18} {imp:.3f} {bar}")
-    
+        rank_indicator = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i:2d}"
+        print(f"   {rank_indicator} {feat:18} {imp:.3f} {bar}")
+
     # Check ATR dependence reduction
     atr_importance = dict(importance_pairs).get('atr_pct', 0)
+    print(f"\n{CYAN}📊 ANÁLISIS DE DEPENDENCIA ATR:")
+    print(f"   • Importancia actual de ATR: {atr_importance:.1%}")
+    print(f"   • Objetivo: <25% para reducir dependencia de volatilidad")
+
     if atr_importance < 0.25:
-        print(f"\n✅ ATR dependence reduced: {atr_importance:.1%} (target <25%)")
+        print(f"   ✅ {GREEN}ATR dependence reduced: {atr_importance:.1%} (target <25%){RESET}")
     else:
-        print(f"\n⚠️ ATR still high: {atr_importance:.1%} (consider adding more features)")
-    
-    # Save model and scaler
+        print(f"   ⚠️ {RED}ATR still high: {atr_importance:.1%} (consider adding more features){RESET}")
+
+    # FASE 6: Guardado del modelo
+    save_start = time.time()
+    log_progress("💾 FASE 6: Guardando modelo y scaler", save_start, "💾")
+
     model_dir = os.path.dirname(MODEL_OUTPUT)
     if model_dir:  # Only create directory if path specified
         os.makedirs(model_dir, exist_ok=True)
+        log_progress(f"Creando directorio {model_dir}...", save_start)
 
-    
     # Store class names with model for proper decoding
     model_data = {
         'model': model,
         'label_encoder': label_encoder,
         'feature_names': X_cols
     }
+
+    log_progress(f"Guardando modelo en {MODEL_OUTPUT}...", save_start)
     joblib.dump(model_data, MODEL_OUTPUT)
+
+    log_progress(f"Guardando scaler en {SCALER_OUTPUT}...", save_start)
     joblib.dump(scaler, SCALER_OUTPUT)
-    
-    print()
-    print("=" * 60)
-    print(f"✅ Model saved to: {MODEL_OUTPUT}")
-    print(f"✅ Scaler saved to: {SCALER_OUTPUT}")
-    print("👉 To enable, restart bot or run: /ml_mode on")
-    print("=" * 60)
+
+    save_time = time.time() - save_start
+    log_progress(f"✅ Archivos guardados exitosamente en {save_time:.1f}s", save_start)
+
+    # RESUMEN FINAL
+    total_time = time.time() - total_start_time
+    end_timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    print(f"\n{'='*70}", flush=True)
+    print(f"🎉 ENTRENAMIENTO COMPLETADO EXITOSAMENTE!", flush=True)
+    print(f"{'='*70}", flush=True)
+    print(f"⏱️  Tiempo total: {total_time:.1f}s ({total_time/60:.1f} minutos)", flush=True)
+    print(f"📊 Muestras procesadas: {len(X):,}", flush=True)
+    print(f"🎯 Accuracy CV: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})", flush=True)
+    print(f"📁 Modelo guardado: {MODEL_OUTPUT}", flush=True)
+    print(f"📁 Scaler guardado: {SCALER_OUTPUT}", flush=True)
+    print(f"🏁 Finalizado en: {end_timestamp}", flush=True)
+    print(f"👉 Para activar ML: restart bot or run: /ml_mode on", flush=True)
+    print(f"{'='*70}", flush=True)
 
 
 if __name__ == "__main__":
     try:
         train()
     except KeyboardInterrupt:
+        logger.info("👋 Operación cancelada por el usuario (Ctrl+C)")
         print("\n👋 Operación cancelada por el usuario.")
     except Exception as e:
+        logger.error(f"Ocurrió un error inesperado: {e}")
         print(f"\n❌ Ocurrió un error inesperado:\n{e}")
         import traceback
         traceback.print_exc()
     finally:
+        if interrupted:
+            print("\n🧹 Operación interrumpida - realizando cleanup...")
         print()
         if '--auto' not in str(sys.argv):
              input("🔴 Presione ENTER para salir...")

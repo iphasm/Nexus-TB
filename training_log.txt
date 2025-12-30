@@ -1,0 +1,176 @@
+======================================================================
+🧠 NEXUS CORTEX TRAINING v3.1 - Enhanced Progress Mode
+======================================================================
+⏰ Started at: 2025-12-30 15:09:35
+💻 Platform: win32
+🐍 Python: 3.14.0
+
+[15:09:35] 🔧 Verificando dependencias del sistema... [0.0s]
+✅ Todas las dependencias cargadas correctamente
+[15:09:35] 📊 Cargando configuración de activos... [0.0s]
+✅ Configuración de 48 símbolos cargada
+[15:09:35] 🚀 Iniciando proceso de entrenamiento ML [0.0s]
+[15:09:35] ⚙️ Procesando argumentos de línea de comandos... [0.0s]
+📋 Argumentos parseados: candles=1000, interactive=False, symbols=2
+[33m🧪 MODO TEST: Limitando a 2 símbolos[0m
+[15:09:35] 📊 Configuración final: 2 símbolos, 1000 velas (≈10.4 días), 15m intervalo 
+🕯️ Velas por símbolo: 1,000 (≈10.4 días de datos)
+📈 Símbolos a procesar: 2
+
+⏰ Intervalo temporal: 15m
+[15:09:35] 📥 📥 FASE 1: Descarga de datos históricos [0.0s]
+[15:09:35] Iniciando descarga de 2 símbolos... [0.0s]
+
+[15:09:35] 📊 [1/2] Descargando FETUSDT... [0.0s]
+[15:09:36] Calculando indicadores técnicos para FETUSDT... [1.3s]
+[15:09:36] Simulando trades y etiquetando datos para FETUSDT... [1.5s]
+
+🚀 INICIANDO EXPANSIÓN DE FEATURES
+==================================================
+📊 Features iniciales: 50
+📊 Agregando features de momentum...
+   ✅ Agregadas: ROC_21, ROC_50, Williams %R, CCI, Ultimate Oscillator
+📊 Agregando features de volumen...
+   ✅ Agregadas: Volume ROC, Chaikin MF, Force Index, Ease of Movement
+📊 Agregando features de estructura...
+   ✅ Agregadas: Distancia SMA, Pivot Points, Fibonacci levels
+📊 Agregando features de correlación...
+   ✅ Agregadas: Volatilidad intra-day, Gap analysis, Range expansion
+📊 Agregando features de sentimiento...
+   ✅ Agregadas: Bull/Bear power, Momentum divergence, VPT, Intraday momentum
+
+✅ EXPANSIÓN COMPLETADA:
+   • Features iniciales: 50
+   • Nuevas features: 30
+   • Total features: 80
+   • Muestras finales: 876
+📥 Descargando Datos:   0%|          | 0/2 [00:00<?, ?sym/s]
+[15:09:38] ✅ FETUSDT completado - 876 muestras válidas [3.0s]
+📥 Descargando Datos:   0%|          | 0/2 [00:03<?, ?sym/s]
+[15:09:38] 📊 [2/2] Descargando 1000PEPEUSDT... [3.0s]
+[15:09:39] Calculando indicadores técnicos para 1000PEPEUSDT... [4.3s]
+[15:09:39] Simulando trades y etiquetando datos para 1000PEPEUSDT... [4.3s]
+
+🚀 INICIANDO EXPANSIÓN DE FEATURES
+==================================================
+📊 Features iniciales: 50
+📊 Agregando features de momentum...
+   ✅ Agregadas: ROC_21, ROC_50, Williams %R, CCI, Ultimate Oscillator
+📊 Agregando features de volumen...
+   ✅ Agregadas: Volume ROC, Chaikin MF, Force Index, Ease of Movement
+📊 Agregando features de estructura...
+   ✅ Agregadas: Distancia SMA, Pivot Points, Fibonacci levels
+📊 Agregando features de correlación...
+   ✅ Agregadas: Volatilidad intra-day, Gap analysis, Range expansion
+📊 Agregando features de sentimiento...
+   ✅ Agregadas: Bull/Bear power, Momentum divergence, VPT, Intraday momentum
+
+✅ EXPANSIÓN COMPLETADA:
+   • Features iniciales: 50
+   • Nuevas features: 30
+   • Total features: 80
+   • Muestras finales: 876
+📥 Descargando Datos:  50%|█████     | 1/2 [00:03<00:03,  3.01s/sym]
+[15:09:41] ✅ 1000PEPEUSDT completado - 876 muestras válidas [5.7s]
+📥 Descargando Datos:  50%|█████     | 1/2 [00:05<00:03,  3.01s/sym]
+📥 Descargando Datos: 100%|██████████| 2/2 [00:05<00:00,  2.85s/sym]
+📥 Descargando Datos: 100%|██████████| 2/2 [00:05<00:00,  2.87s/sym]
+[15:09:41] ✅ FASE 1 completada en 5.7s [5.7s]
+[15:09:41] 📊 Resultados: 2/2 símbolos exitosos 
+[15:09:41] 🔧 🔧 FASE 2: Preparación y preprocesamiento de datos [0.0s]
+[15:09:41] Uniendo datasets de todos los símbolos... [0.0s]
+[15:09:41] ✅ Dataset consolidado: 1,752 filas totales [0.0s]
+[15:09:41] Seleccionando 45 features del dataset... [0.0s]
+
+[33m======================================================================
+📊 ESTADÍSTICAS DEL DATASET:
+======================================================================[0m
+📊 Total muestras: 1,752
+📈 Features: 45
+🎯 Estrategias disponibles: 4
+📈 Distribución de clases:
+   • mean_rev:      783 ( 44.7%) ██████████████████████
+   • grid    :      721 ( 41.2%) ████████████████████
+   • trend   :      240 ( 13.7%) ██████
+   • scalp   :        8 (  0.5%) 
+
+[15:09:41] ✅ No se detectaron valores faltantes en el dataset [0.0s]
+[15:09:41] 🔄 🔄 FASE 3: Preprocesamiento y transformación de datos [0.0s]
+[15:09:41] Codificando etiquetas de estrategia... [0.0s]
+[15:09:41] ✅ Etiquetas codificadas: 4 clases (grid, mean_rev, scalp, trend) [0.0s]
+[15:09:41] Aplicando RobustScaler (maneja outliers de cripto)... [0.0s]
+[15:09:41] ✅ Features escalados con RobustScaler [0.0s]
+[15:09:41] Configurando TimeSeriesSplit para validación chronológica... [0.0s]
+[15:09:41] ✅ Validación cross-temporal configurada (5-fold) [0.0s]
+[15:09:41] Calculando pesos de muestra para balanceo de clases... [0.0s]
+[15:09:41] ✅ Pesos calculados - Media: 1.000, Rango: [0.559, 54.750] [0.0s]
+[15:09:41] 🚀 🚀 FASE 4: Entrenamiento del modelo XGBoost [0.0s]
+[15:09:41] Configurando hiperparámetros del modelo... [0.0s]
+[36mHiperparámetros del modelo:
+   • Profundidad máxima: 5
+   • Estimadores: 300
+   • Tasa de aprendizaje: 0.05
+   • Subsample: 0.8
+   • Regularización L1: 0.1
+   • Regularización L2: 1.0
+[0m
+[15:09:41] Ejecutando validación cruzada chronológica (5-fold)... [0.0s]
+
+[15:09:41] 📊 Fold 1 Entrenando fold 1/5... [0.0s]
+[15:09:41] Preparando datos: 292 train, 292 val [0.0s]
+[15:09:41] ✅ Fold 1 completado - Accuracy: 0.366 (0.7s) [0.7s]
+🔍 Cross-Validation:   0%|          | 0/5 [00:00<?, ?fold/s]
+[15:09:41] 📊 Fold 2 Entrenando fold 2/5... [0.0s]
+[15:09:41] Preparando datos: 584 train, 292 val [0.0s]
+[15:09:42] ✅ Fold 2 completado - Accuracy: 0.596 (0.8s) [0.8s]
+🔍 Cross-Validation:  20%|██        | 1/5 [00:00<00:02,  1.51fold/s]
+[15:09:42] 📊 Fold 3 Entrenando fold 3/5... [0.0s]
+[15:09:42] Preparando datos: 876 train, 292 val [0.0s]
+[15:09:43] ✅ Fold 3 completado - Accuracy: 0.658 (1.1s) [1.1s]
+🔍 Cross-Validation:  40%|████      | 2/5 [00:01<00:02,  1.31fold/s]
+[15:09:43] 📊 Fold 4 Entrenando fold 4/5... [0.0s]
+[15:09:43] Preparando datos: 1,168 train, 292 val [0.0s]
+[15:09:44] ✅ Fold 4 completado - Accuracy: 0.637 (1.0s) [1.0s]
+🔍 Cross-Validation:  60%|██████    | 3/5 [00:02<00:01,  1.12fold/s]
+[15:09:44] 📊 Fold 5 Entrenando fold 5/5... [0.0s]
+[15:09:44] Preparando datos: 1,460 train, 292 val [0.0s]
+[15:09:45] ✅ Fold 5 completado - Accuracy: 0.582 (1.0s) [1.0s]
+🔍 Cross-Validation:  80%|████████  | 4/5 [00:03<00:00,  1.06fold/s]
+🔍 Cross-Validation: 100%|██████████| 5/5 [00:04<00:00,  1.04fold/s]
+🔍 Cross-Validation: 100%|██████████| 5/5 [00:04<00:00,  1.10fold/s]
+[15:09:45] ✅ Validación cruzada completada en 4.6s [4.6s]
+
+[32m📊 RESULTADOS CROSS-VALIDATION:
+   • Accuracy promedio: 0.568
+   • Desviación estándar: 0.104
+   • Rango: [0.366, 0.658]
+   • Intervalo confianza (95%): 0.568 (+/- 0.209)
+[0m
+[15:09:45] 🏋️ 🏋️ FASE 5: Entrenamiento final en dataset completo [0.0s]
+[15:09:45] Entrenando modelo final con todos los datos... [0.0s]
+[15:09:47] ✅ Entrenamiento completado en 1.2s [1.2s]
+[15:09:47] Evaluando modelo en conjunto de test (últimas 20% muestras chronológicas)... [1.2s]
+[15:09:47] Conjunto de test: 351 muestras (20.0% del total) [1.2s]
+
+[35m======================================================================
+📈 EVALUACIÓN EN CONJUNTO DE TEST:
+======================================================================[0m
+
+❌ Ocurrió un error inesperado:
+Number of classes, 3, does not match size of target_names, 4. Try specifying the labels parameter
+Traceback (most recent call last):
+  File "C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\train_cortex.py", line 875, in <module>
+    train()
+    ~~~~~^^
+  File "C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\train_cortex.py", line 807, in train
+    print(classification_report(y_test, preds, target_names=class_names))
+          ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\site-packages\sklearn\utils\_param_validation.py", line 218, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Python314\Lib\site-packages\sklearn\metrics\_classification.py", line 3097, in classification_report
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: Number of classes, 3, does not match size of target_names, 4. Try specifying the labels parameter
+
+🔴 Presione ENTER para salir...

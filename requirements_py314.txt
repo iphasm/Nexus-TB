@@ -1,0 +1,24 @@
+# Requirements MÍNIMOS para Python 3.14.0 (solo dependencias críticas para ML)
+# SOLO LO ESENCIAL - evita cualquier librería que cause problemas con numba
+
+# ML Core (sin dependencias problemáticas)
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.4.0
+joblib>=1.4.0
+xgboost>=2.0.0
+
+# Data sources (mínimas)
+yfinance
+requests
+
+# Utilities (mínimas)
+tqdm
+python-dotenv
+
+# Exchange APIs (solo las críticas)
+python-binance
+
+# Async (mínimo necesario)
+aiohttp>=3.9.0
+websockets>=12.0

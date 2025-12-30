@@ -13,12 +13,15 @@ pyTelegramBotAPI
 yfinance
 pandas
 mplfinance
+pandas-ta
+numpy
 
 # Utilities
 python-dotenv
 requests
 pycoingecko
 PySocks
+tqdm
 
 # AI/Analysis
 openai
@@ -29,10 +32,11 @@ APScheduler>=3.10.0
 # Database
 psycopg2-binary
 
-# ML
-scikit-learn
-joblib
-xgboost
+# ML (Python 3.14 compatible versions)
+scikit-learn>=1.3.0
+joblib>=1.3.0
+xgboost>=2.0.0
+imbalanced-learn>=0.11.0
 
 # Testing
 pytest
