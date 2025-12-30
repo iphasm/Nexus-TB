@@ -2782,13 +2782,15 @@ class AsyncTradingSession:
             consecutive_losses = 0
             for trade in income:
                 pnl = float(trade['income'])
+                trade_time = int(trade['time'])  # Ensure it's an int for comparison
                 if pnl < 0:
                     # CHECK: Ignore if before reset time
-                    if trade['time'] < self.cb_ignore_until:
+                    if trade_time < self.cb_ignore_until:
                         break
                     consecutive_losses += 1
                 else:
                     break
+
             
             # Threshold Check
             if consecutive_losses >= 5:
