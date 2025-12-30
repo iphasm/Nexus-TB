@@ -14,21 +14,11 @@ RUN apt-get update && apt-get install -y \
     libc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Note: pandas_ta is commented out in requirements.txt (incompatible with 3.14 locally), 
-# but if needed for 3.11, it can be uncommented. 
-# For now, we install what is active.
+# Install dependencies (pandas-ta-openbb now included in requirements.txt)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
-
-# Debug: verify folder exists
-RUN ls -la
-
-# Install pandas-ta from local fork (PyPI version requires Python 3.12+)
-# Use explicit path with ./
-COPY pandas_ta_openbb-0.4.22 ./pandas_ta_openbb-0.4.22
-RUN pip install --no-cache-dir ./pandas_ta_openbb-0.4.22
 
 # Set environment variables if needed (or rely on .env pass-through)
 # ENV PYTHONUNBUFFERED=1

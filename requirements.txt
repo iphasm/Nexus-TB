@@ -13,7 +13,7 @@ pyTelegramBotAPI
 yfinance
 pandas
 mplfinance
-pandas-ta
+pandas-ta-openbb>=0.4.22
 numpy
 
 # Utilities
