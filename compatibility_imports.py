@@ -39,4 +39,15 @@ __all__ = [
     'quick_train'
 ]
 
+# Auto-import for backward compatibility
+# This ensures old imports work automatically
+import sys
+from pathlib import Path
+
+# Add src to path for Railway compatibility
+src_path = Path(__file__).parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
 print("✅ Compatibility imports loaded successfully")
+print(f"✅ Added {src_path} to Python path")

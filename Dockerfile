@@ -20,8 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Set environment variables if needed (or rely on .env pass-through)
-# ENV PYTHONUNBUFFERED=1
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app:/app/src:$PYTHONPATH
 
 # Command to run the bot (Async version)
 CMD ["python", "nexus_loader.py"]

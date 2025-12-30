@@ -15,6 +15,13 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import TelegramObject, FSInputFile
 from dotenv import load_dotenv
+
+# Import compatibility layer for backward compatibility with reorganized code
+try:
+    import compatibility_imports
+except ImportError:
+    print("⚠️  Compatibility imports not found - some features may not work")
+
 from servos.db import get_user_name
 from servos.media_manager import MediaManager
 

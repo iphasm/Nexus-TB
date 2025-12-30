@@ -111,7 +111,7 @@ def step_new_features():
     """Test new feature addition"""
     print("  Testing new features addition...", end=" ", flush=True)
     from src.ml.train_cortex import fetch_data, add_indicators
-    from add_new_features import add_all_new_features
+    from src.ml.add_new_features import add_all_new_features
 
     df = fetch_data("BTCUSDT", max_candles=200, verbose=False)
     if df is None or df.empty:
@@ -132,7 +132,7 @@ def step_data_processing():
     """Test data processing pipeline"""
     print("  Testing data processing pipeline...", end=" ", flush=True)
     from src.ml.train_cortex import fetch_data, add_indicators
-    from add_new_features import add_all_new_features
+    from src.ml.add_new_features import add_all_new_features
 
     symbols = ["BTCUSDT", "ETHUSDT"]
     all_data = []
