@@ -99,6 +99,65 @@ def analyze_atr_dependence(importance_df):
 
     return atr_percentage
 
+def analyze_model_features():
+    """Función principal que combina todo el análisis del modelo"""
+    print("=" * 60)
+    print("🔍 ANÁLISIS COMPLETO DEL MODELO ML ENTRENADO")
+    print("=" * 60)
+
+    # Cargar modelo
+    model, feature_names, strategies, scaler = load_model()
+    if not model:
+        return None
+
+    # Analizar importancia de features
+    importance_df = analyze_feature_importance(model, feature_names)
+    if importance_df is None:
+        return None
+
+    # Categorizar features
+    categories = categorize_features(feature_names)
+
+    # Analizar dependencia ATR
+    atr_analysis = analyze_atr_dependence(importance_df)
+
+    print("
+🎯 RESULTADOS DEL ANÁLISIS:"    print(f"   • Modelo: XGBoost con {len(feature_names)} features")
+    print(f"   • Estrategias: {', '.join(strategies)}")
+
+    print("
+🔑 TOP 10 FEATURES MÁS IMPORTANTES:"    for i, (_, row) in enumerate(importance_df.head(10).iterrows(), 1):
+        feature = row['feature']
+        importance = row['importance']
+        print(".3f")
+
+    print("
+📂 DISTRIBUCIÓN POR CATEGORÍAS:"    for category, features in categories.items():
+        count = len(features)
+        percentage = (count / len(feature_names)) * 100
+        print(".1f")
+
+    print("
+🎯 DEPENDENCIA ATR:"    if atr_analysis:
+        atr_percentage = atr_analysis['atr_percentage']
+        atr_features = atr_analysis['atr_features']
+        print(".2f"        print(f"   • Features ATR encontradas: {atr_features}")
+
+        if atr_percentage < 25:
+            print("   ✅ DEPENDENCIA BAJA - Modelo bien diversificado")
+        elif atr_percentage < 40:
+            print("   ⚠️  DEPENDENCIA MODERADA - Requiere atención")
+        else:
+            print("   ❌ DEPENDENCIA ALTA - Necesita más features")
+
+    print("=" * 60)
+    return {
+        'importance_df': importance_df,
+        'categories': categories,
+        'atr_analysis': atr_analysis,
+        'strategies': strategies
+    }
+
 def main():
     print("=" * 70)
     print("🔍 ANÁLISIS DE FEATURES - MODELO ML ENTRENADO")
