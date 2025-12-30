@@ -132,8 +132,14 @@ class NexusBridge:
         target = self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if adapter:
-            return await adapter.get_symbol_info(symbol)
+            result = await adapter.get_symbol_info(symbol)
+            if not result:
+                print(f"⚠️ NexusBridge: get_symbol_info({symbol}) via {target} returned empty")
+            return result
+        else:
+            print(f"⚠️ NexusBridge: No adapter connected for {target} (symbol: {symbol})")
         return {}
+
 
     async def get_open_orders(self, symbol: str = None) -> list:
         """Get open orders via adapter."""

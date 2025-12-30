@@ -234,19 +234,29 @@ class BinanceAdapter(IExchangeAdapter):
 
     async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
         """Get symbol precision, tick size, and limits."""
-        if not self._exchange: return {}
+        if not self._exchange: 
+            print(f"⚠️ BinanceAdapter.get_symbol_info: No exchange instance for {symbol}")
+            return {}
         
         try:
             formatted = self._format_symbol(symbol)
-            # Check if market is loaded?
-            # CCXT usually loads on init. But safe to check?
-            # Just try .market()
+            
+            # Check if markets are loaded
+            if not self._exchange.markets:
+                print(f"🔄 BinanceAdapter: Loading markets for symbol info...")
+                await self._exchange.load_markets()
+            
+            # Try to get market info
             try:
                 market = self._exchange.market(formatted)
-            except:
-                # Reload if missing
+            except Exception as market_err:
+                print(f"⚠️ BinanceAdapter: Market '{formatted}' not found, reloading markets...")
                 await self._exchange.load_markets()
-                market = self._exchange.market(formatted)
+                try:
+                    market = self._exchange.market(formatted)
+                except Exception as reload_err:
+                    print(f"❌ BinanceAdapter: Symbol '{formatted}' still not found after reload: {reload_err}")
+                    return {}
 
             # Extract tick size from PRICE_FILTER (Binance requirement)
             tick_size = None
@@ -279,16 +289,20 @@ class BinanceAdapter(IExchangeAdapter):
             else:
                 price_precision = 8  # Safe default
             
-            return {
+            result = {
                 'symbol': symbol,
                 'tick_size': tick_size,  # NEW: Real tick size from Binance
                 'price_precision': price_precision,  # For backward compatibility
                 'quantity_precision': int(market.get('precision', {}).get('amount', 0)),
-                'min_notional': float(market['limits']['cost']['min']) if 'cost' in market['limits'] else 5.0
+                'min_notional': float(market['limits']['cost']['min']) if 'cost' in market.get('limits', {}) else 5.0
             }
+            
+            return result
+            
         except Exception as e:
-            print(f"⚠️ BinanceAdapter Info Error: {e}")
+            print(f"⚠️ BinanceAdapter Info Error ({symbol}): {e}")
             return {}
+
 
     async def place_order(
         self, 
