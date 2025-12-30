@@ -121,27 +121,28 @@ def analyze_model_features():
     # Analizar dependencia ATR
     atr_analysis = analyze_atr_dependence(importance_df)
 
-    print("
-🎯 RESULTADOS DEL ANÁLISIS:"    print(f"   • Modelo: XGBoost con {len(feature_names)} features")
+    print("\n🎯 RESULTADOS DEL ANÁLISIS:")
+    print(f"   • Modelo: XGBoost con {len(feature_names)} features")
     print(f"   • Estrategias: {', '.join(strategies)}")
 
-    print("
-🔑 TOP 10 FEATURES MÁS IMPORTANTES:"    for i, (_, row) in enumerate(importance_df.head(10).iterrows(), 1):
+    print("\n🔑 TOP 10 FEATURES MÁS IMPORTANTES:")
+    for i, (_, row) in enumerate(importance_df.head(10).iterrows(), 1):
         feature = row['feature']
         importance = row['importance']
         print(".3f")
 
-    print("
-📂 DISTRIBUCIÓN POR CATEGORÍAS:"    for category, features in categories.items():
+    print("\n📂 DISTRIBUCIÓN POR CATEGORÍAS:")
+    for category, features in categories.items():
         count = len(features)
         percentage = (count / len(feature_names)) * 100
         print(".1f")
 
-    print("
-🎯 DEPENDENCIA ATR:"    if atr_analysis:
+    print("\n🎯 DEPENDENCIA ATR:")
+    if atr_analysis:
         atr_percentage = atr_analysis['atr_percentage']
         atr_features = atr_analysis['atr_features']
-        print(".2f"        print(f"   • Features ATR encontradas: {atr_features}")
+        print(".2f")
+        print(f"   • Features ATR encontradas: {atr_features}")
 
         if atr_percentage < 25:
             print("   ✅ DEPENDENCIA BAJA - Modelo bien diversificado")
