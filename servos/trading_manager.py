@@ -473,7 +473,8 @@ class AsyncTradingSession:
     async def close(self):
         """Cleanup resources."""
         if self.client:
-            await self.client.close_connection()
+            # CCXT exchange client uses close() method, not close_connection()
+            await self.client.close()
             self.client = None
     
     # --- CONFIG METHODS ---
@@ -3175,7 +3176,11 @@ class AsyncSessionManager:
     
     async def close_all(self):
         """Cleanup all sessions."""
-        for session in self.sessions.values():
-            await session.close()
+        for session_id, session in self.sessions.items():
+            try:
+                await session.close()
+                print(f"✅ Session {session_id} closed successfully")
+            except Exception as e:
+                print(f"⚠️ Error closing session {session_id}: {e}")
         self.sessions.clear()
 

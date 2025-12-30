@@ -551,9 +551,17 @@ async def main():
         return
     
     # 1. Create Bot Instance
+    from aiogram.client.bot import DefaultBotProperties
+
     bot = Bot(
         token=TELEGRAM_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.MARKDOWN,
+            # Increase timeouts for Railway deployment
+            request_timeout=60.0,  # 60 seconds instead of default 30
+            retry_timeout=10.0,
+            retry_count=3
+        )
     )
     
     # 2. Create Dispatcher
@@ -898,9 +906,14 @@ async def main():
             except Exception as e:
                 logger.warning(f"Could not send startup message to {admin_id}: {e}")
     
-    # 8. Start Polling
+    # 8. Start Polling with Error Handling
     try:
+        logger.info("🔄 Starting Telegram bot polling...")
         await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"❌ Fatal error during bot polling: {e}")
+        logger.error("🔄 Attempting graceful shutdown...")
+        raise  # Re-raise to ensure cleanup happens
     finally:
         # Cleanup
         logger.info("🛑 Nexus Core Shutdown Sequence Initiated...")
