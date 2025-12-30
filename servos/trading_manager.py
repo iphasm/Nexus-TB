@@ -584,7 +584,7 @@ class AsyncTradingSession:
                 self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n}, TickSize={tick_size}")
                 return (q, p, n, tick_size)
             else:
-                print(f"⚠️ No Info for {symbol}, using defaults (P={default_p}, TickSize={default_tick})", flush=True)
+                print(f"⚠️ No Info for {symbol}, using calculated defaults (P={default_p}, TickSize={default_tick})", flush=True)
                 
         except Exception as e:
             print(f"⚠️ Precision Error (Bridge) {symbol}: {e}", flush=True)

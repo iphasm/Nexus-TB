@@ -135,6 +135,20 @@ class NexusBridge:
             result = await adapter.get_symbol_info(symbol)
             if not result:
                 print(f"⚠️ NexusBridge: get_symbol_info({symbol}) via {target} returned empty")
+                # Provide fallback defaults for common crypto symbols
+                if 'USDT' in symbol:
+                    print(f"📊 Using fallback defaults for {symbol} (P=6, TickSize=0.01)")
+                    return {
+                        'symbol': symbol,
+                        'tick_size': 0.01,
+                        'price_precision': 2,
+                        'quantity_precision': 6,
+                        'min_qty': 0.001,
+                        'max_qty': 1000,
+                        'step_size': 0.001,
+                        'exchange': target,
+                        'fallback': True
+                    }
             return result
         else:
             print(f"⚠️ NexusBridge: No adapter connected for {target} (symbol: {symbol})")

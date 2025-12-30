@@ -570,6 +570,109 @@ class BybitAdapter(IExchangeAdapter):
     # HELPER METHODS
     # =========================================================================
 
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """Get symbol precision, tick size, and limits."""
+        if not self._exchange:
+            print(f"⚠️ BybitAdapter.get_symbol_info: No exchange instance for {symbol}")
+            return {}
+
+        try:
+            formatted = self._format_symbol(symbol)
+
+            # Check if markets are loaded
+            if not self._exchange.markets:
+                print(f"🔄 BybitAdapter: Loading markets for symbol info...")
+                await self._exchange.load_markets()
+
+            # Try to get market info
+            try:
+                market = self._exchange.market(formatted)
+            except Exception as market_err:
+                print(f"⚠️ BybitAdapter: Market '{formatted}' not found, reloading markets...")
+                await self._exchange.load_markets()
+                try:
+                    market = self._exchange.market(formatted)
+                except Exception as reload_err:
+                    print(f"❌ BybitAdapter: Symbol '{formatted}' still not found after reload: {reload_err}")
+                    return {}
+
+            # Extract tick size and precision from market info
+            tick_size = None
+            price_precision = None
+
+            try:
+                # Bybit uses different structure than Binance
+                # Try to get precision from market object
+                price_precision = market.get('precision', {}).get('price', 0)
+
+                # Try to get tick size from limits or calculate from precision
+                limits = market.get('limits', {})
+                price_limits = limits.get('price', {})
+                min_price = price_limits.get('min')
+
+                if min_price and min_price > 0:
+                    # For crypto, tick size is often 0.1 or similar
+                    # Use precision to calculate tick size
+                    if price_precision and price_precision > 0:
+                        tick_size = 10 ** (-price_precision)
+                    else:
+                        # Fallback: estimate tick size based on min price
+                        if min_price >= 1:
+                            tick_size = 0.1  # Common for prices >= $1
+                        elif min_price >= 0.1:
+                            tick_size = 0.01
+                        else:
+                            tick_size = 0.0001  # Very small for volatile assets
+
+                # Fallback to precision-based calculation
+                if tick_size is None and price_precision:
+                    if price_precision < 1:  # Already a tick size
+                        tick_size = float(price_precision)
+                    else:  # Decimal places, convert to tick size
+                        tick_size = 10 ** (-int(price_precision))
+
+                # Final fallback
+                if tick_size is None:
+                    tick_size = 0.01  # Default for most crypto
+
+            except Exception as e:
+                print(f"⚠️ BybitAdapter: Error extracting tick_size: {e}")
+                tick_size = 0.01  # Default fallback
+
+            # Extract precision (price decimal places)
+            if price_precision is None:
+                try:
+                    # Try to infer from tick size
+                    if tick_size >= 1:
+                        price_precision = 0
+                    else:
+                        price_precision = abs(int(np.log10(tick_size)))
+                except:
+                    price_precision = 2  # Default for most crypto
+
+            # Create result dictionary similar to Binance format
+            result = {
+                'symbol': symbol,
+                'formatted_symbol': formatted,
+                'tick_size': tick_size,
+                'price_precision': price_precision,
+                'quantity_precision': market.get('precision', {}).get('amount', 0),
+                'min_qty': market.get('limits', {}).get('amount', {}).get('min', 0),
+                'max_qty': market.get('limits', {}).get('amount', {}).get('max', 0),
+                'step_size': market.get('limits', {}).get('amount', {}).get('min', 0.001),
+                'exchange': 'BYBIT'
+            }
+
+            print(f"✅ BybitAdapter: Symbol info retrieved for {symbol}")
+            return result
+
+        except Exception as e:
+            print(f"❌ BybitAdapter: Error getting symbol info for {symbol}: {e}")
+            return {}
+
+    # =========================================================================
+    # HELPER METHODS
+
     def _format_symbol(self, symbol: str) -> str:
         """Convert BTCUSDT to BTC/USDT:USDT for CCXT linear futures."""
         if ':' in symbol:
