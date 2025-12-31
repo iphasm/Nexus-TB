@@ -211,36 +211,38 @@ class BybitAdapter(IExchangeAdapter):
                 )
             else:
                 # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
+                # Bybit requires specific order types: 'Stop' and 'TakeProfit'
                 # Bybit requires 'triggerDirection' for stop/trigger orders
                 # 1 = ascending (triggers when price rises above triggerPrice) - used for TP on LONG, SL on SHORT
                 # 2 = descending (triggers when price falls below triggerPrice) - used for SL on LONG, TP on SHORT
-                
+
                 stop_price = kwargs.get('stopPrice') or price
-                params['stopPrice'] = stop_price
                 params['triggerPrice'] = stop_price
-                
+
                 # Determine trigger direction based on order type and side
                 # For SL: triggers when price moves AGAINST your position
                 # For TP: triggers when price moves IN FAVOR of your position
-                is_reduce_only = kwargs.get('reduceOnly', False)
                 order_type_upper = order_type.upper()
-                
+
                 if 'STOP' in order_type_upper and 'TAKE_PROFIT' not in order_type_upper:
                     # STOP_MARKET - This is a Stop Loss
                     # SELL side (closing LONG) = price falling -> descending (2)
                     # BUY side (closing SHORT) = price rising -> ascending (1)
+                    bybit_order_type = 'Stop'
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
                 elif 'TAKE_PROFIT' in order_type_upper:
                     # TAKE_PROFIT_MARKET - This is a Take Profit
                     # SELL side (closing LONG) = price rising -> ascending (1)
                     # BUY side (closing SHORT) = price falling -> descending (2)
+                    bybit_order_type = 'TakeProfit'
                     params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
                 else:
-                    # Default: Use descending for SELL, ascending for BUY
+                    # Fallback for unknown order types
+                    bybit_order_type = 'Stop'
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
-                
+
                 result = await self._exchange.create_order(
-                    formatted, order_type.lower().replace('_', ''), side.lower(), quantity, None, params
+                    formatted, bybit_order_type, side.lower(), quantity, None, params
                 )
             
             return {
