@@ -250,7 +250,8 @@ class NexusBridge:
         Returns:
             str: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
         """
-        # 1. Check Bybit Group - BUT only if Bybit adapter is connected
+        # 1. Priority routing for specific groups, but allow flexibility
+        # If symbol is in BYBIT group and Bybit is connected, prefer Bybit for manual trades
         if symbol in ASSET_GROUPS.get('BYBIT', []):
             if 'BYBIT' in self.adapters:
                 return 'BYBIT'
@@ -258,11 +259,12 @@ class NexusBridge:
                 # Bybit not connected, fallback to Binance for crypto
                 if 'BINANCE' in self.adapters:
                     return 'BINANCE'
-            
-        # 2. Check Crypto (Binance) Group
+
+        # 2. For crypto symbols, prefer Binance but allow Bybit as alternative
+        # This allows manual operations on Binance even when Bybit is primary
         if symbol in ASSET_GROUPS.get('CRYPTO', []):
             if 'BINANCE' in self.adapters:
-                return 'BINANCE'
+                return 'BINANCE'  # Prefer Binance for crypto
             # Fallback to Bybit if Binance not connected
             if 'BYBIT' in self.adapters:
                 return 'BYBIT'

@@ -1318,10 +1318,19 @@ class AsyncTradingSession:
         target_exchange = 'BINANCE'  # Default
         if self.bridge:
             target_exchange = self.bridge._route_symbol(symbol)
-        
-        # Fetch balance from the CORRECT exchange
+
+        # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
+        if self.bridge and target_exchange in self.bridge.adapters:
+            try:
+                fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
+                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
+                print(f"✅ Balance synced for {target_exchange}: ${fresh_balance.get('available', 0):.2f}")
+            except Exception as sync_err:
+                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+
+        # Fetch balance from the CORRECT exchange (now fresh)
         balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
-        
+
         # Debug: Log which exchange we're checking
         self.logger.debug(f"Liquidity Check: {symbol} -> {target_exchange} (Balance: ${balance:.2f})")
              
@@ -1333,16 +1342,20 @@ class AsyncTradingSession:
              
         return True, balance, "OK"
 
-    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+    async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
         # Log de inicio de ejecución de posición LONG
         self.logger.debug(f"Ejecutando posición LONG: {symbol}, ATR={atr}")
-        
+
         # Determine target exchange using NexusBridge routing (respects BYBIT asset group)
         is_crypto = 'USDT' in symbol or 'BTC' in symbol
-        target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
-        self.logger.debug(f"Routing {symbol} -> {target_exchange}")
+        if force_exchange and force_exchange in (self.bridge.adapters.keys() if self.bridge else []):
+            target_exchange = force_exchange
+            self.logger.debug(f"Forced routing {symbol} -> {target_exchange}")
+        else:
+            target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+            self.logger.debug(f"Auto routing {symbol} -> {target_exchange}")
         
         # Force-sync balance for target exchange (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
@@ -1546,7 +1559,7 @@ class AsyncTradingSession:
             return False, f"Execution Error: {e}"
 
 
-    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual") -> Tuple[bool, str]:
+    async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
         """
         Ejecuta una posición SHORT de forma asíncrona mediante Nexus Bridge.
         
@@ -1567,11 +1580,15 @@ class AsyncTradingSession:
         """
         # Log de inicio de ejecución de posición SHORT
         self.logger.debug(f"Ejecutando posición SHORT: {symbol}, ATR={atr}")
-        
+
         # Determine target exchange using NexusBridge routing (respects BYBIT asset group)
         is_crypto = 'USDT' in symbol or 'BTC' in symbol
-        target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
-        self.logger.debug(f"Routing {symbol} -> {target_exchange}")
+        if force_exchange and force_exchange in (self.bridge.adapters.keys() if self.bridge else []):
+            target_exchange = force_exchange
+            self.logger.debug(f"Forced routing {symbol} -> {target_exchange}")
+        else:
+            target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+            self.logger.debug(f"Auto routing {symbol} -> {target_exchange}")
         
         # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)
         if self.bridge and target_exchange in self.bridge.adapters:

@@ -240,8 +240,12 @@ async def cmd_help(message: Message):
         "• `/net` - Red y latencia\n\n"
         
         "🎯 **TRADING MANUAL**\n"
-        "• `/long SYMBOL` - Abrir posición LONG\n"
-        "• `/short SYMBOL` - Abrir posición SHORT\n"
+        "• `/long SYMBOL` - Abrir posición LONG (auto-routing)\n"
+        "• `/short SYMBOL` - Abrir posición SHORT (auto-routing)\n"
+        "• `/long_binance SYMBOL` - LONG en Binance\n"
+        "• `/short_binance SYMBOL` - SHORT en Binance\n"
+        "• `/long_bybit SYMBOL` - LONG en Bybit\n"
+        "• `/short_bybit SYMBOL` - SHORT en Bybit\n"
         "• `/buy SYMBOL` - Compra SPOT\n"
         "• `/close SYMBOL` - Cerrar posición\n"
         "• `/closeall` - Cierre de emergencia\n\n"
@@ -1132,6 +1136,54 @@ async def cmd_cooldowns(message: Message, **kwargs):
 # =================================================================
 
 @router.message(Command("long"))
+async def _execute_manual_position(message: Message, side: str, force_exchange: str, **kwargs):
+    """Helper function to execute manual positions with forced exchange."""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager: return
+
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.reply("⚠️ Sin sesión activa.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply(f"⚠️ Uso: /{message.text.split()[0].replace('/', '')} <SYMBOL> (ej: /{message.text.split()[0].replace('/', '')} BTC)")
+        return
+
+    # Smart Symbol Resolution
+    from system_directive import resolve_symbol
+    raw_symbol = args[1]
+    symbol = resolve_symbol(raw_symbol)
+
+    # Calculate ATR
+    msg_wait = await message.reply(f"⏳ Analizando volatilidad (ATR) para {symbol}...")
+
+    try:
+        from nexus_system.utils.market_data import get_market_data_async, calculate_atr_async
+
+        # Obtener velas 1h de forma async
+        df = await get_market_data_async(symbol, timeframe='1h', limit=50)
+        atr_value = await calculate_atr_async(df, period=14)
+
+        atr_msg = f" (ATR: {atr_value:.4f})" if atr_value > 0 else " (ATR: N/A)"
+
+        direction_emoji = "🚀" if side == "LONG" else "🐻"
+        await msg_wait.edit_text(f"{direction_emoji} Iniciando {side} en {symbol} via {force_exchange}{atr_msg}...")
+
+        # Execute with forced exchange
+        if side == "LONG":
+            success, res_msg = await session.execute_long_position(symbol, atr=atr_value, force_exchange=force_exchange)
+        else:
+            success, res_msg = await session.execute_short_position(symbol, atr=atr_value, force_exchange=force_exchange)
+
+        # Send result without parse_mode to avoid Markdown issues
+        await message.reply(res_msg, parse_mode=None)
+
+    except Exception as e:
+        await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
+
+
 async def cmd_long(message: Message, **kwargs):
     """Manually trigger a LONG position (Futures) with Dynamic ATR."""
     session_manager = kwargs.get('session_manager')
@@ -1175,6 +1227,26 @@ async def cmd_long(message: Message, **kwargs):
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
 
+
+@router.message(Command("long_binance"))
+async def cmd_long_binance(message: Message, **kwargs):
+    """Manually trigger a LONG position on BINANCE specifically."""
+    await _execute_manual_position(message, "LONG", "BINANCE", **kwargs)
+
+@router.message(Command("long_bybit"))
+async def cmd_long_bybit(message: Message, **kwargs):
+    """Manually trigger a LONG position on BYBIT specifically."""
+    await _execute_manual_position(message, "LONG", "BYBIT", **kwargs)
+
+@router.message(Command("short_binance"))
+async def cmd_short_binance(message: Message, **kwargs):
+    """Manually trigger a SHORT position on BINANCE specifically."""
+    await _execute_manual_position(message, "SHORT", "BINANCE", **kwargs)
+
+@router.message(Command("short_bybit"))
+async def cmd_short_bybit(message: Message, **kwargs):
+    """Manually trigger a SHORT position on BYBIT specifically."""
+    await _execute_manual_position(message, "SHORT", "BYBIT", **kwargs)
 
 @router.message(Command("buy"))
 async def cmd_buy_spot(message: Message, **kwargs):
