@@ -126,24 +126,26 @@ async def cmd_start(message: Message, **kwargs):
     quote = quote.rstrip('.!?,;:')
     formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
-    # 7. Verificar balances y generar mensaje dinámico
+    # 7. Verificar balances y generar mensaje dinámico (solo si hay problemas)
     balance_warning = ""
+    show_balance_section = False
+
     if session and session.bridge:
         try:
             # Check balances for connected exchanges
             connected_exchanges = [ex for ex in ['BINANCE', 'BYBIT'] if ex in session.bridge.adapters]
+            low_balance_exchanges = []
 
             for exchange in connected_exchanges:
                 balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
                 threshold = 6.0  # Same threshold as check_liquidity
 
                 if balance < threshold:
-                    balance_warning += f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})\n"
-                else:
-                    balance_warning += f"✅ **{exchange}:** ${balance:.2f}\n"
+                    low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                    show_balance_section = True
 
-            if balance_warning:
-                balance_warning = f"💰 **Estado de Balances:**\n{balance_warning}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            if show_balance_section:
+                balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
         except Exception as e:
             print(f"⚠️ Error checking balances in /start: {e}")
