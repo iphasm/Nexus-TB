@@ -656,7 +656,7 @@ class BybitAdapter(IExchangeAdapter):
                 'formatted_symbol': formatted,
                 'tick_size': tick_size,
                 'price_precision': price_precision,
-                'quantity_precision': market.get('precision', {}).get('amount', 0),
+                'quantity_precision': int(market.get('precision', {}).get('amount', 0)),
                 'min_qty': market.get('limits', {}).get('amount', {}).get('min', 0),
                 'max_qty': market.get('limits', {}).get('amount', {}).get('max', 0),
                 'step_size': market.get('limits', {}).get('amount', {}).get('min', 0.001),
