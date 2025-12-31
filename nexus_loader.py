@@ -551,16 +551,10 @@ async def main():
         return
     
     # 1. Create Bot Instance
-    from aiohttp import ClientTimeout
-    from aiogram.client.session.aiohttp import AiohttpSession
-
-    # Configure longer timeouts for Railway deployment
-    timeout = ClientTimeout(total=60.0, sock_read=30.0, sock_connect=30.0)
-    session = AiohttpSession(timeout=timeout)
-
+    # Note: Using default session - aiogram 3.x handles timeouts internally
+    # Custom ClientTimeout caused TypeError (session.timeout + int failed)
     bot = Bot(
         token=TELEGRAM_TOKEN,
-        session=session,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
     )
     

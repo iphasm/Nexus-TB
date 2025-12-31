@@ -471,11 +471,13 @@ class AsyncTradingSession:
                     print(f"❌ [Chat {self.chat_id}] Alpaca Init Error: {e}")
     
     async def close(self):
-        """Cleanup resources."""
-        if self.client:
-            # CCXT exchange client uses close() method, not close_connection()
-            await self.client.close()
-            self.client = None
+        """Cleanup all resources including NexusBridge adapters."""
+        try:
+            # Close NexusBridge (handles all adapters: Binance, Bybit, Alpaca)
+            if self.bridge:
+                await self.bridge.close_all()
+        except Exception as e:
+            print(f"⚠️ Error closing bridge for session {self.chat_id}: {e}")
     
     # --- CONFIG METHODS ---
     
