@@ -1503,45 +1503,60 @@ class AsyncTradingSession:
             
             # 5. Execute Market Buy
             res = await self.bridge.place_order(symbol, 'BUY', 'MARKET', quantity=quantity)
-            if 'error' in res: 
+            if 'error' in res:
                 print(f"❌ {symbol} Order Failed: {res}")
                 return False, f"Bridge Error: {res['error']}"
-            
+
             entry_price = float(res.get('price', current_price) or current_price)
-            
+
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
-            
-            # 5. Place SL/TP (Separate to ensure logic holds)
+
+            # 6. Place SL/TP (Separate to ensure logic holds) - NON-BLOCKING
             # For conditional orders, price arg = stopPrice (trigger price)
             # Validate prices before placing orders to avoid -2021 error
-            sl_valid = True
-            if entry_price <= sl_price:
-                print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) <= SL ({sl_price})")
-                sl_valid = False
-            
-            if sl_valid:
-                sl_result = await self.bridge.place_order(
-                    symbol, 'SELL', 'STOP_MARKET', 
-                    quantity=quantity, price=sl_price, reduceOnly=True
-                )
-                if sl_result.get('error'):
-                    print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
-            
-            # Validate TP: For LONG, TP should be above entry
-            tp_valid = True
-            if entry_price >= tp_price:
-                print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) >= TP ({tp_price})")
-                tp_valid = False
-            
-            if tp_valid:
-                tp_result = await self.bridge.place_order(
-                    symbol, 'SELL', 'TAKE_PROFIT_MARKET', 
-                    quantity=quantity, price=tp_price, reduceOnly=True
-                )
-                if tp_result.get('error'):
-                    print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+            sl_placed = False
+            tp_placed = False
+
+            try:
+                sl_valid = True
+                if entry_price <= sl_price:
+                    print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) <= SL ({sl_price})")
+                    sl_valid = False
+
+                if sl_valid:
+                    sl_result = await self.bridge.place_order(
+                        symbol, 'SELL', 'STOP_MARKET',
+                        quantity=quantity, price=sl_price, reduceOnly=True
+                    )
+                    if sl_result.get('error'):
+                        print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+                    else:
+                        sl_placed = True
+                        print(f"✅ {symbol}: SL Order Placed at {sl_price}")
+            except Exception as sl_error:
+                print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
+
+            try:
+                # Validate TP: For LONG, TP should be above entry
+                tp_valid = True
+                if entry_price >= tp_price:
+                    print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) >= TP ({tp_price})")
+                    tp_valid = False
+
+                if tp_valid:
+                    tp_result = await self.bridge.place_order(
+                        symbol, 'SELL', 'TAKE_PROFIT_MARKET',
+                        quantity=quantity, price=tp_price, reduceOnly=True
+                    )
+                    if tp_result.get('error'):
+                        print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+                    else:
+                        tp_placed = True
+                        print(f"✅ {symbol}: TP Order Placed at {tp_price}")
+            except Exception as tp_error:
+                print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
 
             # Generar mensaje enriquecido con personalidad
             personality = self.config.get('personality', 'STANDARD_ES')
@@ -1552,8 +1567,8 @@ class AsyncTradingSession:
                 side='LONG',
                 quantity=quantity,
                 entry_price=entry_price,
-                sl_price=sl_price,
-                tp_price=tp_price,
+                sl_price=sl_price if sl_placed else None,
+                tp_price=tp_price if tp_placed else None,
                 leverage=leverage,
                 total_equity=total_equity,
                 margin_used=margin_used,
@@ -1562,6 +1577,15 @@ class AsyncTradingSession:
                 strategy=strategy,
                 personality=personality
             )
+
+            # Add warning if SL/TP failed to place
+            if not sl_placed or not tp_placed:
+                warning_msg = ""
+                if not sl_placed:
+                    warning_msg += "⚠️ SL no colocado. "
+                if not tp_placed:
+                    warning_msg += "⚠️ TP no colocado. "
+                message = f"{warning_msg}\n\n{message}"
 
             return True, message
 
@@ -1723,44 +1747,60 @@ class AsyncTradingSession:
             
             # 5. Execute Market Sell (SHORT)
             res = await self.bridge.place_order(symbol, 'SELL', 'MARKET', quantity=quantity)
-            if 'error' in res: return False, f"Bridge Error: {res['error']}"
-            
+            if 'error' in res:
+                return False, f"Bridge Error: {res['error']}"
+
             entry_price = float(res.get('price', current_price) or current_price)
-            
+
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'SHORT', is_sl=False)
-            
-            # 5. Place SL/TP (Buy Orders)
+
+            # 6. Place SL/TP (Buy Orders) - NON-BLOCKING
             # SL (Buy Stop) - For SHORT, SL is above entry
             # For conditional orders, price arg = stopPrice (trigger price)
             # Validate prices before placing orders to avoid -2021 error
-            sl_valid = True
-            if entry_price >= sl_price:
-                print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) >= SL ({sl_price})")
-                sl_valid = False
-            
-            if sl_valid:
-                sl_result = await self.bridge.place_order(
-                    symbol, 'BUY', 'STOP_MARKET', 
-                    quantity=quantity, price=sl_price, reduceOnly=True
-                )
-                if sl_result.get('error'):
-                    print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
-            
-            # Validate TP: For SHORT, TP should be below entry
-            tp_valid = True
-            if entry_price <= tp_price:
-                print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) <= TP ({tp_price})")
-                tp_valid = False
-            
-            if tp_valid:
-                tp_result = await self.bridge.place_order(
-                    symbol, 'BUY', 'TAKE_PROFIT_MARKET', 
-                    quantity=quantity, price=tp_price, reduceOnly=True
-                )
-                if tp_result.get('error'):
-                    print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+            sl_placed = False
+            tp_placed = False
+
+            try:
+                sl_valid = True
+                if entry_price >= sl_price:
+                    print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) >= SL ({sl_price})")
+                    sl_valid = False
+
+                if sl_valid:
+                    sl_result = await self.bridge.place_order(
+                        symbol, 'BUY', 'STOP_MARKET',
+                        quantity=quantity, price=sl_price, reduceOnly=True
+                    )
+                    if sl_result.get('error'):
+                        print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+                    else:
+                        sl_placed = True
+                        print(f"✅ {symbol}: SL Order Placed at {sl_price}")
+            except Exception as sl_error:
+                print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
+
+            try:
+                # Validate TP: For SHORT, TP should be below entry
+                tp_valid = True
+                if entry_price <= tp_price:
+                    print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) <= TP ({tp_price})")
+                    tp_valid = False
+
+                if tp_valid:
+                    tp_result = await self.bridge.place_order(
+                        symbol, 'BUY', 'TAKE_PROFIT_MARKET',
+                        quantity=quantity, price=tp_price, reduceOnly=True
+                    )
+                    if tp_result.get('error'):
+                        print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+                    else:
+                        tp_placed = True
+                        print(f"✅ {symbol}: TP Order Placed at {tp_price}")
+            except Exception as tp_error:
+                print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
 
             # Generar mensaje enriquecido con personalidad
             personality = self.config.get('personality', 'STANDARD_ES')
@@ -1771,8 +1811,8 @@ class AsyncTradingSession:
                 side='SHORT',
                 quantity=quantity,
                 entry_price=entry_price,
-                sl_price=sl_price,
-                tp_price=tp_price,
+                sl_price=sl_price if sl_placed else None,
+                tp_price=tp_price if tp_placed else None,
                 leverage=leverage,
                 total_equity=total_equity,
                 margin_used=margin_used,
@@ -1781,6 +1821,15 @@ class AsyncTradingSession:
                 strategy=strategy,
                 personality=personality
             )
+
+            # Add warning if SL/TP failed to place
+            if not sl_placed or not tp_placed:
+                warning_msg = ""
+                if not sl_placed:
+                    warning_msg += "⚠️ SL no colocado. "
+                if not tp_placed:
+                    warning_msg += "⚠️ TP no colocado. "
+                message = f"{warning_msg}\n\n{message}"
 
             return True, message
 
