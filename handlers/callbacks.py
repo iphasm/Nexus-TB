@@ -32,7 +32,7 @@ async def handle_menu_callback(callback: CallbackQuery, **kwargs):
     if menu == "INTEL":
         # Intel Menu (Previously in callbacks.py but now moved/unified)
         msg = (
-            "📡 **INTEL CENTER**\n"
+            "🌍 **GLOBAL MARKET**\n"
             "━━━━━━━━━━━━━━\n"
             "Acceso a datos de mercado y análisis cuántico.\n"
             "Seleccione un módulo:"
@@ -43,7 +43,7 @@ async def handle_menu_callback(callback: CallbackQuery, **kwargs):
                 InlineKeyboardButton(text="📰 Noticias AI", callback_data="CMD|news")
             ],
             [InlineKeyboardButton(text="🧠 Sentimiento", callback_data="CMD|sentiment")],
-            [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+            [InlineKeyboardButton(text="⬅️ Volver al Menú Principal", callback_data="CMD|start")]
         ])
         await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
         
@@ -61,7 +61,7 @@ async def handle_menu_callback(callback: CallbackQuery, **kwargs):
             [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
             [InlineKeyboardButton(text="👨‍✈️ COPILOT (Semi)", callback_data="CMD|copilot")],
             [InlineKeyboardButton(text="👁️ WATCHER (Alertas)", callback_data="CMD|watcher")],
-            [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+            [InlineKeyboardButton(text="⬅️ Volver al Menú Principal", callback_data="CMD|start")]
         ])
         await callback.message.edit_text(
             "🎮 *SELECTOR DE MODO*\n"
@@ -590,7 +590,7 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
                 InlineKeyboardButton(text=f"🕸️ Grid: {g_state}", callback_data="TOGGLE|GRID")
             ],
             [InlineKeyboardButton(text=f"📉 Mean Rev: {m_state}", callback_data="TOGGLE|MEAN_REVERSION")],
-            [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
+            [InlineKeyboardButton(text="⬅️ Volver a Configuración", callback_data="CMD|config")]
         ])
         
         await callback.message.edit_reply_markup(reply_markup=keyboard)
@@ -785,7 +785,7 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
             [InlineKeyboardButton(text=f"🟡 CRYPTO ({crypto_count + bybit_count})", callback_data="ASSETS_CAT|CRYPTO")],
             [InlineKeyboardButton(text=f"📈 STOCKS ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
             [InlineKeyboardButton(text=f"📦 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
-            [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
+            [InlineKeyboardButton(text="⬅️ Volver a Configuración", callback_data="CMD|config")]
         ])
         
         await callback.message.edit_text(
@@ -819,7 +819,7 @@ async def handle_assets_category(callback: CallbackQuery, **kwargs):
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"🟡 Binance ({crypto_count})", callback_data="ASSETS_CAT|BINANCE")],
                 [InlineKeyboardButton(text=f"⬛ Bybit ({bybit_count})", callback_data="ASSETS_CAT|BYBIT")],
-                [InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|GLOBAL")]
+                [InlineKeyboardButton(text="⬅️ Volver a Categorías", callback_data="ASSETS|GLOBAL")]
             ])
             
             await callback.message.edit_text(

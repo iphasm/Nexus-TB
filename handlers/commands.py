@@ -216,7 +216,7 @@ async def menu_modes(callback: CallbackQuery, **kwargs):
         [InlineKeyboardButton(text="🤖 PILOT (Auto)", callback_data="CMD|pilot")],
         [InlineKeyboardButton(text="👨‍✈️ COPILOT (Asist.)", callback_data="CMD|copilot")],
         [InlineKeyboardButton(text="👀 WATCHER (Alertas)", callback_data="CMD|watcher")],
-        [InlineKeyboardButton(text="🔙 Volver al Hub", callback_data="CMD|start")]
+        [InlineKeyboardButton(text="⬅️ Volver al Menú Principal", callback_data="CMD|start")]
     ])
     
     await callback.message.edit_text(
@@ -471,7 +471,7 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
                 InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config")
             ],
             [
-                InlineKeyboardButton(text="🔙 Menú Principal", callback_data="CMD|start")
+                InlineKeyboardButton(text="⬅️ Volver al Menú Principal", callback_data="CMD|start")
             ]
         ])
         
