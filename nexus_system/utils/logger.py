@@ -37,6 +37,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("aiogram").setLevel(logging.INFO)
 logging.getLogger("ccxt").setLevel(logging.WARNING)
 
+# Configuración específica para Railway
+QUIET_MODE = os.getenv("QUIET_MODE", "false").lower() == "true"
+if QUIET_MODE:
+    # En modo silencioso, reducir aún más los logs
+    LOG_LEVEL = "WARNING"
+    logging.getLogger().setLevel(logging.WARNING)
+
 
 class GroupedLogger:
     """
@@ -255,3 +262,42 @@ def log_startup_summary(logger: NexusLogger, components: Dict[str, bool]):
         summary += f" | Fallos: {', '.join(failed)}"
     
     logger.info(summary, group=False)  # No agrupar resumen de inicio
+
+
+# Funciones de utilidad para logging condicional
+def conditional_log(level: str, message: str, condition: bool = True, logger_name: str = "NexusCore"):
+    """
+    Log condicional basado en nivel y condición.
+
+    Args:
+        level: Nivel de log ('DEBUG', 'INFO', 'WARNING', 'ERROR')
+        message: Mensaje a loguear
+        condition: Condición para loguear (default: True)
+        logger_name: Nombre del logger (default: 'NexusCore')
+    """
+    if not condition:
+        return
+
+    logger = get_logger(logger_name)
+    level = level.upper()
+
+    if level == 'DEBUG':
+        logger.debug(message)
+    elif level == 'INFO':
+        logger.info(message)
+    elif level == 'WARNING':
+        logger.warning(message)
+    elif level == 'ERROR':
+        logger.error(message)
+
+
+def quiet_log(message: str, logger_name: str = "NexusCore"):
+    """
+    Log solo en modo DEBUG o cuando no está QUIET_MODE activado.
+    Útil para reducir ruido en producción.
+    """
+    if QUIET_MODE and LOG_LEVEL != "DEBUG":
+        return
+
+    logger = get_logger(logger_name)
+    logger.debug(message)

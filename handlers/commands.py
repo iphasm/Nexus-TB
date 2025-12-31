@@ -96,8 +96,10 @@ async def cmd_start(message: Message, **kwargs):
             risk_profile = session.config.get('risk_profile', None)
             lev = session.config.get('leverage', 5)
 
-            # Debug: print risk profile detection
-            print(f"🔍 Risk profile detection: risk_profile='{risk_profile}', leverage={lev}")
+            # Debug: risk profile detection (only in DEBUG mode)
+            import os
+            if os.getenv("LOG_LEVEL", "INFO").upper() == "DEBUG":
+                print(f"🔍 Risk profile detection: risk_profile='{risk_profile}', leverage={lev}")
 
             if risk_profile == "RONIN":
                 risk_label = "⚔️ Ronin"
@@ -164,7 +166,7 @@ async def cmd_start(message: Message, **kwargs):
 
             except Exception as e:
                 # Silent fail - don't block /start for balance check errors
-                print(f"⚠️ Fast balance check failed in /start: {e}")
+                # Silent fail for balance check - don't spam logs
                 balance_warning = ""
 
         # 8. Construir mensaje de bienvenida

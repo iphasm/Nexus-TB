@@ -1064,8 +1064,10 @@ async def apply_risk_profile_to_session(session, profile_name: str):
     # Always enable ATR for SL/TP
     await session.update_config('use_atr_for_sl_tp', True)
 
-    # Debug: print applied profile
-    print(f"✅ Risk profile '{profile_name}' applied to session: max_lev={profile_config['max_leverage']}, risk_profile={profile_name}")
+    # Debug: applied profile (only in DEBUG mode)
+    import os
+    if os.getenv("LOG_LEVEL", "INFO").upper() == "DEBUG":
+        print(f"✅ Risk profile '{profile_name}' applied to session: max_lev={profile_config['max_leverage']}, risk_profile={profile_name}")
 
     return True
 

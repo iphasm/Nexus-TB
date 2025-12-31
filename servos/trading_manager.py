@@ -676,7 +676,7 @@ class AsyncTradingSession:
                 print(f"⚠️ No Info for {symbol}, using calculated defaults (P={default_p}, TickSize={default_tick})", flush=True)
                 
         except Exception as e:
-            print(f"⚠️ Precision Error (Bridge) {symbol}: {e}", flush=True)
+            self.logger.debug(f"Precision calculation failed for {symbol}: {e}")
             
         return default_q, default_p, default_n, default_tick
     
@@ -696,7 +696,7 @@ class AsyncTradingSession:
                 })
             return pd.DataFrame(data)
         except Exception as e:
-            print(f"⚠️ Chart Data Fetch Error: {e}")
+            self.logger.debug(f"Chart data fetch failed: {e}")
             return None
 
     # --- RISK HELPER: CORRELATION GUARD (Shield 2.0) ---
@@ -1265,7 +1265,7 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp1_result.get('error'):
-                        print(f"⚠️ {symbol}: TP1 Error - {tp1_result['error']}")
+                        self.logger.warning(f"TP1 order failed for {symbol}: {tp1_result['error']}")
                 elif not valid_tp:
                     print(f"⚠️ {symbol}: TP1 omitido - {tp_msg}")
                 
@@ -1278,7 +1278,7 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if trail_result.get('error'):
-                        print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
+                        self.logger.warning(f"Trailing stop failed for {symbol}: {trail_result['error']}")
                 else:
                     print(f"⚠️ {symbol}: Trailing Stop omitido - activation price inválido")
                 tp_msg = f"TP1: {tp_price} | Trail: 1.0% (Act: {activation})"
@@ -1294,7 +1294,7 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if trail_result.get('error'):
-                        print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
+                        self.logger.warning(f"Trailing stop failed for {symbol}: {trail_result['error']}")
                     tp_msg = f"Trail: {activation} (1.0%)"
                 else:
                     tp_msg = f"⚠️ Trailing Stop omitido - activation price inválido"
@@ -1330,7 +1330,7 @@ class AsyncTradingSession:
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
                 print(f"✅ Balance synced for {target_exchange}: ${fresh_balance.get('available', 0):.2f}")
             except Exception as sync_err:
-                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+                self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
 
         # Fetch balance from the CORRECT exchange (now fresh)
         balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
@@ -1367,7 +1367,7 @@ class AsyncTradingSession:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
-                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+                self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
 
         
         # 1. Check existing position via Shadow Wallet (with sync)
@@ -1384,7 +1384,7 @@ class AsyncTradingSession:
                         'entry_price': float(pos.get('entry', 0) or pos.get('avgPrice', 0))
                     })
         except Exception as sync_err:
-            print(f"⚠️ Position Sync Error ({symbol}): {sync_err}")
+                self.logger.debug(f"Position sync failed for {symbol}: {sync_err}")
 
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -1456,7 +1456,7 @@ class AsyncTradingSession:
                              # Better: Put default logic in 'else' or verify params.
                              pass
                     except Exception as e:
-                        print(f"⚠️ Strategy Param Error ({strategy}): {e}")
+                        self.logger.debug(f"Strategy {strategy} param calculation failed: {e}")
 
             # Calculate Final Prices/Qty
             # Note: If strategy provided SL/TP, use them. Else use defaults.
@@ -1562,10 +1562,10 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
-                        print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+                        self.logger.warning(f"SL order failed for {symbol}: {sl_result['error']}")
                     else:
                         sl_placed = True
-                        print(f"✅ {symbol}: SL Order Placed at {sl_price}")
+                        self.logger.info(f"SL order placed for {symbol} at {sl_price}")
             except Exception as sl_error:
                 print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
 
@@ -1583,10 +1583,10 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
-                        print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+                        self.logger.warning(f"TP order failed for {symbol}: {tp_result['error']}")
                     else:
                         tp_placed = True
-                        print(f"✅ {symbol}: TP Order Placed at {tp_price}")
+                        self.logger.info(f"TP order placed for {symbol} at {tp_price}")
             except Exception as tp_error:
                 print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
 
@@ -1662,7 +1662,7 @@ class AsyncTradingSession:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
-                print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
+                self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
 
         
         # 1. Check existing position via Shadow Wallet (with sync)
@@ -1679,7 +1679,7 @@ class AsyncTradingSession:
                         'entry_price': float(pos.get('entry', 0) or pos.get('avgPrice', 0))
                     })
         except Exception as sync_err:
-            print(f"⚠️ Position Sync Error ({symbol}): {sync_err}")
+                self.logger.debug(f"Position sync failed for {symbol}: {sync_err}")
 
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -1736,7 +1736,7 @@ class AsyncTradingSession:
                         sl_price = params.get('stop_loss_price')
                         tp_price = params.get('take_profit_price')
                     except Exception as e:
-                        print(f"⚠️ Strategy Param Error ({strategy}): {e}")
+                        self.logger.debug(f"Strategy {strategy} param calculation failed: {e}")
 
             # Calculate Final Prices/Qty
             if 'sl_price' not in locals():
@@ -1834,10 +1834,10 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
-                        print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
+                        self.logger.warning(f"SL order failed for {symbol}: {sl_result['error']}")
                     else:
                         sl_placed = True
-                        print(f"✅ {symbol}: SL Order Placed at {sl_price}")
+                        self.logger.info(f"SL order placed for {symbol} at {sl_price}")
             except Exception as sl_error:
                 print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
 
@@ -1855,10 +1855,10 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
-                        print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
+                        self.logger.warning(f"TP order failed for {symbol}: {tp_result['error']}")
                     else:
                         tp_placed = True
-                        print(f"✅ {symbol}: TP Order Placed at {tp_price}")
+                        self.logger.info(f"TP order placed for {symbol} at {tp_price}")
             except Exception as tp_error:
                 print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
 
