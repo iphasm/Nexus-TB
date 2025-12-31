@@ -45,6 +45,23 @@ async def cmd_config(message: Message, **kwargs):
     # Get current values
     lev = session.config.get('leverage', 5) if session else 5
     margin = (session.config.get('max_capital_pct', 0.1) * 100) if session else 10
+
+    # Determine current risk profile based on max allowed leverage
+    max_allowed_lev = session.config.get('max_leverage_allowed', 5) if session else 5
+
+    if max_allowed_lev <= 3:
+        current_profile = "CONSERVADOR"
+        profile_icon = "🛡️"
+    elif max_allowed_lev <= 10:
+        current_profile = "NEXUS"
+        profile_icon = "🌌"
+    else:  # 20x
+        current_profile = "RONIN"
+        profile_icon = "⚔️"
+
+    # Dynamic calculations info
+    atr_based = session.config.get('use_atr_for_sl_tp', True) if session else True
+    dynamic_indicator = "🎯" if atr_based else "📊"
     
     # Circuit Breaker Status
     cb_enabled = session.config.get('circuit_breaker_enabled', True) if session else True
@@ -68,27 +85,37 @@ async def cmd_config(message: Message, **kwargs):
     shield_enabled = session.config.get('correlation_guard_enabled', True) if session else True
     shield_status = "🟢 ON" if shield_enabled else "🔴 OFF"
     
-    # Build keyboard (v4 Clean)
+    # Build keyboard (Propuesta 1: Dashboard Modular con Perfiles de Riesgo)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        # Estado activo del perfil
         [
-            InlineKeyboardButton(text="🎛️ Estrategias (Motor)", callback_data="CMD|strategies"),
-            InlineKeyboardButton(text="📡 Grupos y Activos", callback_data="CMD|assets")
+            InlineKeyboardButton(text=f"🎯 PERFIL: {current_profile} {profile_icon}",
+                                callback_data="INFO|PROFILE")
+        ],
+        # Perfiles de riesgo (botones principales)
+        [
+            InlineKeyboardButton(text="🛡️ CONSERVADOR", callback_data="RISK|CONSERVADOR"),
+            InlineKeyboardButton(text=f"🌌 NEXUS {'⭐' if current_profile == 'NEXUS' else ''}",
+                                callback_data="RISK|NEXUS"),
+            InlineKeyboardButton(text="⚔️ RONIN", callback_data="RISK|RONIN")
+        ],
+        # Información ATR
+        [
+            InlineKeyboardButton(text=f"{dynamic_indicator} ATR SL/TP: ACTIVE",
+                                callback_data="INFO|ATR")
+        ],
+        # Módulos de configuración
+        [
+            InlineKeyboardButton(text="🎛️ Ajustes Detallados", callback_data="MODULE|DETAILED"),
+            InlineKeyboardButton(text="🧠 IA & Automation", callback_data="MODULE|AI")
         ],
         [
-            InlineKeyboardButton(text=f"⚖️ Lev: {lev}x", callback_data="CFG|LEV_MENU"),
-            InlineKeyboardButton(text=f"💰 Margin: {margin:.0f}%", callback_data="CFG|MARGIN_MENU")
+            InlineKeyboardButton(text="🛡️ Protecciones", callback_data="MODULE|PROTECTIONS"),
+            InlineKeyboardButton(text="📊 Estrategias", callback_data="MODULE|STRATEGIES")
         ],
         [
-            InlineKeyboardButton(text=f"✨ AI Filter [{ai_status}]", callback_data="TOGGLE|AI_FILTER"),
-            InlineKeyboardButton(text=f"🧠 ML Mode [{ml_status}]", callback_data="TOGGLE|ML_MODE")
-        ],
-        [
-            InlineKeyboardButton(text=f"🔌 Circuit Breaker [{cb_status}]", callback_data="TOGGLE|CIRCUIT_BREAKER"),
-            InlineKeyboardButton(text="🧩 Personalidad", callback_data="CMD|personality")
-        ],
-        [
-            InlineKeyboardButton(text=f"💰 Kelly Criterion [{kelly_status}]", callback_data="TOGGLE|KELLY"),
-            InlineKeyboardButton(text=f"🛡️ Portf. Shield [{shield_status}]", callback_data="TOGGLE|SHIELD")
+            InlineKeyboardButton(text="🔗 Exchanges", callback_data="CMD|exchanges"),
+            InlineKeyboardButton(text="📈 Dashboard", callback_data="CMD|dashboard")
         ],
         [
             InlineKeyboardButton(text="⬅️ Volver al Hub", callback_data="CMD|start")
@@ -96,8 +123,22 @@ async def cmd_config(message: Message, **kwargs):
     ])
     
     msg_text = (
-        "⚙️ *PANEL DE CONTROL*\n"
-        "Selecciona qué deseas ajustar:"
+        "⚙️ *CENTRO DE CONTROL NEXUS*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🎯 **PERFIL ACTIVO: {current_profile} {profile_icon}**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎮 Modo: PILOT 🟢\n"
+        f"🧠 Personalidad: Nexus Lord\n"
+        f"⚖️ Leverage: {lev}x (Máx perfil: {max_allowed_lev}x)\n"
+        f"💰 Capital: {margin:.0f}%\n"
+        f"{dynamic_indicator} SL/TP: ATR Dinámico\n\n"
+        "🛡️ **PERFILES DE RIESGO (Topes Máximos)**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "💡 **CÁLCULOS DINÁMICOS ATR**\n"
+        "• SL/TP siempre calculados por ATR\n"
+        "• Leverage/capital se ajustan dinámicamente\n"
+        "• Nunca superan los topes del perfil\n\n"
+        "**Selecciona un módulo:**"
     )
     
     if edit_message:

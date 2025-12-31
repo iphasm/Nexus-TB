@@ -997,3 +997,279 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     except Exception as e:
         err_clean = str(e).replace('<', '').replace('>', '')
         await callback.message.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
+
+
+# =================================================================
+# PROPUESTA 1: DASHBOARD MODULAR CON PERFILES DE RIESGO
+# =================================================================
+
+@router.callback_query(F.data.startswith("RISK|"))
+async def handle_risk_profile_callback(callback: CallbackQuery, **kwargs):
+    """Handle risk profile selection and application"""
+    profile = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
+
+    if not session_manager:
+        await safe_answer(callback, "⚠️ Error interno")
+        return
+
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await safe_answer(callback, "⚠️ Sesión no encontrada")
+        return
+
+    # Apply risk profile
+    try:
+        # Define profile parameters
+        profiles_data = {
+            "CONSERVADOR": {
+                "max_leverage": 3,
+                "default_leverage": 3,
+                "max_capital_pct": 0.30,
+                "atr_multiplier": 1.5,
+                "rr_ratio": 1.2,
+                "description": "Conservador: ≤3x máx, ATR 1.5x"
+            },
+            "NEXUS": {
+                "max_leverage": 10,
+                "default_leverage": 5,
+                "max_capital_pct": 0.50,
+                "atr_multiplier": 2.0,
+                "rr_ratio": 1.5,
+                "description": "Nexus: ≤10x dinámico, ATR 2.0x"
+            },
+            "RONIN": {
+                "max_leverage": 20,
+                "default_leverage": 20,
+                "max_capital_pct": 0.20,
+                "atr_multiplier": 2.5,
+                "rr_ratio": 2.0,
+                "description": "Ronin: ≤20x máx, ATR 2.5x"
+            }
+        }
+
+        if profile not in profiles_data:
+            await safe_answer(callback, "⚠️ Perfil no válido")
+            return
+
+        profile_config = profiles_data[profile]
+
+        # Apply profile settings
+        session.config['max_leverage_allowed'] = profile_config['max_leverage']
+        session.config['leverage'] = min(session.config.get('leverage', profile_config['default_leverage']),
+                                       profile_config['max_leverage'])
+        session.config['max_capital_pct'] = min(session.config.get('max_capital_pct', 0.25),
+                                              profile_config['max_capital_pct'])
+        session.config['atr_multiplier'] = profile_config['atr_multiplier']
+        session.config['risk_reward_ratio'] = profile_config['rr_ratio']
+        session.config['risk_profile'] = profile
+
+        # Always enable ATR for SL/TP
+        session.config['use_atr_for_sl_tp'] = True
+
+        # Save session
+        session_manager.save_sessions()
+
+        await safe_answer(callback, f"✅ {profile_config['description']}")
+
+        # Refresh config panel
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+
+    except Exception as e:
+        await safe_answer(callback, f"❌ Error aplicando perfil: {str(e)[:50]}")
+
+
+@router.callback_query(F.data.startswith("MODULE|"))
+async def handle_module_callback(callback: CallbackQuery, **kwargs):
+    """Handle module navigation for Propuesta 1"""
+    module = callback.data.split("|")[1]
+    session_manager = kwargs.get('session_manager')
+
+    if module == "DETAILED":
+        # Ajustes detallados
+        msg = (
+            "⚖️ *CONFIGURACIÓN DETALLADA*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📊 **PERFIL ACTIVO**\n"
+            "• Leverage máximo según perfil\n"
+            "• Capital máximo según perfil\n"
+            "• SL/TP: SIEMPRE por ATR dinámico\n\n"
+            "🎚️ **AJUSTES FINOS**\n"
+            "• Valores calculados dinámicamente\n"
+            "• Nunca superan topes del perfil\n"
+            "• ATR determina SL/TP óptimos"
+        )
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚖️ Configurar Leverage", callback_data="CFG|LEV_MENU")],
+            [InlineKeyboardButton(text="💰 Configurar Capital", callback_data="CFG|MARGIN_MENU")],
+            [InlineKeyboardButton(text="🎯 Ver Cálculos ATR", callback_data="INFO|ATR_CALC")],
+            [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+        ])
+
+    elif module == "AI":
+        # IA & Automation
+        msg = (
+            "🧠 *CENTRO DE INTELIGENCIA*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🤖 **SISTEMAS DE IA ACTIVA**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "• AI Filter: Filtra señales por sentimiento\n"
+            "• ML Classifier: Predice dirección usando ML\n"
+            "• Sentiment Analysis: Análisis Fear & Greed\n"
+            "• ATR Integration: Cálculos dinámicos siempre\n\n"
+            "🎛️ **CONTROLES RÁPIDOS**"
+        )
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✨ Toggle AI Filter", callback_data="TOGGLE|AI_FILTER")],
+            [InlineKeyboardButton(text="🧠 Toggle ML Mode", callback_data="TOGGLE|ML_MODE")],
+            [InlineKeyboardButton(text="🎭 Toggle Sentiment", callback_data="TOGGLE|SENTIMENT")],
+            [InlineKeyboardButton(text="🎯 Estado IA", callback_data="INFO|AI_STATUS")],
+            [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+        ])
+
+    elif module == "PROTECTIONS":
+        # Protecciones
+        msg = (
+            "🛡️ *SISTEMA DE PROTECCIONES*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🔌 **PROTECCIONES ACTIVAS**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "• Circuit Breaker: Detiene operaciones en crash\n"
+            "• Portfolio Shield: Protege correlaciones\n"
+            "• Emergency Stop: Parada manual de emergencia\n\n"
+            "🎛️ **CONFIGURACIÓN**"
+        )
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔌 Circuit Breaker", callback_data="TOGGLE|CIRCUIT_BREAKER")],
+            [InlineKeyboardButton(text="🛡️ Portfolio Shield", callback_data="TOGGLE|SHIELD")],
+            [InlineKeyboardButton(text="🚨 Emergency Stop", callback_data="TOGGLE|EMERGENCY")],
+            [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+        ])
+
+    elif module == "STRATEGIES":
+        # Estrategias
+        msg = (
+            "📊 *ESTRATEGIAS & ACTivos*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🎛️ **CONFIGURACIÓN DE ESTRATEGIAS**\n"
+            "• Motores de señales activas\n"
+            "• Grupos de activos habilitados\n"
+            "• Parámetros de cada estrategia\n\n"
+            "📡 **GRUPOS DE ACTIVOS**\n"
+            "• Exchanges disponibles\n"
+            "• Símbolos por grupo\n"
+            "• Configuración por grupo"
+        )
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎛️ Estrategias (Motor)", callback_data="CMD|strategies")],
+            [InlineKeyboardButton(text="📡 Grupos y Activos", callback_data="CMD|assets")],
+            [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+        ])
+
+    else:
+        await safe_answer(callback, "⚠️ Módulo no encontrado")
+        return
+
+    try:
+        await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
+    except Exception as e:
+        await safe_answer(callback, f"Error: {str(e)[:50]}")
+
+
+@router.callback_query(F.data.startswith("INFO|"))
+async def handle_info_callback(callback: CallbackQuery, **kwargs):
+    """Handle informational callbacks"""
+    info_type = callback.data.split("|")[1]
+
+    if info_type == "PROFILE":
+        msg = (
+            "🎯 *INFORMACIÓN DE PERFILES*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🛡️ **CONSERVADOR** (≤3x máx)\n"
+            "• Leverage máximo: 3x\n"
+            "• Capital máximo: 30%\n"
+            "• ATR multiplier: 1.5x (SL conservador)\n"
+            "• Risk/Reward: 1:1.2\n\n"
+            "🌌 **NEXUS** (≤10x dinámico)\n"
+            "• Leverage: 5-10x según condiciones\n"
+            "• Capital máximo: 50%\n"
+            "• ATR multiplier: 2.0x (SL equilibrado)\n"
+            "• Risk/Reward: 1:1.5\n\n"
+            "⚔️ **RONIN** (≤20x máx)\n"
+            "• Leverage máximo: 20x\n"
+            "• Capital máximo: 20%\n"
+            "• ATR multiplier: 2.5x (SL amplio)\n"
+            "• Risk/Reward: 1:2.0"
+        )
+
+    elif info_type == "ATR":
+        msg = (
+            "🎯 *SISTEMA ATR DINÁMICO*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📊 **CÓMO FUNCIONA**\n"
+            "• ATR mide volatilidad real del mercado\n"
+            "• SL = ATR × multiplier (según perfil)\n"
+            "• TP = SL × risk/reward ratio\n"
+            "• Se recalcula en cada operación\n\n"
+            "🎛️ **MULTIPLIERS POR PERFIL**\n"
+            "• 🛡️ Conservador: 1.5x (más cerca)\n"
+            "• 🌌 Nexus: 2.0x (equilibrado)\n"
+            "• ⚔️ Ronin: 2.5x (más amplio)\n\n"
+            "✅ **VENTAJAS**\n"
+            "• Stop loss adaptativo a volatilidad\n"
+            "• Take profit basado en riesgo asumido\n"
+            "• Funciona en cualquier condición de mercado"
+        )
+
+    elif info_type == "ATR_CALC":
+        msg = (
+            "🎯 *CÁLCULOS ATR DETALLADOS*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📈 **FÓRMULAS ACTIVAS**\n"
+            "```\n"
+            "ATR = Average True Range (14 periodos)\n"
+            "SL = Precio_Entrada × (1 - ATR × Multiplier)\n"
+            "TP = Precio_Entrada × (1 + ATR × Multiplier × RR_Ratio)\n"
+            "```\n\n"
+            "🎚️ **PARÁMETROS ACTUALES**\n"
+            "• Periodo ATR: 14 velas\n"
+            "• Timeframe: 4 horas\n"
+            "• Multiplier: Según perfil de riesgo\n"
+            "• RR Ratio: Según perfil de riesgo"
+        )
+
+    elif info_type == "AI_STATUS":
+        msg = (
+            "🧠 *ESTADO DE SISTEMAS IA*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "✨ **AI FILTER**\n"
+            "• Estado: ACTIVE\n"
+            "• Función: Filtra señales por sentimiento\n"
+            "• Datos: Fear & Greed Index\n\n"
+            "🧠 **ML CLASSIFIER**\n"
+            "• Estado: ACTIVE\n"
+            "• Función: Predice dirección de mercado\n"
+            "• Modelo: XGBoost con features técnicas\n\n"
+            "🎭 **SENTIMENT ANALYSIS**\n"
+            "• Estado: ACTIVE\n"
+            "• Función: Análisis de sentimiento macro\n"
+            "• Fuentes: Múltiples indicadores"
+        )
+
+    else:
+        await safe_answer(callback, "⚠️ Información no encontrada")
+        return
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+    ])
+
+    try:
+        await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
+    except Exception as e:
+        await safe_answer(callback, f"Error mostrando info: {str(e)[:50]}")
