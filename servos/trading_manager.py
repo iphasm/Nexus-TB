@@ -1370,12 +1370,28 @@ class AsyncTradingSession:
                 print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
 
         
-        # 1. Check existing position via Shadow Wallet
+        # 1. Check existing position via Shadow Wallet (with sync)
+        # Force sync positions before checking to avoid stale data
+        try:
+            positions = await self.bridge.get_positions()
+            for pos in positions:
+                pos_symbol = pos.get('symbol', '')
+                pos_qty = float(pos.get('quantity', 0) or pos.get('amt', 0))
+                if pos_symbol == symbol:
+                    self.bridge.shadow_wallet.update_position(symbol, {
+                        'quantity': pos_qty,
+                        'side': 'LONG' if pos_qty > 0 else 'SHORT',
+                        'entry_price': float(pos.get('entry', 0) or pos.get('avgPrice', 0))
+                    })
+        except Exception as sync_err:
+            print(f"⚠️ Position Sync Error ({symbol}): {sync_err}")
+
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
         current_side = current_pos.get('side', '')
-        
-        if net_qty > 0:
+
+        # Only consider significant positions (> 0.001 to avoid dust)
+        if abs(net_qty) > 0.001:
             if current_side == 'LONG':
                  return await self.execute_update_sltp(symbol, 'LONG', atr)
             elif current_side == 'SHORT':
@@ -1649,12 +1665,28 @@ class AsyncTradingSession:
                 print(f"⚠️ Balance Sync Error ({target_exchange}): {sync_err}")
 
         
-        # 1. Check existing position via Shadow Wallet
+        # 1. Check existing position via Shadow Wallet (with sync)
+        # Force sync positions before checking to avoid stale data
+        try:
+            positions = await self.bridge.get_positions()
+            for pos in positions:
+                pos_symbol = pos.get('symbol', '')
+                pos_qty = float(pos.get('quantity', 0) or pos.get('amt', 0))
+                if pos_symbol == symbol:
+                    self.bridge.shadow_wallet.update_position(symbol, {
+                        'quantity': pos_qty,
+                        'side': 'LONG' if pos_qty > 0 else 'SHORT',
+                        'entry_price': float(pos.get('entry', 0) or pos.get('avgPrice', 0))
+                    })
+        except Exception as sync_err:
+            print(f"⚠️ Position Sync Error ({symbol}): {sync_err}")
+
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
         current_side = current_pos.get('side', '')
-        
-        if net_qty > 0:
+
+        # Only consider significant positions (> 0.001 to avoid dust)
+        if abs(net_qty) > 0.001:
             if current_side == 'SHORT':
                  return await self.execute_update_sltp(symbol, 'SHORT', atr)
             elif current_side == 'LONG':
@@ -2043,29 +2075,33 @@ class AsyncTradingSession:
 
                 side = 'LONG' if qty > 0 else 'SHORT'
                 entry_price = float(p['entry'])
-                
+
                 # Get current price via Bridge (CCXT-compatible)
                 current_price = await self.bridge.get_last_price(symbol)
-                
+
                 # Get precision
                 qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
                 # Standard SL/TP logic:
                 stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
-                
+
                 # BREAKEVEN LOGIC: If profit > 1%, Move SL to Entry
                 pnl_pct = (current_price - entry_price) / entry_price if side == 'LONG' else (entry_price - current_price) / entry_price
                 is_in_profit_1pct = pnl_pct >= 0.01
+
+                # Debug logging
+                print(f"🔍 SL/TP Debug {symbol}: Entry={entry_price:.4f}, Current={current_price:.4f}, PnL={pnl_pct:.2%}, InProfit={is_in_profit_1pct}")
                 
                 if side == 'LONG':
-                    # If in 1% profit, SL = Entry. Else, SL = Entry - Default %
+                    # If in 1% profit, SL = Entry - small buffer. Else, SL = Entry - Default %
                     if is_in_profit_1pct:
-                        sl_price = round_to_tick_size(entry_price, tick_size)
+                        # Breakeven: SL slightly below entry to avoid noise
+                        sl_price = round_to_tick_size(entry_price * 0.995, tick_size)  # 0.5% below entry
                         sl_label = "Breakeven"
                     else:
                         sl_price = round_to_tick_size(entry_price * (1 - stop_loss_pct), tick_size)
                         sl_label = f"{stop_loss_pct*100}%"
-                    
+
                     tp_price = round_to_tick_size(entry_price * (1 + (stop_loss_pct * 3)), tick_size)
                 else:
                     # Short: If in 1% profit, SL = Entry. Else, SL = Entry + Default %
@@ -2209,10 +2245,34 @@ class AsyncTradingSession:
             if success:
                 # Update persistent cooldown timestamp
                 SLTP_LAST_UPDATE[symbol] = time.time()
-                return True, (
-                    f"🔄 SL/TP Updated (Surgical) for {symbol}\n"
-                    f"{sync_msg}"
+
+                # Generate enhanced message with personality
+                personality = self.config.get('personality', 'STANDARD_ES')
+                leverage = 1  # Default for position updates
+                total_equity = self.shadow_wallet.get_unified_equity()
+                margin_used = abs(qty) * entry_price / leverage
+
+                # Determine target exchange for the message
+                target_exchange = self.bridge._route_symbol(symbol) if self.bridge else 'UNKNOWN'
+
+                # Create position message using the same format as new positions
+                update_message = format_position_message(
+                    symbol=symbol,
+                    side=side,
+                    quantity=abs(qty),
+                    entry_price=entry_price,
+                    sl_price=sl_price,
+                    tp_price=tp_price,
+                    leverage=leverage,
+                    total_equity=total_equity,
+                    margin_used=margin_used,
+                    target_exchange=target_exchange,
+                    atr_value=None,  # Not available in updates
+                    strategy="Update",
+                    personality=personality
                 )
+
+                return True, update_message
             else:
                 return False, sync_msg
             
