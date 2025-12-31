@@ -68,124 +68,124 @@ async def cmd_start(message: Message, **kwargs):
         else:
             msg_load = message
 
-    # 2. Obtener datos de sesión
-    chat_id = str(message.chat.id)
-    session = session_manager.get_session(chat_id) if session_manager else None
-    user_name = get_user_name(chat_id)
-    
-    # 3. Valores por defecto
-    mode = "WATCHER"
-    p_name = "Estándar"
-    risk_label = "Personalizado"
-    p_key = "STANDARD_ES"
-    ai_enabled = True
-    
-    # 4. Obtener configuración de sesión
-    if session:
-        mode = session.config.get('mode', 'WATCHER')
-        p_key = session.config.get('personality', 'STANDARD_ES')
-        ai_enabled = session.config.get('sentiment_filter', True)
-        
-        # Obtener nombre de personalidad
+        # 2. Obtener datos de sesión
+        chat_id = str(message.chat.id)
+        session = session_manager.get_session(chat_id) if session_manager else None
+        user_name = get_user_name(chat_id)
+
+        # 3. Valores por defecto
+        mode = "WATCHER"
+        p_name = "Estándar"
+        risk_label = "Personalizado"
+        p_key = "STANDARD_ES"
+        ai_enabled = True
+
+        # 4. Obtener configuración de sesión
+        if session:
+            mode = session.config.get('mode', 'WATCHER')
+            p_key = session.config.get('personality', 'STANDARD_ES')
+            ai_enabled = session.config.get('sentiment_filter', True)
+
+            # Obtener nombre de personalidad
+            from servos.personalities import PersonalityManager
+            pm = PersonalityManager()
+            profile = pm.get_profile(p_key)
+            p_name = profile.get('NAME', p_key)
+
+            # Determinar etiqueta de riesgo
+            lev = session.config.get('leverage', 5)
+            if lev == 20:
+                risk_label = "⚔️ Ronin"
+            elif lev == 3:
+                risk_label = "🛡️ Guardian"
+            elif lev == 5:
+                risk_label = "🌌 Nexus"
+
+        # 5. Iconos y estado
+        mode_icons = {
+            'PILOT': '🤖',
+            'COPILOT': '👨‍✈️',
+            'WATCHER': '👀'
+        }
+        mode_icon = mode_icons.get(mode, '❓')
+        ai_suffix = " ✨" if ai_enabled else ""
+
+        # 6. Obtener saludo personalizado
         from servos.personalities import PersonalityManager
         pm = PersonalityManager()
         profile = pm.get_profile(p_key)
-        p_name = profile.get('NAME', p_key)
-        
-        # Determinar etiqueta de riesgo
-        lev = session.config.get('leverage', 5)
-        if lev == 20: 
-            risk_label = "⚔️ Ronin"
-        elif lev == 3: 
-            risk_label = "🛡️ Guardian"
-        elif lev == 5: 
-            risk_label = "🌌 Nexus"
 
-    # 5. Iconos y estado
-    mode_icons = {
-        'PILOT': '🤖',
-        'COPILOT': '👨‍✈️',
-        'WATCHER': '👀'
-    }
-    mode_icon = mode_icons.get(mode, '❓')
-    ai_suffix = " ✨" if ai_enabled else ""
-    
-    # 6. Obtener saludo personalizado
-    from servos.personalities import PersonalityManager
-    pm = PersonalityManager()
-    profile = pm.get_profile(p_key)
-    
-    raw_greeting = profile.get('GREETING', ["Ready."])
-    quote = random.choice(raw_greeting) if isinstance(raw_greeting, list) else raw_greeting
-    
-    try:
-        quote = quote.format(user_name=user_name)
-    except:
-        pass
-    
-    # Limpiar puntuación final para evitar duplicados
-    quote = quote.rstrip('.!?,;:')
-    formatted_quote = f"      \"{quote}, **{user_name}**.\""
+        raw_greeting = profile.get('GREETING', ["Ready."])
+        quote = random.choice(raw_greeting) if isinstance(raw_greeting, list) else raw_greeting
 
-    # 7. Verificar balances y generar mensaje dinámico (solo si hay problemas)
-    balance_warning = ""
-    show_balance_section = False
-
-    # Fast balance check - only use cached data, no network calls
-    if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
         try:
-            # Use only cached balance data - no network operations
-            connected_exchanges = ['BINANCE', 'BYBIT']  # Assume connected if session exists
-            low_balance_exchanges = []
+            quote = quote.format(user_name=user_name)
+        except:
+            pass
 
-            for exchange in connected_exchanges:
-                balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
-                threshold = 6.0  # Same threshold as check_liquidity
+        # Limpiar puntuación final para evitar duplicados
+        quote = quote.rstrip('.!?,;:')
+        formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
-                if balance < threshold and balance > 0:  # Only show if we have data and it's low
-                    low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
-                    show_balance_section = True
+        # 7. Verificar balances y generar mensaje dinámico (solo si hay problemas)
+        balance_warning = ""
+        show_balance_section = False
 
-            if show_balance_section and low_balance_exchanges:
-                balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        # Fast balance check - only use cached data, no network calls
+        if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
+            try:
+                # Use only cached balance data - no network operations
+                connected_exchanges = ['BINANCE', 'BYBIT']  # Assume connected if session exists
+                low_balance_exchanges = []
 
-        except Exception as e:
-            # Silent fail - don't block /start for balance check errors
-            print(f"⚠️ Fast balance check failed in /start: {e}")
-            balance_warning = ""
+                for exchange in connected_exchanges:
+                    balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
+                    threshold = 6.0  # Same threshold as check_liquidity
 
-    # 8. Construir mensaje de bienvenida
-    welcome = (
-        f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_suffix}**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🧠 **Personalidad:** {p_name}\n"
-        f"{formatted_quote}\n"
-        f"⚖️ **Riesgo:** {risk_label}\n"
-        f"{balance_warning}"
-        "**Selecciona un módulo:**"
-    )
-    
-    # 8. Teclado interactivo organizado por categorías
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        # Operaciones principales
-        [
-            InlineKeyboardButton(text="📊 Dashboard", callback_data="CMD|dashboard"),
-            InlineKeyboardButton(text="🔄 Sync All", callback_data="SYNC_ORDERS")
-        ],
-        # Módulos de selección
-        [
-            InlineKeyboardButton(text="📡 Intel Center", callback_data="MENU|INTEL"),
-            InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
-        ],
-        # Configuración y ayuda
-        [
-            InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
-            InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
-        ]
-    ])
-    
-    # 9. Enviar/editar mensaje
-    await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+                    if balance < threshold and balance > 0:  # Only show if we have data and it's low
+                        low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                        show_balance_section = True
+
+                if show_balance_section and low_balance_exchanges:
+                    balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+            except Exception as e:
+                # Silent fail - don't block /start for balance check errors
+                print(f"⚠️ Fast balance check failed in /start: {e}")
+                balance_warning = ""
+
+        # 8. Construir mensaje de bienvenida
+        welcome = (
+            f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_suffix}**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🧠 **Personalidad:** {p_name}\n"
+            f"{formatted_quote}\n"
+            f"⚖️ **Riesgo:** {risk_label}\n"
+            f"{balance_warning}"
+            "**Selecciona un módulo:**"
+        )
+
+        # 8. Teclado interactivo organizado por categorías
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            # Operaciones principales
+            [
+                InlineKeyboardButton(text="📊 Dashboard", callback_data="CMD|dashboard"),
+                InlineKeyboardButton(text="🔄 Sync All", callback_data="SYNC_ORDERS")
+            ],
+            # Módulos de selección
+            [
+                InlineKeyboardButton(text="📡 Intel Center", callback_data="MENU|INTEL"),
+                InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
+            ],
+            # Configuración y ayuda
+            [
+                InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
+                InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
+            ]
+        ])
+
+        # 9. Enviar/editar mensaje
+        await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
 
     except Exception as e:
         # Fallback message if /start fails
