@@ -103,6 +103,7 @@ class PersonalityManager:
             'TRADE_LONG': (
                 "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Dirección: 🟢 **LONG (Compra)**\n"
                 "Estrategia: **{strategy_name}**\n"
                 "Precio Actual: ${price:,.2f}\n\n"
@@ -114,6 +115,7 @@ class PersonalityManager:
             'TRADE_SHORT': (
                 "{title}: \"{quote}, **{user_name}**.\"\n\n"
                 "Activo: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Dirección: 🔴 **SHORT (Venta)**\n"
                 "Estrategia: **{strategy_name}**\n"
                 "Precio Actual: ${price:,.2f}\n\n"
@@ -217,6 +219,7 @@ class PersonalityManager:
             'TRADE_LONG': (
                 "{title}\n\n"
                 "Asset: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Direction: 🟢 **LONG (Buy)**\n"
                 "Strategy: **{strategy_name}**\n"
                 "Current Price: ${price:,.2f}\n\n"
@@ -230,6 +233,7 @@ class PersonalityManager:
             'TRADE_SHORT': (
                 "{title}\n\n"
                 "Asset: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Direction: 🔴 **SHORT (Sell)**\n"
                 "Strategy: **{strategy_name}**\n"
                 "Current Price: ${price:,.2f}\n\n"
@@ -1238,6 +1242,7 @@ class PersonalityManager:
             'TRADE_LONG': (
                 "{title}\n\n"
                 "Activo: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Dirección: 🟢 **LONG (Liberation)**\n"
                 "Estrategia: **{strategy_name}**\n"
                 "Precio Actual: ${price:,.2f}\n\n"
@@ -1251,6 +1256,7 @@ class PersonalityManager:
             'TRADE_SHORT': (
                 "{title}\n\n"
                 "Activo: **{asset}**\n"
+                "Exchange: **{exchange}**\n"
                 "Dirección: 🔴 **SHORT (Reset)**\n"
                 "Estrategia: **{strategy_name}**\n"
                 "Precio Actual: ${price:,.2f}\n\n"

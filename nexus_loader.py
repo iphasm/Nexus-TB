@@ -327,10 +327,21 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             mode = session.mode
             p_key = session.config.get('personality', 'STANDARD_ES')
             user_name = get_user_name(session.chat_id)
-            
+
+            # --- FILTER: Sufficient Balance? ---
+            # Check liquidity before sending signals (silent validation)
+            has_liquidity, _, _ = await session.check_liquidity(symbol)
+            if not has_liquidity:
+                logger.info(f"⏭️ {session.chat_id}: Balance insuficiente para {symbol}", group=True)
+                continue  # Skip this session, don't send signal
+
             # Calculate SL/TP/TS preview
             sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
-            
+
+            # Determine target exchange for display
+            target_exchange = session.bridge._route_symbol(symbol) if session.bridge else 'BINANCE'
+            exchange_display = 'Binance' if 'BINANCE' in target_exchange else 'Bybit' if 'BYBIT' in target_exchange else 'Alpaca'
+
             # Fetch Personality Data
             profile = personality_manager.PROFILES.get(p_key, personality_manager.PROFILES.get('STANDARD_ES'))
             title = profile.get('NAME', 'Nexus Bot')
@@ -344,7 +355,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
                         title=title, quote=quote, strategy_name=strategy,
-                        user_name=user_name
+                        user_name=user_name, exchange=exchange_display
                     )
                 else:
                     msg = personality_manager.get_message(
@@ -352,7 +363,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
                         title=title, quote=quote, strategy_name=strategy,
-                        user_name=user_name
+                        user_name=user_name, exchange=exchange_display
                     )
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
                 
@@ -363,7 +374,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
                         title=title, quote=quote, strategy_name=strategy,
-                        user_name=user_name
+                        user_name=user_name, exchange=exchange_display
                     )
                 else:
                     msg = personality_manager.get_message(
@@ -371,7 +382,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         asset=symbol, price=price, reason=reason,
                         tp=tp_prev, sl=sl_prev, ts=ts_prev,
                         title=title, quote=quote, strategy_name=strategy,
-                        user_name=user_name
+                        user_name=user_name, exchange=exchange_display
                     )
                     
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
