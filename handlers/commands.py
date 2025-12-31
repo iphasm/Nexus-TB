@@ -174,12 +174,12 @@ async def cmd_start(message: Message, **kwargs):
             ],
             # Módulos de selección
             [
-                InlineKeyboardButton(text="📡 Intel Center", callback_data="MENU|INTEL"),
+                InlineKeyboardButton(text="🌍 GLOBAL MARKET", callback_data="MENU|INTEL"),
                 InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
             ],
             # Configuración y ayuda
             [
-                InlineKeyboardButton(text="⚙️ Config", callback_data="CMD|config"),
+                InlineKeyboardButton(text="⚙️ Configuración", callback_data="CMD|config"),
                 InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
             ]
         ])
