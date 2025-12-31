@@ -1221,7 +1221,8 @@ class AsyncTradingSession:
             if sl_price > 0 and valid_sl:
                 result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='STOP_MARKET',
-                    quantity=abs_qty, price=sl_price, reduceOnly=True
+                    quantity=abs_qty, price=sl_price
+                    # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                 )
                 if result.get('error'):
                     error_code = result.get('code')
@@ -1260,7 +1261,8 @@ class AsyncTradingSession:
                 if valid_tp and tp_price > 0:
                     tp1_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
-                        quantity=qty_tp1, price=tp_price, reduceOnly=True
+                        quantity=qty_tp1, price=tp_price
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp1_result.get('error'):
                         print(f"⚠️ {symbol}: TP1 Error - {tp1_result['error']}")
@@ -1272,7 +1274,8 @@ class AsyncTradingSession:
                 if activation > 0:
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, price=activation, callbackRate=1.0, reduceOnly=True
+                        quantity=qty_trail, price=activation, callbackRate=1.0
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if trail_result.get('error'):
                         print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
@@ -1287,7 +1290,8 @@ class AsyncTradingSession:
                 if activation > 0:
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=abs_qty, price=activation, callbackRate=1.0, reduceOnly=True
+                        quantity=abs_qty, price=activation, callbackRate=1.0
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if trail_result.get('error'):
                         print(f"⚠️ {symbol}: Trailing Stop Error - {trail_result['error']}")
@@ -1528,7 +1532,8 @@ class AsyncTradingSession:
                 if sl_valid:
                     sl_result = await self.bridge.place_order(
                         symbol, 'SELL', 'STOP_MARKET',
-                        quantity=quantity, price=sl_price, reduceOnly=True
+                        quantity=quantity, price=sl_price
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
                         print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
@@ -1548,7 +1553,8 @@ class AsyncTradingSession:
                 if tp_valid:
                     tp_result = await self.bridge.place_order(
                         symbol, 'SELL', 'TAKE_PROFIT_MARKET',
-                        quantity=quantity, price=tp_price, reduceOnly=True
+                        quantity=quantity, price=tp_price
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
                         print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
@@ -1772,7 +1778,8 @@ class AsyncTradingSession:
                 if sl_valid:
                     sl_result = await self.bridge.place_order(
                         symbol, 'BUY', 'STOP_MARKET',
-                        quantity=quantity, price=sl_price, reduceOnly=True
+                        quantity=quantity, price=sl_price
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
                         print(f"⚠️ {symbol}: SL Order Error - {sl_result['error']}")
@@ -1792,7 +1799,8 @@ class AsyncTradingSession:
                 if tp_valid:
                     tp_result = await self.bridge.place_order(
                         symbol, 'BUY', 'TAKE_PROFIT_MARKET',
-                        quantity=quantity, price=tp_price, reduceOnly=True
+                        quantity=quantity, price=tp_price
+                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
                         print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
