@@ -53,19 +53,20 @@ def get_fear_and_greed_index() -> str:
 async def cmd_start(message: Message, **kwargs):
     """
     Centro de Comando Principal (Hub v5)
-    
+
     Interfaz unificada y organizada que proporciona acceso rápido a todas las
     funcionalidades del bot de forma lógica y estructurada.
     """
-    edit_message = kwargs.get('edit_message', False)
-    session_manager = kwargs.get('session_manager')
-    
-    # 1. Estado de carga (solo si es mensaje nuevo)
-    if not edit_message:
-        msg_load = await message.answer("🔄 _Iniciando Hub..._", parse_mode="Markdown")
-        await asyncio.sleep(0.2)  # Reducido para mejor UX
-    else:
-        msg_load = message
+    try:
+        edit_message = kwargs.get('edit_message', False)
+        session_manager = kwargs.get('session_manager')
+
+        # 1. Estado de carga (solo si es mensaje nuevo)
+        if not edit_message:
+            msg_load = await message.answer("🔄 _Iniciando Hub..._", parse_mode="Markdown")
+            await asyncio.sleep(0.1)  # Reducido para mejor UX
+        else:
+            msg_load = message
 
     # 2. Obtener datos de sesión
     chat_id = str(message.chat.id)
@@ -130,25 +131,28 @@ async def cmd_start(message: Message, **kwargs):
     balance_warning = ""
     show_balance_section = False
 
-    if session and session.bridge:
+    # Fast balance check - only use cached data, no network calls
+    if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
         try:
-            # Check balances for connected exchanges
-            connected_exchanges = [ex for ex in ['BINANCE', 'BYBIT'] if ex in session.bridge.adapters]
+            # Use only cached balance data - no network operations
+            connected_exchanges = ['BINANCE', 'BYBIT']  # Assume connected if session exists
             low_balance_exchanges = []
 
             for exchange in connected_exchanges:
                 balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
                 threshold = 6.0  # Same threshold as check_liquidity
 
-                if balance < threshold:
+                if balance < threshold and balance > 0:  # Only show if we have data and it's low
                     low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
                     show_balance_section = True
 
-            if show_balance_section:
+            if show_balance_section and low_balance_exchanges:
                 balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
         except Exception as e:
-            print(f"⚠️ Error checking balances in /start: {e}")
+            # Silent fail - don't block /start for balance check errors
+            print(f"⚠️ Fast balance check failed in /start: {e}")
+            balance_warning = ""
 
     # 8. Construir mensaje de bienvenida
     welcome = (
@@ -182,6 +186,25 @@ async def cmd_start(message: Message, **kwargs):
     
     # 9. Enviar/editar mensaje
     await msg_load.edit_text(welcome, reply_markup=keyboard, parse_mode="Markdown")
+
+    except Exception as e:
+        # Fallback message if /start fails
+        error_msg = (
+            "🌌 **NEXUS TRADING BOT**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "⚠️ *Error al cargar el Hub principal*\n\n"
+            "Intenta usar `/dashboard` para ver el estado del sistema.\n\n"
+            f"Error: {str(e)[:100]}..."
+        )
+        try:
+            if not edit_message:
+                await msg_load.edit_text(error_msg, parse_mode="Markdown")
+            else:
+                await message.edit_text(error_msg, parse_mode="Markdown")
+        except:
+            # Last resort - send new message
+            await message.reply("⚠️ Error al cargar el Hub. Usa /dashboard", parse_mode="Markdown")
+        print(f"❌ Error in /start command: {e}")
 
 
 # --- NEW MENU HANDLERS ---
