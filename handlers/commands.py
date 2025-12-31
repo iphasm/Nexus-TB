@@ -126,14 +126,36 @@ async def cmd_start(message: Message, **kwargs):
     quote = quote.rstrip('.!?,;:')
     formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
-    # 7. Construir mensaje de bienvenida
+    # 7. Verificar balances y generar mensaje dinámico
+    balance_warning = ""
+    if session and session.bridge:
+        try:
+            # Check balances for connected exchanges
+            connected_exchanges = [ex for ex in ['BINANCE', 'BYBIT'] if ex in session.bridge.adapters]
+
+            for exchange in connected_exchanges:
+                balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
+                threshold = 6.0  # Same threshold as check_liquidity
+
+                if balance < threshold:
+                    balance_warning += f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})\n"
+                else:
+                    balance_warning += f"✅ **{exchange}:** ${balance:.2f}\n"
+
+            if balance_warning:
+                balance_warning = f"💰 **Estado de Balances:**\n{balance_warning}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        except Exception as e:
+            print(f"⚠️ Error checking balances in /start: {e}")
+
+    # 8. Construir mensaje de bienvenida
     welcome = (
         f"🌌 **NEXUS TRADING BOT** | {mode_icon} **{mode}{ai_suffix}**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🧠 **Personalidad:** {p_name}\n"
         f"{formatted_quote}\n"
         f"⚖️ **Riesgo:** {risk_label}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{balance_warning}"
         "**Selecciona un módulo:**"
     )
     
@@ -1177,8 +1199,14 @@ async def _execute_manual_position(message: Message, side: str, force_exchange: 
         else:
             success, res_msg = await session.execute_short_position(symbol, atr=atr_value, force_exchange=force_exchange)
 
-        # Send result without parse_mode to avoid Markdown issues
-        await message.reply(res_msg, parse_mode=None)
+        # Only send success messages to chat - silence low balance errors
+        if success:
+            await message.reply(res_msg, parse_mode=None)
+        else:
+            # Log the error for debugging but don't show to user
+            print(f"🔕 Silenced error for {message.text.split()[0]} {symbol}: {res_msg}")
+            # Optionally send a generic message
+            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
 
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
@@ -1220,9 +1248,15 @@ async def cmd_long(message: Message, **kwargs):
         
         # Execute with ATR
         success, res_msg = await session.execute_long_position(symbol, atr=atr_value)
-        
-        # Send result without parse_mode to avoid Markdown issues
-        await message.reply(res_msg, parse_mode=None)
+
+        # Only send success messages to chat - silence low balance errors
+        if success:
+            await message.reply(res_msg, parse_mode=None)
+        else:
+            # Log the error for debugging but don't show to user
+            print(f"🔕 Silenced error for /long {symbol}: {res_msg}")
+            # Optionally send a generic message
+            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
@@ -1325,7 +1359,15 @@ async def cmd_short(message: Message, **kwargs):
         
         # Execute with ATR
         success, res_msg = await session.execute_short_position(symbol, atr=atr_value)
-        await message.reply(res_msg, parse_mode=None)
+
+        # Only send success messages to chat - silence low balance errors
+        if success:
+            await message.reply(res_msg, parse_mode=None)
+        else:
+            # Log the error for debugging but don't show to user
+            print(f"🔕 Silenced error for /short {symbol}: {res_msg}")
+            # Optionally send a generic message
+            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
