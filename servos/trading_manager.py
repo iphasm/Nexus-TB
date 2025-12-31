@@ -24,6 +24,9 @@ from servos.ai_analyst import NexusAnalyst
 # Shield 2.0
 from nexus_system.shield.correlation import CorrelationManager
 
+# Personalities
+from servos.personalities import PersonalityManager
+
 import pandas as pd
 
 # Cortex / Strategy System
@@ -178,6 +181,89 @@ def ensure_price_separation(price: float, entry_price: float, tick_size: float, 
     
     # Re-redondear después del ajuste
     return round_to_tick_size(price, tick_size)
+
+
+def format_position_message(
+    symbol: str,
+    side: str,
+    quantity: float,
+    entry_price: float,
+    sl_price: float,
+    tp_price: float,
+    leverage: int,
+    total_equity: float,
+    margin_used: float,
+    target_exchange: str,
+    atr_value: float = None,
+    strategy: str = "Manual",
+    personality: str = "STANDARD_ES"
+) -> str:
+    """
+    Genera mensaje enriquecido de ejecución de posición con frase de personalidad.
+
+    Args:
+        symbol: Símbolo del activo
+        side: 'LONG' o 'SHORT'
+        quantity: Cantidad ejecutada
+        entry_price: Precio de entrada
+        sl_price: Precio de Stop Loss
+        tp_price: Precio de Take Profit
+        leverage: Leverage aplicado
+        total_equity: Equity total disponible
+        margin_used: Margen utilizado
+        target_exchange: Exchange destino
+        atr_value: Valor de ATR usado (opcional)
+        strategy: Estrategia utilizada
+        personality: Personalidad activa
+
+    Returns:
+        Mensaje formateado con información completa y frase de personalidad
+    """
+    # Cálculos adicionales
+    notional = quantity * entry_price
+    risk_amount = abs(entry_price - sl_price) * quantity
+    risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
+    rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
+
+    # Determinar emoji y dirección
+    direction_emoji = "📈" if side == "LONG" else "📉"
+    main_emoji = "🚀" if side == "LONG" else "🐻"
+
+    # Obtener frase de personalidad
+    personality_manager = PersonalityManager()
+    personality_phrase = personality_manager.get_message(personality, 'POSITION_EXECUTED')
+
+    return f"""
+{main_emoji} {side.upper()} EJECUTADO: {symbol}
+═══════════════════════════════════════════
+
+💰 CAPITAL ASIGNADO
+├─ Exchange: {target_exchange} ({'Crypto' if 'USDT' in symbol else 'Stocks'})
+├─ Equity Total: ${total_equity:,.2f}
+├─ Margen Usado: ${margin_used:,.2f} ({margin_used/total_equity*100:.1f}%)
+└─ Leverage: {leverage}x
+
+📊 POSICIÓN
+├─ Cantidad: {quantity:.4f} {symbol.replace('USDT', '').replace('USD', '')}
+├─ Precio Entrada: ${entry_price:,.2f}
+├─ Valor Notional: ${notional:,.2f}
+└─ Dirección: {side.upper()} {direction_emoji}
+
+🎯 OBJETIVOS DE RIESGO
+├─ Stop Loss: ${sl_price:,.2f} ({((sl_price-entry_price)/entry_price*100):+.1f}%)
+├─ Take Profit: ${tp_price:,.2f} ({((tp_price-entry_price)/entry_price*100):+.1f}%)
+├─ Ratio Riesgo/Recompensa: 1:{rr_ratio:.1f}
+└─ Riesgo Máximo: ${risk_amount:.2f} ({risk_pct:.2f}% del capital)
+
+⚡ EJECUCIÓN
+├─ Órdenes SL/TP: ✅ Configuradas
+├─ ATR Usado: {atr_value:.4f if atr_value else 'N/A'} ({'2x multiplicador' if atr_value else 'Porcentaje fijo'})
+└─ Risk-Based Sizing: ✅ Aplicado
+
+💡 ESTRATEGIA: {strategy}{' con ATR Dinámico' if atr_value else ''}
+
+💬 {personality_phrase}
+""".strip()
 
 
 class AsyncTradingSession:
@@ -1434,12 +1520,27 @@ class AsyncTradingSession:
                 if tp_result.get('error'):
                     print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
-            return True, (
-                f"✅ Long Executed: {symbol}\n"
+            # Generar mensaje enriquecido con personalidad
+            personality = self.config.get('personality', 'STANDARD_ES')
+            margin_used = notional / leverage
 
-                f"Qty: {quantity} | Entry: {entry_price}\n"
-                f"SL: {sl_price} | TP: {tp_price}"
+            message = format_position_message(
+                symbol=symbol,
+                side='LONG',
+                quantity=quantity,
+                entry_price=entry_price,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                leverage=leverage,
+                total_equity=total_equity,
+                margin_used=margin_used,
+                target_exchange=target_exchange,
+                atr_value=atr,
+                strategy=strategy,
+                personality=personality
             )
+
+            return True, message
 
         except Exception as e:
             return False, f"Execution Error: {e}"
@@ -1630,12 +1731,27 @@ class AsyncTradingSession:
                 if tp_result.get('error'):
                     print(f"⚠️ {symbol}: TP Order Error - {tp_result['error']}")
 
-            return True, (
-                f"✅ Short Executed: {symbol}\n"
+            # Generar mensaje enriquecido con personalidad
+            personality = self.config.get('personality', 'STANDARD_ES')
+            margin_used = notional / leverage
 
-                f"Qty: {quantity} | Entry: {entry_price}\n"
-                f"SL: {sl_price} | TP: {tp_price}"
+            message = format_position_message(
+                symbol=symbol,
+                side='SHORT',
+                quantity=quantity,
+                entry_price=entry_price,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                leverage=leverage,
+                total_equity=total_equity,
+                margin_used=margin_used,
+                target_exchange=target_exchange,
+                atr_value=atr,
+                strategy=strategy,
+                personality=personality
             )
+
+            return True, message
 
                 
         except Exception as e:

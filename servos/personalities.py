@@ -123,6 +123,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Cierre de Posición**\n{asset} ({side}). {reason}.",
+            'POSITION_EXECUTED': [
+                "¡Posición ejecutada con precisión!",
+                "¡Ejecución perfecta!",
+                "¡Operación completada exitosamente!",
+                "¡Posición abierta con determinación!"
+            ],
             'PILOT_ACTION': (
                 "🤖 **Operación Ejecutada**\n\n"
                 "Activo: **{asset}**\n"
@@ -239,6 +245,12 @@ class PersonalityManager:
                 "🏁 **CLOSING POSITION: {asset}** ({side})\n\n*Operation finished. {reason}*",
                 "🏁 **CLOSING POSITION: {asset}** ({side})\n\n*Exit executed. {reason}*"
             ],
+            'POSITION_EXECUTED': [
+                "Position executed flawlessly!",
+                "Perfect execution achieved!",
+                "Operation completed successfully!",
+                "Position opened with precision!"
+            ],
             'PILOT_ACTION': "🤖 **AUTOMATED ACTION**\n\n*{msg}*",
             'CB_TRIGGER': "⚠️ **CIRCUIT BREAKER**\nLoss limit reached. System paused."
         },
@@ -346,6 +358,12 @@ class PersonalityManager:
                 "🏁 **CLÔTURE POSITION: {asset}** ({side})\n\n*Opération terminée. {reason}*",
                 "🏁 **CLÔTURE POSITION: {asset}** ({side})\n\n*Sortie exécutée. {reason}*"
             ],
+            'POSITION_EXECUTED': [
+                "Position exécutée avec précision!",
+                "Exécution parfaite!",
+                "Opération terminée avec succès!",
+                "Position ouverte avec détermination!"
+            ],
             'PILOT_ACTION': "🤖 **ACTION AUTOMATIQUE**\n\n*{msg}*",
             'CB_TRIGGER': "⚠️ **CIRCUIT BREAKER**\nLimite de pertes atteinte. Système en pause."
         },
@@ -445,6 +463,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Cierre Imperial**\n{asset} cerrado. {reason}.",
+            'POSITION_EXECUTED': [
+                "¡El lado oscuro se fortalece!",
+                "¡El imperio se expande!",
+                "¡Victoria para el imperio!",
+                "¡El poder del lado oscuro!"
+            ],
             'PILOT_ACTION': (
                 "💀 **El Lado Oscuro Prevalece**\n\n"
                 "Activo: **{asset}**\n"
@@ -586,6 +610,12 @@ class PersonalityManager:
                 "🏁 **Retiro Anticipado**\n{asset} liquidado. Todos esos momentos se perderán. {reason}.",
                 "🏁 **Ejecución Completada**\n{asset} finalizado. Buen trabajo. {reason}.",
                 "🏁 **Baseline Reset**\nVolviendo a la base. Posición cerrada. {reason}."
+            ],
+            'POSITION_EXECUTED': [
+                "¡El horror... de una ejecución perfecta!",
+                "¡Estás en el río ahora!",
+                "¡El fin justifica los medios!",
+                "¡Ejecución en el corazón de la oscuridad!"
             ],
             'PILOT_ACTION': (
                 "👁️ **Ejecución Lógica (PILOT)**\n\n"
@@ -801,6 +831,12 @@ class PersonalityManager:
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Dividendos. Operación cerrada. {reason}*",
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Cierre de negocio. A otra cosa. {reason}*"
             ],
+            'POSITION_EXECUTED': [
+                "¡La codicia es buena!",
+                "¡El dinero nunca duerme!",
+                "¡Cash is king!",
+                "¡Otro millón en el banco!"
+            ],
             'PILOT_ACTION': "🤖 **ACCIÓN AUTOMÁTICA**\n\n*{msg}*",
             'CB_TRIGGER': "📉 **CORRECTION**\n\nEl mercado se ha vuelto irracional (5 pérdidas). Pausa estratégica."
         },
@@ -904,6 +940,12 @@ class PersonalityManager:
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*¡Traed los enanos y el champán!*",
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Cobrando. ¿Me estás diciendo que ganamos? ¡Joder sí! {reason}*",
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Liquidado. Cerrado. ¡Siguiente! {reason}*"
+            ],
+            'POSITION_EXECUTED': [
+                "¡Traed los enanos y el champán!",
+                "¡Vamos a ganar mucho dinero!",
+                "¡Otra venta perfecta!",
+                "¡Más dinero para el lobo de Wall Street!"
             ],
             'PILOT_ACTION': "🤖 **ACCIÓN AUTOMÁTICA**\n\n*{msg}*",
             'CB_TRIGGER': "🚓 **FEDS ARE HERE**\n\nDemasiadas pérdidas (5). Hay que calmarse un poco (Reset)."
@@ -1012,6 +1054,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Orden de los Peaky Blinders**\n{asset} cerrado. {reason}.",
+            'POSITION_EXECUTED': [
+                "¡Por orden de la Shelby Company!",
+                "¡Vamos a tomar lo que es nuestro!",
+                "¡Otra victoria para los Peaky Blinders!",
+                "¡El imperio se expande!"
+            ],
             'PILOT_ACTION': (
                 "🥃 **Por orden de los Peaky Blinders**\n\n"
                 "Activo: **{asset}**\n"
@@ -1111,6 +1159,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Batch Complete**\n{asset} finalizado. {reason}. Pureza mantenida.",
+            'POSITION_EXECUTED': [
+                "¡Pureza cristalina!",
+                "¡Operación completada con pureza!",
+                "¡Otro lote perfecto!",
+                "¡La pureza es el poder!"
+            ],
             'PILOT_ACTION': (
                 "⚗️ **Heisenberg Method**\n\n"
                 "Activo: **{asset}**\n"
@@ -1208,6 +1262,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Fight Over**\n{asset} cerrado. {reason}. You are not special.",
+            'POSITION_EXECUTED': [
+                "¡La primera regla del Fight Club!",
+                "¡Vamos a luchar contra el sistema!",
+                "¡El caos es libertad!",
+                "¡Otro golpe al establishment!"
+            ],
             'PILOT_ACTION': (
                 "👊 **Tyler Action**\n\n"
                 "Activo: **{asset}**\n"
@@ -1308,6 +1368,12 @@ class PersonalityManager:
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Jack Out. Te hemos sacado a tiempo.*",
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Credits. Transferencia completada. {reason}*",
                 "🏁 **CERRANDO POSICIÓN: {asset}** ({side})\n\n*Exit Matrix. Desconexión segura. {reason}*"
+            ],
+            'POSITION_EXECUTED': [
+                "¡Bienvenido a la Matrix!",
+                "¡La píldora roja te hará libre!",
+                "¡Despierta, Neo!",
+                "¡Operación upload completada!"
             ],
             'PILOT_ACTION': "🕶️ *OPERATOR COMMAND*\n{msg}",
             'CB_TRIGGER': "🐙 **SENTINELS ATTACK**\n\nNos han encontrado (5 fallos). EMP activado."
@@ -1489,6 +1555,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Task Finished**\n{asset} closed. {reason}. I am foolproof.",
+            'POSITION_EXECUTED': [
+                "¡Tarea completada, señor!",
+                "¡Operación ejecutada con perfección!",
+                "¡Sistema operativo al 100%!",
+                "¡Todo bajo control!"
+            ],
             'PILOT_ACTION': (
                 "🔴 **Automated Function**\n\n"
                 "Activo: **{asset}**\n"
@@ -1586,6 +1658,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Salida, {user_name}.**\n{asset} cerrado. {reason}. Vámonos a otra dimensión.",
+            'POSITION_EXECUTED': [
+                "¡Operación completada!",
+                "¡Ejecución perfecta!",
+                "¡Sistema funcionando correctamente!",
+                "¡Objetivos cumplidos!"
+            ],
             'PILOT_ACTION': (
                 "🥒 **¡Wubba Lubba Dub Dub! (AUTO)**\n\n"
                 "Activo: **{asset}**\n"
@@ -2015,6 +2093,12 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_CLOSE': "🏁 **Fin del Dolor.**\n{asset} cerrado. {reason}.",
+            'POSITION_EXECUTED': [
+                "¡El dolor es inevitable!",
+                "¡El sufrimiento es opcional!",
+                "¡La libertad está en el dolor!",
+                "¡Fin del dolor, fin de la ilusión!"
+            ],
             'PILOT_ACTION': (
                 "🌑 **El Mundo Conocerá el Dolor (AUTO)**\n\n"
                 "Activo: **{asset}**\n"
