@@ -1629,24 +1629,73 @@ async def cmd_price(message: Message, **kwargs):
                 except:
                     continue
 
-        # --- BUILD MESSAGE ---
+        # --- GET CMC DATA ---
+        cmc_data = {}
+        try:
+            from nexus_system.uplink.cmc_client import CMCClient
+            cmc_client = CMCClient()
+            cmc_data = await cmc_client.get_global_metrics()
+        except Exception as e:
+            print(f"⚠️ CMC Data unavailable: {e}")
+            cmc_data = {}
+
+        # --- BUILD MESSAGE (PROPUESTA 2) ---
         msg = (
-            "📡 **MARKET INTEL (Advanced)**\n"
-            "━━━━━━━━━━━━━━━━\n"
-            f"✨ **Sentimiento:** {fng}\n\n"
+            "🌍 GLOBAL MARKET PULSE\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📊 **MARKET INTELLIGENCE**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         )
-        
-        if crypto_str: msg += f"💎 **Crypto (4h RSI):**\n{crypto_str}\n"
-        if stocks_str: msg += f"📈 **Stocks (Daily):**\n{stocks_str}\n"
-        if commodities_str: msg += f"🏆 **Commodities:**\n{commodities_str}\n"
-        
+
+        # Fear & Greed with thermometer emoji
+        thermometer_emoji = "🌡️"  # Changed from 😱
+        msg += f"{thermometer_emoji} Sentiment: {fng}\n"
+
+        # CMC Data
+        btc_dom = cmc_data.get('btc_dominance', 0)
+        eth_dom = cmc_data.get('eth_dominance', 0)
+        total_cap = cmc_data.get('total_market_cap', 0)
+        total_vol = cmc_data.get('total_volume_24h', 0)
+
+        if btc_dom > 0:
+            msg += f"💎 BTC Dominance: {btc_dom:.1f}%\n"
+        if eth_dom > 0:
+            msg += f"💎 ETH Dominance: {eth_dom:.1f}%\n"
+        if total_cap > 0:
+            msg += f"💰 Market Cap: ${total_cap/1e9:.1f}T\n"
+        if total_vol > 0:
+            msg += f"📈 24h Volume: ${total_vol/1e9:.1f}B\n"
+
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        # Crypto section with coin emoji instead of diamond
+        if crypto_str:
+            msg += "🪙 **TOP CRYPTO** (4h Analysis)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            # Add dominance to crypto items (simplified for top 2)
+            crypto_lines = crypto_str.split('\n')
+            for i, line in enumerate(crypto_lines[:2]):  # Only first 2 cryptos
+                if line.strip() and ('BTC' in line or 'ETH' in line):
+                    if 'BTC' in line and btc_dom > 0:
+                        line += f" • DOM {btc_dom:.1f}%"
+                    elif 'ETH' in line and eth_dom > 0:
+                        line += f" • DOM {eth_dom:.1f}%"
+                    crypto_lines[i] = line
+            msg += '\n'.join(crypto_lines) + "\n\n"
+
+        # Stocks section
+        if stocks_str:
+            msg += "📈 **KEY STOCKS** (Daily)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            msg += stocks_str + "\n"
+
+        # Commodities/Indices section
+        if commodities_str:
+            msg += "🏆 **MARKET INDICATORS**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            msg += commodities_str + "\n"
+
         if not (crypto_str or stocks_str or commodities_str):
-            msg += "📭 Sin datos disponibles.\n"
-            
-        msg += (
-            "━━━━━━━━━━━━━━━━\n"
-            "🐂 Bull | 🐻 Bear | 🔥 Overbought | 🧊 Oversold"
-        )
+            msg += "📭 Sin datos disponibles.\n\n"
+
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📈 Bullish | 📉 Bearish | 🎯 Neutral | 💎 CMC Data"
         
         await loading.edit_text(msg, parse_mode="Markdown")
         
