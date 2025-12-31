@@ -1445,14 +1445,20 @@ class AsyncTradingSession:
             # Calculate Final Prices/Qty
             # Note: If strategy provided SL/TP, use them. Else use defaults.
             if 'sl_price' not in locals():
-                if atr and atr > 0:
+                if atr and atr > 0 and current_price > 0:
                     mult = self.config.get('atr_multiplier', 2.0)
                     sl_dist = mult * atr
                     sl_price = round_to_tick_size(current_price - sl_dist, tick_size)
                     tp_price = round_to_tick_size(current_price + (tp_ratio * sl_dist), tick_size)
-                else:
+                elif current_price > 0:
                     sl_price = round_to_tick_size(current_price * (1 - stop_loss_pct), tick_size)
                     tp_price = round_to_tick_size(current_price * (1 + (stop_loss_pct * tp_ratio)), tick_size)
+                else:
+                    return False, f"❌ Invalid current price for {symbol}"
+
+                # Validate calculated prices
+                if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                    return False, f"❌ Invalid SL/TP prices calculated for {symbol}"
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1516,6 +1522,10 @@ class AsyncTradingSession:
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
+
+            # Final validation of SL/TP prices
+            if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
             # 6. Place SL/TP (Separate to ensure logic holds) - NON-BLOCKING
             # For conditional orders, price arg = stopPrice (trigger price)
@@ -1698,14 +1708,20 @@ class AsyncTradingSession:
 
             # Calculate Final Prices/Qty
             if 'sl_price' not in locals():
-                if atr and atr > 0:
+                if atr and atr > 0 and current_price > 0:
                     mult = self.config.get('atr_multiplier', 2.0)
                     sl_dist = mult * atr
                     sl_price = round_to_tick_size(current_price + sl_dist, tick_size)
                     tp_price = round_to_tick_size(current_price - (tp_ratio * sl_dist), tick_size)
-                else:
+                elif current_price > 0:
                     sl_price = round_to_tick_size(current_price * (1 + stop_loss_pct), tick_size)
                     tp_price = round_to_tick_size(current_price * (1 - (stop_loss_pct * tp_ratio)), tick_size)
+                else:
+                    return False, f"❌ Invalid current price for {symbol}"
+
+                # Validate calculated prices
+                if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                    return False, f"❌ Invalid SL/TP prices calculated for {symbol}"
             
             # --- MAX SL SHIELD (Emergency Clamp) ---
             max_sl_allowed = self.config.get('max_stop_loss_pct', 0.05)
@@ -1761,6 +1777,10 @@ class AsyncTradingSession:
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'SHORT', is_sl=False)
+
+            # Final validation of SL/TP prices
+            if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
             # 6. Place SL/TP (Buy Orders) - NON-BLOCKING
             # SL (Buy Stop) - For SHORT, SL is above entry

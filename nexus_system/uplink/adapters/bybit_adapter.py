@@ -226,19 +226,21 @@ class BybitAdapter(IExchangeAdapter):
 
                 if 'STOP' in order_type_upper and 'TAKE_PROFIT' not in order_type_upper:
                     # STOP_MARKET - This is a Stop Loss
+                    # Bybit V5 uses 'StopLoss' for stop loss orders
                     # SELL side (closing LONG) = price falling -> descending (2)
                     # BUY side (closing SHORT) = price rising -> ascending (1)
-                    bybit_order_type = 'Stop'
+                    bybit_order_type = 'StopLoss'
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
                 elif 'TAKE_PROFIT' in order_type_upper:
                     # TAKE_PROFIT_MARKET - This is a Take Profit
+                    # Bybit V5 uses 'TakeProfit' for take profit orders
                     # SELL side (closing LONG) = price rising -> ascending (1)
                     # BUY side (closing SHORT) = price falling -> descending (2)
                     bybit_order_type = 'TakeProfit'
                     params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
                 else:
                     # Fallback for unknown order types
-                    bybit_order_type = 'Stop'
+                    bybit_order_type = 'StopLoss'
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
 
                 result = await self._exchange.create_order(
