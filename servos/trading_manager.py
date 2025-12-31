@@ -1396,12 +1396,16 @@ class AsyncTradingSession:
             
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
-            # 3. Calculate Sizing & Risk Parameters
-            leverage = self.config['leverage'] if is_crypto else 1  # No leverage for stocks
+            # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
+            base_leverage = self.config.get('leverage', 5)
+            max_allowed_leverage = self.config.get('max_leverage_allowed', base_leverage)
+            leverage = min(base_leverage, max_allowed_leverage) if is_crypto else 1  # No leverage for stocks
+
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
-            size_pct = self.config['max_capital_pct'] # Default
-            
+            max_capital_allowed = self.config.get('max_capital_pct_allowed', self.config.get('max_capital_pct', 0.25))
+            size_pct = min(self.config['max_capital_pct'], max_capital_allowed)  # RESPETAR TOPE DE PERFIL
+
             # --- STRATEGY OVERRIDE ---
             if strategy and strategy not in ["Manual", "Legacy"]:
                 strat_instance = StrategyRegistry.instantiate(strategy)
@@ -1413,9 +1417,15 @@ class AsyncTradingSession:
                     )
                     try:
                         params = strat_instance.calculate_entry_params(stub_signal, total_equity, self.config)
-                        # Override defaults
-                        leverage = params.get('leverage', leverage)
-                        size_pct = params.get('size_pct', size_pct)
+                        # Override defaults BUT RESPETAR LÍMITES DE PERFIL
+                        strategy_leverage = params.get('leverage', leverage)
+                        max_allowed_leverage = self.config.get('max_leverage_allowed', strategy_leverage)
+                        leverage = min(strategy_leverage, max_allowed_leverage)  # RESPETAR TOPE DE PERFIL
+
+                        strategy_size_pct = params.get('size_pct', size_pct)
+                        max_allowed_capital = self.config.get('max_capital_pct_allowed', strategy_size_pct)
+                        size_pct = min(strategy_size_pct, max_allowed_capital)  # RESPETAR TOPE DE PERFIL
+
                         sl_price = params.get('stop_loss_price')
                         tp_price = params.get('take_profit_price')
                         
@@ -1629,11 +1639,15 @@ class AsyncTradingSession:
             
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
 
-            # 3. Calculate Sizing & Risk Parameters
-            leverage = self.config['leverage'] if is_crypto else 1  # No leverage for stocks
+            # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
+            base_leverage = self.config.get('leverage', 5)
+            max_allowed_leverage = self.config.get('max_leverage_allowed', base_leverage)
+            leverage = min(base_leverage, max_allowed_leverage) if is_crypto else 1  # No leverage for stocks
+
             stop_loss_pct = self.config['stop_loss_pct']
             tp_ratio = self.config.get('tp_ratio', 1.5)
-            size_pct = self.config['max_capital_pct']
+            max_capital_allowed = self.config.get('max_capital_pct_allowed', self.config.get('max_capital_pct', 0.25))
+            size_pct = min(self.config['max_capital_pct'], max_capital_allowed)  # RESPETAR TOPE DE PERFIL
 
             # --- STRATEGY OVERRIDE ---
             if strategy and strategy not in ["Manual", "Legacy"]:

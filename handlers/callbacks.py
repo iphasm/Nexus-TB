@@ -177,22 +177,20 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
             await callback.message.answer("⚠️ Sin sesión activa.")
             return
         
-        # Apply preset configurations
+        # Apply preset configurations (LEGACY - Use new risk profiles instead)
+        # These presets are maintained for backward compatibility but apply risk profiles
         if preset == "RONIN":
-            await session.update_config('leverage', 10)
-            await session.update_config('max_capital_pct', 0.15)
-            await session.update_config('atr_multiplier', 1.5)
-            msg = "⚔️ *Modo RONIN Activado*\n\n• Leverage: 10x\n• Margen: 15%\n• SL Ajustado: 1.5x ATR\n\n_Perfil agresivo para traders experimentados._"
+            # Apply RONIN risk profile instead of direct config
+            await apply_risk_profile_to_session(session, "RONIN")
+            msg = "⚔️ *Modo RONIN Activado (Legacy)*\n\nAhora usa el perfil RONIN actualizado:\n• Leverage máx: 20x\n• Capital máx: 20%\n• ATR multiplier: 2.5x\n\n_Se recomienda usar los nuevos perfiles de riesgo._"
         elif preset == "GUARDIAN":
-            await session.update_config('leverage', 3)
-            await session.update_config('max_capital_pct', 0.05)
-            await session.update_config('atr_multiplier', 3.0)
-            msg = "🛡️ *Modo GUARDIAN Activado*\n\n• Leverage: 3x\n• Margen: 5%\n• SL Amplio: 3x ATR\n\n_Perfil conservador para proteger capital._"
+            # Apply CONSERVADOR risk profile (GUARDIAN = CONSERVADOR)
+            await apply_risk_profile_to_session(session, "CONSERVADOR")
+            msg = "🛡️ *Modo GUARDIAN Activado (Legacy)*\n\nAhora usa el perfil CONSERVADOR:\n• Leverage máx: 3x\n• Capital máx: 30%\n• ATR multiplier: 1.5x\n\n_Se recomienda usar los nuevos perfiles de riesgo._"
         elif preset == "NEXUS" or preset == "QUANTUM":  # Support both for backward compatibility
-            await session.update_config('leverage', 5)
-            await session.update_config('max_capital_pct', 0.10)
-            await session.update_config('atr_multiplier', 2.0)
-            msg = "🌌 *Modo NEXUS Activado*\n\n• Leverage: 5x\n• Margen: 10%\n• SL Balanceado: 2x ATR\n\n_Perfil equilibrado recomendado._"
+            # Apply NEXUS risk profile
+            await apply_risk_profile_to_session(session, "NEXUS")
+            msg = "🌌 *Modo NEXUS Activado (Legacy)*\n\nAhora usa el perfil NEXUS:\n• Leverage máx: 10x\n• Capital máx: 50%\n• ATR multiplier: 2.0x\n\n_Se recomienda usar los nuevos perfiles de riesgo._"
         else:
             msg = f"❓ Preset desconocido: {preset}"
         
@@ -1003,6 +1001,57 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
 # PROPUESTA 1: DASHBOARD MODULAR CON PERFILES DE RIESGO
 # =================================================================
 
+async def apply_risk_profile_to_session(session, profile_name: str):
+    """Helper function to apply risk profiles consistently across the system."""
+    profiles_data = {
+        "CONSERVADOR": {
+            "max_leverage": 3,
+            "default_leverage": 3,
+            "max_capital_pct": 0.30,
+            "atr_multiplier": 1.5,
+            "rr_ratio": 1.2,
+            "description": "Conservador: ≤3x máx, ATR 1.5x"
+        },
+        "NEXUS": {
+            "max_leverage": 10,
+            "default_leverage": 5,
+            "max_capital_pct": 0.50,
+            "atr_multiplier": 2.0,
+            "rr_ratio": 1.5,
+            "description": "Nexus: ≤10x dinámico, ATR 2.0x"
+        },
+        "RONIN": {
+            "max_leverage": 20,
+            "default_leverage": 20,
+            "max_capital_pct": 0.20,
+            "atr_multiplier": 2.5,
+            "rr_ratio": 2.0,
+            "description": "Ronin: ≤20x máx, ATR 2.5x"
+        }
+    }
+
+    if profile_name not in profiles_data:
+        return False
+
+    profile_config = profiles_data[profile_name]
+
+    # Apply profile settings consistently
+    await session.update_config('max_leverage_allowed', profile_config['max_leverage'])
+    await session.update_config('leverage', min(session.config.get('leverage', profile_config['default_leverage']),
+                                               profile_config['max_leverage']))
+    await session.update_config('max_capital_pct_allowed', profile_config['max_capital_pct'])
+    await session.update_config('max_capital_pct', min(session.config.get('max_capital_pct', 0.25),
+                                                     profile_config['max_capital_pct']))
+    await session.update_config('atr_multiplier', profile_config['atr_multiplier'])
+    await session.update_config('risk_reward_ratio', profile_config['rr_ratio'])
+    await session.update_config('risk_profile', profile_name)
+
+    # Always enable ATR for SL/TP
+    await session.update_config('use_atr_for_sl_tp', True)
+
+    return True
+
+
 @router.callback_query(F.data.startswith("RISK|"))
 async def handle_risk_profile_callback(callback: CallbackQuery, **kwargs):
     """Handle risk profile selection and application"""
@@ -1054,15 +1103,20 @@ async def handle_risk_profile_callback(callback: CallbackQuery, **kwargs):
 
         profile_config = profiles_data[profile]
 
-        # Apply profile settings
-        session.config['max_leverage_allowed'] = profile_config['max_leverage']
-        session.config['leverage'] = min(session.config.get('leverage', profile_config['default_leverage']),
-                                       profile_config['max_leverage'])
-        session.config['max_capital_pct'] = min(session.config.get('max_capital_pct', 0.25),
-                                              profile_config['max_capital_pct'])
-        session.config['atr_multiplier'] = profile_config['atr_multiplier']
-        session.config['risk_reward_ratio'] = profile_config['rr_ratio']
-        session.config['risk_profile'] = profile
+        # Apply profile settings using consistent helper
+        success = await apply_risk_profile_to_session(session, profile)
+        if not success:
+            await safe_answer(callback, "⚠️ Error aplicando perfil")
+            return
+
+        # Get profile description
+        descriptions = {
+            "CONSERVADOR": "🛡️ CONSERVADOR: ≤3x máx, ATR 1.5x",
+            "NEXUS": "🌌 NEXUS: ≤10x dinámico, ATR 2.0x",
+            "RONIN": "⚔️ RONIN: ≤20x máx, ATR 2.5x"
+        }
+
+        await safe_answer(callback, f"✅ {descriptions.get(profile, 'Perfil aplicado')}")
 
         # Always enable ATR for SL/TP
         session.config['use_atr_for_sl_tp'] = True

@@ -94,11 +94,18 @@ class MeanReversionStrategy(IStrategy):
         """
         Mean Reversion targets quick scalps with tight risk.
         Now uses ATR for dynamic stops (Consistency fix).
+        RESPETA LÍMITES DE PERFILES DE RIESGO
         """
-        # Safe Config Get
+        # Safe Config Get - RESPETAR LÍMITES DE PERFIL
         cfg = config or {}
-        lev = cfg.get('leverage', 10)
-        size_pct = cfg.get('max_capital_pct', 0.10)
+        base_leverage = cfg.get('leverage', 10)
+        max_allowed_leverage = cfg.get('max_leverage_allowed', base_leverage)
+        lev = min(base_leverage, max_allowed_leverage)  # RESPETAR TOPE DE PERFIL
+
+        # RESPETAR LÍMITE DE CAPITAL DEL PERFIL
+        base_size_pct = cfg.get('max_capital_pct', 0.10)
+        max_allowed_capital = cfg.get('max_capital_pct_allowed', base_size_pct)
+        size_pct = min(base_size_pct, max_allowed_capital)  # RESPETAR TOPE DE PERFIL
         
         price = signal.price
         atr = signal.metadata.get('atr', price * 0.01) # Fallback 1%
