@@ -184,18 +184,18 @@ async def cmd_start(message: Message, **kwargs):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             # Operaciones principales
             [
-                InlineKeyboardButton(text="📊 Dashboard", callback_data="CMD|dashboard"),
-                InlineKeyboardButton(text="🔄 Sync All", callback_data="SYNC_ORDERS")
+                InlineKeyboardButton(text="📊 DASHBOARD", callback_data="CMD|dashboard"),
+                InlineKeyboardButton(text="🔄 SYNC ALL", callback_data="SYNC_ORDERS")
             ],
             # Módulos de selección
             [
                 InlineKeyboardButton(text="🌍 GLOBAL MARKET", callback_data="MENU|INTEL"),
-                InlineKeyboardButton(text=f"🎮 Modos ({mode})", callback_data="MENU|MODES")
+                InlineKeyboardButton(text=f"🎮 MODOS ({mode})", callback_data="MENU|MODES")
             ],
             # Configuración y ayuda
             [
-                InlineKeyboardButton(text="⚙️ Configuración", callback_data="CMD|config"),
-                InlineKeyboardButton(text="❓ Ayuda", callback_data="CMD|help")
+                InlineKeyboardButton(text="⚙️ CONFIGURACIÓN", callback_data="CMD|config"),
+                InlineKeyboardButton(text="❓ AYUDA", callback_data="CMD|help")
             ]
         ])
 

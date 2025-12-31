@@ -475,6 +475,25 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
         return
 
+    # Special case: SENTIMENT toggle (mapped to sentiment_filter like AI_FILTER)
+    if strategy == "SENTIMENT":
+        current = session.config.get('sentiment_filter', True)
+        new_state = not current
+        await session.update_config('sentiment_filter', new_state)
+        await session_manager.save_sessions()
+
+        # SYNC with global config
+        import system_directive as aq_config
+        aq_config.AI_FILTER_ENABLED = new_state
+
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        await safe_answer(callback, f"🎭 Sentiment Analysis {status}")
+
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
+
     # Special case: CIRCUIT BREAKER toggle
     if strategy == "CIRCUIT_BREAKER":
         current = session.config.get('circuit_breaker_enabled', True)
@@ -1188,7 +1207,18 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
         ])
 
     elif module == "AI":
-        # IA & Automation
+        # IA & Automation - Get current states
+        ai_filter_enabled = session.config.get('sentiment_filter', True) if session else True
+        ai_filter_status = "🟢 ON" if ai_filter_enabled else "🔴 OFF"
+
+        import system_directive as aq_config
+        ml_mode_enabled = aq_config.ML_CLASSIFIER_ENABLED
+        ml_mode_status = "🟢 ON" if ml_mode_enabled else "🔴 OFF"
+
+        # Sentiment is tied to AI Filter for now
+        sentiment_enabled = ai_filter_enabled
+        sentiment_status = "🟢 ON" if sentiment_enabled else "🔴 OFF"
+
         msg = (
             "🧠 *CENTRO DE INTELIGENCIA*\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -1202,11 +1232,11 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
         )
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✨ Toggle AI Filter", callback_data="TOGGLE|AI_FILTER")],
-            [InlineKeyboardButton(text="🧠 Toggle ML Mode", callback_data="TOGGLE|ML_MODE")],
-            [InlineKeyboardButton(text="🎭 Toggle Sentiment", callback_data="TOGGLE|SENTIMENT")],
-            [InlineKeyboardButton(text="🎯 Estado IA", callback_data="INFO|AI_STATUS")],
-            [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
+            [InlineKeyboardButton(text=f"✨ AI FILTER {ai_filter_status}", callback_data="TOGGLE|AI_FILTER")],
+            [InlineKeyboardButton(text=f"🧠 ML MODE {ml_mode_status}", callback_data="TOGGLE|ML_MODE")],
+            [InlineKeyboardButton(text=f"🎭 SENTIMENT {sentiment_status}", callback_data="TOGGLE|SENTIMENT")],
+            [InlineKeyboardButton(text="🎯 ESTADO IA", callback_data="INFO|AI_STATUS")],
+            [InlineKeyboardButton(text="⬅️ VOLVER A CONFIG", callback_data="CMD|config")]
         ])
 
     elif module == "PROTECTIONS":
