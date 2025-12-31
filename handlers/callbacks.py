@@ -511,10 +511,25 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         new_state = not current
         await session.update_config('correlation_guard_enabled', new_state)
         await session_manager.save_sessions()
-        
+
         status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
         await safe_answer(callback, f"🛡️ Portfolio Shield {status}")
-        
+
+        # Refresh Config Menu
+        from handlers.config import cmd_config
+        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+        return
+
+    # Special case: EMERGENCY STOP toggle (Manual override)
+    if strategy == "EMERGENCY":
+        current = session.config.get('emergency_stop_enabled', False)
+        new_state = not current
+        await session.update_config('emergency_stop_enabled', new_state)
+        await session_manager.save_sessions()
+
+        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
+        await safe_answer(callback, f"🚨 Emergency Stop {status}")
+
         # Refresh Config Menu
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
@@ -1140,6 +1155,11 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
     module = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
 
+    # Get session for status checks
+    session = None
+    if session_manager:
+        session = session_manager.get_session(str(callback.message.chat.id))
+
     if module == "DETAILED":
         # Ajustes detallados
         msg = (
@@ -1185,22 +1205,35 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
         ])
 
     elif module == "PROTECTIONS":
-        # Protecciones
+        # Get protection statuses
+        cb_enabled = session.config.get('circuit_breaker_enabled', True) if session else True
+        cb_status = "🟢 ACTIVO" if cb_enabled else "🔴 INACTIVO"
+
+        shield_enabled = session.config.get('correlation_guard_enabled', True) if session else True
+        shield_status = "🟢 ACTIVO" if shield_enabled else "🔴 INACTIVO"
+
+        # Emergency Stop - Manual override (different from automatic Circuit Breaker)
+        emergency_enabled = session.config.get('emergency_stop_enabled', False) if session else False
+        emergency_status = "🟢 ACTIVADO" if emergency_enabled else "🔴 DESACTIVADO"
+
+        # Protecciones con estados actuales
         msg = (
             "🛡️ *SISTEMA DE PROTECCIONES*\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🔌 **PROTECCIONES ACTIVAS**\n"
+            "🔌 **PROTECCIONES AUTOMÁTICAS**\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "• Circuit Breaker: Detiene operaciones en crash\n"
-            "• Portfolio Shield: Protege correlaciones\n"
-            "• Emergency Stop: Parada manual de emergencia\n\n"
+            f"• Circuit Breaker: [{cb_status}] - Detiene operaciones en crash\n"
+            f"• Portfolio Shield: [{shield_status}] - Protege correlaciones\n\n"
+            "🚨 **PROTECCIONES MANUALES**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• Emergency Stop: [{emergency_status}] - Parada manual inmediata\n\n"
             "🎛️ **CONFIGURACIÓN**"
         )
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔌 Circuit Breaker", callback_data="TOGGLE|CIRCUIT_BREAKER")],
-            [InlineKeyboardButton(text="🛡️ Portfolio Shield", callback_data="TOGGLE|SHIELD")],
-            [InlineKeyboardButton(text="🚨 Emergency Stop", callback_data="TOGGLE|EMERGENCY")],
+            [InlineKeyboardButton(text=f"🔌 Circuit Breaker [{cb_status}]", callback_data="TOGGLE|CIRCUIT_BREAKER")],
+            [InlineKeyboardButton(text=f"🛡️ Portfolio Shield [{shield_status}]", callback_data="TOGGLE|SHIELD")],
+            [InlineKeyboardButton(text=f"🚨 Emergency Stop [{emergency_status}]", callback_data="TOGGLE|EMERGENCY")],
             [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
         ])
 
