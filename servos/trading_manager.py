@@ -1228,21 +1228,22 @@ class AsyncTradingSession:
         if not self.shadow_wallet:
              return False, 0.0, "Wallet not initialized"
              
-        # Determine asset class (Crypto vs Stock) - simplistic check
-        is_crypto = 'USDT' in symbol or 'BTC' in symbol 
+        # Determine target exchange using NexusBridge routing (matches trade execution)
+        target_exchange = 'BINANCE'  # Default
+        if self.bridge:
+            target_exchange = self.bridge._route_symbol(symbol)
         
-        if is_crypto:
-             # Check USDT Balance
-             balance = self.shadow_wallet.balances.get('BINANCE', {}).get('available', 0)
-        else:
-             # Check Alpaca Buying Power
-             balance = self.shadow_wallet.balances.get('ALPACA', {}).get('available', 0)
+        # Fetch balance from the CORRECT exchange
+        balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
+        
+        # Debug: Log which exchange we're checking
+        self.logger.debug(f"Liquidity Check: {symbol} -> {target_exchange} (Balance: ${balance:.2f})")
              
         # 3. Define Threshold (Min Notional + 10% buffer)
         threshold = max(min_notional * 1.1, 6.0) # Ensure at least $6 for safety
         
         if balance < threshold:
-             return False, balance, f"⚠️ **Low Budget Mode:** Balance (${balance:.2f}) < Min Req (${threshold:.2f}). Pausing entries."
+             return False, balance, f"⚠️ **Low Budget Mode:** Balance (${balance:.2f}) on {target_exchange} < Min Req (${threshold:.2f}). Pausing entries."
              
         return True, balance, "OK"
 
