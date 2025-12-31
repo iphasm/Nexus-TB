@@ -276,64 +276,64 @@ async def cmd_help(message: Message):
     help_part1 = (
         "🤖 **NEXUS TRADING BOT v7**\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        
+
         "📊 **DASHBOARD & MERCADO**\n"
-        "• `/start` - Centro de comando principal\n"
-        "• `/dashboard` - Balance, posiciones, PnL\n"
-        "• `/scanner` - Diagnóstico de mercado\n"
-        "• `/price SYMBOL` - Cotización rápida\n"
-        "• `/pnl` - Historial de ganancias\n"
-        "• `/sync` - Sincronizar SL/TP\n"
-        "• `/net` - Red y latencia\n\n"
-        
+        "/start - Centro de comando principal\n"
+        "/dashboard - Balance, posiciones, PnL\n"
+        "/scanner - Diagnóstico de mercado\n"
+        "/price SYMBOL - Cotización rápida\n"
+        "/pnl - Historial de ganancias\n"
+        "/sync - Sincronizar SL/TP\n"
+        "/net - Red y latencia\n\n"
+
         "🎯 **TRADING MANUAL**\n"
-        "• `/long SYMBOL` - Abrir posición LONG (auto-routing)\n"
-        "• `/short SYMBOL` - Abrir posición SHORT (auto-routing)\n"
-        "• `/long_binance SYMBOL` - LONG en Binance\n"
-        "• `/short_binance SYMBOL` - SHORT en Binance\n"
-        "• `/long_bybit SYMBOL` - LONG en Bybit\n"
-        "• `/short_bybit SYMBOL` - SHORT en Bybit\n"
-        "• `/buy SYMBOL` - Compra SPOT\n"
-        "• `/close SYMBOL` - Cerrar posición\n"
-        "• `/closeall` - Cierre de emergencia\n\n"
-        
+        "/long SYMBOL - Abrir posición LONG (auto-routing)\n"
+        "/short SYMBOL - Abrir posición SHORT (auto-routing)\n"
+        "/long_binance SYMBOL - LONG en Binance\n"
+        "/short_binance SYMBOL - SHORT en Binance\n"
+        "/long_bybit SYMBOL - LONG en Bybit\n"
+        "/short_bybit SYMBOL - SHORT en Bybit\n"
+        "/buy SYMBOL - Compra SPOT\n"
+        "/close SYMBOL - Cerrar posición\n"
+        "/closeall - Cierre de emergencia\n\n"
+
         "🕹️ **MODOS OPERATIVOS**\n"
-        "• `/pilot` - Trading 100% autónomo\n"
-        "• `/copilot` - Confirmación manual\n"
-        "• `/watcher` - Solo alertas\n"
-        "• `/mode PRESET` - Ronin/Guardian/Nexus\n"
-        "• `/resetpilot` - Reset Circuit Breaker\n"
+        "/pilot - Trading 100% autónomo\n"
+        "/copilot - Confirmación manual\n"
+        "/watcher - Solo alertas\n"
+        "/mode PRESET - Ronin/Guardian/Nexus\n"
+        "/resetpilot - Reset Circuit Breaker\n"
     )
     
     # Parte 2: IA y Configuración
     help_part2 = (
         "✨ **INTELIGENCIA ARTIFICIAL**\n"
-        "• `/analyze SYMBOL` - Análisis IA profundo\n"
-        "• `/news` - Boletín de mercado\n"
-        "• `/sentiment` - Sentimiento crypto/macro\n"
-        "• `/fomc` - Análisis de la FED\n\n"
-        
+        "/analyze SYMBOL - Análisis IA profundo\n"
+        "/news - Boletín de mercado\n"
+        "/sentiment - Sentimiento crypto/macro\n"
+        "/fomc - Análisis de la FED\n\n"
+
         "⚙️ **CONFIGURACIÓN**\n"
-        "• `/config` - Panel interactivo ⭐\n"
-        "• `/strategies` - Motores de señales\n"
-        "• `/assets` - Gestión de activos\n"
-        "• `/icons` - Gestión de logos\n"
-        "• `/togglegroup` - Filtrar grupos\n"
-        "• `/personality` - Cambiar voz del bot\n"
-        "• `/set_leverage` - Apalancamiento\n"
-        "• `/set_margin` - Margen por trade\n\n"
-        
+        "/config - Panel interactivo ⭐\n"
+        "/strategies - Motores de señales\n"
+        "/assets - Gestión de activos\n"
+        "/icons - Gestión de logos\n"
+        "/togglegroup - Filtrar grupos\n"
+        "/personality - Cambiar voz del bot\n"
+        "/set_leverage - Apalancamiento\n"
+        "/set_margin - Margen por trade\n\n"
+
         "🔐 **SEGURIDAD & EXCHANGES**\n"
-        "• `/exchanges` - Panel de conexiones ⭐\n"
-        "• `/set_binance` - (Legacy) API Keys\n"
-        "• `/delete_keys` - Borrar sesión\n\n"
-        
+        "/exchanges - Panel de conexiones ⭐\n"
+        "/set_binance - (Legacy) API Keys\n"
+        "/delete_keys - Borrar sesión\n\n"
+
         "📅 **UTILIDADES**\n"
-        "• `/schedule` - Programar alertas\n"
-        "• `/tasks` - Ver tareas activas\n"
-        "• `/cancel ID` - Cancelar tarea\n"
-        "• `/timezone` - Zona horaria\n"
-        "• `/cooldowns` - Ver cooldowns\n"
+        "/schedule - Programar alertas\n"
+        "/tasks - Ver tareas activas\n"
+        "/cancel ID - Cancelar tarea\n"
+        "/timezone - Zona horaria\n"
+        "/cooldowns - Ver cooldowns\n"
     )
     
     # Parte 3: Admin e Información
@@ -342,24 +342,24 @@ async def cmd_help(message: Message):
     if is_admin:
         help_part3 += (
             "\n👑 **ADMINISTRACIÓN**\n"
-            "• `/subs` - Listar usuarios\n"
-            "• `/addsub` - Agregar suscriptor\n"
-            "• `/addadmin` - Agregar admin\n"
-            "• `/remsub` - Eliminar usuario\n"
-            "• `/wsstatus` - Estado WebSocket\n"
-            "• `/ml_mode` - Toggle ML Classifier\n"
-            "• `/retrain` - Reentrenar modelo\n"
-            "• `/reset_assets` - Limpiar assets\n"
-            "• `/debug` - Diagnóstico sistema\n"
+            "/subs - Listar usuarios\n"
+            "/addsub - Agregar suscriptor\n"
+            "/addadmin - Agregar admin\n"
+            "/remsub - Eliminar usuario\n"
+            "/wsstatus - Estado WebSocket\n"
+            "/ml_mode - Toggle ML Classifier\n"
+            "/retrain - Reentrenar modelo\n"
+            "/reset_assets - Limpiar assets\n"
+            "/debug - Diagnóstico sistema\n"
         )
-    
+
     help_part3 += (
         "\n📖 **INFORMACIÓN**\n"
-        "• `/about` - Sobre Nexus\n"
-        "• `/strategy` - Lógica de señales\n"
-        "• `/startup` - Guía de inicio\n\n"
+        "/about - Sobre Nexus\n"
+        "/strategy - Lógica de señales\n"
+        "/startup - Guía de inicio\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 _Tip: Usa `/start` para navegación rápida_"
+        "💡 _Tip: Usa /start para navegación rápida_"
     )
     
     try:
