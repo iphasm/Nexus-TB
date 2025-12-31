@@ -92,14 +92,27 @@ async def cmd_start(message: Message, **kwargs):
             profile = pm.get_profile(p_key)
             p_name = profile.get('NAME', p_key)
 
-            # Determinar etiqueta de riesgo
+            # Determinar etiqueta de riesgo desde el perfil seleccionado
+            risk_profile = session.config.get('risk_profile', None)
             lev = session.config.get('leverage', 5)
-            if lev == 20:
+
+            # Debug: print risk profile detection
+            print(f"🔍 Risk profile detection: risk_profile='{risk_profile}', leverage={lev}")
+
+            if risk_profile == "RONIN":
                 risk_label = "⚔️ Ronin"
-            elif lev == 3:
-                risk_label = "🛡️ Guardian"
-            elif lev == 5:
+            elif risk_profile == "CONSERVADOR":
+                risk_label = "🛡️ Conservador"
+            elif risk_profile == "NEXUS":
                 risk_label = "🌌 Nexus"
+            else:
+                # Fallback: determinar por leverage actual
+                if lev >= 15:
+                    risk_label = "⚔️ Ronin"
+                elif lev <= 4:
+                    risk_label = "🛡️ Conservador"
+                else:
+                    risk_label = "🌌 Nexus"
 
         # 5. Iconos y estado
         mode_icons = {
