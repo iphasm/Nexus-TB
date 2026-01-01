@@ -6,8 +6,8 @@ scikit-learn==1.3.0
 xgboost==1.7.6
 joblib==1.3.2
 
-# Technical analysis
-pandas-ta==0.3.14b
+# Technical analysis (installed from GitHub, PyPI version doesn't exist for Py3.10)
+git+https://github.com/twopirllc/pandas-ta.git
 
 # Data sources
 yfinance==0.2.18

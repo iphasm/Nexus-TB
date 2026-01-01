@@ -51,9 +51,11 @@ RUN pip install --no-cache-dir \
     xgboost==1.7.6 \
     joblib==1.3.2
 
+# Install pandas-ta from GitHub (PyPI version doesn't exist for Python 3.10)
+RUN pip install --no-cache-dir git+https://github.com/twopirllc/pandas-ta.git
+
 # Install data and API libraries
 RUN pip install --no-cache-dir \
-    pandas-ta==0.3.14 \
     yfinance==0.2.18 \
     python-binance==1.0.19 \
     requests==2.31.0
