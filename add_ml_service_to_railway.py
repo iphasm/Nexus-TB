@@ -169,16 +169,28 @@ def configure_service_variables():
         "ALPHA_VANTAGE_API_KEY": "opcional"
     }
 
-    print("📝 Variables que necesitas configurar:")
+    print("📝 Variables que necesitas configurar MANUALMENTE:")
+    print("💡 Railway CLI tiene sintaxis diferente - configura desde Dashboard:")
+    print("   https://railway.app/dashboard → Tu proyecto → Variables")
+
     for key, value in service_vars.items():
         if "tu_" in value:
-            print(f"   railway variables set {key}=\"{value}\"  # ⚠️ CONFIGURAR")
+            print(f"   🔑 {key} → TU_VALOR_REAL_AQUI  # ⚠️ CONFIGURAR")
         else:
-            success, _, _ = run_command(f"railway variables set {key}=\"{value}\"")
-            if success:
-                print(f"✅ {key} = {value}")
-            else:
-                print(f"❌ Error configurando {key}")
+            print(f"   ⚙️ {key} → {value}")
+
+    print("\n🔧 Configuración paso a paso:")
+    print("1. Ve a https://railway.app/dashboard")
+    print("2. Selecciona tu proyecto")
+    print("3. Ve a la pestaña 'Variables' en el menú lateral")
+    print("4. Haz click en 'Add Variable' para cada una:")
+    print("   - PYTHONUNBUFFERED = 1")
+    print("   - LOG_LEVEL = INFO")
+    print("   - TRAINING_ENV = railway")
+    print("   - PORT = 8000")
+    print("   - BINANCE_API_KEY = [tu clave real]")
+    print("   - BINANCE_API_SECRET = [tu secreto real]")
+    print("   - ALPHA_VANTAGE_API_KEY = [opcional]")
 
     print("\n💡 IMPORTANTE:")
     print("- Configura las API keys de Binance en Railway Dashboard")
@@ -292,19 +304,27 @@ def main():
         print("\n" + "=" * 60)
         print("🎉 SERVICIO ML CONFIGURADO EXITOSAMENTE!")
         print(f"🌐 URL del servicio: {service_url}")
-        print("\n📋 Próximos pasos:")
-        print("1. ✅ API keys configuradas (verifica en Railway Dashboard)")
-        print("2. ⏳ Espera a que Railway termine el deployment")
-        print("3. 🔗 Configura RAILWAY_ML_URL en tu bot principal")
-        print("4. 🎮 Prueba con /ml_train en Telegram")
+        print("\n📋 ACCIONES PENDIENTES:")
+        print("1. 🔑 CONFIGURA las API keys en Railway Dashboard (VER ARRIBA)")
+        print("2. ⏳ ESPERA a que Railway termine el deployment (2-5 minutos)")
+        print("3. 🔗 CONFIGURA tu bot con la URL del servicio")
+        print("4. 🎮 PRUEBA con /ml_train en Telegram")
 
-        print("\n🔗 Configuración para bot:")
+        print("\n🔗 CONFIGURACIÓN PARA TU BOT:")
         print(f"   export RAILWAY_ML_URL={service_url}")
+        print("   # O configura esta variable de entorno en tu sistema")
 
-        print("\n💡 Monitoreo:")
-        print("   railway logs --service ml-training  # Ver logs")
-        print("   railway status                       # Ver estado")
+        print("\n💡 VERIFICACIÓN:")
+        print("   railway logs --service ml-training  # Ver logs del servicio ML")
+        print("   railway status                       # Ver estado general")
         print("   railway service                      # Ver servicios")
+        print(f"   curl {service_url}/health           # Probar health check")
+
+        print("\n🎯 PRUEBA EN TELEGRAM:")
+        print("   Una vez configurado RAILWAY_ML_URL, usa:")
+        print("   /ml_train    - Iniciar entrenamiento")
+        print("   /ml_status   - Ver progreso")
+        print("   /ml_logs     - Ver logs")
     else:
         print("\n⚠️ Servicio configurado pero deployment en progreso")
         print("💡 Railway puede estar terminando el build/deployment")
