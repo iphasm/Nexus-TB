@@ -155,14 +155,25 @@ class MLClassifier:
         Predicts regime using ML model. Returns None if:
         - Model missing/fails
         - Confidence below CONFIDENCE_THRESHOLD (0.70)
+        - Asset not in training data (bypass for new assets)
         """
         # Ensure model is loaded
         if not cls._model_loaded:
             cls.load_model()
-            
+
         if not cls._model:
             return None # Trigger fallback
-            
+
+        # 🔄 BYPASS CHECK: If asset is not in training data, skip ML and use rule-based
+        # This prevents errors with newly added assets before model retraining
+        symbol = market_data.get('symbol', '')
+        if hasattr(cls, '_feature_names') and cls._feature_names:
+            # If we have feature names but asset wasn't in training, skip ML
+            # This is a temporary bypass until model is retrained with all assets
+            if symbol and not any(symbol.upper() in str(name).upper() for name in cls._feature_names[:10]):
+                print(f"🔄 ML Bypass: {symbol} not in training data, using rule-based classifier")
+                return None  # Trigger fallback to rule-based
+
         features = cls._extract_features(market_data.get('dataframe'))
         if features is None:
             return None

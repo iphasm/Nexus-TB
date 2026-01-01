@@ -1083,6 +1083,19 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     filter_param = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
 
+    # Handle menu selections
+    if filter_param == "BINANCE_MENU":
+        await safe_answer(callback, "🟡 Abriendo menú Binance...")
+        from handlers.commands import cmd_scan_exchange
+        await cmd_scan_exchange(callback.message, exchange="BINANCE")
+        return
+
+    if filter_param == "BYBIT_MENU":
+        await safe_answer(callback, "🟣 Abriendo menú Bybit...")
+        from handlers.commands import cmd_scan_exchange
+        await cmd_scan_exchange(callback.message, exchange="BYBIT")
+        return
+
     # Handle category selection
     if filter_param == "CATEGORY":
         await safe_answer(callback, "🎯 Abriendo scanner por categoría...")
