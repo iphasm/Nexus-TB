@@ -295,25 +295,15 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     # Dispatch to all sessions with enhanced multi-exchange filtering
     from system_directive import ASSET_GROUPS
 
-    # Determine Asset Group and Target Exchange
+    # Determine Asset Group
     asset_group = None
-    target_exchange = 'UNKNOWN'
-
     for group_name, assets in ASSET_GROUPS.items():
         if symbol in assets:
             asset_group = group_name
-            # Map group to exchange
-            if group_name == 'BYBIT':
-                target_exchange = 'BYBIT'
-            elif group_name in ['STOCKS', 'ETFS']:
-                target_exchange = 'ALPACA'
-            elif group_name == 'CRYPTO':
-                target_exchange = 'BINANCE'  # Default for crypto, can be overridden
             break
 
-    # Enhanced exchange detection for crypto symbols that might be on multiple exchanges
-    if asset_group == 'CRYPTO' and symbol in ASSET_GROUPS.get('BYBIT', []):
-        target_exchange = 'BYBIT'  # Prefer Bybit for symbols in both groups
+    # For CRYPTO assets, determine target exchange based on user preferences
+    # This will be handled later in the session filtering logic
 
     # Track if at least one session processed the signal
     signal_processed = False
@@ -329,6 +319,15 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         if asset_group and not session.is_group_enabled(asset_group):
             logger.info(f"⏭️ {session.chat_id}: Grupo {asset_group} deshabilitado", group=True)
             continue
+
+        # --- FILTER: Exchange Available for CRYPTO assets? ---
+        # For CRYPTO assets, check if user has enabled at least one crypto exchange
+        if asset_group == 'CRYPTO':
+            user_exchange_prefs = session.get_exchange_preferences()
+            crypto_exchanges_available = user_exchange_prefs.get('BINANCE', False) or user_exchange_prefs.get('BYBIT', False)
+            if not crypto_exchanges_available:
+                logger.info(f"⏭️ {session.chat_id}: No hay exchanges crypto habilitados para {symbol}", group=True)
+                continue
 
         # --- ENHANCED FILTER: Exchange Available and Enabled? ---
         # Check if user has the required exchange connected AND enabled in preferences

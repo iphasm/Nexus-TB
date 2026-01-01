@@ -683,17 +683,15 @@ class AsyncTradingSession:
         """
         Get user's exchange enable/disable preferences considering configuration.
 
-        JERARQUÍA DE GRUPOS:
-        ├── CRYPTO: Grupo principal de criptomonedas → BINANCE exchange
-        ├── BYBIT: Grupo específico de criptomonedas → BYBIT exchange
-        │   └─ Nota: Ambos grupos son conceptualmente "CRYPTO" pero separados por exchange
+        NUEVA JERARQUÍA DE GRUPOS (3 GRUPOS PRINCIPALES):
+        ├── CRYPTO: TODOS los activos de criptomonedas
+        │   ├── BINANCE: Exchange opcional dentro de CRYPTO
+        │   └── BYBIT: Exchange opcional dentro de CRYPTO
         ├── STOCKS: Grupo de acciones → ALPACA exchange
         └── ETFS: Grupo de ETFs → ALPACA exchange
 
-        Maps asset groups to exchange availability based on:
-        - Exchange is configured with API keys
-        - Group enabled status
-        - Bridge adapter connectivity
+        Para CRYPTO: El usuario elige qué exchanges usar (ambos, solo Binance, solo Bybit)
+        Para STOCKS/ETFS: Siempre usan ALPACA si está configurado
 
         Returns:
             Dict with exchange availability: {'BINANCE': True, 'BYBIT': False, 'ALPACA': True}
@@ -701,27 +699,23 @@ class AsyncTradingSession:
         preferences = {}
         configured_exchanges = self.get_configured_exchanges()
 
-        # Map groups to exchanges
-        # Nota: CRYPTO y BYBIT son conceptualmente el mismo tipo (cripto) pero separados por exchange
-        group_to_exchange = {
-            'CRYPTO': 'BINANCE',  # Primary crypto exchange (Binance)
-            'BYBIT': 'BYBIT',     # Secondary crypto exchange (Bybit)
-            'STOCKS': 'ALPACA',   # Stocks exchange
-            'ETFS': 'ALPACA'      # ETFs exchange
-        }
-
-        # Check each exchange
-        for group, exchange in group_to_exchange.items():
-            is_exchange_configured = configured_exchanges.get(exchange, False)
-            is_group_enabled = self.is_group_enabled(group)
-            is_adapter_connected = (
-                hasattr(self, 'bridge') and
-                self.bridge and
-                exchange in self.bridge.adapters
+        # CRYPTO group enables both Binance and Bybit exchanges (user choice)
+        if self.is_group_enabled('CRYPTO'):
+            preferences['BINANCE'] = configured_exchanges.get('BINANCE', False) and (
+                hasattr(self, 'bridge') and self.bridge and 'BINANCE' in self.bridge.adapters
             )
+            preferences['BYBIT'] = configured_exchanges.get('BYBIT', False) and (
+                hasattr(self, 'bridge') and self.bridge and 'BYBIT' in self.bridge.adapters
+            )
+        else:
+            preferences['BINANCE'] = False
+            preferences['BYBIT'] = False
 
-            # Exchange is available if configured AND group enabled AND adapter connected
-            preferences[exchange] = is_exchange_configured and is_group_enabled and is_adapter_connected
+        # STOCKS and ETFS groups both use ALPACA
+        stocks_etfs_enabled = self.is_group_enabled('STOCKS') or self.is_group_enabled('ETFS')
+        preferences['ALPACA'] = configured_exchanges.get('ALPACA', False) and stocks_etfs_enabled and (
+            hasattr(self, 'bridge') and self.bridge and 'ALPACA' in self.bridge.adapters
+        )
 
         return preferences
 
@@ -733,25 +727,25 @@ class AsyncTradingSession:
             str: Detailed explanation of group hierarchy
         """
         return """
-        📊 JERARQUÍA DE GRUPOS DE NEXUS TRADING BOT:
+        📊 JERARQUÍA DE GRUPOS DE NEXUS TRADING BOT (3 GRUPOS):
 
         🎯 CATEGORÍAS PRINCIPALES:
-        ├── 💰 CRYPTO: Activos de Criptomonedas
-        │   ├── CRYPTO (Binance): Exchange primario para cripto
-        │   └── BYBIT (Bybit): Exchange secundario para cripto
-        ├── 📈 STOCKS: Activos de Acciones (Alpaca)
+        ├── 💰 CRYPTO: TODOS los activos de criptomonedas
+        │   ├── BINANCE: Exchange opcional (usuario elige)
+        │   └── BYBIT: Exchange opcional (usuario elige)
+        ├── 📈 STOCKS: Activos de acciones (Alpaca)
         └── 📊 ETFS: Activos de ETFs (Alpaca)
 
         🔄 RELACIONES:
-        • CRYPTO y BYBIT son conceptualmente el mismo tipo de activo (cripto)
-        • Se separan solo por exchange para control granular
-        • STOCKS y ETFS van siempre a ALPACA
+        • CRYPTO engloba todas las criptomonedas (Binance + Bybit)
+        • Dentro de CRYPTO, usuario elige exchanges (ambos, uno solo, o ninguno)
+        • STOCKS y ETFS son categorías separadas que usan ALPACA
 
         🎮 CONFIGURACIÓN DEL USUARIO:
-        • Habilitar CRYPTO → Activa señales en BINANCE
-        • Habilitar BYBIT → Activa señales en BYBIT
-        • Ambos pueden estar activos simultáneamente
-        • STOCKS/ETFS requieren configuración de ALPACA
+        • Habilitar CRYPTO → Permite elegir BINANCE y/o BYBIT
+        • Habilitar STOCKS → Activa trading de acciones en ALPACA
+        • Habilitar ETFS → Activa trading de ETFs en ALPACA
+        • Exchanges dentro de CRYPTO son elecciones equivalentes
         """
 
     def toggle_asset_blacklist(self, symbol: str) -> bool:

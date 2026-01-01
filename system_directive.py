@@ -5,39 +5,35 @@ Single source of truth for asset groups and ticker mappings.
 import os
 
 # =================================================================
-# ASSET GROUPS - Define which exchanges handle which assets
+# ASSET GROUPS - Define which assets belong to which category
 # =================================================================
 #
-# JERARQUÍA DE GRUPOS:
-# ├── CRYPTO: Assets de criptomonedas para BINANCE (exchange primario)
-# ├── BYBIT: Assets de criptomonedas específicos de BYBIT
-# │   └─ Nota: Tanto CRYPTO como BYBIT son grupos de CRIPTOMONEDAS
-# ├── STOCKS: Assets de acciones para ALPACA
-# └── ETFS: Assets de ETFs para ALPACA
+# JERARQUÍA DE GRUPOS (3 GRUPOS PRINCIPALES):
+# ├── CRYPTO: TODOS los activos de criptomonedas
+# │   ├── Assets disponibles en BINANCE y BYBIT
+# │   └── El usuario elige qué exchanges usar dentro de CRYPTO
+# ├── STOCKS: Activos de acciones (Alpaca)
+# └── ETFS: Activos de ETFs (Alpaca)
 #
-# Los grupos CRYPTO y BYBIT son conceptualmente parte de la misma categoría
-# (criptomonedas) pero se separan por exchange para mayor control granular.
+# Dentro de CRYPTO, los exchanges (Binance/Bybit) son elecciones equivalentes
+# del usuario, no grupos separados.
 
 ASSET_GROUPS = {
     'CRYPTO': [
-        # Major Caps (Binance Futures)
+        # Major Caps - Available on both Binance and Bybit
         'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
         'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
-        # Memes & AI
+        # Memes & AI - Available on both
         'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
         'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'SEIUSDT',
         '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
         'PONKEUSDT', 'BRETTUSDT',
-        # DeFi
+        # DeFi - Available on both
         'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT',
-        # AI / Tech
-        'TAOUSDT'
-    ],
-    'BYBIT': [
-        # Crypto Assets específicos de Bybit (V5 exchange)
-        # Nota: Este grupo es parte de la categoría CRYPTO pero específico de Bybit
-        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT',
-        'FLOWUSDT', 'TAOUSDT', 'RENDERUSDT', '1000PEPEUSDT', 'DOGEUSDT'
+        # AI / Tech - Available on both
+        'TAOUSDT',
+        # Bybit-specific assets (also included in CRYPTO)
+        'FLOWUSDT'
         # Bybit-exclusive (disabled - need Bybit data fetcher):
         # 'NIGHTUSDT', 'MNTUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT'
     ],
@@ -59,7 +55,6 @@ ASSET_GROUPS = {
 # Toggle groups on/off (Global Defaults)
 GROUP_CONFIG = {
     'CRYPTO': True,
-    'BYBIT': True,
     'STOCKS': True,
     'ETFS': True
 }

@@ -258,38 +258,19 @@ class NexusBridge:
                 return user_preferences[exchange]
             return True  # If no preferences specified, assume available
 
-        # CRYPTO EXCHANGE ROUTING LOGIC:
-        # Both CRYPTO and BYBIT groups contain cryptocurrency assets
-        # CRYPTO group → BINANCE exchange (primary)
-        # BYBIT group → BYBIT exchange (secondary/alternative)
+        # CRYPTO EXCHANGE ROUTING LOGIC (NUEVA JERARQUÍA):
+        # CRYPTO group contains ALL cryptocurrency assets
+        # User preferences determine which exchanges to use within CRYPTO
+        # Both BINANCE and BYBIT are equally important choices
 
-        # 1. Priority routing for BYBIT-specific assets
-        # If symbol is in BYBIT group, prefer BYBIT exchange
-        if symbol in ASSET_GROUPS.get('BYBIT', []):
-            if is_exchange_available('BYBIT'):
-                return 'BYBIT'
-            # Fallback: if BYBIT not available but symbol is cross-listed on BINANCE
-            if is_exchange_available('BINANCE'):
-                return 'BINANCE'
-
-        # 2. Enhanced crypto routing with user preferences
-        # For symbols in CRYPTO group (primarily BINANCE assets)
+        # For symbols in CRYPTO group, route based on user preferences
         if symbol in ASSET_GROUPS.get('CRYPTO', []):
-            # Check user preferences for crypto exchanges
-            preferred_crypto_exchange = None
-
-            # If user has BYBIT enabled and symbol is also available there, prefer BYBIT
-            if is_exchange_available('BYBIT') and symbol in ASSET_GROUPS.get('BYBIT', []):
-                preferred_crypto_exchange = 'BYBIT'
-            # Otherwise, use BINANCE if available (primary for CRYPTO group)
+            # Check user preferences for crypto exchanges (both are equal priority)
+            if is_exchange_available('BYBIT'):
+                return 'BYBIT'  # Prefer Bybit if available
             elif is_exchange_available('BINANCE'):
-                preferred_crypto_exchange = 'BINANCE'
-            # Fallback to BYBIT if BINANCE not available
-            elif is_exchange_available('BYBIT'):
-                preferred_crypto_exchange = 'BYBIT'
-
-            if preferred_crypto_exchange:
-                return preferred_crypto_exchange
+                return 'BINANCE'  # Use Binance if Bybit not available
+            # Note: Both exchanges have equal priority in the new hierarchy
 
         # 3. Stocks and ETFs - Alpaca only
         if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', []):

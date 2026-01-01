@@ -77,13 +77,13 @@ async def cmd_exchanges(message: Message, **kwargs):
         f"{'✅' if bridge_status['BYBIT'] else '❌'} <b>Bybit:</b> {'Conectado' if bridge_status['BYBIT'] else 'Desconectado'}\n"
         f"{'✅' if bridge_status['ALPACA'] else '❌'} <b>Alpaca:</b> {'Conectado' if bridge_status['ALPACA'] else 'Desconectado'}\n\n"
         "<b>🎯 Grupos Habilitados:</b>\n"
-        f"{'✅' if crypto_enabled else '❌'} <b>💰 Crypto (Binance):</b> {'Habilitado' if crypto_enabled else 'Deshabilitado'}\n"
-        f"{'✅' if bybit_enabled else '❌'} <b>💰 Crypto Bybit:</b> {'Habilitado' if bybit_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if crypto_enabled else '❌'} <b>💰 Crypto:</b> {'Habilitado' if crypto_enabled else 'Deshabilitado'}\n"
         f"{'✅' if stocks_enabled else '❌'} <b>📈 Stocks:</b> {'Habilitado' if stocks_enabled else 'Deshabilitado'}\n"
         f"{'✅' if etfs_enabled else '❌'} <b>📊 ETFs:</b> {'Habilitado' if etfs_enabled else 'Deshabilitado'}\n\n"
-        "<b>🚀 Exchanges Operativos:</b>\n"
-        f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Listo para operar' if exchange_prefs.get('BINANCE', False) else 'No operativo'}\n"
-        f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Listo para operar' if exchange_prefs.get('BYBIT', False) else 'No operativo'}\n"
+        "<b>🚀 Exchanges dentro de Crypto:</b>\n"
+        f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Habilitado' if exchange_prefs.get('BINANCE', False) else 'Deshabilitado'}\n"
+        f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Habilitado' if exchange_prefs.get('BYBIT', False) else 'Deshabilitado'}\n\n"
+        "<b>🚀 Otros Exchanges:</b>\n"
         f"{'✅' if exchange_prefs.get('ALPACA', False) else '❌'} <b>Alpaca:</b> {'Listo para operar' if exchange_prefs.get('ALPACA', False) else 'No operativo'}\n\n"
     )
 
@@ -811,7 +811,10 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
 
     for config_key, display_name in config_items:
         value = session.config.get(config_key, 'NOT SET')
-        masked_value = f"{value[:8]}..." if len(str(value)) > 8 and value != 'NOT SET' else value
+        if value and value != 'NOT SET' and len(str(value)) > 8:
+            masked_value = f"{str(value)[:8]}..."
+        else:
+            masked_value = str(value) if value else 'NOT SET'
         debug_msg += f"• {display_name}: `{masked_value}`\n"
 
     debug_msg += (
@@ -820,10 +823,10 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
         f"• BYBIT configurado: {configured_exchanges.get('BYBIT', False)}\n"
         f"• ALPACA configurado: {configured_exchanges.get('ALPACA', False)}\n\n"
         f"<b>⚙️ Grupos Habilitados:</b>\n"
-        f"• 💰 CRYPTO (Binance): {session.is_group_enabled('CRYPTO')}\n"
-        f"• 💰 CRYPTO Bybit: {session.is_group_enabled('BYBIT')}\n"
-        f"• 📈 STOCKS (Alpaca): {session.is_group_enabled('STOCKS')}\n"
-        f"• 📊 ETFS (Alpaca): {session.is_group_enabled('ETFS')}\n\n"
+        f"• 💰 CRYPTO: {session.is_group_enabled('CRYPTO')}\n"
+        f"• 📈 STOCKS: {session.is_group_enabled('STOCKS')}\n"
+        f"• 📊 ETFS: {session.is_group_enabled('ETFS')}\n\n"
+        f"<b>🔄 Exchanges dentro de CRYPTO:</b>\n"
         f"<b>🔌 Bridge Status:</b>\n"
     )
 
@@ -840,6 +843,12 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
         f"• BYBIT operativo: {exchange_prefs.get('BYBIT', False)}\n"
         f"• ALPACA operativo: {exchange_prefs.get('ALPACA', False)}\n\n"
         f"<b>💡 Diagnóstico:</b>\n"
+    )
+
+    exchange_prefs = session.get_exchange_preferences()
+    debug_msg += (
+        f"• BINANCE: {exchange_prefs.get('BINANCE', False)}\n"
+        f"• BYBIT: {exchange_prefs.get('BYBIT', False)}\n\n"
     )
 
     # Diagnostic logic

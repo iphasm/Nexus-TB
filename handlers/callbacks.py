@@ -1047,27 +1047,25 @@ async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
                 return
 
             # Enable the corresponding group
-            group_map = {'BINANCE': 'CRYPTO', 'BYBIT': 'BYBIT', 'ALPACA': ['STOCKS', 'ETFS']}
-            if exchange in group_map:
-                if isinstance(group_map[exchange], list):
-                    # Alpaca has multiple groups
-                    for group in group_map[exchange]:
-                        session.enable_group(group)
-                else:
-                    session.enable_group(group_map[exchange])
+            # For BINANCE and BYBIT: Enable CRYPTO group (they're subchoices within CRYPTO)
+            # For ALPACA: Enable STOCKS and ETFS groups
+            if exchange in ['BINANCE', 'BYBIT']:
+                session.enable_group('CRYPTO')
+            elif exchange == 'ALPACA':
+                session.enable_group('STOCKS')
+                session.enable_group('ETFS')
 
             await callback.answer(f"✅ {exchange} habilitado")
 
         else:  # DISABLE_
-            # Disable the corresponding group
-            group_map = {'BINANCE': 'CRYPTO', 'BYBIT': 'BYBIT', 'ALPACA': ['STOCKS', 'ETFS']}
-            if exchange in group_map:
-                if isinstance(group_map[exchange], list):
-                    # Alpaca has multiple groups
-                    for group in group_map[exchange]:
-                        session.disable_group(group)
-                else:
-                    session.disable_group(group_map[exchange])
+            # For BINANCE/BYBIT: Inform user they are part of CRYPTO group
+            # For ALPACA: Disable STOCKS and ETFS groups
+            if exchange in ['BINANCE', 'BYBIT']:
+                await callback.answer("💡 BINANCE y BYBIT son elecciones dentro del grupo CRYPTO. Usa /assets para gestionar CRYPTO.")
+            elif exchange == 'ALPACA':
+                session.disable_group('STOCKS')
+                session.disable_group('ETFS')
+                await callback.answer(f"🔇 ALPACA deshabilitado")
 
             await callback.answer(f"🔇 {exchange} deshabilitado")
 
