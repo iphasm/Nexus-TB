@@ -53,7 +53,7 @@ RUN pip install --no-cache-dir \
 
 # Install data and API libraries
 RUN pip install --no-cache-dir \
-    pandas-ta==0.3.14b \
+    pandas-ta==0.3.14 \
     yfinance==0.2.18 \
     python-binance==1.0.19 \
     requests==2.31.0
