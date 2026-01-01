@@ -1,89 +1,66 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Development and testing
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+build/
 *.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.env
-
-# IDE
-.vscode/
-.idea/
+# IDE and editor files
+.vscode
+.idea
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+*.sublime-project
+*.sublime-workspace
 
-# Git
-.git/
-.gitignore
-
-# Logs
-*.log
-logs/
-training_logs/
-
-# Railway specific
-railway.json
-railway-ml.json
-deploy_railway_ml.py
-
-# Documentation
+# Documentation and markdown (non-essential)
 *.md
 docs/
-PROJECT_STRUCTURE.md
 
-# Testing and scripts
-scripts/
-testing/
-debug_*/
-test_*/
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
 
-# Bot specific (not needed for ML service)
-handlers/
-nexus_loader.py
-telebot_config.py
-nexus_system/cortex/
-nexus_system/uplink/
-nexus_system/shield/
-nexus_system/core/
-!nexus_system/memory_archives/
-
-# Local development
+# Environment files
+.env
 .env.local
-.env.development
-.env.test
+.env.*.local
 
-# Temporary files
-*.tmp
+# Node modules (if any)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python package files
+requirements-dev.txt
+setup.py
+setup.cfg
+pyproject.toml
+
+# Temporary and build files
+tmp/
+temp/
+*.log
 *.bak
-.cache/
+*.tmp
+
+# Keep essential files for production:
+# - nexus_loader.py (not ignored)
+# - handlers/ directory (not ignored)
+# - core system files (not ignored)
