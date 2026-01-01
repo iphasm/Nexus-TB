@@ -68,16 +68,15 @@ testing/
 debug_*/
 test_*/
 
-# Bot specific (not needed for ML service)
-handlers/
-# Note: nexus_loader.py is needed for the main bot container
-# nexus_loader.py  (removed - was causing container start failure)
-telebot_config.py
-nexus_system/cortex/
-nexus_system/uplink/
-nexus_system/shield/
-nexus_system/core/
-!nexus_system/memory_archives/
+# Bot specific exclusions - DISABLED for main bot container
+# These were for ML service only, the main bot needs all these modules
+# handlers/
+# nexus_loader.py
+# telebot_config.py
+# nexus_system/cortex/
+# nexus_system/uplink/
+# nexus_system/shield/
+# nexus_system/core/
 
 # Local development
 .env.local
