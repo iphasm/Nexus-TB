@@ -62,11 +62,12 @@ deploy_railway_ml.py
 docs/
 PROJECT_STRUCTURE.md
 
-# Testing and scripts
+# Testing and scripts (but keep test_startup.py for Railway ML service)
 scripts/
 testing/
 debug_*/
 test_*/
+!test_startup.py
 
 # Bot specific (not needed for ML service)
 handlers/

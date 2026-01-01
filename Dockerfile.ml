@@ -29,23 +29,6 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    g++ \
-    git \
-    curl \
-    wget \
-    libgomp1 \
-    libopenblas-dev \
-    liblapack-dev \
-    libffi-dev \
-    libssl-dev \
-    libxml2-dev \
-    libxslt-dev \
-    zlib1g-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
