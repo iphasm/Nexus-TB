@@ -51,11 +51,10 @@ RUN pip install --no-cache-dir \
     xgboost==1.7.6 \
     joblib==1.3.2
 
-# Install pandas-ta from GitHub tarball (PyPI version doesn't exist for Python 3.10)
-RUN pip install --no-cache-dir https://github.com/twopirllc/pandas-ta/archive/refs/heads/main.zip
-
-# Install data and API libraries
+# CACHE_BUST: 20260101-1416 - Force rebuild with tarball instead of git clone
+# Install data and API libraries (using TA-Lib instead of pandas-ta)
 RUN pip install --no-cache-dir \
+    TA-Lib==0.4.28 \
     yfinance==0.2.18 \
     python-binance==1.0.19 \
     requests==2.31.0
@@ -71,6 +70,7 @@ RUN pip install --no-cache-dir \
 # Copy source code
 COPY railway_ml_train.py .
 COPY ml_training_client.py .
+COPY ta_compat.py .
 COPY src/ ./src/
 COPY system_directive.py .
 COPY compatibility_imports.py .
