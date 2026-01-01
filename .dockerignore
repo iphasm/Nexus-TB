@@ -70,7 +70,8 @@ test_*/
 
 # Bot specific (not needed for ML service)
 handlers/
-nexus_loader.py
+# Note: nexus_loader.py is needed for the main bot container
+# nexus_loader.py  (removed - was causing container start failure)
 telebot_config.py
 nexus_system/cortex/
 nexus_system/uplink/
