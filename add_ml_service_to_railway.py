@@ -75,27 +75,46 @@ def get_current_project():
     return None
 
 def create_ml_service():
-    """Create ML training service in current Railway project"""
+    """Guide user to create ML training service in Railway dashboard"""
     print("\n🚀 Creando servicio ML training...")
+    print("⚠️  IMPORTANTE: Railway requiere crear servicios desde el Dashboard web")
+    print("   La CLI no puede crear servicios directamente.\n")
 
-    # Add service using Railway CLI
-    print("📦 Agregando servicio ML al proyecto...")
+    project_name = get_current_project()
+    if project_name:
+        print(f"📋 Tu proyecto actual: {project_name}")
+        print(f"🔗 Dashboard URL: https://railway.app/dashboard")
 
-    # Railway doesn't have a direct CLI command to add services, so we'll use up
-    # This will create a new service based on the railway-ml-service.json config
-    success, _, stderr = run_command("railway up --service ml-training")
+    print("\n📝 PASOS PARA CREAR EL SERVICIO:")
+    print("┌─────────────────────────────────────────────────────┐")
+    print("│ 1. Ve a: https://railway.app/dashboard             │")
+    print("│ 2. Selecciona tu proyecto                          │")
+    print("│ 3. Haz click en 'Add Service' (botón verde)       │")
+    print("│ 4. Selecciona 'Empty Service'                      │")
+    print("│ 5. Nombre: 'ml-training'                           │")
+    print("│ 6. Haz click en 'Add Service'                      │")
+    print("└─────────────────────────────────────────────────────┘")
 
-    if success:
-        print("✅ Servicio ML training agregado exitosamente")
+    print("\n⏳ Una vez creado el servicio en Railway:")
+    print("   - El servicio aparecerá en tu dashboard")
+    print("   - Railway detectará automáticamente los archivos de configuración")
+    print("   - El build comenzará automáticamente")
+
+    # Ask user to confirm
+    input("\n🔄 Presiona ENTER cuando hayas creado el servicio 'ml-training' en Railway Dashboard...")
+
+    # Verify service exists
+    print("🔍 Verificando que el servicio existe...")
+    success, services_output, _ = run_command("railway services")
+
+    if success and "ml-training" in services_output:
+        print("✅ Servicio 'ml-training' encontrado!")
         return True
     else:
-        print(f"❌ Error agregando servicio: {stderr}")
-        print("\n💡 Alternativas:")
-        print("1. Ve a https://railway.app/dashboard")
-        print("2. Selecciona tu proyecto")
-        print("3. Haz click en 'Add Service'")
-        print("4. Selecciona 'Empty Service'")
-        print("5. Configura manualmente con Dockerfile.railway")
+        print("❌ Servicio 'ml-training' no encontrado aún")
+        print("Asegúrate de haberlo creado en Railway Dashboard")
+        print("\nServicios actuales:")
+        print(services_output)
         return False
 
 def configure_service_variables():
@@ -131,42 +150,67 @@ def configure_service_variables():
 
 def deploy_and_verify():
     """Deploy the ML service and verify it's working"""
-    print("\n🚀 Desplegando servicio ML...")
+    print("\n🚀 Verificando despliegue del servicio ML...")
 
-    # Deploy
-    success, _, stderr = run_command("railway up --service ml-training")
-    if not success:
-        print(f"❌ Error en deployment: {stderr}")
-        return None
+    # Check if service is deploying/has deployed
+    print("🔍 Verificando estado del servicio...")
+    success, status_output, _ = run_command("railway status")
 
-    print("⏳ Esperando que el servicio esté listo...")
+    if "ml-training" in status_output:
+        print("✅ Servicio 'ml-training' está activo en Railway")
+    else:
+        print("⚠️ Servicio 'ml-training' no aparece en el estado actual")
+        print("Puede estar desplegándose aún...")
+
+    # Wait for deployment
+    print("⏳ Esperando que el servicio termine de desplegarse...")
+    print("💡 Esto puede tomar 2-5 minutos la primera vez")
+
     import time
-    time.sleep(15)
+    time.sleep(30)  # Give more time for Railway to deploy
 
     # Get service URL
-    success, domain, _ = run_command("railway domain --service ml-training")
-    if success and domain:
+    success, domain, _ = run_command("railway domain")
+    if success and domain and "ml-training" in domain:
         service_url = f"https://{domain.strip()}"
         print(f"🌐 Servicio ML desplegado en: {service_url}")
+    else:
+        # Try to get domain specifically for ml-training service
+        success, domain, _ = run_command("railway domain --service ml-training")
+        if success and domain:
+            service_url = f"https://{domain.strip()}"
+            print(f"🌐 Servicio ML desplegado en: {service_url}")
+        else:
+            print("⚠️ No se pudo obtener la URL del servicio automáticamente")
+            print("💡 Railway puede estar terminando el despliegue")
+            print("   Intenta ejecutar el script nuevamente en unos minutos")
+            print("   O verifica manualmente en Railway Dashboard")
+            return None
 
-        # Test health check
-        print("🧪 Probando health check...")
+    # Test health check
+    print("🧪 Probando health check...")
+    max_attempts = 3
+    for attempt in range(max_attempts):
         test_success, _, _ = run_command(f"curl -f {service_url}/health")
         if test_success:
             print("✅ Health check exitoso - Servicio operativo!")
+            return service_url
         else:
-            print("⚠️ Health check falló - Puede tomar más tiempo en estar listo")
+            print(f"⚠️ Health check falló (intento {attempt + 1}/{max_attempts})")
+            if attempt < max_attempts - 1:
+                print("   Esperando 20 segundos antes del siguiente intento...")
+                time.sleep(20)
 
-        return service_url
-    else:
-        print("⚠️ No se pudo obtener la URL automáticamente")
-        print("Ejecuta: railway domain --service ml-training")
-        return None
+    print("⚠️ Health check falló después de varios intentos")
+    print("💡 El servicio puede estar iniciándose aún")
+    print("   Revisa Railway Dashboard para ver el estado del deployment")
+    return service_url  # Return URL anyway for configuration
 
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(description="Add ML training service to existing Railway project")
     parser.add_argument("--skip-checks", action="store_true", help="Skip prerequisite checks")
+    parser.add_argument("--skip-service-creation", action="store_true", help="Skip service creation guide (if already created)")
 
     args = parser.parse_args()
 
@@ -187,32 +231,44 @@ def main():
 
     print(f"\n📋 Proyecto identificado: {project_name}")
 
-    # Create ML service
-    if create_ml_service():
-        # Configure variables
-        configure_service_variables()
-
-        # Deploy and verify
-        service_url = deploy_and_verify()
-
-        if service_url:
-            print("\n" + "=" * 60)
-            print("🎉 SERVICIO ML AGREGADO EXITOSAMENTE!")
-            print(f"🌐 URL del servicio: {service_url}")
-            print("\n📋 Próximos pasos:")
-            print("1. Configura las API keys en Railway Dashboard")
-            print("2. Espera 2-3 minutos para que esté completamente listo")
-            print("3. Configura RAILWAY_ML_URL en tu bot principal")
-            print("4. Prueba con /ml_train en Telegram")
-
-            print("\n🔗 Configuración para bot:")
-            print(f"   export RAILWAY_ML_URL={service_url}")
-        else:
-            print("\n⚠️ Servicio creado pero no se pudo verificar completamente")
-            print("Revisa Railway Dashboard y logs para más detalles")
+    # Guide user to create ML service (unless skipped)
+    if not args.skip_service_creation:
+        if not create_ml_service():
+            print("\n❌ Servicio ML no pudo ser verificado")
+            print("Sigue las instrucciones arriba y ejecuta el script nuevamente")
+            print("O usa: python add_ml_service_to_railway.py --skip-service-creation")
+            sys.exit(1)
     else:
-        print("\n❌ Error creando el servicio ML")
-        print("Revisa las instrucciones alternativas arriba")
+        print("⏭️  Saltando creación de servicio (--skip-service-creation)")
+
+    # Configure variables
+    configure_service_variables()
+
+    # Deploy and verify
+    service_url = deploy_and_verify()
+
+    if service_url:
+        print("\n" + "=" * 60)
+        print("🎉 SERVICIO ML CONFIGURADO EXITOSAMENTE!")
+        print(f"🌐 URL del servicio: {service_url}")
+        print("\n📋 Próximos pasos:")
+        print("1. ✅ API keys configuradas (verifica en Railway Dashboard)")
+        print("2. ⏳ Espera a que Railway termine el deployment")
+        print("3. 🔗 Configura RAILWAY_ML_URL en tu bot principal")
+        print("4. 🎮 Prueba con /ml_train en Telegram")
+
+        print("\n🔗 Configuración para bot:")
+        print(f"   export RAILWAY_ML_URL={service_url}")
+
+        print("\n💡 Monitoreo:")
+        print("   railway logs --service ml-training  # Ver logs")
+        print("   railway status                       # Ver estado")
+        print("   railway services                     # Ver servicios")
+    else:
+        print("\n⚠️ Servicio configurado pero deployment en progreso")
+        print("💡 Railway puede estar terminando el build/deployment")
+        print("   Revisa Railway Dashboard en unos minutos")
+        print("   O ejecuta el script nuevamente: python add_ml_service_to_railway.py --skip-service-creation")
 
 if __name__ == "__main__":
     main()
