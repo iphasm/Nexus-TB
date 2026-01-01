@@ -292,32 +292,57 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     
     logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.0%}, {strategy})", group=True)
     
-    # Dispatch to all sessions
+    # Dispatch to all sessions with enhanced multi-exchange filtering
     from system_directive import ASSET_GROUPS
-    
-    # Determine Asset Group
+
+    # Determine Asset Group and Target Exchange
     asset_group = None
+    target_exchange = 'UNKNOWN'
+
     for group_name, assets in ASSET_GROUPS.items():
         if symbol in assets:
             asset_group = group_name
+            # Map group to exchange
+            if group_name == 'BYBIT':
+                target_exchange = 'BYBIT'
+            elif group_name in ['STOCKS', 'ETFS']:
+                target_exchange = 'ALPACA'
+            elif group_name == 'CRYPTO':
+                target_exchange = 'BINANCE'  # Default for crypto, can be overridden
             break
-    
+
+    # Enhanced exchange detection for crypto symbols that might be on multiple exchanges
+    if asset_group == 'CRYPTO' and symbol in ASSET_GROUPS.get('BYBIT', []):
+        target_exchange = 'BYBIT'  # Prefer Bybit for symbols in both groups
+
     # Track if at least one session processed the signal
     signal_processed = False
     atr = getattr(signal, 'atr', None)
-            
+
     for session in session_manager.get_all_sessions():
         # --- FILTER: Strategy Enabled? ---
-        # Use mapped config key instead of raw strategy name
         if not session.is_strategy_enabled(strategy_config_key):
             logger.info(f"⏭️ {session.chat_id}: Estrategia {strategy_config_key} deshabilitada", group=True)
             continue
-            
+
         # --- FILTER: Group Enabled? ---
         if asset_group and not session.is_group_enabled(asset_group):
             logger.info(f"⏭️ {session.chat_id}: Grupo {asset_group} deshabilitado", group=True)
             continue
-            
+
+        # --- ENHANCED FILTER: Exchange Available and Enabled? ---
+        # Check if user has the required exchange connected AND enabled in preferences
+        user_exchange_prefs = session.get_exchange_preferences()
+
+        if not user_exchange_prefs.get(target_exchange, False):
+            logger.info(f"⏭️ {session.chat_id}: Exchange {target_exchange} deshabilitado en preferencias para {symbol}", group=True)
+            continue
+
+        # Double-check adapter connectivity
+        if not hasattr(session, 'bridge') or not session.bridge or target_exchange not in session.bridge.adapters:
+            logger.info(f"⏭️ {session.chat_id}: Exchange {target_exchange} no conectado para {symbol}", group=True)
+            continue
+
         # --- FILTER: Blacklisted? ---
         if session.is_asset_disabled(symbol):
             logger.info(f"⏭️ {session.chat_id}: Asset {symbol} en blacklist", group=True)

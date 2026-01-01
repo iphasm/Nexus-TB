@@ -647,6 +647,46 @@ class AsyncTradingSession:
         user_groups = get_user_enabled_groups(self.chat_id)
         if user_groups:
             return user_groups.get(group, True)
+
+    def get_exchange_preferences(self) -> Dict[str, bool]:
+        """
+        Get user's exchange enable/disable preferences.
+
+        Maps asset groups to exchange availability based on:
+        - Group enabled status
+        - Bridge adapter connectivity
+
+        Returns:
+            Dict with exchange availability: {'BINANCE': True, 'BYBIT': False, 'ALPACA': True}
+        """
+        preferences = {}
+
+        # Map groups to exchanges
+        group_to_exchange = {
+            'CRYPTO': 'BINANCE',  # Primary crypto exchange
+            'BYBIT': 'BYBIT',     # Bybit-specific assets
+            'STOCKS': 'ALPACA',   # Stocks
+            'ETFS': 'ALPACA'      # ETFs
+        }
+
+        # Check each exchange
+        for group, exchange in group_to_exchange.items():
+            is_group_enabled = self.is_group_enabled(group)
+            is_adapter_connected = (
+                hasattr(self, 'bridge') and
+                self.bridge and
+                exchange in self.bridge.adapters
+            )
+
+            # Exchange is available if group is enabled AND adapter is connected
+            preferences[exchange] = is_group_enabled and is_adapter_connected
+
+        # Special case: BINANCE should also be available if user has crypto enabled
+        # even for Bybit-specific symbols
+        if self.is_group_enabled('CRYPTO') and hasattr(self, 'bridge') and self.bridge:
+            preferences['BINANCE'] = preferences.get('BINANCE', False) or ('BINANCE' in self.bridge.adapters)
+
+        return preferences
         # Fallback to session config (legacy)
         return self.config.get('groups', {}).get(group, True)
 
@@ -1340,10 +1380,9 @@ class AsyncTradingSession:
         if not self.shadow_wallet:
              return False, 0.0, "Wallet not initialized"
              
-        # Determine target exchange using NexusBridge routing (matches trade execution)
-        target_exchange = 'BINANCE'  # Default
-        if self.bridge:
-            target_exchange = self.bridge._route_symbol(symbol)
+        # Determine target exchange using user preferences and NexusBridge routing
+        user_exchange_prefs = self.get_exchange_preferences()
+        target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
 
         # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
@@ -1380,7 +1419,8 @@ class AsyncTradingSession:
             target_exchange = force_exchange
             self.logger.debug(f"Forced routing {symbol} -> {target_exchange}")
         else:
-            target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+            user_exchange_prefs = self.get_exchange_preferences()
+            target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
             self.logger.debug(f"Auto routing {symbol} -> {target_exchange}")
         
         # Force-sync balance for target exchange (avoid stale ShadowWallet data)
@@ -1685,7 +1725,8 @@ class AsyncTradingSession:
             target_exchange = force_exchange
             self.logger.debug(f"Forced routing {symbol} -> {target_exchange}")
         else:
-            target_exchange = self.bridge._route_symbol(symbol) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
+            user_exchange_prefs = self.get_exchange_preferences()
+            target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
             self.logger.debug(f"Auto routing {symbol} -> {target_exchange}")
         
         # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)

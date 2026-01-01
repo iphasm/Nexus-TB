@@ -233,61 +233,78 @@ class NexusBridge:
             print(f"❌ Bridge: Order placement error ({symbol}): {e}")
             return {'error': str(e), 'symbol': symbol, 'side': side}
 
-    def _route_symbol(self, symbol: str) -> str:
+    def _route_symbol(self, symbol: str, user_preferences: Optional[Dict[str, bool]] = None) -> str:
         """
-        Lógica de enrutamiento inteligente basada en grupos de activos.
-        
+        Lógica de enrutamiento inteligente basada en grupos de activos y preferencias de usuario.
+
         Determina automáticamente qué exchange usar para un símbolo basándose en:
         1. Grupos de activos definidos en system_directive (BYBIT, CRYPTO, STOCKS, ETFS)
-        2. Disponibilidad de adapters conectados
-        3. Fallback al exchange primario si no hay match
-        
-        IMPORTANTE: Solo enruta a un exchange si su adapter está conectado.
-        
+        2. Preferencias del usuario (qué exchanges tiene habilitados)
+        3. Disponibilidad de adapters conectados
+        4. Fallback inteligente al exchange más apropiado
+
         Args:
             symbol: Símbolo del activo
-        
+            user_preferences: Dict con preferencias de usuario {'BYBIT': True, 'ALPACA': False, etc.}
+
         Returns:
             str: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
         """
-        # 1. Priority routing for specific groups, but allow flexibility
-        # If symbol is in BYBIT group and Bybit is connected, prefer Bybit for manual trades
-        if symbol in ASSET_GROUPS.get('BYBIT', []):
-            if 'BYBIT' in self.adapters:
-                return 'BYBIT'
-            else:
-                # Bybit not connected, fallback to Binance for crypto
-                if 'BINANCE' in self.adapters:
-                    return 'BINANCE'
+        # Helper function to check if exchange is available for user
+        def is_exchange_available(exchange: str) -> bool:
+            if exchange not in self.adapters:
+                return False
+            if user_preferences and exchange in user_preferences:
+                return user_preferences[exchange]
+            return True  # If no preferences specified, assume available
 
-        # 2. For crypto symbols, prefer Binance but allow Bybit as alternative
-        # This allows manual operations on Binance even when Bybit is primary
-        if symbol in ASSET_GROUPS.get('CRYPTO', []):
-            if 'BINANCE' in self.adapters:
-                return 'BINANCE'  # Prefer Binance for crypto
-            # Fallback to Bybit if Binance not connected
-            if 'BYBIT' in self.adapters:
+        # 1. Priority routing for BYBIT-specific assets
+        if symbol in ASSET_GROUPS.get('BYBIT', []):
+            if is_exchange_available('BYBIT'):
                 return 'BYBIT'
-            
-        # 3. Check Stocks/ETFs Group
+            # Fallback: if user has BYBIT disabled but symbol is in BYBIT group,
+            # still try BINANCE if available (for cross-listed symbols)
+            if is_exchange_available('BINANCE'):
+                return 'BINANCE'
+
+        # 2. Enhanced crypto routing with user preferences
+        if symbol in ASSET_GROUPS.get('CRYPTO', []):
+            # Check user preferences for crypto exchanges
+            preferred_crypto_exchange = None
+
+            # If user has BYBIT enabled and symbol is available there, prefer BYBIT
+            if is_exchange_available('BYBIT') and symbol in ASSET_GROUPS.get('BYBIT', []):
+                preferred_crypto_exchange = 'BYBIT'
+            # Otherwise, use BINANCE if available
+            elif is_exchange_available('BINANCE'):
+                preferred_crypto_exchange = 'BINANCE'
+            # Fallback to BYBIT if BINANCE not available
+            elif is_exchange_available('BYBIT'):
+                preferred_crypto_exchange = 'BYBIT'
+
+            if preferred_crypto_exchange:
+                return preferred_crypto_exchange
+
+        # 3. Stocks and ETFs - Alpaca only
         if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', []):
-            if 'ALPACA' in self.adapters:
+            if is_exchange_available('ALPACA'):
                 return 'ALPACA'
-        
+
         # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
         if 'USDT' not in symbol and 'USD' not in symbol:
-            if 'ALPACA' in self.adapters:
+            if is_exchange_available('ALPACA'):
                 return 'ALPACA'
-            
-        # 5. Ultimate Fallback - use primary if connected
-        if self.primary_exchange in self.adapters:
+
+        # 5. Ultimate Fallback - use primary exchange if available and enabled
+        if self.primary_exchange and is_exchange_available(self.primary_exchange):
             return self.primary_exchange
-        
-        # 6. Last resort - return first connected adapter
-        if self.adapters:
-            return next(iter(self.adapters.keys()))
-        
-        return 'BINANCE'  # Default if nothing connected
+
+        # 6. Last resort - return first available adapter according to user preferences
+        for exchange_name in ['BINANCE', 'BYBIT', 'ALPACA']:
+            if is_exchange_available(exchange_name):
+                return exchange_name
+
+        return 'BINANCE'  # Default if nothing available
 
 
     async def close_all(self):

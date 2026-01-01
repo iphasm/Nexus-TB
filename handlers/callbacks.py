@@ -152,6 +152,10 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     elif cmd == "config":
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
+
+    elif cmd == "exchanges":
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager)
     
     # Assets
     elif cmd == "assets":
@@ -292,9 +296,13 @@ async def handle_primary_exchange(callback: CallbackQuery, **kwargs):
     await session.update_config('primary_exchange', exchange)
     await session_manager.save_sessions()
     
-    # Refresh the exchanges panel
-    from handlers.config import cmd_exchanges
-    await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+    # Handle exchanges panel actions
+    if action == "REFRESH":
+        # Refresh the exchanges panel
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+    else:
+        await callback.answer("❌ Acción no reconocida")
 
 
 @router.callback_query(F.data == "CONFIRM_DELETE_KEYS")

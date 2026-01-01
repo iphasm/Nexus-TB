@@ -32,16 +32,91 @@ def get_proxy_ip_safe() -> str:
         return None
 
 
+@router.message(Command("exchanges"))
+async def cmd_exchanges(message: Message, **kwargs):
+    """Exchange status and configuration panel"""
+    session_manager = kwargs.get('session_manager')
+    session = None
+
+    if session_manager:
+        session = session_manager.get_session(str(message.chat.id))
+
+    if not session:
+        await message.answer("❌ No tienes una sesión activa. Usa /start primero.")
+        return
+
+    # Get exchange preferences and connectivity status
+    exchange_prefs = session.get_exchange_preferences()
+
+    # Check bridge connectivity
+    bridge_status = {}
+    if hasattr(session, 'bridge') and session.bridge:
+        for exchange in ['BINANCE', 'BYBIT', 'ALPACA']:
+            bridge_status[exchange] = exchange in session.bridge.adapters
+    else:
+        bridge_status = {'BINANCE': False, 'BYBIT': False, 'ALPACA': False}
+
+    # Get group status
+    from system_directive import GROUP_CONFIG
+    crypto_enabled = session.is_group_enabled('CRYPTO')
+    bybit_enabled = session.is_group_enabled('BYBIT')
+    stocks_enabled = session.is_group_enabled('STOCKS')
+    etfs_enabled = session.is_group_enabled('ETFS')
+
+    # Build status message
+    status_msg = (
+        "🔗 <b>ESTADO DE EXCHANGES</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "<b>📊 Conectividad:</b>\n"
+        f"{'✅' if bridge_status['BINANCE'] else '❌'} <b>Binance:</b> {'Conectado' if bridge_status['BINANCE'] else 'Desconectado'}\n"
+        f"{'✅' if bridge_status['BYBIT'] else '❌'} <b>Bybit:</b> {'Conectado' if bridge_status['BYBIT'] else 'Desconectado'}\n"
+        f"{'✅' if bridge_status['ALPACA'] else '❌'} <b>Alpaca:</b> {'Conectado' if bridge_status['ALPACA'] else 'Desconectado'}\n\n"
+        "<b>🎯 Grupos Habilitados:</b>\n"
+        f"{'✅' if crypto_enabled else '❌'} <b>Crypto:</b> {'Habilitado' if crypto_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if bybit_enabled else '❌'} <b>Bybit:</b> {'Habilitado' if bybit_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if stocks_enabled else '❌'} <b>Stocks:</b> {'Habilitado' if stocks_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if etfs_enabled else '❌'} <b>ETFs:</b> {'Habilitado' if etfs_enabled else 'Deshabilitado'}\n\n"
+        "<b>🔄 Exchange Preferences:</b>\n"
+        f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Disponible' if exchange_prefs.get('BINANCE', False) else 'No disponible'}\n"
+        f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Disponible' if exchange_prefs.get('BYBIT', False) else 'No disponible'}\n"
+        f"{'✅' if exchange_prefs.get('ALPACA', False) else '❌'} <b>Alpaca:</b> {'Disponible' if exchange_prefs.get('ALPACA', False) else 'No disponible'}\n\n"
+        "<b>💡 Consejos:</b>\n"
+        "• Si un exchange aparece como 'No disponible', verifica:\n"
+        "  - Que esté conectado en el bridge\n"
+        "  - Que el grupo correspondiente esté habilitado\n"
+        "• Usa /assets para configurar grupos\n"
+        "• Usa /set_keys para configurar credenciales"
+    )
+
+    # Create keyboard for exchange management
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔄 Recargar Estado", callback_data="EXCHANGES|REFRESH"),
+        ],
+        [
+            InlineKeyboardButton(text="⚙️ Configurar Grupos", callback_data="CMD|assets"),
+        ],
+        [
+            InlineKeyboardButton(text="🔑 Gestionar Credenciales", callback_data="CMD|set_keys"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config"),
+        ]
+    ])
+
+    await message.answer(status_msg, reply_markup=keyboard, parse_mode="HTML")
+
+
 @router.message(Command("config"))
 async def cmd_config(message: Message, **kwargs):
     """Interactive configuration panel"""
     session_manager = kwargs.get('session_manager')
     edit_message = kwargs.get('edit_message', False)
     session = None
-    
+
     if session_manager:
         session = session_manager.get_session(str(message.chat.id))
-    
+
     # Get current values
     lev = session.config.get('leverage', 5) if session else 5
     margin = (session.config.get('max_capital_pct', 0.1) * 100) if session else 10
