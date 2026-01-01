@@ -4,7 +4,7 @@
         "builder": "DOCKERFILE"
     },
     "deploy": {
-        "startCommand": "python nexus_loader.py",
+        "startCommand": "gunicorn --bind 0.0.0.0:$PORT railway_ml_train:app",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
     }
