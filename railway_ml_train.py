@@ -60,7 +60,11 @@ class RailwayMLTrainer:
         try:
             # Check required environment variables
             required_env_vars = [
-                'BINANCE_API_KEY', 'BINANCE_API_SECRET',
+                'BINANCE_API_KEY', 'BINANCE_API_SECRET'
+            ]
+
+            # Optional environment variables
+            optional_env_vars = [
                 'ALPHA_VANTAGE_API_KEY'  # For Yahoo Finance fallback
             ]
 
@@ -72,9 +76,16 @@ class RailwayMLTrainer:
             if missing_vars:
                 self.update_status(
                     status='error',
-                    last_error=f"Missing environment variables: {', '.join(missing_vars)}"
+                    last_error=f"Missing required environment variables: {', '.join(missing_vars)}"
                 )
                 return False
+
+            # Log optional variables status
+            for var in optional_env_vars:
+                if os.getenv(var):
+                    logger.info(f"✅ Optional variable {var} is configured")
+                else:
+                    logger.warning(f"⚠️ Optional variable {var} not configured - limited fallback available")
 
             # Check if we can import training modules
             try:
