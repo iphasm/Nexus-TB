@@ -2588,5 +2588,128 @@ async def cmd_network_diag(message: Message, **kwargs):
         pass
         
     report.append("\n💡 *Tip:* Si ves reintentos altos o errores persistentes, verifica tu configuración de PROXY.")
-    
+
     await msg_wait.edit_text("\n".join(report), parse_mode="Markdown")
+
+
+# =================================================================
+# ML TRAINING COMMANDS (Railway Cloud)
+# =================================================================
+
+@router.message(Command("ml_train"))
+async def cmd_ml_train(message: Message, **kwargs):
+    """Start ML model training on Railway cloud"""
+    session_manager = kwargs.get('session_manager')
+
+    if not session_manager:
+        await message.answer("❌ Error interno: Session manager not available")
+        return
+
+    # Check if Railway ML service is configured
+    railway_url = os.getenv('RAILWAY_ML_URL')
+    if not railway_url:
+        await message.answer(
+            "❌ **Servicio ML no configurado**\n\n"
+            "Para usar el entrenamiento en la nube, configura:\n"
+            "`RAILWAY_ML_URL=https://tu-app-railway.up.railway.app`\n\n"
+            "O usa entrenamiento local: `/ml_train_local`"
+        )
+        return
+
+    # Start loading indicator
+    loading_msg = await message.answer("🚀 Iniciando entrenamiento ML en Railway...")
+
+    try:
+        from ml_training_client import start_ml_training
+
+        # Start training with default config
+        result = start_ml_training({
+            'candles': 15000,
+            'symbols': 50
+        })
+
+        if result['success']:
+            await loading_msg.edit_text(
+                "✅ **Entrenamiento ML Iniciado**\n\n"
+                f"**Job ID:** `{result.get('job_id', 'N/A')}`\n\n"
+                "El entrenamiento puede tomar varias horas.\n"
+                "Usa `/ml_status` para verificar el progreso.\n\n"
+                "📊 Una vez completado, el modelo se actualizará automáticamente."
+            )
+        else:
+            await loading_msg.edit_text(
+                f"❌ **Error al iniciar entrenamiento**\n\n"
+                f"**Error:** {result.get('error', 'Desconocido')}\n\n"
+                "Verifica la configuración de Railway ML."
+            )
+
+    except Exception as e:
+        await loading_msg.edit_text(f"❌ **Error interno:** {str(e)}")
+
+
+@router.message(Command("ml_status"))
+async def cmd_ml_status(message: Message, **kwargs):
+    """Check ML training status on Railway"""
+    railway_url = os.getenv('RAILWAY_ML_URL')
+    if not railway_url:
+        await message.answer(
+            "❌ **Servicio ML no configurado**\n\n"
+            "Configura `RAILWAY_ML_URL` para usar este comando."
+        )
+        return
+
+    try:
+        from ml_training_client import get_ml_training_status, format_ml_status
+
+        # Get status
+        status_result = get_ml_training_status()
+
+        if status_result['success']:
+            status_message = format_ml_status(status_result['status'])
+            await message.answer(status_message, parse_mode="Markdown")
+        else:
+            await message.answer(
+                f"❌ **Error al obtener estado**\n\n"
+                f"**Error:** {status_result.get('error', 'Desconocido')}"
+            )
+
+    except Exception as e:
+        await message.answer(f"❌ **Error interno:** {str(e)}")
+
+
+@router.message(Command("ml_logs"))
+async def cmd_ml_logs(message: Message, **kwargs):
+    """Get recent ML training logs from Railway"""
+    railway_url = os.getenv('RAILWAY_ML_URL')
+    if not railway_url:
+        await message.answer(
+            "❌ **Servicio ML no configurado**\n\n"
+            "Configura `RAILWAY_ML_URL` para usar este comando."
+        )
+        return
+
+    try:
+        from ml_training_client import RailwayMLClient
+
+        client = RailwayMLClient()
+        logs_result = client.get_training_logs(lines=20)
+
+        if logs_result['success']:
+            logs = logs_result['logs']
+            if logs:
+                logs_text = "\n".join(f"• {log}" for log in logs[-20:])
+                await message.answer(
+                    f"📋 **Últimos 20 logs de entrenamiento:**\n\n"
+                    f"```\n{logs_text}\n```",
+                    parse_mode="Markdown"
+                )
+            else:
+                await message.answer("📋 No hay logs disponibles aún.")
+        else:
+            await message.answer(
+                f"❌ **Error al obtener logs**\n\n"
+                f"**Error:** {logs_result.get('error', 'Desconocido')}"
+            )
+
+    except Exception as e:
+        await message.answer(f"❌ **Error interno:** {str(e)}")
