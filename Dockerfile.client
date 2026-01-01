@@ -1,0 +1,11 @@
+# Test Client Dockerfile for Railway ML Training
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install requests python-dotenv
+
+COPY ml_training_client.py .
+COPY test_client.py .
+
+CMD ["python", "test_client.py"]

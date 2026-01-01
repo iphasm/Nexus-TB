@@ -1,0 +1,58 @@
+# Docker Compose for Railway ML Training Service
+# For local development and testing before Railway deployment
+
+version: '3.8'
+
+services:
+  railway-ml-training:
+    build:
+      context: .
+      dockerfile: Dockerfile.railway
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - TRAINING_ENV=docker
+      - PORT=8000
+      # Add your API keys here for local testing
+      # - BINANCE_API_KEY=your_key_here
+      # - BINANCE_API_SECRET=your_secret_here
+      # - ALPHA_VANTAGE_API_KEY=your_alpha_key_here
+    volumes:
+      # Mount local directories for development
+      - ./nexus_system/memory_archives:/app/nexus_system/memory_archives
+      - ./training_logs:/app/training_logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - railway-ml-network
+
+  # Optional: Add a test client service
+  ml-client-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    depends_on:
+      railway-ml-training:
+        condition: service_healthy
+    environment:
+      - RAILWAY_ML_URL=http://railway-ml-training:8000
+    networks:
+      - railway-ml-network
+    profiles:
+      - test
+
+networks:
+  railway-ml-network:
+    driver: bridge
+
+# Usage:
+# Development: docker-compose -f docker-compose.railway.yml up --build
+# Testing: docker-compose -f docker-compose.railway.yml --profile test up --build
+# Production: Use Railway deployment with Dockerfile.railway

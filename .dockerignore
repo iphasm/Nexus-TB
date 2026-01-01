@@ -1,0 +1,89 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+training_logs/
+
+# Railway specific
+railway.json
+railway-ml.json
+deploy_railway_ml.py
+
+# Documentation
+*.md
+docs/
+PROJECT_STRUCTURE.md
+
+# Testing and scripts
+scripts/
+testing/
+debug_*/
+test_*/
+
+# Bot specific (not needed for ML service)
+handlers/
+nexus_loader.py
+telebot_config.py
+nexus_system/cortex/
+nexus_system/uplink/
+nexus_system/shield/
+nexus_system/core/
+!nexus_system/memory_archives/
+
+# Local development
+.env.local
+.env.development
+.env.test
+
+# Temporary files
+*.tmp
+*.bak
+.cache/

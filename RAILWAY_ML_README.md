@@ -31,47 +31,134 @@ Este servicio permite entrenar modelos de Machine Learning en la nube usando Rai
                     └─────────────────────────┘
 ```
 
-## 🚀 Despliegue en Railway
+# 🐳 Despliegue en Railway con Docker
 
-### Paso 1: Preparación
+## 🚀 PASO A PASO: Configuración Completa
+
+### **PASO 1: Preparación del Entorno**
 ```bash
-# Instalar Railway CLI
+# 1. Instalar Railway CLI
 npm install -g @railway/cli
 
-# Login en Railway
+# 2. Login en Railway
 railway login
+
+# 3. Verificar instalación
+railway --version
+docker --version
 ```
 
-### Paso 2: Configurar Variables de Entorno
+### **PASO 2: Configurar Proyecto Railway**
 ```bash
-# Variables requeridas para el servicio ML
-railway variables set BINANCE_API_KEY=tu_api_key
-railway variables set BINANCE_API_SECRET=tu_api_secret
-railway variables set ALPHA_VANTAGE_API_KEY=tu_alpha_vantage_key  # Opcional
-railway variables set PYTHONUNBUFFERED=1
-railway variables set LOG_LEVEL=INFO
+# 1. Inicializar proyecto Railway
+railway init --name nexus-ml-training-docker
+
+# 2. Linkear al proyecto (si ya existe)
+railway link
+
+# 3. Verificar estado
+railway status
 ```
 
-### Paso 3: Desplegar Servicio
+### **PASO 3: Configurar Variables de Entorno**
 ```bash
-# Opción A: Despliegue automático
-python deploy_railway_ml.py
+# Variables requeridas (configurar UNA POR UNA)
+railway variables set BINANCE_API_KEY="tu_binance_api_key_aqui"
+railway variables set BINANCE_API_SECRET="tu_binance_secret_aqui"
+railway variables set ALPHA_VANTAGE_API_KEY="tu_alpha_vantage_key"  # Opcional
+railway variables set PYTHONUNBUFFERED="1"
+railway variables set LOG_LEVEL="INFO"
+railway variables set TRAINING_ENV="railway"
+railway variables set PORT="8000"
+```
 
-# Opción B: Despliegue manual
-railway init --name nexus-ml-training
+### **PASO 4: Verificar Archivos de Configuración**
+Asegúrate de que estos archivos existan en tu directorio:
+```
+✅ Dockerfile.railway     (Dockerfile optimizado)
+✅ railway_ml_train.py    (Servicio Flask ML)
+✅ requirements-railway.txt (Dependencias Python)
+✅ railway-ml.json        (Configuración Railway)
+✅ .dockerignore         (Optimización build)
+```
+
+### **PASO 5: Construir y Desplegar**
+```bash
+# Opción A: Deployment automático (recomendado)
+python setup_railway_docker.py
+
+# Opción B: Deployment manual
 railway up --service railway-ml
 ```
 
-### Paso 4: Obtener URL del Servicio
+### **PASO 6: Verificar Deployment**
 ```bash
+# 1. Verificar logs del build
+railway logs
+
+# 2. Obtener URL del servicio
 railway domain
-# Output: https://nexus-ml-training.up.railway.app
+# Output: https://nexus-ml-training-docker.up.railway.app
+
+# 3. Probar health check
+curl https://tu-url.up.railway.app/health
 ```
 
-### Paso 5: Configurar Bot Principal
+### **PASO 7: Probar Servicio Completo**
 ```bash
-# En tu bot principal, configura la variable de entorno
-export RAILWAY_ML_URL=https://nexus-ml-training.up.railway.app
+# Opción A: Test automático
+python setup_railway_docker.py --test-only
+
+# Opción B: Test manual con Docker local
+docker build -f Dockerfile.railway -t ml-test .
+docker run -p 8000:8000 -e BINANCE_API_KEY=test ml-test
+curl http://localhost:8000/health
+```
+
+### **PASO 8: Configurar Bot Principal**
+```bash
+# 1. Obtener la URL del servicio Railway
+railway domain
+# Ejemplo: https://nexus-ml-training-docker.up.railway.app
+
+# 2. Configurar en tu bot principal
+export RAILWAY_ML_URL="https://nexus-ml-training-docker.up.railway.app"
+
+# 3. Reiniciar tu bot para que tome la nueva configuración
+```
+
+### **PASO 9: Probar Integración Completa**
+```telegram
+# En Telegram, probar los comandos:
+/ml_train     # Inicia entrenamiento
+/ml_status    # Verifica progreso
+/ml_logs      # Revisa logs
+```
+
+## 🧪 Testing y Desarrollo Local
+
+### **Desarrollo Local con Docker Compose**
+```bash
+# 1. Construir y ejecutar localmente
+docker-compose -f docker-compose.railway.yml up --build
+
+# 2. Probar con cliente de test
+docker-compose -f docker-compose.railway.yml --profile test up
+
+# 3. Acceder al servicio
+curl http://localhost:8000/health
+```
+
+### **Debugging del Contenedor**
+```bash
+# Ver logs del contenedor
+docker logs <container_id>
+
+# Acceder al contenedor
+docker exec -it <container_id> bash
+
+# Verificar instalación de dependencias
+docker exec -it <container_id> pip list
 ```
 
 ## 📡 API Endpoints
@@ -200,10 +287,122 @@ railway logs
 - Entrenamientos largos (>30min) pueden ser terminados por Railway
 - Considera entrenamientos más pequeños o upgrades de plan
 
+### **Problemas Específicos de Docker**
+
+#### ❌ "Docker build fails - no space left on device"
+```bash
+# Limpiar Docker system
+docker system prune -a --volumes
+
+# Verificar espacio en disco
+df -h
+
+# Usar Docker buildkit para builds más eficientes
+export DOCKER_BUILDKIT=1
+```
+
+#### ❌ "Container exits immediately"
+```bash
+# Verificar logs del contenedor
+docker logs <container_id>
+
+# Ejecutar en modo interactivo para debug
+docker run -it --entrypoint bash railway-ml-training
+
+# Verificar que railway_ml_train.py existe y es ejecutable
+ls -la railway_ml_train.py
+```
+
+#### ❌ "Import errors in container"
+```bash
+# Verificar instalación de dependencias
+docker exec -it <container_id> pip list
+
+# Verificar PYTHONPATH
+docker exec -it <container_id> env | grep PYTHON
+
+# Acceder al container para debugging
+docker exec -it <container_id> bash
+cd /app && python -c "import sys; print(sys.path)"
+```
+
+#### ❌ "Railway build fails with Docker"
+```bash
+# Verificar Dockerfile.railway localmente
+docker build -f Dockerfile.railway -t test-build .
+
+# Revisar logs de Railway
+railway logs
+
+# Verificar que .dockerignore no excluya archivos necesarios
+cat .dockerignore
+```
+
+#### ❌ "Memory issues during training"
+```bash
+# Verificar límites de memoria del contenedor
+docker stats <container_id>
+
+# En Railway, upgrade a plan con más RAM
+# Hobby (512MB) → Pro (4GB+)
+```
+
+#### ❌ "Network issues in container"
+```bash
+# Probar conectividad desde el contenedor
+docker exec -it <container_id> curl -I https://api.binance.com
+
+# Verificar DNS resolution
+docker exec -it <container_id> nslookup api.binance.com
+
+# Verificar variables de proxy
+docker exec -it <container_id> env | grep -i proxy
+```
+
+### **Comandos Útiles para Debugging**
+
+```bash
+# Ver estado del proyecto Railway
+railway status
+railway services
+railway variables
+
+# Debug Docker local
+docker build --no-cache -f Dockerfile.railway -t debug-build .
+docker run --rm -it debug-build bash
+
+# Verificar archivos incluidos en build
+tar -tzf <(docker save railway-ml-training) | head -20
+
+# Monitoreo de recursos
+docker stats
+railway logs --follow
+```
+
+### **Configuración de Troubleshooting**
+
+#### **Variables de Debug**
+```bash
+# Agregar estas variables para más logging
+railway variables set LOG_LEVEL=DEBUG
+railway variables set PYTHONUNBUFFERED=1
+railway variables set TRAINING_ENV=railway-debug
+```
+
+#### **Health Checks Avanzados**
+```bash
+# Test específico de dependencias
+curl https://tu-servicio.up.railway.app/health
+
+# Test de capacidad de entrenamiento
+curl -X POST https://tu-servicio.up.railway.app/train \
+  -H "Content-Type: application/json" \
+  -d '{"candles": 100, "symbols": 1}'
+```
+
 ## 🔧 Desarrollo Local
 
-Para desarrollo local antes del despliegue:
-
+### **Opción A: Desarrollo Nativo**
 ```bash
 # Instalar dependencias
 pip install -r requirements-railway.txt
@@ -213,6 +412,30 @@ python railway_ml_train.py
 
 # Probar API
 curl http://localhost:8000/health
+```
+
+### **Opción B: Desarrollo con Docker**
+```bash
+# Construir imagen
+docker build -f Dockerfile.railway -t railway-ml-dev .
+
+# Ejecutar contenedor
+docker run -p 8000:8000 \
+  -e BINANCE_API_KEY=tu_key \
+  -e BINANCE_API_SECRET=tu_secret \
+  railway-ml-dev
+
+# Probar
+curl http://localhost:8000/health
+```
+
+### **Opción C: Desarrollo con Docker Compose**
+```bash
+# Ejecutar stack completo
+docker-compose -f docker-compose.railway.yml up --build
+
+# Ejecutar con testing
+docker-compose -f docker-compose.railway.yml --profile test up --build
 ```
 
 ## 📈 Costos Estimados
