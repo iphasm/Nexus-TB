@@ -60,7 +60,11 @@ class RailwayMLTrainer:
         try:
             # Check required environment variables
             required_env_vars = [
-                'BINANCE_API_KEY', 'BINANCE_API_SECRET',
+                'BINANCE_API_KEY', 'BINANCE_API_SECRET'
+            ]
+
+            # Optional environment variables
+            optional_env_vars = [
                 'ALPHA_VANTAGE_API_KEY'  # For Yahoo Finance fallback
             ]
 
@@ -72,9 +76,16 @@ class RailwayMLTrainer:
             if missing_vars:
                 self.update_status(
                     status='error',
-                    last_error=f"Missing environment variables: {', '.join(missing_vars)}"
+                    last_error=f"Missing required environment variables: {', '.join(missing_vars)}"
                 )
                 return False
+
+            # Log optional variables status
+            for var in optional_env_vars:
+                if os.getenv(var):
+                    logger.info(f"✅ Optional variable {var} is configured")
+                else:
+                    logger.warning(f"⚠️ Optional variable {var} not configured - limited fallback available")
 
             # Check if we can import training modules
             try:
@@ -219,6 +230,11 @@ class RailwayMLTrainer:
 # Global trainer instance
 trainer = RailwayMLTrainer()
 
+# Log startup when imported by gunicorn
+logger.info("🚀 Railway ML Training Service module loaded")
+logger.info(f"📦 Working directory: {os.getcwd()}")
+logger.info(f"🔧 Python version: {sys.version}")
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -305,10 +321,39 @@ def get_logs():
         }), 500
 
 if __name__ == '__main__':
-    # Railway configuration
-    port = int(os.getenv('PORT', 8000))
+    try:
+        # Railway configuration
+        port = int(os.getenv('PORT', 8000))
 
-    logger.info("🚀 Starting Railway ML Training Service")
-    logger.info(f"📡 Listening on port {port}")
+        logger.info("🚀 Starting Railway ML Training Service")
+        logger.info(f"📡 Listening on port {port}")
+        logger.info(f"🔧 Python version: {__import__('sys').version}")
+        logger.info(f"📦 Working directory: {__import__('os').getcwd()}")
 
-    app.run(host='0.0.0.0', port=port, debug=False)
+        # Validate environment before starting
+        logger.info("🔍 Validating environment...")
+        if not trainer.validate_environment():
+            logger.error("❌ Environment validation failed - exiting")
+            exit(1)
+
+        logger.info("✅ Environment validation passed")
+
+        # Test imports
+        try:
+            from ml.train_cortex import fetch_data, add_indicators
+            from ml.add_new_features import add_all_new_features
+            from ta_compat import ta
+            logger.info("✅ All ML imports successful")
+        except Exception as e:
+            logger.error(f"❌ Import error: {e}")
+            exit(1)
+
+        logger.info("🌐 Starting Flask application...")
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+
+    except Exception as e:
+        logger.error(f"💥 Critical error starting service: {e}")
+        logger.error(f"🔍 Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"📋 Traceback:\n{traceback.format_exc()}")
+        exit(1)

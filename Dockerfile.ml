@@ -29,23 +29,6 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    g++ \
-    git \
-    curl \
-    wget \
-    libgomp1 \
-    libopenblas-dev \
-    liblapack-dev \
-    libffi-dev \
-    libssl-dev \
-    libxml2-dev \
-    libxslt-dev \
-    zlib1g-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
@@ -88,6 +71,7 @@ RUN pip install --no-cache-dir \
 COPY railway_ml_train.py .
 COPY ml_training_client.py .
 COPY ta_compat.py .
+COPY test_startup.py .
 COPY src/ ./src/
 COPY system_directive.py .
 COPY compatibility_imports.py .
@@ -105,5 +89,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Start command
-CMD ["python", "railway_ml_train.py"]
+# Start command (temporarily using test script for debugging)
+CMD ["python", "test_startup.py"]
