@@ -1,28 +1,32 @@
 """
-TA-Lib Compatibility Layer for Nexus ML Training
-Replaces pandas-ta with direct TA-Lib usage for better compatibility and performance
+TA Compatibility Layer for Nexus ML Training
+Replaces pandas-ta with modern 'ta' library for better compatibility and performance
 """
 
-import talib
+import ta
 import numpy as np
 import pandas as pd
 from typing import Union, Optional
 
 class TACompat:
-    """Compatibility layer that mimics pandas-ta API using TA-Lib directly"""
+    """Compatibility layer that mimics pandas-ta API using 'ta' library"""
 
     @staticmethod
     def adx(high: Union[pd.Series, np.ndarray],
             low: Union[pd.Series, np.ndarray],
             close: Union[pd.Series, np.ndarray],
             length: int = 14) -> pd.Series:
-        """Calculate ADX using TA-Lib"""
-        high = np.array(high)
-        low = np.array(low)
-        close = np.array(close)
+        """Calculate ADX using ta library"""
+        # Convert to pandas Series if needed
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
 
-        adx_values = talib.ADX(high, low, close, timeperiod=length)
-        return pd.Series(adx_values, index=range(len(adx_values)))
+        adx_values = ta.trend.adx(high, low, close, window=length)
+        return adx_values
 
     @staticmethod
     def mfi(high: Union[pd.Series, np.ndarray],
@@ -30,65 +34,73 @@ class TACompat:
             close: Union[pd.Series, np.ndarray],
             volume: Union[pd.Series, np.ndarray],
             length: int = 14) -> pd.Series:
-        """Calculate MFI using TA-Lib"""
-        high = np.array(high)
-        low = np.array(low)
-        close = np.array(close)
-        volume = np.array(volume)
+        """Calculate MFI using ta library"""
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        if isinstance(volume, np.ndarray):
+            volume = pd.Series(volume)
 
-        mfi_values = talib.MFI(high, low, close, volume, timeperiod=length)
-        return pd.Series(mfi_values, index=range(len(mfi_values)))
+        mfi_values = ta.volume.money_flow_index(high, low, close, volume, window=length)
+        return mfi_values
 
     @staticmethod
     def ema(close: Union[pd.Series, np.ndarray], length: int = 10) -> pd.Series:
-        """Calculate EMA using TA-Lib"""
-        close = np.array(close)
-        ema_values = talib.EMA(close, timeperiod=length)
-        return pd.Series(ema_values, index=range(len(ema_values)))
+        """Calculate EMA using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        ema_values = ta.trend.ema_indicator(close, window=length)
+        return ema_values
 
     @staticmethod
     def sma(close: Union[pd.Series, np.ndarray], length: int = 10) -> pd.Series:
-        """Calculate SMA using TA-Lib"""
-        close = np.array(close)
-        sma_values = talib.SMA(close, timeperiod=length)
-        return pd.Series(sma_values, index=range(len(sma_values)))
+        """Calculate SMA using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        sma_values = ta.trend.sma_indicator(close, window=length)
+        return sma_values
 
     @staticmethod
     def rsi(close: Union[pd.Series, np.ndarray], length: int = 14) -> pd.Series:
-        """Calculate RSI using TA-Lib"""
-        close = np.array(close)
-        rsi_values = talib.RSI(close, timeperiod=length)
-        return pd.Series(rsi_values, index=range(len(rsi_values)))
+        """Calculate RSI using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        rsi_values = ta.momentum.rsi(close, window=length)
+        return rsi_values
 
     @staticmethod
     def macd(close: Union[pd.Series, np.ndarray],
              fast: int = 12, slow: int = 26, signal: int = 9):
-        """Calculate MACD using TA-Lib"""
-        close = np.array(close)
-        macd_line, macd_signal, macd_hist = talib.MACD(close,
-                                                      fastperiod=fast,
-                                                      slowperiod=slow,
-                                                      signalperiod=signal)
+        """Calculate MACD using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        macd_line = ta.trend.macd(close, window_fast=fast, window_slow=slow)
+        macd_signal = ta.trend.macd_signal(close, window_fast=fast, window_slow=slow, window_sign=signal)
+        macd_hist = ta.trend.macd_diff(close, window_fast=fast, window_slow=slow, window_sign=signal)
+
         return {
-            'MACD': pd.Series(macd_line, index=range(len(macd_line))),
-            'MACDh': pd.Series(macd_hist, index=range(len(macd_hist))),
-            'MACDs': pd.Series(macd_signal, index=range(len(macd_signal)))
+            'MACD': macd_line,
+            'MACDh': macd_hist,
+            'MACDs': macd_signal
         }
 
     @staticmethod
     def bbands(close: Union[pd.Series, np.ndarray],
                length: int = 20, std: float = 2.0):
-        """Calculate Bollinger Bands using TA-Lib"""
-        close = np.array(close)
-        upper, middle, lower = talib.BBANDS(close,
-                                           timeperiod=length,
-                                           nbdevup=std,
-                                           nbdevdn=std,
-                                           matype=talib.MA_Type.SMA)
+        """Calculate Bollinger Bands using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        upper = ta.volatility.bollinger_hband(close, window=length, window_dev=std)
+        lower = ta.volatility.bollinger_lband(close, window=length, window_dev=std)
+        middle = ta.volatility.bollinger_mavg(close, window=length)
+
         return {
-            'BBL': pd.Series(lower, index=range(len(lower))),
-            'BBM': pd.Series(middle, index=range(len(middle))),
-            'BBU': pd.Series(upper, index=range(len(upper)))
+            'BBL': lower,
+            'BBM': middle,
+            'BBU': upper
         }
 
     @staticmethod
@@ -96,18 +108,21 @@ class TACompat:
               low: Union[pd.Series, np.ndarray],
               close: Union[pd.Series, np.ndarray],
               fastk_period: int = 14, slowk_period: int = 3, slowd_period: int = 3):
-        """Calculate Stochastic Oscillator using TA-Lib"""
-        high = np.array(high)
-        low = np.array(low)
-        close = np.array(close)
+        """Calculate Stochastic Oscillator using ta library"""
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
 
-        slowk, slowd = talib.STOCH(high, low, close,
-                                  fastk_period=fastk_period,
-                                  slowk_period=slowk_period,
-                                  slowd_period=slowd_period)
+        stoch_k = ta.momentum.stoch(high, low, close, window=fastk_period, smooth_window=slowk_period)
+        stoch_d = ta.momentum.stoch_signal(high, low, close, window=fastk_period,
+                                         smooth_window=slowk_period, smooth_window2=slowd_period)
+
         return {
-            'STOCHk': pd.Series(slowk, index=range(len(slowk))),
-            'STOCHd': pd.Series(slowd, index=range(len(slowd)))
+            'STOCHk': stoch_k,
+            'STOCHd': stoch_d
         }
 
     @staticmethod
@@ -115,36 +130,44 @@ class TACompat:
             low: Union[pd.Series, np.ndarray],
             close: Union[pd.Series, np.ndarray],
             length: int = 14) -> pd.Series:
-        """Calculate CCI using TA-Lib"""
-        high = np.array(high)
-        low = np.array(low)
-        close = np.array(close)
+        """Calculate CCI using ta library"""
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
 
-        cci_values = talib.CCI(high, low, close, timeperiod=length)
-        return pd.Series(cci_values, index=range(len(cci_values)))
+        cci_values = ta.trend.cci(high, low, close, window=length)
+        return cci_values
 
     @staticmethod
     def willr(high: Union[pd.Series, np.ndarray],
               low: Union[pd.Series, np.ndarray],
               close: Union[pd.Series, np.ndarray],
               length: int = 14) -> pd.Series:
-        """Calculate Williams %R using TA-Lib"""
-        high = np.array(high)
-        low = np.array(low)
-        close = np.array(close)
+        """Calculate Williams %R using ta library"""
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
 
-        willr_values = talib.WILLR(high, low, close, timeperiod=length)
-        return pd.Series(willr_values, index=range(len(willr_values)))
+        willr_values = ta.momentum.williams_r(high, low, close, lbp=length)
+        return willr_values
 
     @staticmethod
     def obv(close: Union[pd.Series, np.ndarray],
             volume: Union[pd.Series, np.ndarray]) -> pd.Series:
-        """Calculate OBV using TA-Lib"""
-        close = np.array(close)
-        volume = np.array(volume)
+        """Calculate OBV using ta library"""
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+        if isinstance(volume, np.ndarray):
+            volume = pd.Series(volume)
 
-        obv_values = talib.OBV(close, volume)
-        return pd.Series(obv_values, index=range(len(obv_values)))
+        obv_values = ta.volume.on_balance_volume(close, volume)
+        return obv_values
 
 # Create a global instance that mimics pandas-ta API
 ta = TACompat()

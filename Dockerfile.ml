@@ -29,16 +29,6 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
-
-# Install TA-Lib from source after system dependencies are available
-RUN wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
-    tar -xzf ta-lib-0.4.0-src.tar.gz && \
-    cd ta-lib && \
-    ./configure --prefix=/usr && \
-    make && \
-    make install && \
-    cd .. && \
-    rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
@@ -79,9 +69,9 @@ RUN pip install --no-cache-dir \
     joblib==1.3.2
 
 # CACHE_BUST: 20260101-1416 - Force rebuild with tarball instead of git clone
-# Install data and API libraries (using TA-Lib instead of pandas-ta)
+# Install data and API libraries (using ta instead of pandas-ta/TA-Lib)
 RUN pip install --no-cache-dir \
-    TA-Lib==0.4.28 \
+    ta==0.11.0 \
     yfinance==0.2.18 \
     python-binance==1.0.19 \
     requests==2.31.0
