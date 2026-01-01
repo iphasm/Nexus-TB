@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     libxslt-dev \
     zlib1g-dev \
     pkg-config \
+    libta-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
