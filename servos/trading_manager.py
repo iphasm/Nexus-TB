@@ -648,11 +648,43 @@ class AsyncTradingSession:
         if user_groups:
             return user_groups.get(group, True)
 
+    def get_configured_exchanges(self) -> Dict[str, bool]:
+        """
+        Detect which exchanges are actually configured with valid API keys.
+
+        Checks for:
+        - Binance: binance_api_key and binance_api_secret in config
+        - Bybit: bybit_api_key and bybit_api_secret in config
+        - Alpaca: alpaca_key and alpaca_secret in config
+
+        Returns:
+            Dict with exchange configuration status: {'BINANCE': True, 'BYBIT': False, 'ALPACA': True}
+        """
+        configured = {}
+
+        # Check Binance configuration
+        binance_key = self.config.get('binance_api_key') or self.config.get('api_key')
+        binance_secret = self.config.get('binance_api_secret') or self.config.get('api_secret')
+        configured['BINANCE'] = bool(binance_key and binance_secret)
+
+        # Check Bybit configuration
+        bybit_key = self.config.get('bybit_api_key')
+        bybit_secret = self.config.get('bybit_api_secret')
+        configured['BYBIT'] = bool(bybit_key and bybit_secret)
+
+        # Check Alpaca configuration
+        alpaca_key = self.config.get('alpaca_key')
+        alpaca_secret = self.config.get('alpaca_secret')
+        configured['ALPACA'] = bool(alpaca_key and alpaca_secret)
+
+        return configured
+
     def get_exchange_preferences(self) -> Dict[str, bool]:
         """
-        Get user's exchange enable/disable preferences.
+        Get user's exchange enable/disable preferences considering configuration.
 
         Maps asset groups to exchange availability based on:
+        - Exchange is configured with API keys
         - Group enabled status
         - Bridge adapter connectivity
 
@@ -660,6 +692,7 @@ class AsyncTradingSession:
             Dict with exchange availability: {'BINANCE': True, 'BYBIT': False, 'ALPACA': True}
         """
         preferences = {}
+        configured_exchanges = self.get_configured_exchanges()
 
         # Map groups to exchanges
         group_to_exchange = {
@@ -671,6 +704,7 @@ class AsyncTradingSession:
 
         # Check each exchange
         for group, exchange in group_to_exchange.items():
+            is_exchange_configured = configured_exchanges.get(exchange, False)
             is_group_enabled = self.is_group_enabled(group)
             is_adapter_connected = (
                 hasattr(self, 'bridge') and
@@ -678,13 +712,8 @@ class AsyncTradingSession:
                 exchange in self.bridge.adapters
             )
 
-            # Exchange is available if group is enabled AND adapter is connected
-            preferences[exchange] = is_group_enabled and is_adapter_connected
-
-        # Special case: BINANCE should also be available if user has crypto enabled
-        # even for Bybit-specific symbols
-        if self.is_group_enabled('CRYPTO') and hasattr(self, 'bridge') and self.bridge:
-            preferences['BINANCE'] = preferences.get('BINANCE', False) or ('BINANCE' in self.bridge.adapters)
+            # Exchange is available if configured AND group enabled AND adapter connected
+            preferences[exchange] = is_exchange_configured and is_group_enabled and is_adapter_connected
 
         return preferences
         # Fallback to session config (legacy)
@@ -2698,39 +2727,46 @@ class AsyncTradingSession:
         return active
     
     async def get_wallet_details(self) -> Dict:
-        """Get wallet balances from Shadow Wallet (Real-time)."""
+        """Get wallet balances from Shadow Wallet (Real-time) - Only configured exchanges."""
         try:
-            # 1. Binance Futures
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            futures_balance = bin_bal.get('total', 0.0)
-            futures_available = bin_bal.get('available', 0.0)
+            configured_exchanges = self.get_configured_exchanges()
+
+            # 1. Binance Futures (only if configured)
+            futures_balance = 0.0
+            futures_available = 0.0
+            if configured_exchanges.get('BINANCE', False):
+                bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+                futures_balance = bin_bal.get('total', 0.0)
+                futures_available = bin_bal.get('available', 0.0)
             futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
-            # We could fetch PnL from caching positions if needed
-            
-            # 2. Bybit
-            bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
-            bybit_total = bybit_bal.get('total', 0.0)
-            
-            # 3. Alpaca (only show if user has their OWN credentials)
+
+            # 2. Bybit (only if configured)
+            bybit_total = 0.0
+            if configured_exchanges.get('BYBIT', False):
+                bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
+                bybit_total = bybit_bal.get('total', 0.0)
+
+            # 3. Alpaca (only if configured)
             alpaca_equity = 0.0
-            user_has_alpaca = self.config.get('alpaca_key') and self.config.get('alpaca_secret')
-            if user_has_alpaca:
+            if configured_exchanges.get('ALPACA', False):
                 alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
                 alpaca_equity = alp_bal.get('total', 0.0)
-            
+
             # Legacy Spot support (Mocked for now as we focus on Futures)
-            spot_usdt = 0.0 
-            
+            spot_usdt = 0.0
+
+            # Calculate total only from configured exchanges
             total = futures_balance + bybit_total + alpaca_equity + spot_usdt
-            
+
             return {
                 "spot_usdt": spot_usdt,
                 "earn_usdt": 0.0,
                 "futures_balance": futures_balance,
-                "bybit_balance": bybit_total, # Added Bybit
-                "futures_pnl": 0.0,  # PnL agregado (se calcula desde posiciones activas)
+                "bybit_balance": bybit_total,
+                "futures_pnl": 0.0,
                 "alpaca_equity": alpaca_equity,
-                "total": total
+                "total": total,
+                "configured_exchanges": configured_exchanges  # Include for dashboard logic
             }
             
         except Exception as e:
@@ -2755,13 +2791,13 @@ class AsyncTradingSession:
         longs = len([p for p in positions if p['amt'] > 0])
         shorts = len([p for p in positions if p['amt'] < 0])
         
-        # Split by Exchange
-        bin_pos = [p for p in positions if p.get('source') == 'BINANCE']
-        bybit_pos = [p for p in positions if p.get('source') == 'BYBIT']
-        
-        # Only include Alpaca positions if user has their OWN credentials
-        user_has_alpaca = self.config.get('alpaca_key') and self.config.get('alpaca_secret')
-        alp_pos = [p for p in positions if p.get('source') == 'ALPACA'] if user_has_alpaca else []
+        # Get configured exchanges
+        configured_exchanges = self.get_configured_exchanges()
+
+        # Split by Exchange (only include configured exchanges)
+        bin_pos = [p for p in positions if p.get('source') == 'BINANCE'] if configured_exchanges.get('BINANCE', False) else []
+        bybit_pos = [p for p in positions if p.get('source') == 'BYBIT'] if configured_exchanges.get('BYBIT', False) else []
+        alp_pos = [p for p in positions if p.get('source') == 'ALPACA'] if configured_exchanges.get('ALPACA', False) else []
         
         bin_longs = len([p for p in bin_pos if p['amt'] > 0])
         bin_shorts = len([p for p in bin_pos if p['amt'] < 0])

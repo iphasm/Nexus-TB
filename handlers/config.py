@@ -45,7 +45,8 @@ async def cmd_exchanges(message: Message, **kwargs):
         await message.answer("❌ No tienes una sesión activa. Usa /start primero.")
         return
 
-    # Get exchange preferences and connectivity status
+    # Get exchange configuration and connectivity status
+    configured_exchanges = session.get_configured_exchanges()
     exchange_prefs = session.get_exchange_preferences()
 
     # Check bridge connectivity
@@ -63,11 +64,15 @@ async def cmd_exchanges(message: Message, **kwargs):
     stocks_enabled = session.is_group_enabled('STOCKS')
     etfs_enabled = session.is_group_enabled('ETFS')
 
-    # Build status message
+    # Build comprehensive status message
     status_msg = (
         "🔗 <b>ESTADO DE EXCHANGES</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "<b>📊 Conectividad:</b>\n"
+        "<b>🔑 Configuración de API Keys:</b>\n"
+        f"{'✅' if configured_exchanges.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Configurado' if configured_exchanges.get('BINANCE', False) else 'No configurado'}\n"
+        f"{'✅' if configured_exchanges.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Configurado' if configured_exchanges.get('BYBIT', False) else 'No configurado'}\n"
+        f"{'✅' if configured_exchanges.get('ALPACA', False) else '❌'} <b>Alpaca:</b> {'Configurado' if configured_exchanges.get('ALPACA', False) else 'No configurado'}\n\n"
+        "<b>🌐 Conectividad Bridge:</b>\n"
         f"{'✅' if bridge_status['BINANCE'] else '❌'} <b>Binance:</b> {'Conectado' if bridge_status['BINANCE'] else 'Desconectado'}\n"
         f"{'✅' if bridge_status['BYBIT'] else '❌'} <b>Bybit:</b> {'Conectado' if bridge_status['BYBIT'] else 'Desconectado'}\n"
         f"{'✅' if bridge_status['ALPACA'] else '❌'} <b>Alpaca:</b> {'Conectado' if bridge_status['ALPACA'] else 'Desconectado'}\n\n"
@@ -76,17 +81,43 @@ async def cmd_exchanges(message: Message, **kwargs):
         f"{'✅' if bybit_enabled else '❌'} <b>Bybit:</b> {'Habilitado' if bybit_enabled else 'Deshabilitado'}\n"
         f"{'✅' if stocks_enabled else '❌'} <b>Stocks:</b> {'Habilitado' if stocks_enabled else 'Deshabilitado'}\n"
         f"{'✅' if etfs_enabled else '❌'} <b>ETFs:</b> {'Habilitado' if etfs_enabled else 'Deshabilitado'}\n\n"
-        "<b>🔄 Exchange Preferences:</b>\n"
-        f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Disponible' if exchange_prefs.get('BINANCE', False) else 'No disponible'}\n"
-        f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Disponible' if exchange_prefs.get('BYBIT', False) else 'No disponible'}\n"
-        f"{'✅' if exchange_prefs.get('ALPACA', False) else '❌'} <b>Alpaca:</b> {'Disponible' if exchange_prefs.get('ALPACA', False) else 'No disponible'}\n\n"
-        "<b>💡 Consejos:</b>\n"
-        "• Si un exchange aparece como 'No disponible', verifica:\n"
-        "  - Que esté conectado en el bridge\n"
-        "  - Que el grupo correspondiente esté habilitado\n"
-        "• Usa /assets para configurar grupos\n"
-        "• Usa /set_keys para configurar credenciales"
+        "<b>🚀 Exchanges Operativos:</b>\n"
+        f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Listo para operar' if exchange_prefs.get('BINANCE', False) else 'No operativo'}\n"
+        f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Listo para operar' if exchange_prefs.get('BYBIT', False) else 'No operativo'}\n"
+        f"{'✅' if exchange_prefs.get('ALPACA', False) else '❌'} <b>Alpaca:</b> {'Listo para operar' if exchange_prefs.get('ALPACA', False) else 'No operativo'}\n\n"
     )
+
+    # Add specific guidance based on configuration status
+    any_configured = any(configured_exchanges.values())
+
+    if not any_configured:
+        status_msg += (
+            "<b>🚨 Estado:</b> No tienes exchanges configurados\n\n"
+            "<b>💡 Para comenzar:</b>\n"
+            "1. Usa /set_keys para configurar tus primeras API keys\n"
+            "2. Elige Binance para crypto o Alpaca para stocks\n"
+            "3. Una vez configurado, aparecerán balances y podrás operar\n\n"
+        )
+    else:
+        operational_exchanges = [ex for ex, ready in exchange_prefs.items() if ready]
+        if operational_exchanges:
+            status_msg += (
+                f"<b>✅ Estado:</b> {len(operational_exchanges)} exchange(s) operativo(s)\n\n"
+                "<b>💡 Consejos:</b>\n"
+                "• Usa /dashboard para ver balances y posiciones\n"
+                "• Configura más exchanges para diversificar\n"
+                "• Revisa /assets para gestionar grupos de activos\n\n"
+            )
+        else:
+            status_msg += (
+                "<b>⚠️ Estado:</b> Exchanges configurados pero no operativos\n\n"
+                "<b>💡 Posibles soluciones:</b>\n"
+                "• Verifica que las API keys sean correctas\n"
+                "• Asegúrate de que los grupos estén habilitados\n"
+                "• Revisa la conectividad del bridge\n\n"
+            )
+
+    status_msg += "━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     # Create keyboard for exchange management
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

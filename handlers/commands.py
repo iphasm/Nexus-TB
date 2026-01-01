@@ -149,25 +149,33 @@ async def cmd_start(message: Message, **kwargs):
         # Fast balance check - only use cached data, no network calls
         if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
             try:
-                # Use only cached balance data - no network operations
-                connected_exchanges = ['BINANCE', 'BYBIT', 'ALPACA']  # Assume connected if session exists
-                low_balance_exchanges = []
+                # Only show balances for configured exchanges
+                configured_exchanges = session.get_configured_exchanges()
+                configured_exchange_names = [ex for ex, configured in configured_exchanges.items() if configured]
 
-                for exchange in connected_exchanges:
-                    balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
+                if configured_exchange_names:  # Only show if user has any exchanges configured
+                    low_balance_exchanges = []
 
-                    # Different thresholds for different exchanges
-                    if exchange == 'ALPACA':
-                        threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
+                    for exchange in configured_exchange_names:
+                        balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
+
+                        # Different thresholds for different exchanges
+                        if exchange == 'ALPACA':
+                            threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
+                        else:
+                            threshold = 6.0  # $6 minimum for crypto exchanges
+
+                        if balance < threshold and balance > 0:  # Only show if we have data and it's low
+                            low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                            show_balance_section = True
+
+                    if show_balance_section and low_balance_exchanges:
+                        balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     else:
-                        threshold = 6.0  # $6 minimum for crypto exchanges
-
-                    if balance < threshold and balance > 0:  # Only show if we have data and it's low
-                        low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
-                        show_balance_section = True
-
-                if show_balance_section and low_balance_exchanges:
-                    balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        balance_warning = ""  # No low balance warnings needed
+                else:
+                    # User has no exchanges configured - show helpful message
+                    balance_warning = "🔑 **Configura tus Exchanges:**\nUsa /set_keys para configurar API keys y ver balances.\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
             except Exception as e:
                 # Silent fail - don't block /start for balance check errors
@@ -434,6 +442,9 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
         wallet = data['wallet']
         pos = data['positions']
         cfg = data['config']
+
+        # Get configured exchanges for filtering display
+        configured_exchanges = session.get_configured_exchanges()
         
         # Mode Info
         mode = cfg.get('mode', 'WATCHER')
@@ -456,33 +467,53 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
         global_state = macro.get('global_state', 'NORMAL')
         state_icon = "🦈" if 'SHARK' in global_state else "🦢" if 'BLACK' in global_state else "✅"
         
-        # Build Message
-        msg = (
+        # Build Message - Only show configured exchanges
+        msg_parts = [
             "📊 **TRADING DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            
             f"💰 **Net Worth:** `${net_worth:,.2f}`\n"
-            f"📈 **PnL Binance:** {'🟢' if pos.get('binance', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('binance', {}).get('pnl', 0):,.2f}`\n"
-            f"📈 **PnL Bybit:** {'🟢' if pos.get('bybit', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('bybit', {}).get('pnl', 0):,.2f}`\n"
-            f"📈 **PnL Alpaca:** {'🟢' if pos.get('alpaca', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('alpaca', {}).get('pnl', 0):,.2f}`\n\n"
-            
-            "**💰 Balances**\n"
-            f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`\n"
-            f"• Binance Futures: `${wallet.get('futures_balance', 0):,.0f}`\n"
-            f"• Bybit Futures: `${wallet.get('bybit_balance', 0):,.0f}`\n"
-            f"• Alpaca Equity: `${wallet.get('alpaca_equity', 0):,.0f}`\n\n"
-            
-            "**⚙️ Estado**\n"
-            f"• Modo: {mode_display}\n"
-            f"• Posiciones Binance: `{pos.get('binance', {}).get('count', 0)}` ({pos.get('binance', {}).get('longs', 0)}L / {pos.get('binance', {}).get('shorts', 0)}S)\n"
-            f"• Posiciones Bybit: `{pos.get('bybit', {}).get('count', 0)}` ({pos.get('bybit', {}).get('longs', 0)}L / {pos.get('bybit', {}).get('shorts', 0)}S)\n"
-            f"• Posiciones Alpaca: `{pos.get('alpaca', {}).get('count', 0)}` ({pos.get('alpaca', {}).get('longs', 0)}L / {pos.get('alpaca', {}).get('shorts', 0)}S)\n\n"
-            
-            "**🌡️ Mercado Global**\n"
-            f"{fg_text}\n"
-            f"• BTC Dominance: `{btc_dom:.1f}%`\n"
-            f"• Sentinel State: {state_icon} `{global_state}`"
-        )
+        ]
+
+        # PnL section - only configured exchanges
+        pnl_lines = []
+        if configured_exchanges.get('BINANCE', False):
+            pnl_lines.append(f"📈 **PnL Binance:** {'🟢' if pos.get('binance', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('binance', {}).get('pnl', 0):,.2f}`")
+        if configured_exchanges.get('BYBIT', False):
+            pnl_lines.append(f"📈 **PnL Bybit:** {'🟢' if pos.get('bybit', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('bybit', {}).get('pnl', 0):,.2f}`")
+        if configured_exchanges.get('ALPACA', False):
+            pnl_lines.append(f"📈 **PnL Alpaca:** {'🟢' if pos.get('alpaca', {}).get('pnl', 0) >= 0 else '🔴'} `${pos.get('alpaca', {}).get('pnl', 0):,.2f}`")
+
+        if pnl_lines:
+            msg_parts.extend(pnl_lines)
+            msg_parts.append("")
+
+        # Balances section - only configured exchanges
+        balance_lines = ["**💰 Balances**"]
+        if configured_exchanges.get('BINANCE', False):
+            balance_lines.append(f"• Binance Spot: `${wallet.get('spot_usdt', 0) + wallet.get('earn_usdt', 0):,.0f}`")
+            balance_lines.append(f"• Binance Futures: `${wallet.get('futures_balance', 0):,.0f}`")
+        if configured_exchanges.get('BYBIT', False):
+            balance_lines.append(f"• Bybit Futures: `${wallet.get('bybit_balance', 0):,.0f}`")
+        if configured_exchanges.get('ALPACA', False):
+            balance_lines.append(f"• Alpaca Equity: `${wallet.get('alpaca_equity', 0):,.0f}`")
+
+        if len(balance_lines) > 1:  # More than just the header
+            msg_parts.extend(balance_lines)
+            msg_parts.append("")
+
+        # Estado section - only configured exchanges
+        status_lines = ["**⚙️ Estado**", f"• Modo: {mode_display}"]
+        if configured_exchanges.get('BINANCE', False):
+            status_lines.append(f"• Posiciones Binance: `{pos.get('binance', {}).get('count', 0)}` ({pos.get('binance', {}).get('longs', 0)}L / {pos.get('binance', {}).get('shorts', 0)}S)")
+        if configured_exchanges.get('BYBIT', False):
+            status_lines.append(f"• Posiciones Bybit: `{pos.get('bybit', {}).get('count', 0)}` ({pos.get('bybit', {}).get('longs', 0)}L / {pos.get('bybit', {}).get('shorts', 0)}S)")
+        if configured_exchanges.get('ALPACA', False):
+            status_lines.append(f"• Posiciones Alpaca: `{pos.get('alpaca', {}).get('count', 0)}` ({pos.get('alpaca', {}).get('longs', 0)}L / {pos.get('alpaca', {}).get('shorts', 0)}S)")
+
+        msg_parts.extend(status_lines)
+        msg_parts.extend(["", "**🌡️ Mercado Global**", f"{fg_text}", f"• BTC Dominance: `{btc_dom:.1f}%`", f"• Sentinel State: {state_icon} `{global_state}`"])
+
+        msg = "\n".join(msg_parts)
         
         # Keyboard
         kb = InlineKeyboardMarkup(inline_keyboard=[
