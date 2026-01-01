@@ -230,6 +230,11 @@ class RailwayMLTrainer:
 # Global trainer instance
 trainer = RailwayMLTrainer()
 
+# Log startup when imported by gunicorn
+logger.info("🚀 Railway ML Training Service module loaded")
+logger.info(f"📦 Working directory: {os.getcwd()}")
+logger.info(f"🔧 Python version: {sys.version}")
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
