@@ -117,23 +117,52 @@ async def cmd_exchanges(message: Message, **kwargs):
                 "• Revisa la conectividad del bridge\n\n"
             )
 
+    # Add debug information if user has exchanges configured but none operational
+    if any_configured and not any(exchange_prefs.values()):
+        status_msg += (
+            "\n<b>🐛 DEBUG INFO:</b>\n"
+            f"• Exchanges configurados: {list(configured_exchanges.keys())}\n"
+            f"• Grupos habilitados: {[g for g in ['CRYPTO', 'BYBIT', 'STOCKS', 'ETFS'] if session.is_group_enabled(g)]}\n"
+            f"• Bridge conectado: {bool(hasattr(session, 'bridge') and session.bridge)}\n"
+            f"• Adapters activos: {list(bridge_status.keys()) if hasattr(session, 'bridge') and session.bridge else 'None'}\n\n"
+        )
+
     status_msg += "━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     # Create keyboard for exchange management
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🔄 Recargar Estado", callback_data="EXCHANGES|REFRESH"),
-        ],
-        [
-            InlineKeyboardButton(text="⚙️ Configurar Grupos", callback_data="CMD|assets"),
-        ],
-        [
-            InlineKeyboardButton(text="🔑 Gestionar Credenciales", callback_data="CMD|set_keys"),
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config"),
-        ]
+    keyboard_buttons = [
+        [InlineKeyboardButton(text="🔄 Recargar Estado", callback_data="EXCHANGES|REFRESH")],
+    ]
+
+    # Add toggle buttons for configured exchanges
+    if any_configured:
+        toggle_buttons = []
+        for exchange in ['BINANCE', 'BYBIT', 'ALPACA']:
+            if configured_exchanges.get(exchange, False):
+                # Check if currently enabled via preferences
+                is_enabled = exchange_prefs.get(exchange, False)
+                status_emoji = "🟢" if is_enabled else "🔴"
+                action = "DISABLE" if is_enabled else "ENABLE"
+                toggle_buttons.append(
+                    InlineKeyboardButton(
+                        text=f"{status_emoji} {exchange}",
+                        callback_data=f"EXCHANGES|{action}_{exchange}"
+                    )
+                )
+
+        if toggle_buttons:
+            # Split into rows of 2 buttons max
+            for i in range(0, len(toggle_buttons), 2):
+                keyboard_buttons.append(toggle_buttons[i:i+2])
+
+    # Add management buttons
+    keyboard_buttons.extend([
+        [InlineKeyboardButton(text="⚙️ Configurar Grupos", callback_data="CMD|assets")],
+        [InlineKeyboardButton(text="🔑 Gestionar Credenciales", callback_data="CMD|set_keys")],
+        [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
     ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
     await message.answer(status_msg, reply_markup=keyboard, parse_mode="HTML")
 
@@ -743,3 +772,92 @@ async def cmd_set_margin(message: Message, **kwargs):
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
+
+
+@router.message(Command("debug_exchanges"))
+async def cmd_debug_exchanges(message: Message, **kwargs):
+    """Debug command to show detailed exchange configuration"""
+    session_manager = kwargs.get('session_manager')
+    session = None
+
+    if session_manager:
+        session = session_manager.get_session(str(message.chat.id))
+
+    if not session:
+        await message.answer("❌ No tienes una sesión activa. Usa /start primero.")
+        return
+
+    # Get all configuration details
+    configured_exchanges = session.get_configured_exchanges()
+    exchange_prefs = session.get_exchange_preferences()
+
+    debug_msg = (
+        "🐛 <b>DEBUG: CONFIGURACIÓN DE EXCHANGES</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "<b>📋 Configuración de API Keys:</b>\n"
+    )
+
+    # Show raw config values (masked for security)
+    config_items = [
+        ('api_key', 'BINANCE API Key'),
+        ('api_secret', 'BINANCE API Secret'),
+        ('binance_api_key', 'BINANCE API Key (alt)'),
+        ('binance_api_secret', 'BINANCE API Secret (alt)'),
+        ('bybit_api_key', 'BYBIT API Key'),
+        ('bybit_api_secret', 'BYBIT API Secret'),
+        ('alpaca_key', 'ALPACA API Key'),
+        ('alpaca_secret', 'ALPACA API Secret'),
+    ]
+
+    for config_key, display_name in config_items:
+        value = session.config.get(config_key, 'NOT SET')
+        masked_value = f"{value[:8]}..." if len(str(value)) > 8 and value != 'NOT SET' else value
+        debug_msg += f"• {display_name}: `{masked_value}`\n"
+
+    debug_msg += (
+        f"\n<b>🔍 Detección Automática:</b>\n"
+        f"• BINANCE configurado: {configured_exchanges.get('BINANCE', False)}\n"
+        f"• BYBIT configurado: {configured_exchanges.get('BYBIT', False)}\n"
+        f"• ALPACA configurado: {configured_exchanges.get('ALPACA', False)}\n\n"
+        f"<b>⚙️ Grupos Habilitados:</b>\n"
+        f"• CRYPTO: {session.is_group_enabled('CRYPTO')}\n"
+        f"• BYBIT: {session.is_group_enabled('BYBIT')}\n"
+        f"• STOCKS: {session.is_group_enabled('STOCKS')}\n"
+        f"• ETFS: {session.is_group_enabled('ETFS')}\n\n"
+        f"<b>🔌 Bridge Status:</b>\n"
+    )
+
+    if hasattr(session, 'bridge') and session.bridge:
+        adapters = list(session.bridge.adapters.keys()) if session.bridge.adapters else []
+        debug_msg += f"• Bridge conectado: ✅\n"
+        debug_msg += f"• Adapters activos: {adapters}\n"
+    else:
+        debug_msg += "• Bridge conectado: ❌\n"
+
+    debug_msg += (
+        f"\n<b>🚀 Estado Final:</b>\n"
+        f"• BINANCE operativo: {exchange_prefs.get('BINANCE', False)}\n"
+        f"• BYBIT operativo: {exchange_prefs.get('BYBIT', False)}\n"
+        f"• ALPACA operativo: {exchange_prefs.get('ALPACA', False)}\n\n"
+        f"<b>💡 Diagnóstico:</b>\n"
+    )
+
+    # Diagnostic logic
+    issues = []
+
+    if not configured_exchanges.get('BINANCE', False) and not configured_exchanges.get('BYBIT', False) and not configured_exchanges.get('ALPACA', False):
+        issues.append("• No hay API keys configuradas")
+    else:
+        if configured_exchanges.get('BINANCE', False) and not exchange_prefs.get('BINANCE', False):
+            issues.append("• BINANCE: Configurado pero no operativo (revisa bridge/grupos)")
+        if configured_exchanges.get('BYBIT', False) and not exchange_prefs.get('BYBIT', False):
+            issues.append("• BYBIT: Configurado pero no operativo (revisa bridge/grupos)")
+        if configured_exchanges.get('ALPACA', False) and not exchange_prefs.get('ALPACA', False):
+            issues.append("• ALPACA: Configurado pero no operativo (revisa bridge/grupos)")
+
+    if issues:
+        debug_msg += "\n".join(issues)
+    else:
+        debug_msg += "• No se detectaron problemas evidentes"
+
+    await message.answer(debug_msg, parse_mode="HTML")

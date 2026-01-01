@@ -1,6 +1,6 @@
 """
 NEXUS TRADING BOT - Command Handlers
-Basic commands: /start, /help, /status, /wallet, /price, /pnl, /exchanges
+Basic commands: /start, /help, /status, /wallet, /price, /pnl, /exchanges, /debug_exchanges
 EXACT REPLICA of main.py interface
 """
 

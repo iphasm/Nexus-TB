@@ -1014,6 +1014,71 @@ async def handle_sync_orders(callback: CallbackQuery, **kwargs):
         await callback.message.answer(f"❌ Error: {e}")
 
 
+@router.callback_query(F.data.startswith("EXCHANGES|"))
+async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
+    """Handle exchanges management callbacks"""
+    session_manager = kwargs.get('session_manager')
+    action = callback.data.split("|")[1]
+
+    if not session_manager:
+        await callback.answer("❌ Error: Session manager not available")
+        return
+
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await callback.answer("❌ No active session found")
+        return
+
+    if action == "REFRESH":
+        # Refresh the exchanges panel
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+        await callback.answer("✅ Estado actualizado")
+
+    elif action.startswith("ENABLE_") or action.startswith("DISABLE_"):
+        # Handle exchange toggle
+        exchange = action.split("_")[1]  # ENABLE_BINANCE -> BINANCE
+
+        if action.startswith("ENABLE_"):
+            # For enabling, we need to check if the exchange is configured
+            configured_exchanges = session.get_configured_exchanges()
+            if not configured_exchanges.get(exchange, False):
+                await callback.answer(f"❌ {exchange} no está configurado. Usa /set_keys primero.")
+                return
+
+            # Enable the corresponding group
+            group_map = {'BINANCE': 'CRYPTO', 'BYBIT': 'BYBIT', 'ALPACA': ['STOCKS', 'ETFS']}
+            if exchange in group_map:
+                if isinstance(group_map[exchange], list):
+                    # Alpaca has multiple groups
+                    for group in group_map[exchange]:
+                        session.enable_group(group)
+                else:
+                    session.enable_group(group_map[exchange])
+
+            await callback.answer(f"✅ {exchange} habilitado")
+
+        else:  # DISABLE_
+            # Disable the corresponding group
+            group_map = {'BINANCE': 'CRYPTO', 'BYBIT': 'BYBIT', 'ALPACA': ['STOCKS', 'ETFS']}
+            if exchange in group_map:
+                if isinstance(group_map[exchange], list):
+                    # Alpaca has multiple groups
+                    for group in group_map[exchange]:
+                        session.disable_group(group)
+                else:
+                    session.disable_group(group_map[exchange])
+
+            await callback.answer(f"🔇 {exchange} deshabilitado")
+
+        # Refresh the panel after toggle
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+
+    else:
+        await callback.answer("❌ Acción no reconocida")
+
+
 @router.callback_query(F.data.startswith("SCANNER|"))
 async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     """Handle scanner exchange selection - Execute scan for selected exchange."""
