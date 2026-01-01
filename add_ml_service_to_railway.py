@@ -205,8 +205,8 @@ def main():
             print("3. Configura RAILWAY_ML_URL en tu bot principal")
             print("4. Prueba con /ml_train en Telegram")
 
-            print("
-🔗 Configuración para bot:"            print(f"   export RAILWAY_ML_URL={service_url}")
+            print("\n🔗 Configuración para bot:")
+            print(f"   export RAILWAY_ML_URL={service_url}")
         else:
             print("\n⚠️ Servicio creado pero no se pudo verificar completamente")
             print("Revisa Railway Dashboard y logs para más detalles")
