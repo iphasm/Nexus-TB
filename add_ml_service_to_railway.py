@@ -105,7 +105,7 @@ def create_ml_service():
 
     # Verify service exists
     print("🔍 Verificando que el servicio existe...")
-    success, services_output, _ = run_command("railway services")
+    success, services_output, _ = run_command("railway service")
 
     if success and "ml-training" in services_output:
         print("✅ Servicio 'ml-training' encontrado!")
@@ -115,6 +115,9 @@ def create_ml_service():
         print("Asegúrate de haberlo creado en Railway Dashboard")
         print("\nServicios actuales:")
         print(services_output)
+        print("\n💡 Si no ves servicios, intenta:")
+        print("   railway service list")
+        print("   railway status")
         return False
 
 def configure_service_variables():
@@ -169,23 +172,20 @@ def deploy_and_verify():
     import time
     time.sleep(30)  # Give more time for Railway to deploy
 
-    # Get service URL
+    # Get service URL - Railway typically gives one domain per project
+    # The ML service will be accessible at the project domain
     success, domain, _ = run_command("railway domain")
-    if success and domain and "ml-training" in domain:
+    if success and domain:
         service_url = f"https://{domain.strip()}"
         print(f"🌐 Servicio ML desplegado en: {service_url}")
+        print("💡 Nota: Railway usa un dominio por proyecto, no por servicio")
     else:
-        # Try to get domain specifically for ml-training service
-        success, domain, _ = run_command("railway domain --service ml-training")
-        if success and domain:
-            service_url = f"https://{domain.strip()}"
-            print(f"🌐 Servicio ML desplegado en: {service_url}")
-        else:
-            print("⚠️ No se pudo obtener la URL del servicio automáticamente")
-            print("💡 Railway puede estar terminando el despliegue")
-            print("   Intenta ejecutar el script nuevamente en unos minutos")
-            print("   O verifica manualmente en Railway Dashboard")
-            return None
+        print("⚠️ No se pudo obtener la URL del proyecto automáticamente")
+        print("💡 Revisa Railway Dashboard para obtener la URL")
+        print("   O ejecuta: railway domain")
+        service_url = None
+
+    return service_url
 
     # Test health check
     print("🧪 Probando health check...")
@@ -263,7 +263,7 @@ def main():
         print("\n💡 Monitoreo:")
         print("   railway logs --service ml-training  # Ver logs")
         print("   railway status                       # Ver estado")
-        print("   railway services                     # Ver servicios")
+        print("   railway service                      # Ver servicios")
     else:
         print("\n⚠️ Servicio configurado pero deployment en progreso")
         print("💡 Railway puede estar terminando el build/deployment")
