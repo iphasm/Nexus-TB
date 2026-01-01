@@ -51,8 +51,8 @@ RUN pip install --no-cache-dir \
     xgboost==1.7.6 \
     joblib==1.3.2
 
-# Install pandas-ta from GitHub (PyPI version doesn't exist for Python 3.10)
-RUN pip install --no-cache-dir git+https://github.com/twopirllc/pandas-ta.git
+# Install pandas-ta from GitHub tarball (PyPI version doesn't exist for Python 3.10)
+RUN pip install --no-cache-dir https://github.com/twopirllc/pandas-ta/archive/refs/heads/main.zip
 
 # Install data and API libraries
 RUN pip install --no-cache-dir \
