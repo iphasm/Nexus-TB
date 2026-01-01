@@ -105,19 +105,52 @@ def create_ml_service():
 
     # Verify service exists
     print("🔍 Verificando que el servicio existe...")
-    success, services_output, _ = run_command("railway service")
 
-    if success and "ml-training" in services_output:
-        print("✅ Servicio 'ml-training' encontrado!")
+    # Try different commands to list services
+    commands_to_try = [
+        "railway service",
+        "railway service list",
+        "railway status"
+    ]
+
+    services_found = False
+    services_output = ""
+
+    for cmd in commands_to_try:
+        print(f"🔍 Probando comando: {cmd}")
+        success, output, error = run_command(cmd)
+
+        if success:
+            services_output = output
+            print(f"✅ Comando exitoso: {cmd}")
+            if "ml-training" in output:
+                print("✅ Servicio 'ml-training' encontrado!")
+                services_found = True
+                break
+            else:
+                print(f"⚠️ Servicio 'ml-training' no encontrado en output de {cmd}")
+        else:
+            print(f"❌ Comando falló: {cmd} - {error}")
+
+    if services_found:
         return True
     else:
-        print("❌ Servicio 'ml-training' no encontrado aún")
+        print("\n❌ Servicio 'ml-training' no encontrado con ningún comando")
         print("Asegúrate de haberlo creado en Railway Dashboard")
-        print("\nServicios actuales:")
-        print(services_output)
-        print("\n💡 Si no ves servicios, intenta:")
-        print("   railway service list")
+        print("\n🔍 Intenta manualmente:")
+        print("   railway service")
         print("   railway status")
+        print("\n💡 Si los comandos fallan, verifica:")
+        print("   - Que estás logueado: railway whoami")
+        print("   - Que estás en el proyecto correcto: railway status")
+        print("   - Que creaste el servicio en: https://railway.app/dashboard")
+
+        # Ask user if they want to continue anyway
+        response = input("\n❓ ¿Quieres continuar asumiendo que el servicio existe? (y/N): ").strip().lower()
+        if response == 'y' or response == 'yes':
+            print("⏭️ Continuando con la configuración...")
+            return True
+
         return False
 
 def configure_service_variables():
@@ -211,6 +244,7 @@ def main():
     parser = argparse.ArgumentParser(description="Add ML training service to existing Railway project")
     parser.add_argument("--skip-checks", action="store_true", help="Skip prerequisite checks")
     parser.add_argument("--skip-service-creation", action="store_true", help="Skip service creation guide (if already created)")
+    parser.add_argument("--skip-service-verification", action="store_true", help="Skip service verification (if CLI commands fail but service exists)")
 
     args = parser.parse_args()
 
@@ -234,10 +268,17 @@ def main():
     # Guide user to create ML service (unless skipped)
     if not args.skip_service_creation:
         if not create_ml_service():
-            print("\n❌ Servicio ML no pudo ser verificado")
-            print("Sigue las instrucciones arriba y ejecuta el script nuevamente")
-            print("O usa: python add_ml_service_to_railway.py --skip-service-creation")
-            sys.exit(1)
+            if not args.skip_service_verification:
+                print("\n❌ Servicio ML no pudo ser verificado")
+                print("Sigue las instrucciones arriba y ejecuta el script nuevamente")
+                print("Opciones:")
+                print("  --skip-service-creation (si ya creaste el servicio)")
+                print("  --skip-service-verification (si los comandos CLI fallan)")
+                sys.exit(1)
+            else:
+                print("⏭️  Saltando verificación de servicio (--skip-service-verification)")
+        else:
+            print("✅ Servicio ML verificado correctamente")
     else:
         print("⏭️  Saltando creación de servicio (--skip-service-creation)")
 
