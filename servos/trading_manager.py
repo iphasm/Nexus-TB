@@ -221,13 +221,35 @@ def format_position_message(
     """
     # Cálculos adicionales
     notional = quantity * entry_price
-    risk_amount = abs(entry_price - sl_price) * quantity
-    risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
-    rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
+
+    # Handle None values for SL/TP prices
+    if sl_price is None or tp_price is None:
+        risk_amount = 0
+        risk_pct = 0
+        rr_ratio = 1.0
+        sl_pct = 0
+        tp_pct = 0
+    else:
+        risk_amount = abs(entry_price - sl_price) * quantity
+        risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
+        rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
+        sl_pct = ((sl_price - entry_price) / entry_price * 100)
+        tp_pct = ((tp_price - entry_price) / entry_price * 100)
 
     # Determinar emoji y dirección
     direction_emoji = "📈" if side == "LONG" else "📉"
     main_emoji = "🚀" if side == "LONG" else "🐻"
+
+    # Formatear líneas de SL/TP de manera segura
+    if sl_price is not None:
+        sl_line = f"├─ Stop Loss: ${sl_price:,.2f} ({sl_pct:+.1f}%)"
+    else:
+        sl_line = "├─ Stop Loss: ❌ No configurado"
+
+    if tp_price is not None:
+        tp_line = f"├─ Take Profit: ${tp_price:,.2f} ({tp_pct:+.1f}%)"
+    else:
+        tp_line = "├─ Take Profit: ❌ No configurado"
 
     # Obtener frase de personalidad
     personality_manager = PersonalityManager()
@@ -250,8 +272,8 @@ def format_position_message(
 └─ Dirección: {side.upper()} {direction_emoji}
 
 🎯 OBJETIVOS DE RIESGO
-├─ Stop Loss: ${sl_price:,.2f} ({((sl_price-entry_price)/entry_price*100):+.1f}%)
-├─ Take Profit: ${tp_price:,.2f} ({((tp_price-entry_price)/entry_price*100):+.1f}%)
+{sl_line}
+{tp_line}
 ├─ Ratio Riesgo/Recompensa: 1:{rr_ratio:.1f}
 └─ Riesgo Máximo: ${risk_amount:.2f} ({risk_pct:.2f}% del capital)
 
@@ -1562,7 +1584,12 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
-                        self.logger.warning(f"SL order failed for {symbol}: {sl_result['error']}")
+                        error_msg = sl_result['error']
+                        # Special handling for Alpaca conditional order limitations
+                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
+                            print(f"⚠️ {symbol}: Alpaca no soporta SL automático. Considere usar órdenes LIMIT manuales.")
+                        else:
+                            self.logger.warning(f"SL order failed for {symbol}: {error_msg}")
                     else:
                         sl_placed = True
                         self.logger.info(f"SL order placed for {symbol} at {sl_price}")
@@ -1583,7 +1610,12 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
-                        self.logger.warning(f"TP order failed for {symbol}: {tp_result['error']}")
+                        error_msg = tp_result['error']
+                        # Special handling for Alpaca conditional order limitations
+                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
+                            print(f"⚠️ {symbol}: Alpaca no soporta TP automático. Considere usar órdenes LIMIT manuales.")
+                        else:
+                            self.logger.warning(f"TP order failed for {symbol}: {error_msg}")
                     else:
                         tp_placed = True
                         self.logger.info(f"TP order placed for {symbol} at {tp_price}")
@@ -1795,6 +1827,11 @@ class AsyncTradingSession:
             if (quantity * current_price) < min_notional:
                  return False, f"❌ {symbol}: Insufficient capital."
 
+            # Diagnostic logging
+            notional = quantity * current_price
+            margin_required = notional / leverage
+            print(f"📊 {symbol} Order Details: Qty={quantity}, Price=${current_price:.4f}, Notional=${notional:.2f}")
+            print(f"📊 {symbol} Risk Params: Leverage={leverage}x, Margin Required=${margin_required:.2f}, Equity=${total_equity:.2f}")
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
             await self.bridge.set_leverage(symbol, leverage)
@@ -1834,7 +1871,12 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if sl_result.get('error'):
-                        self.logger.warning(f"SL order failed for {symbol}: {sl_result['error']}")
+                        error_msg = sl_result['error']
+                        # Special handling for Alpaca conditional order limitations
+                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
+                            print(f"⚠️ {symbol}: Alpaca no soporta SL automático. Considere usar órdenes LIMIT manuales.")
+                        else:
+                            self.logger.warning(f"SL order failed for {symbol}: {error_msg}")
                     else:
                         sl_placed = True
                         self.logger.info(f"SL order placed for {symbol} at {sl_price}")
@@ -1855,7 +1897,12 @@ class AsyncTradingSession:
                         # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
                     )
                     if tp_result.get('error'):
-                        self.logger.warning(f"TP order failed for {symbol}: {tp_result['error']}")
+                        error_msg = tp_result['error']
+                        # Special handling for Alpaca conditional order limitations
+                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
+                            print(f"⚠️ {symbol}: Alpaca no soporta TP automático. Considere usar órdenes LIMIT manuales.")
+                        else:
+                            self.logger.warning(f"TP order failed for {symbol}: {error_msg}")
                     else:
                         tp_placed = True
                         self.logger.info(f"TP order placed for {symbol} at {tp_price}")

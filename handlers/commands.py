@@ -150,12 +150,17 @@ async def cmd_start(message: Message, **kwargs):
         if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
             try:
                 # Use only cached balance data - no network operations
-                connected_exchanges = ['BINANCE', 'BYBIT']  # Assume connected if session exists
+                connected_exchanges = ['BINANCE', 'BYBIT', 'ALPACA']  # Assume connected if session exists
                 low_balance_exchanges = []
 
                 for exchange in connected_exchanges:
                     balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
-                    threshold = 6.0  # Same threshold as check_liquidity
+
+                    # Different thresholds for different exchanges
+                    if exchange == 'ALPACA':
+                        threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
+                    else:
+                        threshold = 6.0  # $6 minimum for crypto exchanges
 
                     if balance < threshold and balance > 0:  # Only show if we have data and it's low
                         low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
@@ -1245,8 +1250,7 @@ async def _execute_manual_position(message: Message, side: str, force_exchange: 
         else:
             # Log the error for debugging but don't show to user
             print(f"🔕 Silenced error for {message.text.split()[0]} {symbol}: {res_msg}")
-            # Optionally send a generic message
-            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
+            # Silenced - no message sent to chat
 
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
@@ -1295,8 +1299,7 @@ async def cmd_long(message: Message, **kwargs):
         else:
             # Log the error for debugging but don't show to user
             print(f"🔕 Silenced error for /long {symbol}: {res_msg}")
-            # Optionally send a generic message
-            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
+            # Silenced - no message sent to chat
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)
@@ -1406,8 +1409,7 @@ async def cmd_short(message: Message, **kwargs):
         else:
             # Log the error for debugging but don't show to user
             print(f"🔕 Silenced error for /short {symbol}: {res_msg}")
-            # Optionally send a generic message
-            await message.reply("⚠️ Operación no ejecutada (fondos insuficientes o verificación fallida)", parse_mode=None)
+            # Silenced - no message sent to chat
         
     except Exception as e:
         await msg_wait.edit_text(f"❌ Error iniciando operación: {str(e)}", parse_mode=None)

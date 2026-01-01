@@ -194,9 +194,16 @@ class AlpacaAdapter(IExchangeAdapter):
         try:
             from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
             from alpaca.trading.enums import OrderSide, TimeInForce
-            
+
             alpaca_side = OrderSide.BUY if side.upper() == 'BUY' else OrderSide.SELL
-            
+
+            # Handle conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
+            if order_type.upper() in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
+                return {
+                    'error': f'Alpaca no soporta órdenes condicionales tradicionales ({order_type}). '
+                           'Use órdenes LIMIT para SL/TP o considere usar otro exchange para posiciones con SL/TP automático.'
+                }
+
             if order_type.upper() == 'MARKET':
                 request = MarketOrderRequest(
                     symbol=symbol,

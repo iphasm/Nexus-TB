@@ -329,11 +329,13 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             user_name = get_user_name(session.chat_id)
 
             # --- FILTER: Sufficient Balance? ---
-            # Check liquidity before sending signals (silent validation)
-            has_liquidity, _, _ = await session.check_liquidity(symbol)
-            if not has_liquidity:
-                logger.info(f"⏭️ {session.chat_id}: Balance insuficiente para {symbol}", group=True)
-                continue  # Skip this session, don't send signal
+            # Check liquidity before sending signals
+            has_liquidity, available_balance, liquidity_msg = await session.check_liquidity(symbol)
+
+            # If insufficient balance, force WATCHER mode behavior regardless of actual mode
+            force_watcher_mode = not has_liquidity
+            if force_watcher_mode:
+                logger.info(f"⏭️ {session.chat_id}: Balance insuficiente para {symbol} - Forzando modo WATCHER", group=True)
 
             # Calculate SL/TP/TS preview
             sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
@@ -347,7 +349,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             title = profile.get('NAME', 'Nexus Bot')
             quote = random.choice(profile.get('GREETING', ["Online."]))
             
-            if mode == 'WATCHER':
+            # Determine effective mode (force WATCHER if insufficient balance)
+            effective_mode = 'WATCHER' if force_watcher_mode else mode
+
+            if effective_mode == 'WATCHER':
                 # Use personality message
                 if side == 'LONG':
                     msg = personality_manager.get_message(
@@ -365,9 +370,14 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name, exchange=exchange_display
                     )
+
+                # Add low balance warning if forced to watcher mode
+                if force_watcher_mode:
+                    msg += f"\n\n{liquidity_msg}"
+
                 await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
-                
-            elif mode == 'COPILOT':
+
+            elif effective_mode == 'COPILOT':
                 if side == 'LONG':
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_LONG',
@@ -384,7 +394,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name, exchange=exchange_display
                     )
-                    
+
+                # Add low balance warning if forced to copilot mode
+                if force_watcher_mode:
+                    msg += f"\n\n{liquidity_msg}"
+
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
                     [
                         InlineKeyboardButton(
@@ -398,24 +412,51 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     ]
                 ])
                 await bot.send_message(
-                    session.chat_id, msg, 
-                    reply_markup=keyboard, 
+                    session.chat_id, msg,
+                    reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
-                
-            elif mode == 'PILOT':
+
+            elif effective_mode == 'PILOT':
+                # If forced to watcher mode due to low balance, show signal without executing
+                if force_watcher_mode:
+                    # Show signal like WATCHER mode but with PILOT context
+                    if side == 'LONG':
+                        msg = personality_manager.get_message(
+                            p_key, 'TRADE_LONG',
+                            asset=symbol, price=price, reason=reason,
+                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                            title=title, quote=quote, strategy_name=strategy,
+                            user_name=user_name, exchange=exchange_display
+                        )
+                    else:
+                        msg = personality_manager.get_message(
+                            p_key, 'TRADE_SHORT',
+                            asset=symbol, price=price, reason=reason,
+                            tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                            title=title, quote=quote, strategy_name=strategy,
+                            user_name=user_name, exchange=exchange_display
+                        )
+
+                    # Add specific message for PILOT forced to watcher
+                    msg += f"\n\n{liquidity_msg}\n\n⚠️ **Modo PILOT suspendido temporalmente por bajo saldo**"
+
+                    await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
+                    continue
+
+                # Normal PILOT execution
                 # Check if position already exists - DON'T trigger update on every signal
                 # Check if position already exists
                 try:
                     positions = await session.get_active_positions()
                     existing_pos = next((p for p in positions if p['symbol'] == symbol), None)
-                    
+
                     if existing_pos:
                         # Check for Reversal / Flip opportunity
                         existing_amt = float(existing_pos.get('amt', 0))
                         is_existing_long = existing_amt > 0
                         is_signal_long = (side == 'LONG')
-                        
+
                         if is_existing_long == is_signal_long:
                              logger.info(f"⏭️ {symbol}: Posición {side} activa, omitiendo", group=True)
                              continue
@@ -424,7 +465,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                              # Proceed to execution (trading_manager handles the flip)
                 except:
                     pass  # If check fails, proceed with trade attempt
-                
+
                 # Auto-execute (no "entering pilot mode" message)
                 if side == 'LONG':
                     success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy)
