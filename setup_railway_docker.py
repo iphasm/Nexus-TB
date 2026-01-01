@@ -174,8 +174,8 @@ def build_and_deploy():
     if success and domain:
         service_url = f"https://{domain.strip()}"
         print(f"🌐 Servicio desplegado en: {service_url}")
-        print("
-💡 Configura en tu bot principal:"        print(f"   export RAILWAY_ML_URL={service_url}")
+        print("\n💡 Configura en tu bot principal:")
+        print(f"   export RAILWAY_ML_URL={service_url}")
         return service_url
     else:
         print("⚠️ No se pudo obtener automáticamente la URL del servicio")
