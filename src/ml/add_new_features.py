@@ -4,7 +4,7 @@ Script para agregar nuevas features que reduzcan la dependencia de ATR
 """
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
+from ta_compat import ta
 
 def add_momentum_features(df):
     """Agrega features de momentum avanzadas"""
