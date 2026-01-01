@@ -103,7 +103,7 @@ logger.info(f"🔧 Env Vars: {' | '.join(status_parts)}", group=False)  # No agr
 
 
 # --- ASSET CONFIGURATION (Centralized) ---
-from system_directive import ASSET_GROUPS, GROUP_CONFIG, get_all_assets, get_display_name
+from system_directive import ASSET_GROUPS, CRYPTO_SUBGROUPS, GROUP_CONFIG, get_all_assets, get_display_name
 
 
 # --- MIDDLEWARE ---
@@ -295,12 +295,22 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     # Dispatch to all sessions with enhanced multi-exchange filtering
     from system_directive import ASSET_GROUPS
 
-    # Determine Asset Group
+    # Determine Asset Group and Subgroup
     asset_group = None
+    asset_subgroup = None
+
+    # First check main groups
     for group_name, assets in ASSET_GROUPS.items():
         if symbol in assets:
             asset_group = group_name
             break
+
+    # If it's a crypto asset, determine the thematic subgroup
+    if asset_group == 'CRYPTO':
+        for subgroup_name, assets in CRYPTO_SUBGROUPS.items():
+            if symbol in assets:
+                asset_subgroup = subgroup_name
+                break
 
     # For CRYPTO assets, determine target exchange based on user preferences
     # This will be handled later in the session filtering logic
@@ -318,6 +328,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         # --- FILTER: Group Enabled? ---
         if asset_group and not session.is_group_enabled(asset_group):
             logger.info(f"⏭️ {session.chat_id}: Grupo {asset_group} deshabilitado", group=True)
+            continue
+
+        # --- FILTER: Subgroup Enabled? (for CRYPTO assets) ---
+        if asset_subgroup and not session.is_group_enabled(asset_subgroup):
+            logger.info(f"⏭️ {session.chat_id}: Subgrupo {asset_subgroup} deshabilitado para {symbol}", group=True)
             continue
 
         # --- FILTER: Exchange Available for CRYPTO assets? ---

@@ -2020,27 +2020,55 @@ REGLAS:
 from servos.db import get_user_enabled_groups, set_user_enabled_groups
 
 def _build_assets_keyboard(chat_id: str) -> InlineKeyboardMarkup:
-    """Build inline keyboard showing current asset group toggles."""
+    """Build inline keyboard showing current asset group toggles with subgroups."""
     groups = get_user_enabled_groups(chat_id)
-    
+
     def icon(enabled: bool) -> str:
         return "✅" if enabled else "❌"
-    
-    keyboard = [
-        [InlineKeyboardButton(
-            text=f"{icon(groups.get('CRYPTO', True))} Crypto (Binance)",
-            callback_data="toggle_group:CRYPTO"
-        )],
-        [InlineKeyboardButton(
-            text=f"{icon(groups.get('STOCKS', True))} Stocks (Alpaca)",
-            callback_data="toggle_group:STOCKS"
-        )],
-        [InlineKeyboardButton(
-            text=f"{icon(groups.get('ETFS', True))} ETFs (Alpaca)",
-            callback_data="toggle_group:ETFS"
-        )],
-        [InlineKeyboardButton(text="🔙 Volver", callback_data="back_to_start")]
-    ]
+
+    # Crypto subgroups mapping
+    crypto_subgroups = {
+        'MAJOR_CAPS': '🏆 Major Caps',
+        'MEME_COINS': '🐕 Meme Coins',
+        'DEFI': '🏛️ DeFi',
+        'AI_TECH': '🤖 AI & Tech',
+        'GAMING_METAVERSE': '🎮 Gaming & Metaverse',
+        'LAYER1_INFRA': '🏗️ Layer 1 & Infra',
+        'BYBIT_EXCLUSIVE': '🔥 Bybit Exclusive'
+    }
+
+    keyboard = []
+
+    # Main CRYPTO group
+    keyboard.append([InlineKeyboardButton(
+        text=f"{icon(groups.get('CRYPTO', True))} 💰 CRYPTO (Global)",
+        callback_data="toggle_group:CRYPTO"
+    )])
+
+    # Crypto subgroups (only show if CRYPTO is enabled)
+    if groups.get('CRYPTO', True):
+        for subgroup_key, display_name in crypto_subgroups.items():
+            keyboard.append([InlineKeyboardButton(
+                text=f"  {icon(groups.get(subgroup_key, True))} {display_name}",
+                callback_data=f"toggle_group:{subgroup_key}"
+            )])
+
+    # Separator
+    keyboard.append([InlineKeyboardButton(text="━━━━━━━━━━━━━━━", callback_data="ignore")])
+
+    # Other asset groups
+    keyboard.append([InlineKeyboardButton(
+        text=f"{icon(groups.get('STOCKS', True))} 📈 STOCKS (Alpaca)",
+        callback_data="toggle_group:STOCKS"
+    )])
+    keyboard.append([InlineKeyboardButton(
+        text=f"{icon(groups.get('ETFS', True))} 📊 ETFs (Alpaca)",
+        callback_data="toggle_group:ETFS"
+    )])
+
+    # Back button
+    keyboard.append([InlineKeyboardButton(text="🔙 Volver", callback_data="back_to_start")])
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
@@ -2056,7 +2084,12 @@ async def cmd_assets(message: Message, **kwargs):
     await message.answer(
         "⚙️ **Configuración de Activos**\n\n"
         "Selecciona los grupos de activos que deseas escanear.\n"
-        "Las señales solo se generarán para los grupos habilitados.\n",
+        "Las señales solo se generarán para los grupos habilitados.\n\n"
+        "💡 **Estructura Jerárquica:**\n"
+        "• 💰 CRYPTO: Activa escaneo global de criptomonedas\n"
+        "• Subgrupos: Categorías temáticas dentro de CRYPTO\n"
+        "• 📈 STOCKS/📊 ETFs: Activos tradicionales en Alpaca\n\n"
+        "💡 **Nota:** Los subgrupos solo funcionan si CRYPTO está activado.",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
@@ -2095,7 +2128,7 @@ async def cmd_scanner(message: Message, **kwargs):
     Scanner menu - Select exchange to analyze.
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🟡 Binance", callback_data="SCANNER|BINANCE"),
@@ -2105,13 +2138,16 @@ async def cmd_scanner(message: Message, **kwargs):
             InlineKeyboardButton(text="🟢 Alpaca", callback_data="SCANNER|ALPACA"),
         ],
         [
+            InlineKeyboardButton(text="🎯 Por Categoría", callback_data="SCANNER|CATEGORY"),
+        ],
+        [
             InlineKeyboardButton(text="🌐 Escaneo Global", callback_data="SCANNER|ALL"),
         ],
         [
             InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|start"),
         ]
     ])
-    
+
     msg_text = (
         "🔍 <b>NEXUS SCANNER</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -2119,14 +2155,68 @@ async def cmd_scanner(message: Message, **kwargs):
         "🟡 <b>Binance</b> → Crypto Futures (USDT)\n"
         "🟣 <b>Bybit</b> → Crypto Futures (V5)\n"
         "🟢 <b>Alpaca</b> → Stocks & ETFs\n\n"
+        "🎯 <b>Por Categoría</b> → Escaneo temático de crypto\n"
         "🌐 <b>Global</b> → Todos los activos"
     )
-    
+
     edit_message = kwargs.get('edit_message', False)
     if edit_message:
         await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="HTML")
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.message(Command("scan_category"))
+async def cmd_scan_category(message: Message, **kwargs):
+    """
+    Scanner by crypto category - Shows thematic subgroups.
+    """
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from system_directive import CRYPTO_SUBGROUPS
+
+    # Build keyboard with crypto subgroups
+    keyboard_buttons = []
+    subgroup_emojis = {
+        'MAJOR_CAPS': '🏆',
+        'MEME_COINS': '🐕',
+        'DEFI': '🏛️',
+        'AI_TECH': '🤖',
+        'GAMING_METAVERSE': '🎮',
+        'LAYER1_INFRA': '🏗️',
+        'BYBIT_EXCLUSIVE': '🔥'
+    }
+
+    for subgroup_key in ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA', 'BYBIT_EXCLUSIVE']:
+        emoji = subgroup_emojis.get(subgroup_key, '📊')
+        display_name = subgroup_key.replace('_', ' ').title()
+        keyboard_buttons.append([
+            InlineKeyboardButton(
+                text=f"{emoji} {display_name}",
+                callback_data=f"SCANNER|{subgroup_key}"
+            )
+        ])
+
+    keyboard_buttons.append([
+        InlineKeyboardButton(text="⬅️ Volver al Scanner", callback_data="CMD|scanner")
+    ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+    msg_text = (
+        "🎯 <b>SCANNER POR CATEGORÍA</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "<b>Selecciona una categoría de crypto:</b>\n\n"
+        "🏆 <b>Major Caps</b> → BTC, ETH, BNB, etc.\n"
+        "🐕 <b>Meme Coins</b> → PEPE, DOGE, SHIB, etc.\n"
+        "🏛️ <b>DeFi</b> → UNI, AAVE, CRV, etc.\n"
+        "🤖 <b>AI & Tech</b> → FET, AGIX, OCEAN, etc.\n"
+        "🎮 <b>Gaming</b> → AXS, SAND, MANA, etc.\n"
+        "🏗️ <b>Layer 1</b> → INJ, SEI, MINA, etc.\n"
+        "🔥 <b>Bybit Exclusive</b> → Tokens únicos de Bybit\n\n"
+        "<b>Nota:</b> Solo escanea activos disponibles en tus exchanges configurados."
+    )
+
+    await message.answer(msg_text, reply_markup=keyboard, parse_mode="HTML")
 
 
 async def execute_scanner(message, exchange_filter: str = 'ALL'):
@@ -2147,12 +2237,20 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
     import html
     import asyncio
     
-    # Map exchange to asset groups
+    # Map exchange/category to asset groups
+    from system_directive import CRYPTO_SUBGROUPS
+
+    # Thematic category mapping
+    category_groups = {}
+    for subgroup_name, assets in CRYPTO_SUBGROUPS.items():
+        category_groups[f"CATEGORY_{subgroup_name}"] = [('CRYPTO', assets)]
+
     exchange_groups = {
         'BINANCE': ['CRYPTO'],
-        'BYBIT': ['BYBIT'],  # Uses dedicated BYBIT asset list
+        'BYBIT': ['CRYPTO'],  # Now uses CRYPTO group (expanded)
         'ALPACA': ['STOCKS', 'ETFS'],
-        'ALL': ['CRYPTO', 'BYBIT', 'STOCKS', 'ETFS']
+        'ALL': ['CRYPTO', 'STOCKS', 'ETFS'],
+        **category_groups  # Add thematic categories
     }
     
     exchange_icons = {
@@ -2162,19 +2260,35 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
         'ALL': '🌐'
     }
     
-    groups_to_scan = exchange_groups.get(exchange_filter, ['CRYPTO'])
-    icon = exchange_icons.get(exchange_filter, '📡')
-    
+    # Handle thematic categories
+    is_category_scan = exchange_filter.startswith('CATEGORY_')
+    if is_category_scan:
+        category_name = exchange_filter.replace('CATEGORY_', '')
+        groups_to_scan = [('CRYPTO', CRYPTO_SUBGROUPS.get(category_name, []))]
+        icon = '🎯'
+        display_name = category_name.replace('_', ' ').title()
+    else:
+        groups_to_scan = exchange_groups.get(exchange_filter, [('CRYPTO', ASSET_GROUPS.get('CRYPTO', []))])
+        icon = exchange_icons.get(exchange_filter, '📡')
+        display_name = exchange_filter
+
     report_lines = [
-        f"{icon} <b>NEXUS SCANNER - {exchange_filter}</b>",
+        f"{icon} <b>NEXUS SCANNER - {display_name}</b>",
         "━━━━━━━━━━━━━━━━━━━━━━━━━"
     ]
-    
+
     total_assets = 0
     signals_would_fire = 0
-    
-    for group_name in groups_to_scan:
-        assets = ASSET_GROUPS.get(group_name, [])
+
+    for group_item in groups_to_scan:
+        if isinstance(group_item, tuple):
+            # Thematic category: (group_name, specific_assets)
+            group_name, assets = group_item
+        else:
+            # Regular group
+            group_name = group_item
+            assets = ASSET_GROUPS.get(group_name, [])
+
         if not assets:
             continue
         

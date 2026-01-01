@@ -8,10 +8,11 @@ import os
 # ASSET GROUPS - Define which assets belong to which category
 # =================================================================
 #
-# JERARQUÍA DE GRUPOS (3 GRUPOS PRINCIPALES):
+# JERARQUÍA DE GRUPOS EXPANDIDA:
 # ├── CRYPTO: TODOS los activos de criptomonedas
-# │   ├── Assets disponibles en BINANCE y BYBIT
+# │   ├── Assets disponibles en BINANCE y BYBIT (expanded)
 # │   └── El usuario elige qué exchanges usar dentro de CRYPTO
+# │   └── SUBGRUPOS TEMÁTICOS: DeFi, Meme, AI, Gaming, etc.
 # ├── STOCKS: Activos de acciones (Alpaca)
 # └── ETFS: Activos de ETFs (Alpaca)
 #
@@ -20,22 +21,44 @@ import os
 
 ASSET_GROUPS = {
     'CRYPTO': [
-        # Major Caps - Available on both Binance and Bybit
+        # ===== MAJOR CAPS - Available on both Binance and Bybit =====
         'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
-        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT',
-        # Memes & AI - Available on both
+        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT', 'AVAXUSDT', 'DOTUSDT',
+        'LINKUSDT', 'MATICUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT',
+        'TRXUSDT', 'ETCUSDT', 'XLMUSDT', 'THETAUSDT', 'HBARUSDT', 'CAKEUSDT',
+
+        # ===== MEME COINS - Available on both =====
         'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
-        'RENDERUSDT', 'FETUSDT', 'INJUSDT', 'SEIUSDT',
-        '1000BONKUSDT', '1000FLOKIUSDT', 'TRBUSDT', 'ZECUSDT',
-        'PONKEUSDT', 'BRETTUSDT',
-        # DeFi - Available on both
-        'UNIUSDT', 'AAVEUSDT', 'XLMUSDT', 'CRVUSDT', 'POLUSDT', 'LDOUSDT',
-        # AI / Tech - Available on both
-        'TAOUSDT',
-        # Bybit-specific assets (also included in CRYPTO)
-        'FLOWUSDT'
-        # Bybit-exclusive (disabled - need Bybit data fetcher):
-        # 'NIGHTUSDT', 'MNTUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT'
+        '1000BONKUSDT', '1000FLOKIUSDT', 'PONKEUSDT', 'BRETTUSDT', 'MEWUSDT',
+        'TURBOUSDT', 'AIDOGEUSDT', 'BABYDOGEUSDT', 'HOGEUSDT', 'KISHUUSDT',
+
+        # ===== DEFI TOKENS - Available on both =====
+        'UNIUSDT', 'AAVEUSDT', 'CRVUSDT', 'SUSHIUSDT', 'COMPUSDT', 'MKRUSDT',
+        'YFIUSDT', 'BALUSDT', 'RENUSDT', 'KNCUSDT', 'ZRXUSDT', 'BATUSDT',
+        'LRCUSDT', 'OMGUSDT', 'ANTUSDT', 'STORJUSDT', 'REPUSDT',
+
+        # ===== AI & TECH - Available on both =====
+        'FETUSDT', 'AGIXUSDT', 'OCEANUSDT', 'NMRUSDT', 'CTXCUSDT', 'AMBUSDT',
+        'GRTUSDT', 'SKLUSDT', 'TRBUSDT', 'POLUSDT', 'LDOUSDT', 'ARPAUSDT',
+        'STORJUSDT', 'DATAUSDT', 'QSPUSDT',
+
+        # ===== GAMING & METAVERSE - Available on both =====
+        'AXSUSDT', 'SANDUSDT', 'MANAUSDT', 'ENJUSDT', 'ILVUSDT', 'YGGUSDT',
+        'DARUSDT', 'TLMUSDT', 'ATLASUSDT', 'FISUSDT', 'GHSTUSDT',
+
+        # ===== LAYER 1 & INFRASTRUCTURE - Available on both =====
+        'INJUSDT', 'SEIUSDT', 'MINAUSDT', 'SCUSDT', 'CTSIUSDT', 'CELRUSDT',
+        'ONEUSDT', 'FTMUSDT', 'HARMONYUSDT', 'IOTXUSDT',
+
+        # ===== Bybit-specific assets (also included in CRYPTO) =====
+        'FLOWUSDT', 'IMXUSDT', 'LPTUSDT', 'PENDLEUSDT', 'ASTRUSDT',
+        'CFGUSDT', 'ACEUSDT', 'NFPUSDT', 'MAVIAUSDT', 'PIXELUSDT',
+        'BEAMUSDT', 'TIAUSDT', 'OMNIUSDT', 'ZKSUSDT', 'ALTUSDT',
+
+        # Bybit-exclusive (high volume, ready for activation):
+        'NIGHTUSDT', 'MNTUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT',
+        'AIUSDT', 'XAIUSDT', 'FOXYUSDT', 'SANTOSUSDT', 'PORTOUSDT',
+        'CITYUSDT', 'INTERUSDT', 'BARUSDT', 'PSGUSDT', 'JUVUSDT'
     ],
     'STOCKS': [
         # High Liquidity Day Trading Workhorses (Alpaca)
@@ -52,11 +75,63 @@ ASSET_GROUPS = {
     ]
 }
 
-# Toggle groups on/off (Global Defaults)
+# =================================================================
+# CRYPTO SUBGROUPS - Thematic categorization within CRYPTO
+# =================================================================
+
+CRYPTO_SUBGROUPS = {
+    'MAJOR_CAPS': [
+        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
+        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT', 'AVAXUSDT', 'DOTUSDT',
+        'LINKUSDT', 'MATICUSDT', 'ALGOUSDT', 'VETUSDT', 'FILUSDT', 'TRXUSDT'
+    ],
+    'MEME_COINS': [
+        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
+        '1000BONKUSDT', '1000FLOKIUSDT', 'PONKEUSDT', 'BRETTUSDT', 'MEWUSDT',
+        'TURBOUSDT', 'AIDOGEUSDT', 'BABYDOGEUSDT', 'HOGEUSDT', 'KISHUUSDT'
+    ],
+    'DEFI': [
+        'UNIUSDT', 'AAVEUSDT', 'CRVUSDT', 'SUSHIUSDT', 'COMPUSDT', 'MKRUSDT',
+        'YFIUSDT', 'BALUSDT', 'RENUSDT', 'KNCUSDT', 'ZRXUSDT', 'BATUSDT',
+        'LRCUSDT', 'OMGUSDT', 'ANTUSDT', 'STORJUSDT', 'REPUSDT'
+    ],
+    'AI_TECH': [
+        'FETUSDT', 'AGIXUSDT', 'OCEANUSDT', 'NMRUSDT', 'CTXCUSDT', 'AMBUSDT',
+        'GRTUSDT', 'SKLUSDT', 'TRBUSDT', 'POLUSDT', 'LDOUSDT', 'ARPAUSDT',
+        'STORJUSDT', 'DATAUSDT', 'QSPUSDT', 'TAOUSDT'
+    ],
+    'GAMING_METAVERSE': [
+        'AXSUSDT', 'SANDUSDT', 'MANAUSDT', 'ENJUSDT', 'ILVUSDT', 'YGGUSDT',
+        'DARUSDT', 'TLMUSDT', 'ATLASUSDT', 'FISUSDT', 'GHSTUSDT', 'IMXUSDT'
+    ],
+    'LAYER1_INFRA': [
+        'INJUSDT', 'SEIUSDT', 'MINAUSDT', 'SCUSDT', 'CTSIUSDT', 'CELRUSDT',
+        'ONEUSDT', 'FTMUSDT', 'HARMONYUSDT', 'IOTXUSDT', 'TIAUSDT', 'OMNIUSDT',
+        'ZKSUSDT', 'ALTUSDT'
+    ],
+    'BYBIT_EXCLUSIVE': [
+        'FLOWUSDT', 'LPTUSDT', 'PENDLEUSDT', 'ASTRUSDT', 'CFGUSDT', 'ACEUSDT',
+        'NFPUSDT', 'MAVIAUSDT', 'PIXELUSDT', 'BEAMUSDT', 'NIGHTUSDT', 'MNTUSDT',
+        'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT', 'AIUSDT', 'XAIUSDT', 'FOXYUSDT',
+        'SANTOSUSDT', 'PORTOUSDT', 'CITYUSDT', 'INTERUSDT', 'BARUSDT', 'PSGUSDT', 'JUVUSDT'
+    ]
+}
+
+# Toggle groups on/off (Global Defaults) - Updated for new hierarchical structure
 GROUP_CONFIG = {
+    # Main asset groups
     'CRYPTO': True,
     'STOCKS': True,
-    'ETFS': True
+    'ETFS': True,
+
+    # Crypto thematic subgroups (all enabled by default when CRYPTO is enabled)
+    'MAJOR_CAPS': True,        # Major market cap cryptocurrencies
+    'MEME_COINS': True,        # Meme coins and viral tokens
+    'DEFI': True,              # Decentralized Finance tokens
+    'AI_TECH': True,           # AI, Tech, and utility tokens
+    'GAMING_METAVERSE': True,  # Gaming and metaverse tokens
+    'LAYER1_INFRA': True,      # Layer 1 and infrastructure tokens
+    'BYBIT_EXCLUSIVE': False   # Bybit-specific tokens (disabled by default)
 }
 
 # --- STRATEGY CONFIG ---

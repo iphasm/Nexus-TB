@@ -1079,24 +1079,64 @@ async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("SCANNER|"))
 async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
-    """Handle scanner exchange selection - Execute scan for selected exchange."""
-    exchange = callback.data.split("|")[1]
+    """Handle scanner exchange selection - Execute scan for selected exchange or category."""
+    filter_param = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
-    
-    await safe_answer(callback, f"🔍 Escaneando {exchange}...")
-    
+
+    # Handle category selection
+    if filter_param == "CATEGORY":
+        await safe_answer(callback, "🎯 Abriendo scanner por categoría...")
+        from handlers.commands import cmd_scan_category
+        await cmd_scan_category(callback.message)
+        return
+
+    # Handle thematic category scan
+    thematic_categories = ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA', 'BYBIT_EXCLUSIVE']
+    if filter_param in thematic_categories:
+        await safe_answer(callback, f"🎯 Escaneando categoría {filter_param}...")
+
+        try:
+            # Update message to show scanning
+            category_display = {
+                'MAJOR_CAPS': 'Major Caps',
+                'MEME_COINS': 'Meme Coins',
+                'DEFI': 'DeFi',
+                'AI_TECH': 'AI & Tech',
+                'GAMING_METAVERSE': 'Gaming & Metaverse',
+                'LAYER1_INFRA': 'Layer 1 & Infra',
+                'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
+            }
+
+            msg = await callback.message.edit_text(
+                f"🎯 <b>Escaneando {category_display.get(filter_param, filter_param)}...</b>\n\n"
+                "Esto puede tomar unos momentos.",
+                parse_mode="HTML"
+            )
+
+            # Import and execute scanner with category filter
+            from handlers.commands import execute_scanner
+            await execute_scanner(msg, exchange_filter=f"CATEGORY_{filter_param}")
+
+        except Exception as e:
+            err_clean = str(e).replace('<', '').replace('>', '')
+            await callback.message.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
+        return
+
+    # Handle regular exchange scan
+    await safe_answer(callback, f"🔍 Escaneando {filter_param}...")
+
     try:
         # Update message to show scanning
         msg = await callback.message.edit_text(
-            f"🔍 <b>Escaneando {exchange}...</b>\n\n"
+            f"🔍 <b>Escaneando {filter_param}...</b>\n\n"
             "Esto puede tomar unos momentos.",
             parse_mode="HTML"
         )
-        
+
         # Import and execute scanner
         from handlers.commands import execute_scanner
-        await execute_scanner(msg, exchange_filter=exchange)
-        
+        await execute_scanner(msg, exchange_filter=filter_param)
+
     except Exception as e:
         err_clean = str(e).replace('<', '').replace('>', '')
         await callback.message.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)
