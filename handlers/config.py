@@ -77,10 +77,10 @@ async def cmd_exchanges(message: Message, **kwargs):
         f"{'✅' if bridge_status['BYBIT'] else '❌'} <b>Bybit:</b> {'Conectado' if bridge_status['BYBIT'] else 'Desconectado'}\n"
         f"{'✅' if bridge_status['ALPACA'] else '❌'} <b>Alpaca:</b> {'Conectado' if bridge_status['ALPACA'] else 'Desconectado'}\n\n"
         "<b>🎯 Grupos Habilitados:</b>\n"
-        f"{'✅' if crypto_enabled else '❌'} <b>Crypto:</b> {'Habilitado' if crypto_enabled else 'Deshabilitado'}\n"
-        f"{'✅' if bybit_enabled else '❌'} <b>Bybit:</b> {'Habilitado' if bybit_enabled else 'Deshabilitado'}\n"
-        f"{'✅' if stocks_enabled else '❌'} <b>Stocks:</b> {'Habilitado' if stocks_enabled else 'Deshabilitado'}\n"
-        f"{'✅' if etfs_enabled else '❌'} <b>ETFs:</b> {'Habilitado' if etfs_enabled else 'Deshabilitado'}\n\n"
+        f"{'✅' if crypto_enabled else '❌'} <b>💰 Crypto (Binance):</b> {'Habilitado' if crypto_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if bybit_enabled else '❌'} <b>💰 Crypto Bybit:</b> {'Habilitado' if bybit_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if stocks_enabled else '❌'} <b>📈 Stocks:</b> {'Habilitado' if stocks_enabled else 'Deshabilitado'}\n"
+        f"{'✅' if etfs_enabled else '❌'} <b>📊 ETFs:</b> {'Habilitado' if etfs_enabled else 'Deshabilitado'}\n\n"
         "<b>🚀 Exchanges Operativos:</b>\n"
         f"{'✅' if exchange_prefs.get('BINANCE', False) else '❌'} <b>Binance:</b> {'Listo para operar' if exchange_prefs.get('BINANCE', False) else 'No operativo'}\n"
         f"{'✅' if exchange_prefs.get('BYBIT', False) else '❌'} <b>Bybit:</b> {'Listo para operar' if exchange_prefs.get('BYBIT', False) else 'No operativo'}\n"
@@ -820,10 +820,10 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
         f"• BYBIT configurado: {configured_exchanges.get('BYBIT', False)}\n"
         f"• ALPACA configurado: {configured_exchanges.get('ALPACA', False)}\n\n"
         f"<b>⚙️ Grupos Habilitados:</b>\n"
-        f"• CRYPTO: {session.is_group_enabled('CRYPTO')}\n"
-        f"• BYBIT: {session.is_group_enabled('BYBIT')}\n"
-        f"• STOCKS: {session.is_group_enabled('STOCKS')}\n"
-        f"• ETFS: {session.is_group_enabled('ETFS')}\n\n"
+        f"• 💰 CRYPTO (Binance): {session.is_group_enabled('CRYPTO')}\n"
+        f"• 💰 CRYPTO Bybit: {session.is_group_enabled('BYBIT')}\n"
+        f"• 📈 STOCKS (Alpaca): {session.is_group_enabled('STOCKS')}\n"
+        f"• 📊 ETFS (Alpaca): {session.is_group_enabled('ETFS')}\n\n"
         f"<b>🔌 Bridge Status:</b>\n"
     )
 
@@ -859,5 +859,9 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
         debug_msg += "\n".join(issues)
     else:
         debug_msg += "• No se detectaron problemas evidentes"
+
+    # Add hierarchy explanation
+    debug_msg += "\n\n" + "="*50 + "\n"
+    debug_msg += session.explain_group_hierarchy()
 
     await message.answer(debug_msg, parse_mode="HTML")

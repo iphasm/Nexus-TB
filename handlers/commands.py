@@ -2116,9 +2116,9 @@ async def cmd_scanner(message: Message, **kwargs):
         "🔍 <b>NEXUS SCANNER</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "<b>Selecciona un exchange para analizar:</b>\n\n"
-        "🟡 <b>Binance</b> → Crypto Perpetuos (USDT)\n"
-        "🟣 <b>Bybit</b> → Crypto Perpetuos (V5)\n"
-        "🟢 <b>Alpaca</b> → Stocks &amp; ETFs\n\n"
+        "🟡 <b>Binance</b> → Crypto Futures (USDT)\n"
+        "🟣 <b>Bybit</b> → Crypto Futures (V5)\n"
+        "🟢 <b>Alpaca</b> → Stocks & ETFs\n\n"
         "🌐 <b>Global</b> → Todos los activos"
     )
     

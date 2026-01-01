@@ -7,6 +7,16 @@ import os
 # =================================================================
 # ASSET GROUPS - Define which exchanges handle which assets
 # =================================================================
+#
+# JERARQUÍA DE GRUPOS:
+# ├── CRYPTO: Assets de criptomonedas para BINANCE (exchange primario)
+# ├── BYBIT: Assets de criptomonedas específicos de BYBIT
+# │   └─ Nota: Tanto CRYPTO como BYBIT son grupos de CRIPTOMONEDAS
+# ├── STOCKS: Assets de acciones para ALPACA
+# └── ETFS: Assets de ETFs para ALPACA
+#
+# Los grupos CRYPTO y BYBIT son conceptualmente parte de la misma categoría
+# (criptomonedas) pero se separan por exchange para mayor control granular.
 
 ASSET_GROUPS = {
     'CRYPTO': [
@@ -24,7 +34,8 @@ ASSET_GROUPS = {
         'TAOUSDT'
     ],
     'BYBIT': [
-        # Bybit Perpetuals (cross-listed on Binance until Bybit fetcher is ready)
+        # Crypto Assets específicos de Bybit (V5 exchange)
+        # Nota: Este grupo es parte de la categoría CRYPTO pero específico de Bybit
         'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT',
         'FLOWUSDT', 'TAOUSDT', 'RENDERUSDT', '1000PEPEUSDT', 'DOGEUSDT'
         # Bybit-exclusive (disabled - need Bybit data fetcher):

@@ -683,6 +683,13 @@ class AsyncTradingSession:
         """
         Get user's exchange enable/disable preferences considering configuration.
 
+        JERARQUÍA DE GRUPOS:
+        ├── CRYPTO: Grupo principal de criptomonedas → BINANCE exchange
+        ├── BYBIT: Grupo específico de criptomonedas → BYBIT exchange
+        │   └─ Nota: Ambos grupos son conceptualmente "CRYPTO" pero separados por exchange
+        ├── STOCKS: Grupo de acciones → ALPACA exchange
+        └── ETFS: Grupo de ETFs → ALPACA exchange
+
         Maps asset groups to exchange availability based on:
         - Exchange is configured with API keys
         - Group enabled status
@@ -695,11 +702,12 @@ class AsyncTradingSession:
         configured_exchanges = self.get_configured_exchanges()
 
         # Map groups to exchanges
+        # Nota: CRYPTO y BYBIT son conceptualmente el mismo tipo (cripto) pero separados por exchange
         group_to_exchange = {
-            'CRYPTO': 'BINANCE',  # Primary crypto exchange
-            'BYBIT': 'BYBIT',     # Bybit-specific assets
-            'STOCKS': 'ALPACA',   # Stocks
-            'ETFS': 'ALPACA'      # ETFs
+            'CRYPTO': 'BINANCE',  # Primary crypto exchange (Binance)
+            'BYBIT': 'BYBIT',     # Secondary crypto exchange (Bybit)
+            'STOCKS': 'ALPACA',   # Stocks exchange
+            'ETFS': 'ALPACA'      # ETFs exchange
         }
 
         # Check each exchange
@@ -716,8 +724,35 @@ class AsyncTradingSession:
             preferences[exchange] = is_exchange_configured and is_group_enabled and is_adapter_connected
 
         return preferences
-        # Fallback to session config (legacy)
-        return self.config.get('groups', {}).get(group, True)
+
+    def explain_group_hierarchy(self) -> str:
+        """
+        Explain the asset group hierarchy for debugging and user education.
+
+        Returns:
+            str: Detailed explanation of group hierarchy
+        """
+        return """
+        📊 JERARQUÍA DE GRUPOS DE NEXUS TRADING BOT:
+
+        🎯 CATEGORÍAS PRINCIPALES:
+        ├── 💰 CRYPTO: Activos de Criptomonedas
+        │   ├── CRYPTO (Binance): Exchange primario para cripto
+        │   └── BYBIT (Bybit): Exchange secundario para cripto
+        ├── 📈 STOCKS: Activos de Acciones (Alpaca)
+        └── 📊 ETFS: Activos de ETFs (Alpaca)
+
+        🔄 RELACIONES:
+        • CRYPTO y BYBIT son conceptualmente el mismo tipo de activo (cripto)
+        • Se separan solo por exchange para control granular
+        • STOCKS y ETFS van siempre a ALPACA
+
+        🎮 CONFIGURACIÓN DEL USUARIO:
+        • Habilitar CRYPTO → Activa señales en BINANCE
+        • Habilitar BYBIT → Activa señales en BYBIT
+        • Ambos pueden estar activos simultáneamente
+        • STOCKS/ETFS requieren configuración de ALPACA
+        """
 
     def toggle_asset_blacklist(self, symbol: str) -> bool:
         """Toggle asset in blacklist. Returns True if now DISABLED (in list)."""

@@ -258,24 +258,30 @@ class NexusBridge:
                 return user_preferences[exchange]
             return True  # If no preferences specified, assume available
 
+        # CRYPTO EXCHANGE ROUTING LOGIC:
+        # Both CRYPTO and BYBIT groups contain cryptocurrency assets
+        # CRYPTO group → BINANCE exchange (primary)
+        # BYBIT group → BYBIT exchange (secondary/alternative)
+
         # 1. Priority routing for BYBIT-specific assets
+        # If symbol is in BYBIT group, prefer BYBIT exchange
         if symbol in ASSET_GROUPS.get('BYBIT', []):
             if is_exchange_available('BYBIT'):
                 return 'BYBIT'
-            # Fallback: if user has BYBIT disabled but symbol is in BYBIT group,
-            # still try BINANCE if available (for cross-listed symbols)
+            # Fallback: if BYBIT not available but symbol is cross-listed on BINANCE
             if is_exchange_available('BINANCE'):
                 return 'BINANCE'
 
         # 2. Enhanced crypto routing with user preferences
+        # For symbols in CRYPTO group (primarily BINANCE assets)
         if symbol in ASSET_GROUPS.get('CRYPTO', []):
             # Check user preferences for crypto exchanges
             preferred_crypto_exchange = None
 
-            # If user has BYBIT enabled and symbol is available there, prefer BYBIT
+            # If user has BYBIT enabled and symbol is also available there, prefer BYBIT
             if is_exchange_available('BYBIT') and symbol in ASSET_GROUPS.get('BYBIT', []):
                 preferred_crypto_exchange = 'BYBIT'
-            # Otherwise, use BINANCE if available
+            # Otherwise, use BINANCE if available (primary for CRYPTO group)
             elif is_exchange_available('BINANCE'):
                 preferred_crypto_exchange = 'BINANCE'
             # Fallback to BYBIT if BINANCE not available
