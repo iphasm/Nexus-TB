@@ -529,24 +529,24 @@ class AsyncTradingSession:
         # 6. Check Available Margin (Smart Sizing)
         # Fetch real-time available balance from ShadowWallet
         try:
-             # Wait for wallet details (async call not allowed here if sync, but this method is sync?)
-             # Wait, calculate_dynamic_size is NOT async in definition but get_wallet_details IS async.
-             # We should make calculate_dynamic_size async or use synchronous shadow wallet access.
-             # ShadowWallet access is synchronous (dict lookup).
-             
+            # Wait for wallet details (async call not allowed here if sync, but this method is sync?)
+            # Wait, calculate_dynamic_size is NOT async in definition but get_wallet_details IS async.
+            # We should make calculate_dynamic_size async or use synchronous shadow wallet access.
+            # ShadowWallet access is synchronous (dict lookup).
+
             # Direct ShadowWallet Access for speed (exchange-specific)
             exchange_bal = self.shadow_wallet.balances.get(exchange, {})
             available = exchange_bal.get('available', 0.0)
-             
-             # Buffer: Leave 5% margin free
-             usable_margin = available * 0.95
-             
-             if usable_margin > 0:
-                 max_affordable_qty = (usable_margin * leverage) / price
-                 
-                 if raw_qty > max_affordable_qty:
-                     print(f"⚠️ Sizing Reduced: Margin {usable_margin:.2f} limits qty to {max_affordable_qty:.4f}")
-                     raw_qty = max_affordable_qty
+
+            # Buffer: Leave 5% margin free
+            usable_margin = available * 0.95
+
+            if usable_margin > 0:
+                max_affordable_qty = (usable_margin * leverage) / price
+
+                if raw_qty > max_affordable_qty:
+                    print(f"⚠️ Sizing Reduced: Margin {usable_margin:.2f} limits qty to {max_affordable_qty:.4f}")
+                    raw_qty = max_affordable_qty
         except Exception:
              pass # Fallback to equity-based calculation
         
