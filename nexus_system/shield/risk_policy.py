@@ -84,6 +84,7 @@ class RiskPolicy:
     - Evaluar intención vs estado de cartera
     - Aplicar límites por símbolo/cluster/exchange/dirección
     - Ajustar tamaño dinámicamente basado en correlación/drawdown/volatilidad
+    - Aplicar risk-scaling dinámico por confianza + régimen de mercado
     - Proporcionar decisiones de riesgo unificadas
     """
 
@@ -105,9 +106,14 @@ class RiskPolicy:
             0.20: 0.2     # 20% DD: 20% size
         }
 
-    def evaluate(self, intent: StrategyIntent, portfolio: PortfolioState) -> RiskDecision:
+        # Risk Scaler para ajuste dinámico
+        from nexus_system.core.risk_scaler import RiskScaler
+        self.risk_scaler = RiskScaler()
+
+    def evaluate(self, intent: StrategyIntent, portfolio: PortfolioState, market_data: Optional[Dict[str, Any]] = None) -> RiskDecision:
         """
         Evalúa intención de trade vs estado de cartera.
+        Aplica risk-scaling dinámico por confianza + régimen.
         Retorna decisión con ajustes dinámicos de tamaño.
         """
         # 0) Hard stops globales
@@ -150,25 +156,44 @@ class RiskPolicy:
             if not ok:
                 return self._deny(msg)
 
-        # 7) Calcular parámetros base con ajustes dinámicos
+        # 7) Aplicar RISK SCALING DINÁMICO
+        risk_multipliers = self.risk_scaler.calculate_risk_multipliers(
+            confidence=intent.confidence,
+            strategy=intent.strategy_key,
+            market_data=market_data
+        )
+
+        # Calcular parámetros base con risk scaling
         base_leverage = min(self.config.get('leverage', 5), self.config.get('max_leverage_allowed', 5))
         base_size_pct = min(self.config.get('max_capital_pct', 0.10), self.config.get('max_capital_pct_allowed', 0.10))
 
-        # Aplicar ajustes dinámicos
-        adjusted_size_pct = self._apply_dynamic_adjustments(base_size_pct, intent, portfolio)
+        # Aplicar multiplicadores de risk scaling
+        scaled_leverage = base_leverage * risk_multipliers.leverage_multiplier
+        scaled_size_pct = base_size_pct * risk_multipliers.size_multiplier
 
-        # 8) SL/TP calculation (usando ATR si disponible)
-        sl_price, tp_price = self._compute_sl_tp(intent, self.config)
+        # Aplicar ajustes dinámicos adicionales (drawdown, etc.)
+        final_size_pct = self._apply_dynamic_adjustments(scaled_size_pct, intent, portfolio)
+
+        # 8) SL/TP calculation (usando ATR si disponible, con scaling)
+        sl_price, tp_price = self._compute_sl_tp(intent, self.config, risk_multipliers)
+
+        # 9) Preparar explicación del scaling aplicado
+        scaling_explanation = self.risk_scaler.get_scaling_explanation(
+            intent.confidence, intent.strategy_key, market_data
+        )
 
         return RiskDecision(
             allow=True,
-            reason="Aprobado",
+            reason=f"Aprobado\n{scaling_explanation}",
             target_exchange=target_exchange,
-            leverage=base_leverage,
-            size_pct=adjusted_size_pct,
+            leverage=min(scaled_leverage, self.config.get('max_leverage_allowed', 20)),  # Hard cap
+            size_pct=min(final_size_pct, self.config.get('max_capital_pct_allowed', 0.25)),  # Hard cap
             sl_price=sl_price,
             tp_price=tp_price,
-            adjustments={}
+            adjustments={
+                'risk_multipliers': risk_multipliers,
+                'scaling_explanation': scaling_explanation
+            }
         )
 
     def _deny(self, reason: str) -> RiskDecision:
@@ -251,16 +276,24 @@ class RiskPolicy:
 
         return min(adjusted, base_size_pct)  # Nunca aumentar sobre base
 
-    def _compute_sl_tp(self, intent: StrategyIntent, config: Dict[str, Any]) -> Tuple[float | None, float | None]:
+    def _compute_sl_tp(self, intent: StrategyIntent, config: Dict[str, Any], risk_multipliers: Optional[RiskMultipliers] = None) -> Tuple[float | None, float | None]:
         """Calcula precios de SL/TP usando ATR o porcentajes"""
         if not intent.price > 0:
             return None, None
 
+        # Aplicar risk multipliers si disponibles
+        sl_mult = risk_multipliers.stop_loss_multiplier if risk_multipliers else 1.0
+        tp_mult = risk_multipliers.take_profit_multiplier if risk_multipliers else 1.0
+
         # Usar ATR si disponible
         if intent.atr and intent.atr > 0:
             mult = config.get('atr_multiplier', 2.0)
-            sl_dist = mult * intent.atr
-            tp_dist = mult * config.get('tp_ratio', 2.0) * intent.atr
+            base_sl_dist = mult * intent.atr
+            base_tp_dist = mult * config.get('tp_ratio', 2.0) * intent.atr
+
+            # Aplicar scaling
+            sl_dist = base_sl_dist * sl_mult
+            tp_dist = base_tp_dist * tp_mult
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price - sl_dist
@@ -275,12 +308,16 @@ class RiskPolicy:
             stop_pct = config.get('stop_loss_pct', 0.02)
             tp_ratio = config.get('tp_ratio', 1.5)
 
+            # Aplicar scaling: SL más ajustado si confianza alta, TP más agresivo
+            scaled_stop_pct = stop_pct / sl_mult  # SL más ajustado = menor distancia
+            scaled_tp_ratio = tp_ratio * tp_mult  # TP más agresivo = mayor distancia
+
             if intent.action == "OPEN_LONG":
-                sl_price = intent.price * (1 - stop_pct)
-                tp_price = intent.price * (1 + (stop_pct * tp_ratio))
+                sl_price = intent.price * (1 - scaled_stop_pct)
+                tp_price = intent.price * (1 + (scaled_stop_pct * scaled_tp_ratio))
             elif intent.action == "OPEN_SHORT":
-                sl_price = intent.price * (1 + stop_pct)
-                tp_price = intent.price * (1 - (stop_pct * tp_ratio))
+                sl_price = intent.price * (1 + scaled_stop_pct)
+                tp_price = intent.price * (1 - (scaled_stop_pct * scaled_tp_ratio))
             else:
                 return None, None
 

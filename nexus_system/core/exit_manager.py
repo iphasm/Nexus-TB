@@ -2,10 +2,13 @@
 Exit Manager - Sistema Avanzado de Salidas (Fase 3)
 Implementa TP parciales, trailing stops, breakeven real y time-stops.
 """
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 import time
+
+if TYPE_CHECKING:
+    from nexus_system.shield.risk_policy import RiskMultipliers
 
 
 class ExitType(Enum):
@@ -54,7 +57,7 @@ class ExitManager:
         self.active_exit_plans: Dict[str, ExitPlan] = {}  # symbol -> ExitPlan
 
     def create_exit_plan(self, symbol: str, side: str, entry_price: float,
-                        quantity: float, atr: float = None) -> ExitPlan:
+                        quantity: float, atr: float = None, risk_multipliers: Optional['RiskMultipliers'] = None) -> ExitPlan:
         """
         Crea un plan de salidas inteligente basado en la entrada
         """
@@ -62,7 +65,7 @@ class ExitManager:
         entry_time = time.time()
 
         # 1. TP Parciales (escalonados)
-        partial_tp_rules = self._create_partial_tp_rules(side, entry_price, atr)
+        partial_tp_rules = self._create_partial_tp_rules(side, entry_price, atr, risk_multipliers)
         exit_rules.extend(partial_tp_rules)
 
         # 2. Trailing Stop (activado después del primer TP parcial)
@@ -86,73 +89,87 @@ class ExitManager:
         self.active_exit_plans[symbol] = plan
         return plan
 
-    def _create_partial_tp_rules(self, side: str, entry_price: float, atr: float = None) -> List[ExitRule]:
-        """Crea reglas de TP parciales escalonados"""
+    def _create_partial_tp_rules(self, side: str, entry_price: float, atr: float = None, risk_multipliers: Optional['RiskMultipliers'] = None) -> List[ExitRule]:
+        """Crea reglas de TP parciales escalonados con risk scaling"""
         rules = []
+
+        # Aplicar risk scaling a los cálculos de TP
+        scaling_multiplier = risk_multipliers.take_profit_multiplier if risk_multipliers else 1.0
 
         # Estrategia de TP: 50% en 1:1, 25% en 2:1, resto trailing
         if atr and atr > 0:
             # Usar ATR para cálculos dinámicos
+            base_tp1_distance = 2 * atr
+            base_tp2_distance = 4 * atr
+
+            # Aplicar scaling
+            tp1_distance = base_tp1_distance * scaling_multiplier
+            tp2_distance = base_tp2_distance * scaling_multiplier
+
             if side == 'LONG':
-                # TP1: 1:1 ratio (entry + 2*ATR)
-                tp1_price = entry_price + (2 * atr)
+                # TP1: 1:1 ratio (entry + tp1_distance)
+                tp1_price = entry_price + tp1_distance
                 rules.append(ExitRule(
                     type=ExitType.PARTIAL_TP,
                     trigger_price=tp1_price,
                     quantity_pct=0.5,
-                    description="TP Parcial 1:1 (50% posición)"
+                    description=f"TP Parcial 1:1 (50% posición, scaling: {scaling_multiplier:.1f}x)"
                 ))
 
-                # TP2: 2:1 ratio (entry + 4*ATR)
-                tp2_price = entry_price + (4 * atr)
+                # TP2: 2:1 ratio (entry + tp2_distance)
+                tp2_price = entry_price + tp2_distance
                 rules.append(ExitRule(
                     type=ExitType.PARTIAL_TP,
                     trigger_price=tp2_price,
                     quantity_pct=0.25,
-                    description="TP Parcial 2:1 (25% posición)"
+                    description=f"TP Parcial 2:1 (25% posición, scaling: {scaling_multiplier:.1f}x)"
                 ))
             else:  # SHORT
-                # TP1: 1:1 ratio (entry - 2*ATR)
-                tp1_price = entry_price - (2 * atr)
+                # TP1: 1:1 ratio (entry - tp1_distance)
+                tp1_price = entry_price - tp1_distance
                 rules.append(ExitRule(
                     type=ExitType.PARTIAL_TP,
                     trigger_price=tp1_price,
                     quantity_pct=0.5,
-                    description="TP Parcial 1:1 (50% posición)"
+                    description=f"TP Parcial 1:1 (50% posición, scaling: {scaling_multiplier:.1f}x)"
                 ))
 
-                # TP2: 2:1 ratio (entry - 4*ATR)
-                tp2_price = entry_price - (4 * atr)
+                # TP2: 2:1 ratio (entry - tp2_distance)
+                tp2_price = entry_price - tp2_distance
                 rules.append(ExitRule(
                     type=ExitType.PARTIAL_TP,
                     trigger_price=tp2_price,
                     quantity_pct=0.25,
-                    description="TP Parcial 2:1 (25% posición)"
+                    description=f"TP Parcial 2:1 (25% posición, scaling: {scaling_multiplier:.1f}x)"
                 ))
         else:
             # Fallback a porcentajes fijos
             tp_ratio = self.config.get('tp_ratio', 1.5)
             stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
 
+            # Aplicar scaling a los porcentajes
+            scaled_tp_ratio = tp_ratio * scaling_multiplier
+            scaled_stop_loss_pct = stop_loss_pct / scaling_multiplier  # SL más ajustado si TP más agresivo
+
             if side == 'LONG':
-                tp1_price = entry_price * (1 + stop_loss_pct)
-                tp2_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
+                tp1_price = entry_price * (1 + scaled_stop_loss_pct)
+                tp2_price = entry_price * (1 + (scaled_stop_loss_pct * scaled_tp_ratio))
             else:
-                tp1_price = entry_price * (1 - stop_loss_pct)
-                tp2_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
+                tp1_price = entry_price * (1 - scaled_stop_loss_pct)
+                tp2_price = entry_price * (1 - (scaled_stop_loss_pct * scaled_tp_ratio))
 
             rules.append(ExitRule(
                 type=ExitType.PARTIAL_TP,
                 trigger_price=tp1_price,
                 quantity_pct=0.5,
-                description="TP Parcial 1:1 (50% posición)"
+                description=f"TP Parcial 1:1 (50% posición, scaling: {scaling_multiplier:.1f}x)"
             ))
 
             rules.append(ExitRule(
                 type=ExitType.PARTIAL_TP,
                 trigger_price=tp2_price,
                 quantity_pct=0.25,
-                description="TP Parcial 2:1 (25% posición)"
+                description=f"TP Parcial 2:1 (25% posición, scaling: {scaling_multiplier:.1f}x)"
             ))
 
         return rules

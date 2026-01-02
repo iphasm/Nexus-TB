@@ -1557,8 +1557,16 @@ class AsyncTradingSession:
             # Construir PortfolioState
             portfolio = await build_portfolio_state(self, self.shadow_wallet)
 
-            # Evaluar con RiskPolicy
-            decision = self.risk_policy.evaluate(intent, portfolio)
+            # Obtener datos de mercado para risk scaling
+            market_data = None
+            if self.bridge:
+                try:
+                    market_data = await self.bridge.get_market_data(symbol, timeframe='15m', limit=50)
+                except:
+                    pass  # Fallback sin market data
+
+            # Evaluar con RiskPolicy (incluyendo risk scaling)
+            decision = self.risk_policy.evaluate(intent, portfolio, market_data)
 
             if not decision.allow:
                 return False, {}, decision.reason
@@ -1803,13 +1811,14 @@ class AsyncTradingSession:
                 metadata=metadata
             )
 
-            # Create Advanced Exit Plan (Fase 3)
+            # Create Advanced Exit Plan (Fase 3) con Risk Scaling
             exit_plan = self.exit_manager.create_exit_plan(
                 symbol=symbol,
                 side='LONG',
                 entry_price=entry_price,
                 quantity=quantity,
-                atr=atr
+                atr=atr,
+                risk_multipliers=decision_data.get('risk_multipliers')
             )
             print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
@@ -2141,13 +2150,14 @@ class AsyncTradingSession:
                 metadata=metadata
             )
 
-            # Create Advanced Exit Plan (Fase 3)
+            # Create Advanced Exit Plan (Fase 3) con Risk Scaling
             exit_plan = self.exit_manager.create_exit_plan(
                 symbol=symbol,
                 side='SHORT',
                 entry_price=entry_price,
                 quantity=quantity,
-                atr=atr
+                atr=atr,
+                risk_multipliers=decision_data.get('risk_multipliers')
             )
             print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
