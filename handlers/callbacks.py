@@ -1107,28 +1107,28 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     thematic_categories = ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA', 'BYBIT_EXCLUSIVE']
     if filter_param in thematic_categories:
         await safe_answer(callback, f"🎯 Escaneando categoría {filter_param}...")
-    
-    try:
-        # Update message to show scanning
-        category_display = {
-            'MAJOR_CAPS': 'Major Caps',
-            'MEME_COINS': 'Meme Coins',
-            'DEFI': 'DeFi',
-            'AI_TECH': 'AI & Tech',
-            'GAMING_METAVERSE': 'Gaming & Metaverse',
-            'LAYER1_INFRA': 'Layer 1 & Infra',
-            'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
-        }
 
-        msg = await callback.message.edit_text(
-                f"🎯 <b>Escaneando {category_display.get(filter_param, filter_param)}...</b>\n\n"
-                "Esto puede tomar unos momentos.",
-                parse_mode="HTML"
-            )
+        try:
+            # Update message to show scanning
+            category_display = {
+                'MAJOR_CAPS': 'Major Caps',
+                'MEME_COINS': 'Meme Coins',
+                'DEFI': 'DeFi',
+                'AI_TECH': 'AI & Tech',
+                'GAMING_METAVERSE': 'Gaming & Metaverse',
+                'LAYER1_INFRA': 'Layer 1 & Infra',
+                'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
+            }
 
-        # Import and execute scanner with category filter
-        from handlers.commands import execute_scanner
-        await execute_scanner(msg, exchange_filter=f"CATEGORY_{filter_param}")
+            msg = await callback.message.edit_text(
+                    f"🎯 <b>Escaneando {category_display.get(filter_param, filter_param)}...</b>\n\n"
+                    "Esto puede tomar unos momentos.",
+                    parse_mode="HTML"
+                )
+
+            # Import and execute scanner with category filter
+            from handlers.commands import execute_scanner
+            await execute_scanner(msg, exchange_filter=f"CATEGORY_{filter_param}")
 
         except Exception as e:
             err_clean = str(e).replace('<', '').replace('>', '')
