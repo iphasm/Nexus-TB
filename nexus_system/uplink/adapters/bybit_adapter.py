@@ -442,47 +442,50 @@ class BybitAdapter(IExchangeAdapter):
             return {'success': False, 'cancelled': 0, 'message': str(e)}
 
     async def set_trading_stop(
-        self, 
-        symbol: str, 
+        self,
+        symbol: str,
         take_profit: Optional[float] = None,
         stop_loss: Optional[float] = None,
-        trailing_stop: Optional[float] = None
+        trailing_stop: Optional[float] = None,
+        active_price: Optional[float] = None  # Para trailing stop
     ) -> Dict[str, Any]:
         """
         Set or cancel TP/SL for a position using Bybit's trading-stop endpoint.
-        
+
         To CANCEL: pass 0 as the value (e.g., stop_loss=0 cancels SL)
         To SET: pass the price value
-        
+
         This is superior to Binance where TP/SL are separate conditional orders.
         """
         if not self._exchange:
             return {'success': False, 'message': 'Not initialized'}
-            
+
         try:
             formatted = self._format_symbol(symbol)
-            
+
             params = {
                 'category': 'linear',
                 'symbol': formatted.replace('/', '').replace(':USDT', ''),
                 'positionIdx': 0  # One-Way Mode
             }
-            
+
             if take_profit is not None:
                 params['takeProfit'] = str(take_profit)
             if stop_loss is not None:
                 params['stopLoss'] = str(stop_loss)
             if trailing_stop is not None:
                 params['trailingStop'] = str(trailing_stop)
-            
+            if active_price is not None:
+                params['activePrice'] = str(active_price)  # Para activar trailing
+
             # Use private API endpoint directly
             result = await self._exchange.private_post_v5_position_trading_stop(params)
-            
+
             action = "set" if (take_profit or stop_loss or trailing_stop) else "cancelled"
             print(f"✅ BybitAdapter: Trading stop {action} for {symbol}")
-            
+
             return {'success': True, 'message': f'Trading stop {action}', 'result': result}
-            
+
         except Exception as e:
             print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
             return {'success': False, 'message': str(e)}
@@ -537,40 +540,40 @@ class BybitAdapter(IExchangeAdapter):
     ) -> Dict[str, Any]:
         """
         Place a native server-side trailing stop order.
-        
+
         Args:
             symbol: Trading pair
             side: 'BUY' or 'SELL' (to close position)
             quantity: Order quantity
-            callback_rate: Trailing percentage (e.g., 1.0 for 1%)
+            callback_rate: Trailing DISTANCE (not percentage) - e.g., 0.01 for $0.01 distance
             activation_price: Price at which trailing activates
         """
         if not self._exchange:
             return {'success': False, 'message': 'Not initialized'}
-            
+
         try:
             formatted = self._format_symbol(symbol)
-            
+
             params = {
                 'positionIdx': 0,
                 'reduceOnly': True,
-                'trailingStop': str(callback_rate)
+                'trailingStop': str(callback_rate)  # DISTANCIA, no porcentaje
             }
-            
+
             if activation_price:
-                params['activePrice'] = activation_price
-            
+                params['activePrice'] = str(activation_price)
+
             result = await self._exchange.create_order(
                 formatted, 'trailing_stop_market', side.lower(), quantity, None, params
             )
-            
-            print(f"✅ BybitAdapter: Trailing stop placed for {symbol} @ {callback_rate}%")
+
+            print(f"✅ BybitAdapter: Trailing stop placed for {symbol} @ distance {callback_rate}")
             return {
                 'success': True,
                 'orderId': result.get('id'),
-                'message': f'Trailing stop @ {callback_rate}%'
+                'message': f'Trailing stop @ distance {callback_rate}'
             }
-            
+
         except Exception as e:
             print(f"⚠️ BybitAdapter: place_trailing_stop error: {e}")
             return {'success': False, 'message': str(e)}

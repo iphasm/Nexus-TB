@@ -381,8 +381,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             user_name = get_user_name(session.chat_id)
 
             # --- FILTER: Sufficient Balance? ---
-            # Check liquidity before sending signals
-            has_liquidity, available_balance, liquidity_msg = await session.check_liquidity(symbol)
+            # Check liquidity on the SAME exchange we already routed to (critical in multi-exchange mode)
+            has_liquidity, available_balance, liquidity_msg = await session.check_liquidity(symbol, exchange=target_exchange)
 
             # If insufficient balance, force WATCHER mode behavior regardless of actual mode
             force_watcher_mode = not has_liquidity
@@ -518,10 +518,11 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     pass  # If check fails, proceed with trade attempt
 
                 # Auto-execute (no "entering pilot mode" message)
+                # Force execution on the already-determined target_exchange to avoid re-routing
                 if side == 'LONG':
-                    success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy)
+                    success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
                 else:
-                    success, result = await session.execute_short_position(symbol, atr=atr, strategy=strategy)
+                    success, result = await session.execute_short_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
                 
                 if success:
                     # Build enhanced AUTOPILOT message

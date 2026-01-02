@@ -357,31 +357,58 @@ class BinanceAdapter(IExchangeAdapter):
                     symbol, 'limit', side.lower(), quantity, price, params
                 )
             else:
-                # For conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, etc.)
+                # For conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET, etc.)
                 # CCXT requires specific handling for conditional orders
-                
+
+                # Special handling for TRAILING_STOP_MARKET
+                if order_type.upper() == 'TRAILING_STOP_MARKET':
+                    # TRAILING STOP no usa stopPrice - usa callbackRate y activationPrice
+                    callbackRate = params.pop('callbackRate', None)
+                    activationPrice = params.pop('activationPrice', None)
+
+                    if callbackRate is None:
+                        return {'error': 'callbackRate requerido para TRAILING_STOP_MARKET (Binance)'}
+
+                    # CCXT: type esperado "trailing_stop_market"
+                    ccxt_order_type = 'trailing_stop_market'
+
+                    # params deben incluir callbackRate / activationPrice
+                    params['callbackRate'] = callbackRate
+                    if activationPrice:
+                        params['activationPrice'] = activationPrice
+
+                    # Ensure reduceOnly is in params
+                    if 'reduceOnly' not in params and kwargs.get('reduceOnly'):
+                        params['reduceOnly'] = kwargs.pop('reduceOnly')
+
+                    result = await self._exchange.create_order(
+                        symbol, ccxt_order_type, side.lower(), quantity, None, params
+                    )
+                    return self._normalize_result(result)
+
+                # Regular conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
                 # Extract stopPrice from params if passed, otherwise use price arg
                 stop_price = params.pop('stopPrice', None) or price
-                
+
                 if not stop_price:
                     return {'error': 'stopPrice is required for conditional orders'}
-                
+
                 # For MARKET conditional orders, limit_price must be None
                 # For LIMIT conditional orders, limit_price is the execution price
                 limit_price = None
                 if 'MARKET' not in order_type.upper():
                     # STOP_LIMIT or TAKE_PROFIT_LIMIT - use price as limit execution price
                     limit_price = params.pop('price', stop_price)  # Default to stop_price if not provided
-                
+
                 # Map order types to CCXT format
                 # CCXT uses lowercase with underscores: stop_market, take_profit_market
                 # Convert STOP_MARKET -> stop_market, TAKE_PROFIT_MARKET -> take_profit_market
                 ccxt_order_type = order_type.lower()
-                
+
                 # Ensure reduceOnly is in params (not as kwarg)
                 if 'reduceOnly' not in params and kwargs.get('reduceOnly'):
                     params['reduceOnly'] = kwargs.pop('reduceOnly')
-                
+
                 # Set stopPrice in params (required by Binance)
                 params['stopPrice'] = stop_price
                 

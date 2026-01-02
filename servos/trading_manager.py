@@ -831,7 +831,7 @@ class AsyncTradingSession:
     
     # --- HELPER METHODS ---
     
-    async def get_symbol_precision(self, symbol: str) -> Tuple[int, int, float, float]:
+    async def get_symbol_precision(self, symbol: str, exchange: Optional[str] = None) -> Tuple[int, int, float, float]:
         """
         Returns (quantityPrecision, pricePrecision, minNotional, tickSize)
         tickSize es el tamaño de tick real de Binance para redondeo correcto.
@@ -843,7 +843,7 @@ class AsyncTradingSession:
             return default_q, default_p, default_n, default_tick
         
         try:
-            info = await self.bridge.get_symbol_info(symbol)
+            info = await self.bridge.get_symbol_info(symbol, exchange=exchange)
             if info:
                 q = info.get('quantity_precision', default_q)
                 p = info.get('price_precision', default_p)
@@ -1148,7 +1148,7 @@ class AsyncTradingSession:
             
         return "\n".join(report) if report else "All positions synced."
 
-    async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
+    async def _cancel_all_robust(self, symbol: str, verify: bool = True, exchange: Optional[str] = None) -> bool:
         """
         Cancela todas las órdenes abiertas (estándar + condicionales) de forma robusta.
         
@@ -1169,7 +1169,7 @@ class AsyncTradingSession:
             
         try:
             # 1. Obtener todas las órdenes abiertas vía bridge
-            all_orders = await self.bridge.get_open_orders(symbol)
+            all_orders = await self.bridge.get_open_orders(symbol, exchange=exchange)
             
             if not all_orders:
                 # Limpiar tracking dict
@@ -1182,7 +1182,7 @@ class AsyncTradingSession:
             
             # 2. Cancelar todas las órdenes vía bridge
             # BinanceAdapter ahora cancela órdenes condicionales individualmente
-            success = await self.bridge.cancel_orders(symbol)
+            success = await self.bridge.cancel_orders(symbol, exchange=exchange)
             
             if not success:
                 self.logger.warning(f"⚠️ {symbol}: Cancel command failed", group=False)
@@ -1197,7 +1197,7 @@ class AsyncTradingSession:
                 # Binance puede tardar hasta 1 segundo en actualizar el estado
                 for attempt in range(3):
                     await asyncio.sleep(0.5 + (attempt * 0.3))  # 0.5s, 0.8s, 1.1s
-                    remaining = await self.bridge.get_open_orders(symbol)
+                    remaining = await self.bridge.get_open_orders(symbol, exchange=exchange)
                     if not remaining:
                         self.logger.info(f"✅ {symbol}: All orders cancelled and verified", group=False)
                         return True
@@ -1205,10 +1205,10 @@ class AsyncTradingSession:
                     # Si aún quedan órdenes, intentar cancelar nuevamente
                     if attempt < 2:
                         self.logger.warning(f"🔄 {symbol}: {len(remaining)} orders still remain, retrying cancellation...", group=False)
-                        await self.bridge.cancel_orders(symbol)
+                        await self.bridge.cancel_orders(symbol, exchange=exchange)
                 
                 # Si después de 3 intentos aún quedan órdenes
-                remaining = await self.bridge.get_open_orders(symbol)
+                remaining = await self.bridge.get_open_orders(symbol, exchange=exchange)
                 if remaining:
                     self.logger.warning(f"⚠️ {symbol}: {len(remaining)} orders still remain after {3} attempts", group=False)
                     for order in remaining:
@@ -1307,7 +1307,8 @@ class AsyncTradingSession:
         min_notional: float, 
         qty_precision: int, 
         entry_price: float = 0.0, 
-        current_price: float = 0.0
+        current_price: float = 0.0,
+        exchange: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
         Sincronización quirúrgica de SL/TP (V2 - Anti-Spam).
@@ -1347,8 +1348,8 @@ class AsyncTradingSession:
             # Validación: Current price debe ser válido
             if current_price <= 0:
                 current_price = entry_price
-            # 1. Fetch existing orders via bridge
-            orders = await self.bridge.get_open_orders(symbol)
+            # 1. Fetch existing orders via bridge (exchange-aware)
+            orders = await self.bridge.get_open_orders(symbol, exchange=exchange)
             
             existing_sl = None
             existing_tp_count = 0
@@ -1375,7 +1376,7 @@ class AsyncTradingSession:
                 # Retry loop for cancellation
                 cleared = False
                 for _ in range(2):
-                    cleared = await self._cancel_all_robust(symbol, verify=True)
+                    cleared = await self._cancel_all_robust(symbol, verify=True, exchange=exchange)
                     if cleared:
                         break
                     await asyncio.sleep(0.5)
@@ -1406,8 +1407,9 @@ class AsyncTradingSession:
             if sl_price > 0 and valid_sl:
                 result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='STOP_MARKET',
-                    quantity=abs_qty, price=sl_price
-                    # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
+                    quantity=abs_qty, price=sl_price,
+                    reduceOnly=True,
+                    exchange=exchange
                 )
                 if result.get('error'):
                     error_code = result.get('code')
@@ -1446,8 +1448,9 @@ class AsyncTradingSession:
                 if valid_tp and tp_price > 0:
                     tp1_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
-                        quantity=qty_tp1, price=tp_price
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
+                        quantity=qty_tp1, price=tp_price,
+                        reduceOnly=True,
+                        exchange=exchange
                     )
                     if tp1_result.get('error'):
                         self.logger.warning(f"TP1 order failed for {symbol}: {tp1_result['error']}")
@@ -1457,10 +1460,13 @@ class AsyncTradingSession:
                 # Trailing for rest - Validar que activation es válido
                 activation = tp_price if tp_price > 0 else entry_price  # Activate at TP1 o entry
                 if activation > 0:
+                    trailing_pct = float(self.config.get('trailing_callback_rate', 1.0))
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, price=activation, callbackRate=1.0
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
+                        quantity=qty_trail, price=activation,
+                        callbackRate=trailing_pct,
+                        reduceOnly=True,
+                        exchange=exchange
                     )
                     if trail_result.get('error'):
                         self.logger.warning(f"Trailing stop failed for {symbol}: {trail_result['error']}")
@@ -1473,10 +1479,13 @@ class AsyncTradingSession:
                 # (e.g. SHORT Entry 100, Current 90. Activation cannot be 100 for BUY Trailing)
                 activation = tp_price if tp_price > 0 else entry_price
                 if activation > 0:
+                    trailing_pct = float(self.config.get('trailing_callback_rate', 1.0))
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=abs_qty, price=activation, callbackRate=1.0
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
+                        quantity=abs_qty, price=activation,
+                        callbackRate=trailing_pct,
+                        reduceOnly=True,
+                        exchange=exchange
                     )
                     if trail_result.get('error'):
                         self.logger.warning(f"Trailing stop failed for {symbol}: {trail_result['error']}")
@@ -1490,25 +1499,30 @@ class AsyncTradingSession:
             return False, f"Sync Error: {e}"
 
 
-    async def check_liquidity(self, symbol: str) -> Tuple[bool, float, str]:
+    async def check_liquidity(self, symbol: str, exchange: Optional[str] = None) -> Tuple[bool, float, str]:
         """
         Check if we have enough 'dry powder' to open a new position.
         Returns: (is_sufficient, available_balance, message)
         Note: Threshold is very low ($1) to avoid blocking trades unnecessarily.
         """
-        # 1. Get Min Notional (Minimum trade size allowed by exchange)
-        qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+        # 1. Determine target exchange
+        is_crypto_symbol = 'USDT' in symbol
+        user_exchange_prefs = self.get_exchange_preferences()
+        target_exchange = (
+            exchange.upper()
+            if exchange
+            else (self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto_symbol else 'ALPACA'))
+        )
+
+        # 2. Get Min Notional (Minimum trade size allowed by exchange)
+        qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
         
         # 2. Get Available Balance (Unified via ShadowWallet/Bridge)
         # Note: We need 'available' balance, not total equity
         if not self.shadow_wallet:
              return False, 0.0, "Wallet not initialized"
              
-        # Determine target exchange using user preferences and NexusBridge routing
-        user_exchange_prefs = self.get_exchange_preferences()
-        target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
-
-        # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
+        # 3. Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
@@ -1520,35 +1534,8 @@ class AsyncTradingSession:
                     fresh_balance = {'available': cached_balance}
                     self.shadow_wallet.update_balance(target_exchange, fresh_balance)
 
-        # Fetch balance from the CORRECT exchange (now fresh)
-        raw_balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
-
-        # 2.5. Calculate available capital considering open positions margin requirements
-        available_capital = raw_balance
-
-        # For margin-based exchanges (Bybit), subtract margin used by open positions
-        if target_exchange == 'BYBIT':
-            try:
-                # Get all positions for this exchange
-                positions = self.shadow_wallet.positions.get(target_exchange, [])
-
-                # Calculate total margin used by open positions
-                total_margin_used = 0.0
-                for pos in positions:
-                    if pos.get('quantity', 0) != 0:  # Position is open
-                        # For futures, margin is typically position size / leverage
-                        # This is a simplified calculation - in production you'd get actual margin from API
-                        position_value = abs(pos.get('quantity', 0)) * pos.get('entry_price', 0)
-                        # Assume 10x leverage as default, so margin = position_value / 10
-                        margin_required = position_value / 10.0
-                        total_margin_used += margin_required
-
-                available_capital = max(0, raw_balance - total_margin_used)
-            except Exception as e:
-                available_capital = raw_balance  # Fallback to raw balance
-
-        # Use calculated available capital for the check
-        balance = available_capital
+        # 4. Use exchange-reported available balance (already accounts for used margin on futures)
+        balance = float(self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0) or 0)
 
         # 3. Define Threshold (Much more relaxed - only check if we have at least $1)
         threshold = 1.0  # Very low threshold to avoid blocking trades unnecessarily
@@ -1561,6 +1548,54 @@ class AsyncTradingSession:
              self.logger.debug(f"✅ Liquidity OK: {symbol} -> {target_exchange} (${balance:.2f} available capital >= ${threshold:.2f})")
 
         return True, balance, "OK"
+
+    async def apply_and_verify_protection(
+        self,
+        symbol: str,
+        exchange: str,
+        side: str,
+        qty: float,
+        sl_price: float,
+        tp_price: float,
+        trailing: dict | None = None
+    ) -> Tuple[bool, str]:
+        """
+        Aplica protección (SL/TP/Trailing) con verificación y retry.
+        Returns: (success, details_message)
+        """
+        config = self.config
+        attempts = config.get('protection_retry_attempts', 2)
+        delay = config.get('protection_retry_delay_sec', 0.6)
+
+        for attempt in range(attempts + 1):  # +1 para el intento inicial
+            try:
+                result = await self.bridge.set_position_protection(
+                    symbol=symbol,
+                    exchange=exchange,
+                    side=side,
+                    quantity=qty,
+                    stop_loss=sl_price,
+                    take_profit=tp_price,
+                    trailing=trailing,
+                    cancel_existing=True,
+                )
+
+                if result.get("ok", False):
+                    return True, result.get("details", "Protección aplicada correctamente")
+
+                # Si falla, esperar antes del retry
+                if attempt < attempts:
+                    await asyncio.sleep(delay)
+
+            except Exception as e:
+                self.logger.warning(f"Protection attempt {attempt + 1} failed for {symbol}: {e}")
+                if attempt < attempts:
+                    await asyncio.sleep(delay)
+
+        # Si todos los intentos fallan
+        error_msg = f"Protección incompleta para {symbol} en {exchange} después de {attempts + 1} intentos"
+        self.logger.error(error_msg)
+        return False, error_msg
 
     async def diagnose_balance_issues(self) -> str:
         """Diagnose balance synchronization issues for debugging."""
@@ -1673,20 +1708,11 @@ class AsyncTradingSession:
 
         
         # 1. Check existing position via Shadow Wallet (with sync)
-        # Force sync positions before checking to avoid stale data
+        # Force sync positions on the SAME exchange to avoid stale / cross-exchange contamination
         try:
-            positions = await self.bridge.get_positions()
-            for pos in positions:
-                pos_symbol = pos.get('symbol', '')
-                pos_qty = float(pos.get('quantity', 0) or pos.get('amt', 0))
-                if pos_symbol == symbol:
-                    self.bridge.shadow_wallet.update_position(symbol, {
-                        'quantity': pos_qty,
-                        'side': 'LONG' if pos_qty > 0 else 'SHORT',
-                        'entry_price': float(pos.get('entry', 0) or pos.get('avgPrice', 0))
-                    })
+            await self.bridge.get_positions(exchange=target_exchange)
         except Exception as sync_err:
-                self.logger.debug(f"Position sync failed for {symbol}: {sync_err}")
+            self.logger.debug(f"Position sync failed for {symbol} ({target_exchange}): {sync_err}")
 
         current_pos = await self.bridge.get_position(symbol)
         net_qty = current_pos.get('quantity', 0)
@@ -1713,14 +1739,14 @@ class AsyncTradingSession:
         tp_price = decision_data['tp_price']
         current_price = decision_data['current_price']
 
-        # Low Budget Check
-        has_liquidity, bal, msg = await self.check_liquidity(symbol)
+        # Low Budget Check (must use the same exchange)
+        has_liquidity, bal, msg = await self.check_liquidity(symbol, exchange=target_exchange)
         if not has_liquidity:
             return False, msg
 
         try:
             # 2. Get Data via Bridge
-            current_price = await self.bridge.get_last_price(symbol)
+            current_price = await self.bridge.get_last_price(symbol, exchange=target_exchange)
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
             # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
@@ -1729,7 +1755,7 @@ class AsyncTradingSession:
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
             
-            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
             # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
             base_leverage = self.config.get('leverage', 5)
@@ -1840,11 +1866,11 @@ class AsyncTradingSession:
             print(f"📊 {symbol} Risk Params: Leverage={leverage}x, Margin Required=${margin_required:.2f}, Equity=${total_equity:.2f}")
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
-            lev_result = await self.bridge.set_leverage(symbol, leverage)
+            lev_result = await self.bridge.set_leverage(symbol, leverage, exchange=target_exchange)
             print(f"📊 {symbol} Set Leverage Result: {lev_result}")
             
             # 5. Execute Market Buy
-            res = await self.bridge.place_order(symbol, 'BUY', 'MARKET', quantity=quantity)
+            res = await self.bridge.place_order(symbol, 'BUY', 'MARKET', quantity=quantity, exchange=target_exchange)
             if 'error' in res:
                 print(f"❌ {symbol} Order Failed: {res}")
                 return False, f"Bridge Error: {res['error']}"
@@ -1890,62 +1916,20 @@ class AsyncTradingSession:
             if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
                 return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
-            # 6. Place SL/TP (Separate to ensure logic holds) - NON-BLOCKING
-            # For conditional orders, price arg = stopPrice (trigger price)
-            # Validate prices before placing orders to avoid -2021 error
-            sl_placed = False
-            tp_placed = False
-
-            try:
-                sl_valid = True
-                if entry_price <= sl_price:
-                    print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) <= SL ({sl_price})")
-                    sl_valid = False
-
-                if sl_valid:
-                    sl_result = await self.bridge.place_order(
-                        symbol, 'SELL', 'STOP_MARKET',
-                        quantity=quantity, price=sl_price
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
-                    )
-                    if sl_result.get('error'):
-                        error_msg = sl_result['error']
-                        # Special handling for Alpaca conditional order limitations
-                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
-                            print(f"⚠️ {symbol}: Alpaca no soporta SL automático. Considere usar órdenes LIMIT manuales.")
-                        else:
-                            self.logger.warning(f"SL order failed for {symbol}: {error_msg}")
-                    else:
-                        sl_placed = True
-                        self.logger.info(f"SL order placed for {symbol} at {sl_price}")
-            except Exception as sl_error:
-                print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
-
-            try:
-                # Validate TP: For LONG, TP should be above entry
-                tp_valid = True
-                if entry_price >= tp_price:
-                    print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) >= TP ({tp_price})")
-                    tp_valid = False
-
-                if tp_valid:
-                    tp_result = await self.bridge.place_order(
-                        symbol, 'SELL', 'TAKE_PROFIT_MARKET',
-                        quantity=quantity, price=tp_price
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
-                    )
-                    if tp_result.get('error'):
-                        error_msg = tp_result['error']
-                        # Special handling for Alpaca conditional order limitations
-                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
-                            print(f"⚠️ {symbol}: Alpaca no soporta TP automático. Considere usar órdenes LIMIT manuales.")
-                        else:
-                            self.logger.warning(f"TP order failed for {symbol}: {error_msg}")
-                    else:
-                        tp_placed = True
-                        self.logger.info(f"TP order placed for {symbol} at {tp_price}")
-            except Exception as tp_error:
-                print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
+            # 6. Protection Layer: SL/TP/Trailing (surgical sync)
+            # IMPORTANT: must run on the SAME exchange as the entry.
+            sltp_ok, sltp_msg = await self.synchronize_sl_tp_safe(
+                symbol=symbol,
+                quantity=quantity,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                side='LONG',
+                min_notional=min_notional,
+                qty_precision=qty_precision,
+                entry_price=entry_price,
+                current_price=current_price,
+                exchange=target_exchange
+            )
 
             # Generar mensaje enriquecido con personalidad
             personality = self.config.get('personality', 'STANDARD_ES')
@@ -1956,8 +1940,8 @@ class AsyncTradingSession:
                 side='LONG',
                 quantity=quantity,
                 entry_price=entry_price,
-                sl_price=sl_price if sl_placed else None,
-                tp_price=tp_price if tp_placed else None,
+                sl_price=sl_price if sltp_ok else None,
+                tp_price=tp_price if sltp_ok else None,
                 leverage=leverage,
                 total_equity=total_equity,
                 margin_used=margin_used,
@@ -1967,14 +1951,9 @@ class AsyncTradingSession:
                 personality=personality
             )
 
-            # Add warning if SL/TP failed to place
-            if not sl_placed or not tp_placed:
-                warning_msg = ""
-                if not sl_placed:
-                    warning_msg += "⚠️ SL no colocado. "
-                if not tp_placed:
-                    warning_msg += "⚠️ TP no colocado. "
-                message = f"{warning_msg}\n\n{message}"
+            # Append protection result (high-signal; avoids silent failures)
+            if sltp_msg:
+                message = f"{message}\n\n🛡️ **Protección (SL/TP/TS):**\n{sltp_msg}"
 
             return True, message
 
@@ -1985,19 +1964,19 @@ class AsyncTradingSession:
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
         """
         Ejecuta una posición SHORT de forma asíncrona mediante Nexus Bridge.
-        
+
         Este método maneja todo el flujo de ejecución de una posición SHORT:
         1. Sincroniza balance para evitar datos obsoletos
         2. Verifica límites de capital y posición existente
         3. Calcula tamaño de posición (capital-based y risk-based)
         4. Calcula SL/TP basado en ATR o porcentaje fijo
         5. Coloca orden de entrada y órdenes condicionales (SL/TP)
-        
+
         Args:
             symbol: Símbolo del activo (ej: 'BTCUSDT')
             atr: Valor de ATR para cálculo de riesgo (opcional)
             strategy: Nombre de la estrategia para parámetros personalizados
-        
+
         Returns:
             Tuple[bool, str]: (éxito, mensaje descriptivo)
         """
@@ -2013,15 +1992,14 @@ class AsyncTradingSession:
             user_exchange_prefs = self.get_exchange_preferences()
             target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
             self.logger.debug(f"Auto routing {symbol} -> {target_exchange}")
-        
-        # Sincronizar balance antes de verificar límites (evita datos obsoletos en ShadowWallet)
+
+        # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
             except Exception as sync_err:
                 self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
-
         
         # 1. Check existing position via Shadow Wallet (with sync)
         # Force sync positions before checking to avoid stale data
@@ -2064,23 +2042,24 @@ class AsyncTradingSession:
         tp_price = decision_data['tp_price']
         current_price = decision_data['current_price']
 
-        # Low Budget Check
-        has_liquidity, bal, msg = await self.check_liquidity(symbol)
+        # Low Budget Check (with exchange)
+        has_liquidity, bal, msg = await self.check_liquidity(symbol, exchange=target_exchange)
         if not has_liquidity:
             return False, msg
 
         try:
-            # 2. Get Data via Bridge
+            # 2. Get Data via Bridge (exchange-specific)
+            # Use exchange-specific price and precision
             current_price = await self.bridge.get_last_price(symbol)
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
-            
+
             # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
             exchange_bal = self.shadow_wallet.balances.get(target_exchange, {})
             total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
                  total_equity = self.shadow_wallet.get_unified_equity()
-            
-            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
+
+            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
             # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
             base_leverage = self.config.get('leverage', 5)
@@ -2182,9 +2161,9 @@ class AsyncTradingSession:
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
             await self.bridge.set_leverage(symbol, leverage)
-            
+
             # 5. Execute Market Sell (SHORT)
-            res = await self.bridge.place_order(symbol, 'SELL', 'MARKET', quantity=quantity)
+            res = await self.bridge.place_order(symbol, 'SELL', 'MARKET', quantity=quantity, exchange=target_exchange)
             if 'error' in res:
                 return False, f"Bridge Error: {res['error']}"
 
@@ -2229,63 +2208,26 @@ class AsyncTradingSession:
             if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
                 return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
-            # 6. Place SL/TP (Buy Orders) - NON-BLOCKING
-            # SL (Buy Stop) - For SHORT, SL is above entry
-            # For conditional orders, price arg = stopPrice (trigger price)
-            # Validate prices before placing orders to avoid -2021 error
-            sl_placed = False
-            tp_placed = False
+            # 6. Apply Protection (SL/TP/Trailing) using unified protection layer
+            trailing_data = None
+            if self.config.get('trailing_enabled', True):
+                # Prepare trailing data for SHORT position
+                trailing_pct = self.config.get('trailing_pct_bybit' if target_exchange == 'BYBIT' else 'trailing_callback_rate_binance_pct', 1.0)
+                trailing_data = {
+                    "activation_price": entry_price,  # Activate at entry for SHORT
+                    "pct": trailing_pct,
+                    "qty": quantity
+                }
 
-            try:
-                sl_valid = True
-                if entry_price >= sl_price:
-                    print(f"⚠️ {symbol}: SL Skipped - Entry ({entry_price}) >= SL ({sl_price})")
-                    sl_valid = False
-
-                if sl_valid:
-                    sl_result = await self.bridge.place_order(
-                        symbol, 'BUY', 'STOP_MARKET',
-                        quantity=quantity, price=sl_price
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
-                    )
-                    if sl_result.get('error'):
-                        error_msg = sl_result['error']
-                        # Special handling for Alpaca conditional order limitations
-                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
-                            print(f"⚠️ {symbol}: Alpaca no soporta SL automático. Considere usar órdenes LIMIT manuales.")
-                        else:
-                            self.logger.warning(f"SL order failed for {symbol}: {error_msg}")
-                    else:
-                        sl_placed = True
-                        self.logger.info(f"SL order placed for {symbol} at {sl_price}")
-            except Exception as sl_error:
-                print(f"⚠️ {symbol}: SL Order Exception - {sl_error}")
-
-            try:
-                # Validate TP: For SHORT, TP should be below entry
-                tp_valid = True
-                if entry_price <= tp_price:
-                    print(f"⚠️ {symbol}: TP Skipped - Entry ({entry_price}) <= TP ({tp_price})")
-                    tp_valid = False
-
-                if tp_valid:
-                    tp_result = await self.bridge.place_order(
-                        symbol, 'BUY', 'TAKE_PROFIT_MARKET',
-                        quantity=quantity, price=tp_price
-                        # NOTE: reduceOnly=True removed for conditional orders - not supported by Bybit
-                    )
-                    if tp_result.get('error'):
-                        error_msg = tp_result['error']
-                        # Special handling for Alpaca conditional order limitations
-                        if target_exchange == 'ALPACA' and 'condicionales tradicionales' in error_msg:
-                            print(f"⚠️ {symbol}: Alpaca no soporta TP automático. Considere usar órdenes LIMIT manuales.")
-                        else:
-                            self.logger.warning(f"TP order failed for {symbol}: {error_msg}")
-                    else:
-                        tp_placed = True
-                        self.logger.info(f"TP order placed for {symbol} at {tp_price}")
-            except Exception as tp_error:
-                print(f"⚠️ {symbol}: TP Order Exception - {tp_error}")
+            protection_ok, protection_msg = await self.apply_and_verify_protection(
+                symbol=symbol,
+                exchange=target_exchange,
+                side='SHORT',
+                qty=quantity,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                trailing=trailing_data
+            )
 
             # Generar mensaje enriquecido con personalidad
             personality = self.config.get('personality', 'STANDARD_ES')
@@ -2296,8 +2238,8 @@ class AsyncTradingSession:
                 side='SHORT',
                 quantity=quantity,
                 entry_price=entry_price,
-                sl_price=sl_price if sl_placed else None,
-                tp_price=tp_price if tp_placed else None,
+                sl_price=sl_price,
+                tp_price=tp_price,
                 leverage=leverage,
                 total_equity=total_equity,
                 margin_used=margin_used,
@@ -2307,14 +2249,11 @@ class AsyncTradingSession:
                 personality=personality
             )
 
-            # Add warning if SL/TP failed to place
-            if not sl_placed or not tp_placed:
-                warning_msg = ""
-                if not sl_placed:
-                    warning_msg += "⚠️ SL no colocado. "
-                if not tp_placed:
-                    warning_msg += "⚠️ TP no colocado. "
-                message = f"{warning_msg}\n\n{message}"
+            # Add protection status
+            if protection_ok:
+                message = f"🛡️ **Protección:** {protection_msg}\n\n{message}"
+            else:
+                message = f"⚠️ **Protección:** {protection_msg}\n\n{message}"
 
             return True, message
 
@@ -2716,14 +2655,32 @@ class AsyncTradingSession:
             entry_price = float(pos.get('entryPrice', 0) or pos.get('entry_price', 0) or current_price)
             if entry_price <= 0:
                 entry_price = current_price  # Fallback to current if entry not available
-            
-            # Delegate to Surgical Sync
-            success, sync_msg = await self.synchronize_sl_tp_safe(
-                symbol, abs(qty), sl_price, tp_price, side, min_notional, qty_precision, 
-                entry_price=entry_price, current_price=current_price
+
+            # Resolve actual exchange from position data
+            target_exchange = pos.get('exchange', self.bridge._route_symbol(symbol) if self.bridge else 'UNKNOWN')
+
+            # Prepare trailing data for existing position
+            trailing_data = None
+            if self.config.get('trailing_enabled', True):
+                trailing_pct = self.config.get('trailing_pct_bybit' if target_exchange == 'BYBIT' else 'trailing_callback_rate_binance_pct', 1.0)
+                trailing_data = {
+                    "activation_price": current_price,  # Activate at current price for updates
+                    "pct": trailing_pct,
+                    "qty": abs(qty)
+                }
+
+            # Apply protection using unified protection layer
+            protection_ok, protection_msg = await self.apply_and_verify_protection(
+                symbol=symbol,
+                exchange=target_exchange,
+                side=side,
+                qty=abs(qty),
+                sl_price=sl_price,
+                tp_price=tp_price,
+                trailing=trailing_data
             )
-            
-            if success:
+
+            if protection_ok:
                 # Update persistent cooldown timestamp
                 SLTP_LAST_UPDATE[symbol] = time.time()
 
@@ -2732,9 +2689,6 @@ class AsyncTradingSession:
                 leverage = 1  # Default for position updates
                 total_equity = self.shadow_wallet.get_unified_equity()
                 margin_used = abs(qty) * entry_price / leverage
-
-                # Determine target exchange for the message
-                target_exchange = self.bridge._route_symbol(symbol) if self.bridge else 'UNKNOWN'
 
                 # Create position message using the same format as new positions
                 update_message = format_position_message(
@@ -2753,9 +2707,9 @@ class AsyncTradingSession:
                     personality=personality
                 )
 
-                return True, update_message
+                return True, f"✅ SL/TP actualizados\n{protection_msg}\n\n{update_message}"
             else:
-                return False, sync_msg
+                return False, f"❌ Error actualizando protección: {protection_msg}"
             
         except Exception as e:
             return False, f"Update Error: {e}"

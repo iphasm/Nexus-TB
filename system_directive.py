@@ -285,11 +285,20 @@ DEFAULT_SESSION_CONFIG = {
     
     # --- SHIELDS ---
     "correlation_guard_enabled": True, # Shield 2.0
-    
+
     # --- EXCHANGE ROUTING ---
     "crypto_exchange": "BINANCE", # BINANCE or BYBIT
     "bybit_api_key": None,
-    "bybit_api_secret": None
+    "bybit_api_secret": None,
+
+    # --- PROTECTION CONFIGURATION ---
+    "trailing_enabled": True,
+    "trailing_callback_rate_binance_pct": 1.0,   # 0.1–5.0
+    "trailing_pct_bybit": 1.0,                   # convertiremos a distancia
+    "protection_trigger_by": "MARK_PRICE",       # MARK_PRICE / LAST_PRICE (Binance)
+    "protection_retry_attempts": 2,
+    "protection_retry_delay_sec": 0.6,
+    "protection_tolerance_pct": 0.01,            # 1% tolerancia en verificación
 }
 
 # =================================================================

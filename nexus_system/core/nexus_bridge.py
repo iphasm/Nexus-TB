@@ -152,9 +152,13 @@ class NexusBridge:
 
         return positions
 
-    async def get_last_price(self, symbol: str) -> float:
-        """Get last price via adapter (using candles for compatibility)."""
-        target = self._route_symbol(symbol)
+    async def get_last_price(self, symbol: str, exchange: Optional[str] = None) -> float:
+        """Get last price via adapter (using candles for compatibility).
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly to avoid
+        re-routing to a different exchange than where the position/orders exist.
+        """
+        target = exchange.upper() if exchange else self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if not adapter:
             return 0.0
@@ -168,9 +172,13 @@ class NexusBridge:
             print(f"⚠️ Bridge Price Error ({symbol}): {e}")
         return 0.0
 
-    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
-        """Get symbol precision/limits via adapter."""
-        target = self._route_symbol(symbol)
+    async def get_symbol_info(self, symbol: str, exchange: Optional[str] = None) -> Dict[str, Any]:
+        """Get symbol precision/limits via adapter.
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly to avoid
+        fetching precision/tick rules from the wrong venue.
+        """
+        target = exchange.upper() if exchange else self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if adapter:
             result = await adapter.get_symbol_info(symbol)
@@ -196,33 +204,48 @@ class NexusBridge:
         return {}
 
 
-    async def get_open_orders(self, symbol: str = None) -> list:
-        """Get open orders via adapter."""
-        target = self._route_symbol(symbol) if symbol else self.primary_exchange
+    async def get_open_orders(self, symbol: str = None, exchange: Optional[str] = None) -> list:
+        """Get open orders via adapter.
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly.
+        """
+        if exchange:
+            target = exchange.upper()
+        else:
+            target = self._route_symbol(symbol) if symbol else self.primary_exchange
         adapter = self.adapters.get(target)
         if adapter and hasattr(adapter, 'get_open_orders'):
             return await adapter.get_open_orders(symbol)
         return []
 
-    async def cancel_orders(self, symbol: str) -> bool:
-        """Cancel all open orders via adapter."""
-        target = self._route_symbol(symbol)
+    async def cancel_orders(self, symbol: str, exchange: Optional[str] = None) -> bool:
+        """Cancel all open orders via adapter.
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly.
+        """
+        target = exchange.upper() if exchange else self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if adapter:
             return await adapter.cancel_orders(symbol)
         return False
 
-    async def close_position(self, symbol: str) -> bool:
-        """Close specific position via adapter."""
-        target = self._route_symbol(symbol)
+    async def close_position(self, symbol: str, exchange: Optional[str] = None) -> bool:
+        """Close specific position via adapter.
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly.
+        """
+        target = exchange.upper() if exchange else self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if adapter:
             return await adapter.close_position(symbol)
         return False
 
-    async def set_leverage(self, symbol: str, leverage: int) -> bool:
-        """Set leverage for a symbol via adapter."""
-        target = self._route_symbol(symbol)
+    async def set_leverage(self, symbol: str, leverage: int, exchange: Optional[str] = None) -> bool:
+        """Set leverage for a symbol via adapter.
+
+        IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly.
+        """
+        target = exchange.upper() if exchange else self._route_symbol(symbol)
         adapter = self.adapters.get(target)
         if adapter and hasattr(adapter, 'set_leverage'):
             return await adapter.set_leverage(symbol, leverage)
@@ -392,6 +415,199 @@ class NexusBridge:
         except Exception as e:
             print(f"⚠️ Symbol validation error for {symbol} on {exchange}: {e}")
             return False
+
+    async def set_position_protection(
+        self,
+        symbol: str,
+        exchange: str,
+        side: str,          # "LONG" | "SHORT"
+        quantity: float,
+        stop_loss: float,
+        take_profit: float,
+        trailing: dict | None,
+        *,
+        cancel_existing: bool = True,
+    ) -> dict:
+        """
+        Establece protección completa (SL/TP/Trailing) para una posición de manera unificada.
+        Retorna dict: {ok: bool, details: str, applied: {...}, errors:[...]}
+        """
+
+        ex = exchange.upper()
+
+        if cancel_existing:
+            await self.cancel_protection_orders(symbol, exchange=ex)
+
+        if ex == "BINANCE":
+            return await self._set_protection_binance(symbol, side, quantity, stop_loss, take_profit, trailing)
+
+        if ex == "BYBIT":
+            return await self._set_protection_bybit(symbol, side, quantity, stop_loss, take_profit, trailing)
+
+        if ex == "ALPACA":
+            # Alpaca no soporta "SL/TP server-side" igual que futuros; manejar aparte
+            return {"ok": True, "details": "Alpaca: protección automática no soportada en este modo."}
+
+        return {"ok": False, "details": f"Exchange no soportado: {ex}"}
+
+
+    async def cancel_protection_orders(self, symbol: str, exchange: str) -> bool:
+        """
+        Cancela órdenes protectoras en el exchange correcto.
+        Binance: cancelar open orders condicionales.
+        Bybit: cancelar condicionales + reset trading-stop si aplica.
+        """
+        ex = exchange.upper()
+        if ex == "BINANCE":
+            return await self.cancel_orders(symbol)
+        if ex == "BYBIT":
+            # 1) cancel condicionales
+            await self.cancel_orders(symbol)
+            # 2) reset trading stop (0 cancela)
+            bybit = self.adapters.get("BYBIT")
+            if bybit:
+                await bybit.set_trading_stop(symbol, take_profit=0, stop_loss=0, trailing_stop=0)
+            return True
+        return True
+
+
+    async def _set_protection_binance(self, symbol: str, side: str, qty: float, sl: float, tp: float, trailing: dict | None) -> dict:
+        """Implementa protección Binance usando órdenes condicionales."""
+        close_side = "SELL" if side == "LONG" else "BUY"
+        config = self.adapters["BINANCE"]._exchange.options if self.adapters.get("BINANCE") else {}
+
+        applied = {"sl": False, "tp": False, "trailing": False}
+        errors = []
+
+        try:
+            # SL
+            sl_res = await self.place_order(
+                symbol=symbol,
+                side=close_side,
+                order_type="STOP_MARKET",
+                quantity=qty,
+                price=sl,                    # se mapea a stopPrice
+                reduceOnly=True,
+                workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+            )
+            if "error" in sl_res:
+                errors.append(f"SL: {sl_res['error']}")
+            else:
+                applied["sl"] = True
+        except Exception as e:
+            errors.append(f"SL Exception: {e}")
+
+        try:
+            # TP
+            tp_res = await self.place_order(
+                symbol=symbol,
+                side=close_side,
+                order_type="TAKE_PROFIT_MARKET",
+                quantity=qty,
+                price=tp,
+                reduceOnly=True,
+                workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+            )
+            if "error" in tp_res:
+                errors.append(f"TP: {tp_res['error']}")
+            else:
+                applied["tp"] = True
+        except Exception as e:
+            errors.append(f"TP Exception: {e}")
+
+        # TRAILING (corregir binance_adapter: no exigir stopPrice aquí)
+        if trailing and config.get("trailing_enabled", True):
+            try:
+                tr_res = await self.place_order(
+                    symbol=symbol,
+                    side=close_side,
+                    order_type="TRAILING_STOP_MARKET",
+                    quantity=trailing.get("qty", qty),
+                    price=None,  # NO stopPrice
+                    reduceOnly=True,
+                    activationPrice=trailing.get("activation_price"),
+                    callbackRate=trailing.get("callback_rate_pct", 1.0),
+                    workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                )
+                if "error" in tr_res:
+                    errors.append(f"Trailing: {tr_res['error']}")
+                else:
+                    applied["trailing"] = True
+            except Exception as e:
+                errors.append(f"Trailing Exception: {e}")
+
+        ok = applied["sl"] or applied["tp"]  # Al menos SL o TP debe funcionar
+        details = f"Binance: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
+        if errors:
+            details += f" | Errors: {errors}"
+
+        return {"ok": ok, "details": details, "applied": applied, "errors": errors}
+
+
+    async def _set_protection_bybit(self, symbol: str, side: str, qty: float, sl: float, tp: float, trailing: dict | None) -> dict:
+        """
+        Implementa protección Bybit usando endpoint V5 position/trading-stop (server-side).
+        """
+        bybit = self.adapters.get("BYBIT")
+        if not bybit:
+            return {"ok": False, "details": "Bybit adapter not available"}
+
+        # trailing Bybit requiere DISTANCIA (no %). Convertimos:
+        # trailing_pct_bybit = 1% => trailing_distance = price * 0.01
+        trailing_distance = None
+        active_price = None
+        if trailing:
+            active_price = trailing.get("activation_price")
+            pct = trailing.get("pct", 1.0)
+            if active_price:
+                trailing_distance = active_price * (pct / 100.0)  # Convertir % a distancia
+
+        applied = {"sl": False, "tp": False, "trailing": False}
+        errors = []
+
+        try:
+            # Intento 1: set_trading_stop con SL+TP+Trailing
+            res = await bybit.set_trading_stop(
+                symbol=symbol,
+                stop_loss=sl,
+                take_profit=tp,
+                trailing_stop=trailing_distance,
+                # activePrice=active_price si se soporta
+            )
+            if res.get("success", False):
+                applied = {"sl": True, "tp": True, "trailing": trailing_distance is not None}
+            else:
+                # Fallback A: si Bybit rechaza trailing junto con TP/SL
+                res2 = await bybit.set_trading_stop(symbol, stop_loss=sl, take_profit=tp, trailing_stop=0)
+                if res2.get("success", False):
+                    applied["sl"] = True
+                    applied["tp"] = True
+
+                    # Trailing por orden nativa si se necesita
+                    if trailing_distance and active_price:
+                        tr = await bybit.place_trailing_stop(
+                            symbol=symbol,
+                            side=("SELL" if side == "LONG" else "BUY"),
+                            quantity=qty,
+                            callback_rate=trailing_distance,     # distancia, NO %
+                            activation_price=active_price,
+                        )
+                        if tr.get("success", False):
+                            applied["trailing"] = True
+                        else:
+                            errors.append(f"Trailing order failed: {tr.get('message', 'Unknown')}")
+                else:
+                    errors.append(f"Trading stop failed: {res.get('message', 'Unknown')}")
+        except Exception as e:
+            errors.append(f"Exception: {e}")
+
+        ok = applied["sl"] or applied["tp"]  # Al menos SL o TP debe funcionar
+        details = f"Bybit: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
+        if errors:
+            details += f" | Errors: {errors}"
+
+        return {"ok": ok, "details": details, "applied": applied, "errors": errors}
+
 
     def _route_symbol(self, symbol: str, user_preferences: Optional[Dict[str, bool]] = None) -> str:
         """
