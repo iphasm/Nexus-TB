@@ -115,7 +115,92 @@ def init_db():
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             """)
-            
+
+            # Trade Journal table (Fase 4)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS trade_journal (
+                    id SERIAL PRIMARY KEY,
+                    chat_id VARCHAR(50) NOT NULL,
+                    symbol VARCHAR(20) NOT NULL,
+                    side VARCHAR(10) NOT NULL,  -- LONG, SHORT
+                    strategy VARCHAR(50),
+                    exchange VARCHAR(20) NOT NULL,
+                    entry_price DECIMAL(20,8) NOT NULL,
+                    exit_price DECIMAL(20,8),
+                    quantity DECIMAL(20,8) NOT NULL,
+                    leverage INTEGER DEFAULT 1,
+                    entry_time TIMESTAMP NOT NULL,
+                    exit_time TIMESTAMP,
+                    pnl DECIMAL(20,8),
+                    pnl_pct DECIMAL(10,4),
+                    fees DECIMAL(20,8) DEFAULT 0,
+                    slippage DECIMAL(20,8) DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'OPEN',  -- OPEN, CLOSED, CANCELLED
+                    exit_reason VARCHAR(100),  -- TP, SL, TIME_STOP, MANUAL, etc.
+                    metadata JSONB DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+
+            # Performance Metrics table (Fase 4)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS performance_metrics (
+                    id SERIAL PRIMARY KEY,
+                    chat_id VARCHAR(50) NOT NULL,
+                    symbol VARCHAR(20),
+                    strategy VARCHAR(50),
+                    exchange VARCHAR(20),
+                    period_start TIMESTAMP NOT NULL,
+                    period_end TIMESTAMP NOT NULL,
+                    total_trades INTEGER DEFAULT 0,
+                    winning_trades INTEGER DEFAULT 0,
+                    losing_trades INTEGER DEFAULT 0,
+                    win_rate DECIMAL(5,4),
+                    avg_win DECIMAL(20,8),
+                    avg_loss DECIMAL(20,8),
+                    expectancy DECIMAL(10,4),  -- R multiple
+                    profit_factor DECIMAL(10,4),
+                    max_drawdown DECIMAL(10,4),
+                    sharpe_ratio DECIMAL(10,4),
+                    total_pnl DECIMAL(20,8),
+                    total_fees DECIMAL(20,8),
+                    avg_holding_time INTERVAL,
+                    mae DECIMAL(10,4),  -- Maximum Adverse Excursion
+                    mfe DECIMAL(10,4),  -- Maximum Favorable Excursion
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(chat_id, symbol, strategy, exchange, period_start, period_end)
+                )
+            """)
+
+            # Strategy Calibration table (Fase 4)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS strategy_calibration (
+                    id SERIAL PRIMARY KEY,
+                    chat_id VARCHAR(50) NOT NULL,
+                    strategy VARCHAR(50) NOT NULL,
+                    symbol VARCHAR(20),
+                    exchange VARCHAR(20),
+                    confidence_threshold DECIMAL(3,2) DEFAULT 0.7,
+                    leverage_multiplier DECIMAL(5,2) DEFAULT 1.0,
+                    size_multiplier DECIMAL(5,2) DEFAULT 1.0,
+                    kelly_fraction DECIMAL(3,2) DEFAULT 0.5,
+                    win_rate_estimate DECIMAL(5,4),
+                    risk_reward_estimate DECIMAL(5,2),
+                    last_updated TIMESTAMP DEFAULT NOW(),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    UNIQUE(chat_id, strategy, symbol, exchange)
+                )
+            """)
+
+            # Create indexes for performance
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_journal_chat_id ON trade_journal(chat_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_journal_status ON trade_journal(status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_journal_symbol ON trade_journal(symbol)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_journal_strategy ON trade_journal(strategy)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_performance_metrics_chat_id ON performance_metrics(chat_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_performance_metrics_strategy ON performance_metrics(strategy)")
+
             conn.commit()
             print("✅ Database tables initialized.")
             return True
@@ -124,6 +209,297 @@ def init_db():
         return False
     finally:
         conn.close()
+
+# --- TRADE JOURNAL FUNCTIONS (Fase 4) ---
+
+def log_trade_entry(chat_id: str, symbol: str, side: str, strategy: str, exchange: str,
+                   entry_price: float, quantity: float, leverage: int = 1, metadata: dict = None):
+    """Log a trade entry to the journal."""
+    conn = get_connection()
+    if not conn:
+        return False
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO trade_journal
+                (chat_id, symbol, side, strategy, exchange, entry_price, quantity, leverage, entry_time, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
+            """, (chat_id, symbol, side, strategy, exchange, entry_price, quantity, leverage,
+                  json.dumps(metadata or {})))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"❌ Log Trade Entry Error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def log_trade_exit(trade_id: int, exit_price: float, pnl: float, pnl_pct: float,
+                  fees: float = 0, slippage: float = 0, exit_reason: str = None):
+    """Update a trade with exit information."""
+    conn = get_connection()
+    if not conn:
+        return False
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE trade_journal
+                SET exit_price = %s, exit_time = NOW(), pnl = %s, pnl_pct = %s,
+                    fees = %s, slippage = %s, status = 'CLOSED', exit_reason = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (exit_price, pnl, pnl_pct, fees, slippage, exit_reason, trade_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"❌ Log Trade Exit Error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_open_trades(chat_id: str) -> list:
+    """Get all open trades for a user."""
+    conn = get_connection()
+    if not conn:
+        return []
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT * FROM trade_journal
+                WHERE chat_id = %s AND status = 'OPEN'
+                ORDER BY entry_time DESC
+            """, (chat_id,))
+            return cur.fetchall()
+    except Exception as e:
+        print(f"❌ Get Open Trades Error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def calculate_performance_metrics(chat_id: str, symbol: str = None, strategy: str = None,
+                                exchange: str = None, days: int = 30) -> dict:
+    """Calculate performance metrics for the specified filters."""
+    conn = get_connection()
+    if not conn:
+        return {}
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Build dynamic WHERE clause
+            conditions = ["chat_id = %s", "status = 'CLOSED'"]
+            params = [chat_id]
+
+            if symbol:
+                conditions.append("symbol = %s")
+                params.append(symbol)
+            if strategy:
+                conditions.append("strategy = %s")
+                params.append(strategy)
+            if exchange:
+                conditions.append("exchange = %s")
+                params.append(exchange)
+
+            # Add date filter
+            conditions.append("exit_time >= NOW() - INTERVAL '%s days'")
+            params.append(days)
+
+            where_clause = " AND ".join(conditions)
+
+            # Get closed trades
+            cur.execute(f"""
+                SELECT * FROM trade_journal
+                WHERE {where_clause}
+                ORDER BY exit_time DESC
+            """, params)
+
+            trades = cur.fetchall()
+
+            if not trades:
+                return {
+                    'total_trades': 0,
+                    'win_rate': 0.0,
+                    'expectancy': 0.0,
+                    'profit_factor': 0.0,
+                    'total_pnl': 0.0,
+                    'avg_holding_time': 0
+                }
+
+            # Calculate metrics
+            total_trades = len(trades)
+            winning_trades = len([t for t in trades if t['pnl'] > 0])
+            losing_trades = total_trades - winning_trades
+
+            win_rate = winning_trades / total_trades if total_trades > 0 else 0
+
+            # Calculate averages
+            winning_pnls = [t['pnl'] for t in trades if t['pnl'] > 0]
+            losing_pnls = [t['pnl'] for t in trades if t['pnl'] < 0]
+
+            avg_win = sum(winning_pnls) / len(winning_pnls) if winning_pnls else 0
+            avg_loss = sum(losing_pnls) / len(losing_pnls) if losing_pnls else 0
+
+            # Expectancy (R multiple)
+            expectancy = (win_rate * avg_win) + ((1 - win_rate) * avg_loss)
+            expectancy_r = expectancy / abs(avg_loss) if avg_loss != 0 else 0
+
+            # Profit Factor
+            total_wins = sum(winning_pnls)
+            total_losses = abs(sum(losing_pnls))
+            profit_factor = total_wins / total_losses if total_losses > 0 else float('inf')
+
+            # Total P&L
+            total_pnl = sum(t['pnl'] for t in trades)
+
+            # Average holding time (in hours)
+            holding_times = []
+            for t in trades:
+                if t['exit_time'] and t['entry_time']:
+                    delta = t['exit_time'] - t['entry_time']
+                    holding_times.append(delta.total_seconds() / 3600)  # Convert to hours
+
+            avg_holding_time = sum(holding_times) / len(holding_times) if holding_times else 0
+
+            return {
+                'total_trades': total_trades,
+                'winning_trades': winning_trades,
+                'losing_trades': losing_trades,
+                'win_rate': win_rate,
+                'avg_win': avg_win,
+                'avg_loss': avg_loss,
+                'expectancy': expectancy_r,
+                'profit_factor': profit_factor,
+                'total_pnl': total_pnl,
+                'avg_holding_time': avg_holding_time
+            }
+
+    except Exception as e:
+        print(f"❌ Calculate Performance Metrics Error: {e}")
+        return {}
+    finally:
+        conn.close()
+
+def get_strategy_calibration(chat_id: str, strategy: str, symbol: str = None, exchange: str = None) -> dict:
+    """Get calibration settings for a strategy."""
+    conn = get_connection()
+    if not conn:
+        return {}
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT * FROM strategy_calibration
+                WHERE chat_id = %s AND strategy = %s
+                AND (symbol = %s OR symbol IS NULL)
+                AND (exchange = %s OR exchange IS NULL)
+                AND is_active = TRUE
+                ORDER BY symbol DESC NULLS LAST, exchange DESC NULLS LAST
+                LIMIT 1
+            """, (chat_id, strategy, symbol, exchange))
+            result = cur.fetchone()
+            return dict(result) if result else {}
+    except Exception as e:
+        print(f"❌ Get Strategy Calibration Error: {e}")
+        return {}
+    finally:
+        conn.close()
+
+def update_strategy_calibration(chat_id: str, strategy: str, symbol: str = None, exchange: str = None,
+                              calibration_data: dict = None):
+    """Update or create strategy calibration settings."""
+    conn = get_connection()
+    if not conn:
+        return False
+
+    try:
+        with conn.cursor() as cur:
+            # Use upsert
+            cur.execute("""
+                INSERT INTO strategy_calibration
+                (chat_id, strategy, symbol, exchange, confidence_threshold, leverage_multiplier,
+                 size_multiplier, kelly_fraction, win_rate_estimate, risk_reward_estimate, last_updated)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (chat_id, strategy, symbol, exchange)
+                DO UPDATE SET
+                    confidence_threshold = EXCLUDED.confidence_threshold,
+                    leverage_multiplier = EXCLUDED.leverage_multiplier,
+                    size_multiplier = EXCLUDED.size_multiplier,
+                    kelly_fraction = EXCLUDED.kelly_fraction,
+                    win_rate_estimate = EXCLUDED.win_rate_estimate,
+                    risk_reward_estimate = EXCLUDED.risk_reward_estimate,
+                    last_updated = NOW()
+            """, (
+                chat_id, strategy, symbol, exchange,
+                calibration_data.get('confidence_threshold', 0.7),
+                calibration_data.get('leverage_multiplier', 1.0),
+                calibration_data.get('size_multiplier', 1.0),
+                calibration_data.get('kelly_fraction', 0.5),
+                calibration_data.get('win_rate_estimate'),
+                calibration_data.get('risk_reward_estimate')
+            ))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"❌ Update Strategy Calibration Error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def auto_calibrate_strategy(chat_id: str, strategy: str, symbol: str = None, exchange: str = None):
+    """
+    Auto-calibrate strategy parameters based on recent performance (Fase 4).
+    Adjusts leverage and size multipliers based on expectancy and drawdown.
+    """
+    # Get recent performance metrics
+    metrics = calculate_performance_metrics(chat_id, symbol, strategy, exchange, days=30)
+
+    if not metrics or metrics['total_trades'] < 10:
+        return False  # Need minimum sample size
+
+    expectancy = metrics['expectancy']
+    win_rate = metrics['win_rate']
+    total_pnl = metrics['total_pnl']
+
+    # Calculate adjustments based on performance
+    # Positive expectancy -> increase size/leverage
+    # Negative expectancy -> decrease size/leverage
+
+    base_multiplier = 1.0
+
+    if expectancy > 0.5:  # Good expectancy
+        size_multiplier = min(1.5, base_multiplier + (expectancy * 0.5))
+        leverage_multiplier = min(1.3, base_multiplier + (expectancy * 0.3))
+    elif expectancy > 0:  # Slightly positive
+        size_multiplier = base_multiplier + (expectancy * 0.3)
+        leverage_multiplier = base_multiplier + (expectancy * 0.2)
+    elif expectancy > -0.2:  # Slightly negative
+        size_multiplier = max(0.7, base_multiplier + (expectancy * 0.5))
+        leverage_multiplier = max(0.8, base_multiplier + (expectancy * 0.3))
+    else:  # Poor performance
+        size_multiplier = max(0.5, base_multiplier + (expectancy * 0.7))
+        leverage_multiplier = max(0.7, base_multiplier + (expectancy * 0.4))
+
+    # Additional adjustment based on win rate
+    if win_rate > 0.6:
+        size_multiplier *= 1.1
+        leverage_multiplier *= 1.05
+    elif win_rate < 0.4:
+        size_multiplier *= 0.9
+        leverage_multiplier *= 0.95
+
+    # Update calibration
+    calibration_data = {
+        'confidence_threshold': 0.7,  # Keep default
+        'leverage_multiplier': leverage_multiplier,
+        'size_multiplier': size_multiplier,
+        'kelly_fraction': 0.5,  # Keep conservative
+        'win_rate_estimate': win_rate,
+        'risk_reward_estimate': 1.5  # Default assumption
+    }
+
+    return update_strategy_calibration(chat_id, strategy, symbol, exchange, calibration_data)
 
 # --- SESSION FUNCTIONS ---
 from servos.security import encrypt_value, decrypt_value

@@ -611,8 +611,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     
                     # Special handling for "Insufficient capital" (Min Notional)
                     elif "MIN_NOTIONAL" in result or "Insufficient capital" in result:
-                        # 1. Trigger Long Cooldown (1 hour) to stop spam (scoped to exchange)
-                        cooldown_manager.set_cooldown(symbol, seconds=3600, exchange=target_exchange)
+                        # 1. Trigger Long Cooldown (1 hour) to stop spam (scoped to exchange + strategy)
+                        cooldown_manager.set_cooldown(symbol, seconds=3600, exchange=target_exchange, strategy=strategy)
 
                         # 2. Notify User only once
                         await bot.send_message(
@@ -637,7 +637,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     # Set cooldown ONLY for exchanges that processed the signal
     if processed_exchanges:
         for ex in processed_exchanges:
-            cooldown_manager.set_cooldown(symbol, atr=atr, exchange=ex)
+            cooldown_manager.set_cooldown(symbol, atr=atr, exchange=ex, strategy=strategy)
     else:
         logger.debug(f"📭 Signal for {symbol} not dispatched (no eligible sessions)")
 

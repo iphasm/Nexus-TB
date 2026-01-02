@@ -35,24 +35,39 @@ class DynamicCooldownManager:
         # Current cooldown per symbol
         self._cooldowns: Dict[str, int] = {}
         
-    def _build_key(self, symbol: str, exchange: str = None) -> str:
-        """Build a cooldown key. Keeps backward compatibility if exchange is None."""
-        return f"{symbol}:{exchange}" if exchange else symbol
+    def _build_key(self, symbol: str, exchange: str = None, strategy: str = None, regime: str = None) -> str:
+        """Build a cooldown key. Supports symbol, exchange, strategy, and regime."""
+        key_parts = [symbol]
+        if exchange:
+            key_parts.append(exchange)
+        if strategy:
+            key_parts.append(strategy)
+        if regime:
+            key_parts.append(regime)
+        return ":".join(key_parts)
 
-    def is_on_cooldown(self, symbol: str, exchange: str = None) -> bool:
-        """Check if symbol (optionally scoped to an exchange) is still on cooldown."""
-        key = self._build_key(symbol, exchange)
-        if key not in self._last_alert:
-            return False
-        
-        cooldown = self._get_cooldown(key)
-        elapsed = time.time() - self._last_alert[key]
-        
-        return elapsed < cooldown
+    def is_on_cooldown(self, symbol: str, exchange: str = None, strategy: str = None, regime: str = None) -> bool:
+        """Check if symbol (scoped by exchange/strategy/regime) is still on cooldown."""
+        # Check multiple levels: specific first, then fallback to broader scopes
+        keys_to_check = [
+            self._build_key(symbol, exchange, strategy, regime),  # Most specific
+            self._build_key(symbol, exchange, strategy),          # Strategy level
+            self._build_key(symbol, exchange),                     # Exchange level
+            self._build_key(symbol)                                # Symbol level only
+        ]
+
+        for key in keys_to_check:
+            if key in self._last_alert:
+                cooldown = self._get_cooldown(key)
+                elapsed = time.time() - self._last_alert[key]
+                if elapsed < cooldown:
+                    return True
+
+        return False
     
-    def set_cooldown(self, symbol: str, atr: float = None, exchange: str = None, seconds: int = None):
-        """Mark symbol as alerted and record signal. Scoped per exchange if provided."""
-        key = self._build_key(symbol, exchange)
+    def set_cooldown(self, symbol: str, atr: float = None, exchange: str = None, strategy: str = None, regime: str = None, seconds: int = None):
+        """Mark symbol as alerted and record signal. Scoped per exchange/strategy/regime."""
+        key = self._build_key(symbol, exchange, strategy, regime)
         current_time = time.time()
         self._last_alert[key] = current_time
         

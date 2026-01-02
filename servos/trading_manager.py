@@ -23,6 +23,8 @@ from servos.ai_analyst import NexusAnalyst
 
 # Shield 2.0
 from nexus_system.shield.correlation import CorrelationManager
+from nexus_system.shield.risk_policy import RiskPolicy, StrategyIntent, build_portfolio_state
+from nexus_system.core.exit_manager import ExitManager
 
 # Personalities
 from servos.personalities import PersonalityManager
@@ -324,6 +326,12 @@ class AsyncTradingSession:
 
         # Shield 2.0: Portfolio Correlation Guard
         self.correlation_manager = CorrelationManager()
+
+        # Risk Policy Engine (Fase 2)
+        self.risk_policy = RiskPolicy(self.config)
+
+        # Exit Manager (Fase 3)
+        self.exit_manager = ExitManager(self.config)
         
         # Operation Lock: Prevent concurrent/spam operations per symbol
         self._operation_locks = {}  # {symbol: timestamp}
@@ -1521,6 +1529,56 @@ class AsyncTradingSession:
              
         return True, balance, "OK"
 
+    async def _evaluate_trade_with_risk_policy(self, symbol: str, side: str, atr: Optional[float], strategy: str, force_exchange: str = None) -> Tuple[bool, dict, str]:
+        """
+        Evalúa trade usando RiskPolicy centralizada.
+        Retorna: (allow, decision_dict, error_msg)
+        """
+        try:
+            # Construir StrategyIntent
+            current_price = await self.bridge.get_last_price(symbol)
+            if current_price <= 0:
+                return False, {}, f"❌ Failed to fetch price for {symbol}"
+
+            # Mapear estrategia a strategy_key
+            from system_directive import STRATEGY_CONFIG_MAP
+            strategy_key = STRATEGY_CONFIG_MAP.get(strategy, 'UNKNOWN')
+
+            intent = StrategyIntent(
+                symbol=symbol,
+                action=f"OPEN_{side}",
+                strategy_key=strategy_key,
+                confidence=0.8,  # Default para señales manuales
+                price=current_price,
+                atr=atr,
+                metadata={'strategy': strategy}
+            )
+
+            # Construir PortfolioState
+            portfolio = await build_portfolio_state(self, self.shadow_wallet)
+
+            # Evaluar con RiskPolicy
+            decision = self.risk_policy.evaluate(intent, portfolio)
+
+            if not decision.allow:
+                return False, {}, decision.reason
+
+            # Override exchange si fue forzado
+            if force_exchange and force_exchange in (self.bridge.adapters.keys() if self.bridge else []):
+                decision.target_exchange = force_exchange
+
+            return True, {
+                'target_exchange': decision.target_exchange,
+                'leverage': decision.leverage,
+                'size_pct': decision.size_pct,
+                'sl_price': decision.sl_price,
+                'tp_price': decision.tp_price,
+                'current_price': current_price
+            }, ""
+
+        except Exception as e:
+            return False, {}, f"Risk Policy evaluation failed: {str(e)}"
+
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
         
@@ -1574,11 +1632,18 @@ class AsyncTradingSession:
                  print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
                  return await self.execute_flip_position(symbol, 'LONG', atr)
 
-        # Correlation Guard Check (Shield 2.0)
-        if self.config.get('correlation_guard_enabled', True):
-            is_safe, corr_msg = await self._check_correlation_safeguard(symbol)
-            if not is_safe:
-                return False, corr_msg
+        # Use RiskPolicy for comprehensive evaluation (incluye correlation guard)
+        allow, decision_data, error_msg = await self._evaluate_trade_with_risk_policy(symbol, 'LONG', atr, strategy, force_exchange)
+        if not allow:
+            return False, error_msg
+
+        # Extract decision parameters
+        target_exchange = decision_data['target_exchange']
+        leverage = decision_data['leverage']
+        size_pct = decision_data['size_pct']
+        sl_price = decision_data['sl_price']
+        tp_price = decision_data['tp_price']
+        current_price = decision_data['current_price']
 
         # Low Budget Check
         has_liquidity, bal, msg = await self.check_liquidity(symbol)
@@ -1717,6 +1782,36 @@ class AsyncTradingSession:
                 return False, f"Bridge Error: {res['error']}"
 
             entry_price = float(res.get('price', current_price) or current_price)
+
+            # Log Trade Entry (Fase 4)
+            from servos.db import log_trade_entry
+            metadata = {
+                'atr': atr,
+                'strategy': strategy,
+                'tick_size': tick_size,
+                'min_notional': min_notional
+            }
+            log_trade_entry(
+                chat_id=self.chat_id,
+                symbol=symbol,
+                side='LONG',
+                strategy=strategy,
+                exchange=target_exchange,
+                entry_price=entry_price,
+                quantity=quantity,
+                leverage=leverage,
+                metadata=metadata
+            )
+
+            # Create Advanced Exit Plan (Fase 3)
+            exit_plan = self.exit_manager.create_exit_plan(
+                symbol=symbol,
+                side='LONG',
+                entry_price=entry_price,
+                quantity=quantity,
+                atr=atr
+            )
+            print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
@@ -1887,11 +1982,18 @@ class AsyncTradingSession:
                  print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
                  return await self.execute_flip_position(symbol, 'SHORT', atr)
 
-        # Correlation Guard Check (Shield 2.0)
-        if self.config.get('correlation_guard_enabled', True):
-            is_safe, corr_msg = await self._check_correlation_safeguard(symbol)
-            if not is_safe:
-                return False, corr_msg
+        # Use RiskPolicy for comprehensive evaluation (incluye correlation guard)
+        allow, decision_data, error_msg = await self._evaluate_trade_with_risk_policy(symbol, 'SHORT', atr, strategy, force_exchange)
+        if not allow:
+            return False, error_msg
+
+        # Extract decision parameters
+        target_exchange = decision_data['target_exchange']
+        leverage = decision_data['leverage']
+        size_pct = decision_data['size_pct']
+        sl_price = decision_data['sl_price']
+        tp_price = decision_data['tp_price']
+        current_price = decision_data['current_price']
 
         # Low Budget Check
         has_liquidity, bal, msg = await self.check_liquidity(symbol)
@@ -2018,6 +2120,36 @@ class AsyncTradingSession:
                 return False, f"Bridge Error: {res['error']}"
 
             entry_price = float(res.get('price', current_price) or current_price)
+
+            # Log Trade Entry (Fase 4)
+            from servos.db import log_trade_entry
+            metadata = {
+                'atr': atr,
+                'strategy': strategy,
+                'tick_size': tick_size,
+                'min_notional': min_notional
+            }
+            log_trade_entry(
+                chat_id=self.chat_id,
+                symbol=symbol,
+                side='SHORT',
+                strategy=strategy,
+                exchange=target_exchange,
+                entry_price=entry_price,
+                quantity=quantity,
+                leverage=leverage,
+                metadata=metadata
+            )
+
+            # Create Advanced Exit Plan (Fase 3)
+            exit_plan = self.exit_manager.create_exit_plan(
+                symbol=symbol,
+                side='SHORT',
+                entry_price=entry_price,
+                quantity=quantity,
+                atr=atr
+            )
+            print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
@@ -2190,12 +2322,12 @@ class AsyncTradingSession:
 
 
 
-    async def execute_close_position(self, symbol: str, only_side: str = None) -> Tuple[bool, str]:
+    async def execute_close_position(self, symbol: str, only_side: str = None, exit_reason: str = "MANUAL") -> Tuple[bool, str]:
         """Close position for a symbol via Nexus Bridge."""
         try:
             # 1. Cancel Open Orders
             await self.bridge.cancel_orders(symbol)
-            
+
             # 2. Check Side if requested
             if only_side:
                 pos = await self.bridge.get_position(symbol)
@@ -2206,19 +2338,75 @@ class AsyncTradingSession:
                 if side != only_side:
                      return True, f"ℹ️ Skipped Close: {symbol} is {side}, target was {only_side}"
 
-            # 3. Close Position
+            # 3. Get position info before closing (for P&L calculation)
+            pos_before = await self.bridge.get_position(symbol)
+            entry_price = pos_before.get('entry_price') or pos_before.get('avgPrice', 0)
+            side = 'LONG' if pos_before.get('quantity', 0) > 0 else 'SHORT'
+
+            # 4. Close Position
             closed = await self.bridge.close_position(symbol)
-            
-            # 4. Final Cleanup
+
+            # 5. Final Cleanup
             await self.bridge.cancel_orders(symbol)
-            
+
             if closed:
+                # 6. Log Trade Exit (Fase 4)
+                await self._log_trade_exit(symbol, exit_reason)
                 return True, f"✅ Closed {symbol}."
             else:
                 return False, f"Bridge reported failure closing {symbol}."
-            
+
         except Exception as e:
             return False, f"Close Error: {e}"
+
+    async def _log_trade_exit(self, symbol: str, exit_reason: str = "MANUAL"):
+        """Log trade exit to journal (Fase 4)."""
+        try:
+            from servos.db import get_open_trades, log_trade_exit
+
+            # Find the open trade for this symbol
+            open_trades = get_open_trades(self.chat_id)
+            symbol_trades = [t for t in open_trades if t['symbol'] == symbol]
+
+            if not symbol_trades:
+                return  # No open trade found
+
+            # Get the most recent trade
+            trade = symbol_trades[0]  # Assuming one active trade per symbol
+
+            # Get current price for exit
+            current_price = await self.bridge.get_last_price(symbol)
+            if not current_price:
+                return
+
+            # Calculate P&L
+            entry_price = trade['entry_price']
+            quantity = trade['quantity']
+            side = trade['side']
+
+            if side == 'LONG':
+                pnl = (current_price - entry_price) * quantity
+                pnl_pct = ((current_price - entry_price) / entry_price) * 100
+            else:  # SHORT
+                pnl = (entry_price - current_price) * quantity
+                pnl_pct = ((entry_price - current_price) / entry_price) * 100
+
+            # Estimate fees (simplified)
+            notional = abs(quantity) * current_price
+            fees = notional * 0.001  # 0.1% estimated fee
+
+            # Log the exit
+            log_trade_exit(
+                trade_id=trade['id'],
+                exit_price=current_price,
+                pnl=pnl,
+                pnl_pct=pnl_pct,
+                fees=fees,
+                exit_reason=exit_reason
+            )
+
+        except Exception as e:
+            print(f"⚠️ Trade Exit Logging Error: {e}")
 
     async def execute_close_all(self) -> Tuple[bool, str]:
         """
