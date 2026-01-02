@@ -84,16 +84,24 @@ class BybitAdapter(IExchangeAdapter):
         """Fetch OHLCV data from Bybit."""
         if not self._exchange:
             return pd.DataFrame()
-            
+
+        # Check if symbol is available on Bybit
+        try:
+            from system_directive import is_symbol_available_on_exchange
+            if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
+                return pd.DataFrame()  # Silently skip unavailable symbols
+        except ImportError:
+            pass
+
         try:
             # Format symbol for CCXT (BTC/USDT:USDT for linear)
             formatted = self._format_symbol(symbol)
             ohlcv = await self._exchange.fetch_ohlcv(formatted, timeframe, limit=limit)
-            
+
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             return df
-            
+
         except Exception as e:
             print(f"⚠️ BybitAdapter: fetch_candles error ({symbol}): {e}")
             return pd.DataFrame()
@@ -224,7 +232,15 @@ class BybitAdapter(IExchangeAdapter):
         """Place order on Bybit."""
         if not self._exchange:
             return {'error': 'Not initialized'}
-            
+
+        # Check if symbol is available on Bybit
+        try:
+            from system_directive import is_symbol_available_on_exchange
+            if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
+                return {'error': f'{symbol} not available on Bybit'}
+        except ImportError:
+            pass
+
         try:
             formatted = self._format_symbol(symbol)
             params = kwargs.copy()

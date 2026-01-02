@@ -63,6 +63,30 @@ BYBIT_TICKER_MAPPING = {
 }
 
 # =================================================================
+# EXCHANGE EXCLUSIONS - Activos NO disponibles en cada exchange
+# =================================================================
+# Evita intentar obtener datos de activos que no existen en un exchange
+BINANCE_EXCLUSIONS = set()  # Binance tiene casi todo
+
+BYBIT_EXCLUSIONS = {
+    "BNBUSDT",      # Token nativo de Binance - NO en Bybit
+    "BAKEUSDT",     # Binance ecosystem token
+    "ALPACAUSDT",   # Binance-specific
+    "BIFIUSDT",     # Binance-specific
+    "BTTCUSDT",     # BitTorrent en formato Binance
+    "TUSDUSDT",     # TrueUSD puede no estar en Bybit
+    "USDCUSDT",     # Stablecoin pair
+}
+
+def is_symbol_available_on_exchange(symbol: str, exchange: str) -> bool:
+    """Verifica si un símbolo está disponible en un exchange específico"""
+    if exchange.upper() == 'BINANCE':
+        return symbol not in BINANCE_EXCLUSIONS
+    elif exchange.upper() == 'BYBIT':
+        return symbol not in BYBIT_EXCLUSIONS
+    return True  # Por defecto, asumir disponible
+
+# =================================================================
 # CRYPTO SUBGROUPS - OPTIMIZED LIST (2025)
 # =================================================================
 # Lista optimizada y actualizada con los activos más relevantes y líquidos
