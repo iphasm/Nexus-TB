@@ -477,9 +477,13 @@ async def cmd_togglegroup(message: Message, **kwargs):
 
 @router.message(Command("assets"))
 async def cmd_assets(message: Message, **kwargs):
-    """v5 Individual Assets Menu with On/Off Indicators"""
+    """Hierarchical Asset Management Menu"""
     edit_message = kwargs.get('edit_message', False)
     session_manager = kwargs.get('session_manager')
+
+    # Parse navigation parameters from kwargs or use defaults
+    nav_level = kwargs.get('nav_level', 'main')  # main, crypto, stocks, etfs
+    category = kwargs.get('category', None)      # major_caps, meme_coins, etc.
 
     # Get session
     session = None
@@ -492,68 +496,184 @@ async def cmd_assets(message: Message, **kwargs):
             [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
         ])
     else:
-        # Get all crypto assets from CRYPTO group
-        from system_directive import CRYPTO_SUBGROUPS
+        # Import required modules
+        from system_directive import CRYPTO_SUBGROUPS, ASSET_GROUPS
 
-        # Flatten all crypto assets into one list
-        all_crypto_assets = []
-        for subgroup, assets in CRYPTO_SUBGROUPS.items():
-            all_crypto_assets.extend(assets)
+        # Main Menu - Asset Types
+        if nav_level == 'main':
+            keyboard_rows = [
+                [InlineKeyboardButton(text="💰 Crypto", callback_data="ASSETS|CRYPTO")],
+                [InlineKeyboardButton(text="📈 Stocks", callback_data="ASSETS|STOCKS")],
+                [InlineKeyboardButton(text="📊 ETFs", callback_data="ASSETS|ETFS")],
+                [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
+            ]
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+            msg_text = (
+                "📦 *GESTIÓN DE ACTIVOS*\n\n"
+                "Selecciona el tipo de activos que quieres gestionar:\n\n"
+                "💰 **Crypto** - Criptomonedas\n"
+                "📈 **Stocks** - Acciones\n"
+                "📊 **ETFs** - Fondos cotizados\n\n"
+                "Cada tipo tiene sus propias categorías y activos individuales."
+            )
 
-        # Remove duplicates and sort
-        all_crypto_assets = sorted(list(set(all_crypto_assets)))
+        # Crypto Categories Menu
+        elif nav_level == 'crypto':
+            # Define category display names and emojis
+            category_info = {
+                'MAJOR_CAPS': ('🏆 Major Caps', 'BTC, ETH, SOL, ADA...'),
+                'MEME_COINS': ('🐕 Meme Coins', 'DOGE, WIF, BRETT, MEW...'),
+                'DEFI': ('🏛️ DeFi', 'UNI, AAVE, CRV, COMP...'),
+                'AI_TECH': ('🤖 AI & Tech', 'TAO, WLD, GRT, ARKM...'),
+                'GAMING_METAVERSE': ('🎮 Gaming & Metaverse', 'AXS, SAND, MANA, IMX...'),
+                'LAYER1_INFRA': ('🏗️ Layer 1 & Infra', 'SUI, SEI, NEAR, MATIC...'),
+                'BYBIT_EXCLUSIVE': ('🔥 Bybit Exclusive', 'Activos únicos de Bybit')
+            }
 
-        # Create asset buttons with status indicators
-        asset_buttons = []
-        for asset in all_crypto_assets:
-            # Check if asset is disabled (blacklisted)
-            is_disabled = session.is_asset_disabled(asset)
-            # Green dot = enabled (not disabled), Red dot = disabled
-            status_dot = "🟢" if not is_disabled else "🔴"
-            status_text = "ON" if not is_disabled else "OFF"
+            keyboard_rows = []
+            for cat_key, (display_name, description) in category_info.items():
+                if cat_key in CRYPTO_SUBGROUPS:
+                    count = len(CRYPTO_SUBGROUPS[cat_key])
+                    button_text = f"{display_name} ({count})"
+                    keyboard_rows.append([InlineKeyboardButton(
+                        text=button_text,
+                        callback_data=f"ASSETS|CRYPTO|{cat_key}"
+                    )])
 
-            # Truncate long asset names for display
-            display_name = asset.replace('USDT', '') if asset.endswith('USDT') else asset
-            if len(display_name) > 8:
-                display_name = display_name[:8] + "..."
+            # Add back button
+            keyboard_rows.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|MAIN")])
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-            button_text = f"{status_dot} {display_name} {status_text}"
-            callback_data = f"TOGGLEASSET|{asset}"
+            msg_text = (
+                "💰 *CRYPTO - CATEGORÍAS*\n\n"
+                "Selecciona una categoría para ver y gestionar sus activos:\n\n"
+                "Cada categoría contiene activos relacionados por temática."
+            )
 
-            asset_buttons.append(InlineKeyboardButton(
-                text=button_text,
-                callback_data=callback_data
-            ))
+        # Individual Category Assets Menu
+        elif nav_level == 'crypto' and category:
+            if category in CRYPTO_SUBGROUPS:
+                assets = CRYPTO_SUBGROUPS[category]
 
-        # Split into rows of 3 buttons each
-        keyboard_rows = []
-        for i in range(0, len(asset_buttons), 3):
-            row = asset_buttons[i:i+3]
-            keyboard_rows.append(row)
+                # Create asset buttons with status indicators
+                asset_buttons = []
+                for asset in sorted(assets):
+                    # Check if asset is disabled (blacklisted)
+                    is_disabled = session.is_asset_disabled(asset)
+                    # Green dot = enabled (not disabled), Red dot = disabled
+                    status_dot = "🟢" if not is_disabled else "🔴"
+                    status_text = "ON" if not is_disabled else "OFF"
 
-        # Add control buttons at the bottom
-        control_buttons = [
-            InlineKeyboardButton(text="🔄 Todos ON", callback_data="ASSETCTRL|ENABLE_ALL"),
-            InlineKeyboardButton(text="⏸️ Todos OFF", callback_data="ASSETCTRL|DISABLE_ALL"),
-        ]
-        keyboard_rows.append(control_buttons)
+                    # Truncate long asset names for display
+                    display_name = asset.replace('USDT', '') if asset.endswith('USDT') else asset
+                    if len(display_name) > 8:
+                        display_name = display_name[:8] + "..."
 
-        # Add back button
-        keyboard_rows.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+                    button_text = f"{status_dot} {display_name} {status_text}"
+                    callback_data = f"TOGGLEASSET|{asset}"
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+                    asset_buttons.append(InlineKeyboardButton(
+                        text=button_text,
+                        callback_data=callback_data
+                    ))
 
-        # Count enabled/disabled assets
-        enabled_count = sum(1 for asset in all_crypto_assets if not session.is_asset_disabled(asset))
-        disabled_count = len(all_crypto_assets) - enabled_count
+                # Split into rows of 3 buttons each
+                keyboard_rows = []
+                for i in range(0, len(asset_buttons), 3):
+                    row = asset_buttons[i:i+3]
+                    keyboard_rows.append(row)
 
-        msg_text = (
-            "📦 *GESTIÓN DE ACTIVOS INDIVIDUALES*\n\n"
-            f"**Estado:** {enabled_count} activos activados, {disabled_count} desactivados\n\n"
-            "🟢 **Verde = ACTIVO** (recibe señales)\n"
-            "🔴 **Rojo = DESACTIVADO** (sin señales)\n\n"
-            "Haz clic en cualquier activo para cambiar su estado.\n\n"
-        )
+                # Add category control buttons
+                cat_name = category.replace('_', ' ').title()
+                control_buttons = [
+                    InlineKeyboardButton(text=f"🔄 {cat_name} ON", callback_data=f"ASSETCTRL|ENABLE_CAT|{category}"),
+                    InlineKeyboardButton(text=f"⏸️ {cat_name} OFF", callback_data=f"ASSETCTRL|DISABLE_CAT|{category}"),
+                ]
+                keyboard_rows.append(control_buttons)
+
+                # Add back button
+                keyboard_rows.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|CRYPTO")])
+
+                keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+                # Count enabled/disabled assets in this category
+                enabled_count = sum(1 for asset in assets if not session.is_asset_disabled(asset))
+                disabled_count = len(assets) - enabled_count
+
+                cat_display_name = {
+                    'MAJOR_CAPS': 'Major Caps',
+                    'MEME_COINS': 'Meme Coins',
+                    'DEFI': 'DeFi',
+                    'AI_TECH': 'AI & Tech',
+                    'GAMING_METAVERSE': 'Gaming & Metaverse',
+                    'LAYER1_INFRA': 'Layer 1 & Infra',
+                    'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
+                }.get(category, category.replace('_', ' ').title())
+
+                msg_text = (
+                    f"🏆 *{cat_display_name.upper()}*\n\n"
+                    f"**Estado:** {enabled_count} activos activados, {disabled_count} desactivados\n\n"
+                    "🟢 **Verde = ACTIVO** (recibe señales)\n"
+                    "🔴 **Rojo = DESACTIVADO** (sin señales)\n\n"
+                    "Haz clic en cualquier activo para cambiar su estado."
+                )
+            else:
+                # Category not found, go back to crypto menu
+                return await cmd_assets(message, nav_level='crypto', **kwargs)
+
+        # Stocks and ETFs menus (placeholder for now)
+        elif nav_level in ['stocks', 'etfs']:
+            asset_type = "STOCKS" if nav_level == 'stocks' else "ETFS"
+            asset_type_display = "Acciones" if nav_level == 'stocks' else "ETFs"
+
+            assets = ASSET_GROUPS.get(asset_type, [])
+
+            if assets:
+                # Create asset buttons for stocks/ETFs
+                asset_buttons = []
+                for asset in sorted(assets):
+                    # Check if asset is disabled (blacklisted)
+                    is_disabled = session.is_asset_disabled(asset)
+                    status_dot = "🟢" if not is_disabled else "🔴"
+                    status_text = "ON" if not is_disabled else "OFF"
+
+                    button_text = f"{status_dot} {asset} {status_text}"
+                    callback_data = f"TOGGLEASSET|{asset}"
+
+                    asset_buttons.append(InlineKeyboardButton(
+                        text=button_text,
+                        callback_data=callback_data
+                    ))
+
+                # Split into rows of 2 buttons each (stocks have longer names)
+                keyboard_rows = []
+                for i in range(0, len(asset_buttons), 2):
+                    row = asset_buttons[i:i+2]
+                    keyboard_rows.append(row)
+
+                # Add back button
+                keyboard_rows.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|MAIN")])
+                keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+                enabled_count = sum(1 for asset in assets if not session.is_asset_disabled(asset))
+                disabled_count = len(assets) - enabled_count
+
+                msg_text = (
+                    f"📈 *{asset_type_display.upper()}*\n\n"
+                    f"**Estado:** {enabled_count} activos activados, {disabled_count} desactivados\n\n"
+                    "🟢 **Verde = ACTIVO** (recibe señales)\n"
+                    "🔴 **Rojo = DESACTIVADO** (sin señales)\n\n"
+                    "Haz clic en cualquier activo para cambiar su estado."
+                )
+            else:
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|MAIN")]
+                ])
+                msg_text = f"📈 *{asset_type_display.upper()}*\n\nNo hay {asset_type_display.lower()} configuradas."
+
+        else:
+            # Fallback to main menu
+            return await cmd_assets(message, nav_level='main', **kwargs)
 
     # Send or edit message
     if edit_message:

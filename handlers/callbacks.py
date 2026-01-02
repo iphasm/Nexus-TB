@@ -705,8 +705,9 @@ async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
 
 @router.callback_query(F.data.startswith("ASSETCTRL|"))
 async def handle_asset_control(callback: CallbackQuery, **kwargs):
-    """Handle bulk asset controls (enable/disable all)"""
-    action = callback.data.split("|")[1]
+    """Handle bulk asset controls (enable/disable all or by category)"""
+    parts = callback.data.split("|")
+    action = parts[1]
 
     session_manager = kwargs.get('session_manager')
 
@@ -720,21 +721,49 @@ async def handle_asset_control(callback: CallbackQuery, **kwargs):
         return
 
     try:
-        # Get all crypto assets
         from system_directive import CRYPTO_SUBGROUPS
-        all_crypto_assets = []
-        for subgroup, assets in CRYPTO_SUBGROUPS.items():
-            all_crypto_assets.extend(assets)
-        all_crypto_assets = list(set(all_crypto_assets))  # Remove duplicates
 
         if action == "ENABLE_ALL":
             # Remove all assets from disabled list
             session.config['disabled_assets'] = []
-            action_msg = f"🔄 Todos los activos ACTIVADOS ({len(all_crypto_assets)})"
+            action_msg = "🔄 Todos los activos ACTIVADOS"
         elif action == "DISABLE_ALL":
-            # Add all assets to disabled list
+            # Get all crypto assets and disable them
+            all_crypto_assets = []
+            for subgroup, assets in CRYPTO_SUBGROUPS.items():
+                all_crypto_assets.extend(assets)
+            all_crypto_assets = list(set(all_crypto_assets))  # Remove duplicates
             session.config['disabled_assets'] = all_crypto_assets.copy()
             action_msg = f"⏸️ Todos los activos DESACTIVADOS ({len(all_crypto_assets)})"
+        elif action == "ENABLE_CAT":
+            # Enable all assets in a specific category
+            category = parts[2]
+            if category in CRYPTO_SUBGROUPS:
+                category_assets = CRYPTO_SUBGROUPS[category]
+                disabled_assets = session.config.get('disabled_assets', [])
+                # Remove category assets from disabled list
+                session.config['disabled_assets'] = [a for a in disabled_assets if a not in category_assets]
+                cat_name = category.replace('_', ' ').title()
+                action_msg = f"🔄 {cat_name} ACTIVADOS ({len(category_assets)})"
+            else:
+                await safe_answer(callback, "❌ Categoría no encontrada", show_alert=True)
+                return
+        elif action == "DISABLE_CAT":
+            # Disable all assets in a specific category
+            category = parts[2]
+            if category in CRYPTO_SUBGROUPS:
+                category_assets = CRYPTO_SUBGROUPS[category]
+                disabled_assets = session.config.get('disabled_assets', [])
+                # Add category assets to disabled list (avoid duplicates)
+                for asset in category_assets:
+                    if asset not in disabled_assets:
+                        disabled_assets.append(asset)
+                session.config['disabled_assets'] = disabled_assets
+                cat_name = category.replace('_', ' ').title()
+                action_msg = f"⏸️ {cat_name} DESACTIVADOS ({len(category_assets)})"
+            else:
+                await safe_answer(callback, "❌ Categoría no encontrada", show_alert=True)
+                return
         else:
             await safe_answer(callback, "❌ Acción no válida", show_alert=True)
             return
@@ -742,9 +771,56 @@ async def handle_asset_control(callback: CallbackQuery, **kwargs):
         await session_manager.save_sessions()
         await safe_answer(callback, action_msg)
 
-        # Refresh the assets menu
+        # Refresh the assets menu (stay in current navigation level)
         from handlers.config import cmd_assets
+        # For category controls, we need to determine the current nav level
+        # This is a simplified approach - could be enhanced with nav state tracking
         await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
+
+    except Exception as e:
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("ASSETS|"))
+async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
+    """Handle hierarchical assets menu navigation"""
+    parts = callback.data.split("|")
+    nav_level = parts[1].lower()
+
+    session_manager = kwargs.get('session_manager')
+
+    if not session_manager:
+        await safe_answer(callback, "⚠️ Error interno", show_alert=True)
+        return
+
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
+        return
+
+    try:
+        from handlers.config import cmd_assets
+
+        if nav_level == "main":
+            # Go to main assets menu
+            await cmd_assets(callback.message, session_manager=session_manager,
+                           nav_level='main', edit_message=True)
+        elif nav_level == "crypto":
+            if len(parts) > 2:
+                # Navigate to specific crypto category
+                category = parts[2]
+                await cmd_assets(callback.message, session_manager=session_manager,
+                               nav_level='crypto', category=category, edit_message=True)
+            else:
+                # Go to crypto categories menu
+                await cmd_assets(callback.message, session_manager=session_manager,
+                               nav_level='crypto', edit_message=True)
+        elif nav_level in ["stocks", "etfs"]:
+            # Navigate to stocks or ETFs menu
+            await cmd_assets(callback.message, session_manager=session_manager,
+                           nav_level=nav_level, edit_message=True)
+        else:
+            await safe_answer(callback, "❌ Opción no válida", show_alert=True)
 
     except Exception as e:
         await safe_answer(callback, f"Error: {e}", show_alert=True)
