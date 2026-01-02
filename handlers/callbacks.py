@@ -806,25 +806,42 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
         if nav_level == "main":
             print("📍 Navigating to main menu")
             # Go to main assets menu
-            await cmd_assets(callback.message, session_manager=session_manager,
-                           nav_level='main', edit_message=True)
+            kwargs_dict = {
+                'session_manager': session_manager,
+                'nav_level': 'main',
+                'edit_message': True
+            }
+            await cmd_assets(callback.message, **kwargs_dict)
         elif nav_level == "crypto":
             if len(parts) > 2:
                 # Navigate to specific crypto category
                 category = parts[2]
                 print(f"📍 Navigating to crypto category: {category}")
-                await cmd_assets(callback.message, session_manager=session_manager,
-                               nav_level='crypto', category=category, edit_message=True)
+                kwargs_dict = {
+                    'session_manager': session_manager,
+                    'nav_level': 'crypto',
+                    'category': category,
+                    'edit_message': True
+                }
+                await cmd_assets(callback.message, **kwargs_dict)
             else:
                 print("📍 Navigating to crypto categories menu")
                 # Go to crypto categories menu
-                await cmd_assets(callback.message, session_manager=session_manager,
-                               nav_level='crypto', edit_message=True)
+                kwargs_dict = {
+                    'session_manager': session_manager,
+                    'nav_level': 'crypto',
+                    'edit_message': True
+                }
+                await cmd_assets(callback.message, **kwargs_dict)
         elif nav_level in ["stocks", "etfs"]:
             print(f"📍 Navigating to {nav_level} menu")
             # Navigate to stocks or ETFs menu
-            await cmd_assets(callback.message, session_manager=session_manager,
-                           nav_level=nav_level, edit_message=True)
+            kwargs_dict = {
+                'session_manager': session_manager,
+                'nav_level': nav_level,
+                'edit_message': True
+            }
+            await cmd_assets(callback.message, **kwargs_dict)
         else:
             print(f"❌ Unknown nav_level: {nav_level}")
             await safe_answer(callback, "❌ Opción no válida", show_alert=True)
