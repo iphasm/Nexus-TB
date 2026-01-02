@@ -1110,15 +1110,15 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     
     try:
         # Update message to show scanning
-            category_display = {
-                'MAJOR_CAPS': 'Major Caps',
-                'MEME_COINS': 'Meme Coins',
-                'DEFI': 'DeFi',
-                'AI_TECH': 'AI & Tech',
-                'GAMING_METAVERSE': 'Gaming & Metaverse',
-                'LAYER1_INFRA': 'Layer 1 & Infra',
-                'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
-            }
+        category_display = {
+            'MAJOR_CAPS': 'Major Caps',
+            'MEME_COINS': 'Meme Coins',
+            'DEFI': 'DeFi',
+            'AI_TECH': 'AI & Tech',
+            'GAMING_METAVERSE': 'Gaming & Metaverse',
+            'LAYER1_INFRA': 'Layer 1 & Infra',
+            'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
+        }
 
         msg = await callback.message.edit_text(
                 f"🎯 <b>Escaneando {category_display.get(filter_param, filter_param)}...</b>\n\n"
