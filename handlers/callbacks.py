@@ -635,31 +635,117 @@ async def handle_group_toggle(callback: CallbackQuery, **kwargs):
     parts = callback.data.split("|")
     group = parts[1]  # Internal group name (CRYPTO, BYBIT, STOCKS, ETFS)
     display_name = parts[2] if len(parts) > 2 else group  # Friendly name (Binance, Bybit, etc.)
-    
+
     session_manager = kwargs.get('session_manager')
-    
+
     if not session_manager:
         await safe_answer(callback, "⚠️ Error interno", show_alert=True)
         return
-        
+
     session = session_manager.get_session(str(callback.message.chat.id))
     if not session:
         await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
         return
-    
+
     try:
         new_val = session.toggle_group(group)
         await session_manager.save_sessions()
-        
+
         new_state = "✅ ACTIVADO" if new_val else "❌ DESACTIVADO"
         # Use display name in confirmation message
         await safe_answer(callback, f"{display_name}: {new_state}")
-        
+
         # Rebuild buttons + Volver
         # Use simple reload of cmd_assets to update view properly
         from handlers.config import cmd_assets
         await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
-        
+
+    except Exception as e:
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("TOGGLEASSET|"))
+async def handle_asset_toggle(callback: CallbackQuery, **kwargs):
+    """Toggle individual asset on/off"""
+    asset = callback.data.split("|")[1]
+
+    session_manager = kwargs.get('session_manager')
+
+    if not session_manager:
+        await safe_answer(callback, "⚠️ Error interno", show_alert=True)
+        return
+
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
+        return
+
+    try:
+        # Toggle asset blacklist status
+        now_disabled = session.toggle_asset_blacklist(asset)
+        await session_manager.save_sessions()
+
+        # Determine new state message
+        if now_disabled:
+            status_msg = f"🔴 {asset} DESACTIVADO"
+            state_desc = "sin señales"
+        else:
+            status_msg = f"🟢 {asset} ACTIVADO"
+            state_desc = "recibe señales"
+
+        await safe_answer(callback, f"{status_msg}\n({state_desc})")
+
+        # Refresh the assets menu
+        from handlers.config import cmd_assets
+        await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
+
+    except Exception as e:
+        await safe_answer(callback, f"Error: {e}", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("ASSETCTRL|"))
+async def handle_asset_control(callback: CallbackQuery, **kwargs):
+    """Handle bulk asset controls (enable/disable all)"""
+    action = callback.data.split("|")[1]
+
+    session_manager = kwargs.get('session_manager')
+
+    if not session_manager:
+        await safe_answer(callback, "⚠️ Error interno", show_alert=True)
+        return
+
+    session = session_manager.get_session(str(callback.message.chat.id))
+    if not session:
+        await safe_answer(callback, "⚠️ Sin sesión", show_alert=True)
+        return
+
+    try:
+        # Get all crypto assets
+        from system_directive import CRYPTO_SUBGROUPS
+        all_crypto_assets = []
+        for subgroup, assets in CRYPTO_SUBGROUPS.items():
+            all_crypto_assets.extend(assets)
+        all_crypto_assets = list(set(all_crypto_assets))  # Remove duplicates
+
+        if action == "ENABLE_ALL":
+            # Remove all assets from disabled list
+            session.config['disabled_assets'] = []
+            action_msg = f"🔄 Todos los activos ACTIVADOS ({len(all_crypto_assets)})"
+        elif action == "DISABLE_ALL":
+            # Add all assets to disabled list
+            session.config['disabled_assets'] = all_crypto_assets.copy()
+            action_msg = f"⏸️ Todos los activos DESACTIVADOS ({len(all_crypto_assets)})"
+        else:
+            await safe_answer(callback, "❌ Acción no válida", show_alert=True)
+            return
+
+        await session_manager.save_sessions()
+        await safe_answer(callback, action_msg)
+
+        # Refresh the assets menu
+        from handlers.config import cmd_assets
+        await cmd_assets(callback.message, session_manager=session_manager, edit_message=True)
+
     except Exception as e:
         await safe_answer(callback, f"Error: {e}", show_alert=True)
 

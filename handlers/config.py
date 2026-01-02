@@ -477,69 +477,93 @@ async def cmd_togglegroup(message: Message, **kwargs):
 
 @router.message(Command("assets"))
 async def cmd_assets(message: Message, **kwargs):
-    """v4 Combined Assets + Groups Menu"""
+    """v5 Individual Assets Menu with On/Off Indicators"""
     edit_message = kwargs.get('edit_message', False)
-    
-    # 1. Groups Section
-    from system_directive import GROUP_CONFIG
-    session_groups = dict(GROUP_CONFIG)
-    if kwargs.get('session_manager'):
-        session = kwargs['session_manager'].get_session(str(message.chat.id))
-        if session:
-            stored = session.config.get('groups', {})
-            session_groups.update(stored)
-            # Standardize naming if legacy state exists
-            if 'COMMODITY' in session_groups:
-                session_groups['ETFS'] = session_groups.pop('COMMODITY')
-            
-    # Map friendly display names to internal group names
-    # Binance controls CRYPTO, Bybit controls BYBIT
-    group_mapping = {
-        'Binance': 'CRYPTO',
-        'Bybit': 'BYBIT',
-        'Stocks': 'STOCKS',
-        'ETFs': 'ETFS'
-    }
-    
-    group_buttons = []
-    for display_name, internal_group in group_mapping.items():
-        enabled = session_groups.get(internal_group, False)
-        icon = "✅" if enabled else "❌"
-        # Use display name in button, but store internal group in callback
-        group_buttons.append(InlineKeyboardButton(
-            text=f"{icon} {display_name}", 
-            callback_data=f"TOGGLEGRP|{internal_group}|{display_name}"
-        ))
-    
-    # 2. Specific Asset Lists
-    list_buttons = [
-        InlineKeyboardButton(text="🦈 Shark Targets", callback_data="ASSETS|SHARK"),
-        InlineKeyboardButton(text="📡 Scanner Global", callback_data="ASSETS|GLOBAL")
-    ]
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        group_buttons, # Row 1: Groups
-        list_buttons,  # Row 2: Asset Lists
-        [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
-    ])
-    
-    msg_text = (
-        "📦 *GESTIÓN DE ACTIVOS*\n\n"
-        "**Grupos:** Activa/desactiva exchanges completos.\n"
-        "Al desactivar un exchange, no recibirás señales de ese exchange.\n\n"
-        "**Listas:** Configura activos individuales."
-    )
-    
+    session_manager = kwargs.get('session_manager')
+
+    # Get session
+    session = None
+    if session_manager:
+        session = session_manager.get_session(str(message.chat.id))
+
+    if not session:
+        msg_text = "❌ *Error:* Sesión no encontrada. Usa /start primero."
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")]
+        ])
+    else:
+        # Get all crypto assets from CRYPTO group
+        from system_directive import CRYPTO_SUBGROUPS
+
+        # Flatten all crypto assets into one list
+        all_crypto_assets = []
+        for subgroup, assets in CRYPTO_SUBGROUPS.items():
+            all_crypto_assets.extend(assets)
+
+        # Remove duplicates and sort
+        all_crypto_assets = sorted(list(set(all_crypto_assets)))
+
+        # Create asset buttons with status indicators
+        asset_buttons = []
+        for asset in all_crypto_assets:
+            # Check if asset is disabled (blacklisted)
+            is_disabled = session.is_asset_disabled(asset)
+            # Green dot = enabled (not disabled), Red dot = disabled
+            status_dot = "🟢" if not is_disabled else "🔴"
+            status_text = "ON" if not is_disabled else "OFF"
+
+            # Truncate long asset names for display
+            display_name = asset.replace('USDT', '') if asset.endswith('USDT') else asset
+            if len(display_name) > 8:
+                display_name = display_name[:8] + "..."
+
+            button_text = f"{status_dot} {display_name} {status_text}"
+            callback_data = f"TOGGLEASSET|{asset}"
+
+            asset_buttons.append(InlineKeyboardButton(
+                text=button_text,
+                callback_data=callback_data
+            ))
+
+        # Split into rows of 3 buttons each
+        keyboard_rows = []
+        for i in range(0, len(asset_buttons), 3):
+            row = asset_buttons[i:i+3]
+            keyboard_rows.append(row)
+
+        # Add control buttons at the bottom
+        control_buttons = [
+            InlineKeyboardButton(text="🔄 Todos ON", callback_data="ASSETCTRL|ENABLE_ALL"),
+            InlineKeyboardButton(text="⏸️ Todos OFF", callback_data="ASSETCTRL|DISABLE_ALL"),
+        ]
+        keyboard_rows.append(control_buttons)
+
+        # Add back button
+        keyboard_rows.append([InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|config")])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+        # Count enabled/disabled assets
+        enabled_count = sum(1 for asset in all_crypto_assets if not session.is_asset_disabled(asset))
+        disabled_count = len(all_crypto_assets) - enabled_count
+
+        msg_text = (
+            "📦 *GESTIÓN DE ACTIVOS INDIVIDUALES*\n\n"
+            f"**Estado:** {enabled_count} activos activados, {disabled_count} desactivados\n\n"
+            "🟢 **Verde = ACTIVO** (recibe señales)\n"
+            "🔴 **Rojo = DESACTIVADO** (sin señales)\n\n"
+            "Haz clic en cualquier activo para cambiar su estado.\n\n"
+        )
+
+    # Send or edit message
     if edit_message:
         try:
             await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
         except Exception as e:
             # Handle case where message content/markup is identical (TelegramBadRequest)
             if "message is not modified" in str(e):
-                # Message is already up to date, no need to edit
                 pass
             else:
-                # Re-raise other exceptions
                 raise e
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
