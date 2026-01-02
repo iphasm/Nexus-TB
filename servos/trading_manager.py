@@ -230,9 +230,9 @@ def format_position_message(
         sl_pct = 0
         tp_pct = 0
     else:
-    risk_amount = abs(entry_price - sl_price) * quantity
-    risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
-    rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
+        risk_amount = abs(entry_price - sl_price) * quantity
+        risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
+        rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
         sl_pct = ((sl_price - entry_price) / entry_price * 100)
         tp_pct = ((tp_price - entry_price) / entry_price * 100)
 
