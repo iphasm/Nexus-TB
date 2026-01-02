@@ -458,7 +458,14 @@ class AsyncTradingSession:
                 **exchange_kwargs
             )
              if verbose: print(f"✅ Bridge: Connected to Alpaca")
-             
+        
+        # Sync primary exchange preference from user config (BINANCE/BYBIT)
+        user_primary = self.config.get('crypto_exchange', 'BINANCE')
+        if self.bridge:
+            self.bridge.primary_exchange = user_primary.upper()
+            if verbose:
+                print(f"🎯 Bridge: Primary exchange set to {self.bridge.primary_exchange}")
+        
         return True
     
 

@@ -707,12 +707,19 @@ class BybitAdapter(IExchangeAdapter):
     # HELPER METHODS
 
     def _format_symbol(self, symbol: str) -> str:
-        """Convert BTCUSDT to BTC/USDT:USDT for CCXT linear futures."""
+        """Convert BTCUSDT to BTC/USDT:USDT for CCXT linear futures, applying Bybit corrections."""
         # Use centralized bridge formatting if available
         if hasattr(self, '_bridge') and self._bridge:
             return self._bridge.format_symbol_for_exchange(symbol, 'BYBIT')
 
         # Fallback to local implementation
+        # 1) Apply Bybit ticker corrections (e.g., 1000PEPEUSDT -> PEPEUSDT)
+        try:
+            from system_directive import get_bybit_corrected_ticker
+            symbol = get_bybit_corrected_ticker(symbol)
+        except Exception:
+            pass
+
         if ':' in symbol:
             return symbol
         if '/' in symbol:

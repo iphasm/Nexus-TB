@@ -265,11 +265,6 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
              asyncio.create_task(session.execute_close_position(symbol, only_side='SHORT'))
         return
     
-    # === TEMPORAL FILTER: Skip if on cooldown ===
-    if cooldown_manager.is_on_cooldown(symbol):
-        logger.info(f"⏳ Signal {symbol} omitido (cooldown)", group=True)
-        return
-    
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
     
@@ -323,8 +318,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     # For CRYPTO assets, determine target exchange based on user preferences
     # This will be handled later in the session filtering logic
 
-    # Track if at least one session processed the signal
-    signal_processed = False
+    # Track if at least one session processed the signal (per-exchange)
+    processed_exchanges = set()
     atr = getattr(signal, 'atr', None)
 
     for session in session_manager.get_all_sessions():
@@ -356,7 +351,13 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         # Check if user has the required exchange connected AND enabled in preferences
 
         # Determine target exchange for this session/symbol combination
-        target_exchange = session.bridge._route_symbol(symbol) if session.bridge else 'BINANCE'
+        user_exchange_prefs = session.get_exchange_preferences()
+        target_exchange = session.bridge._route_symbol(symbol, user_exchange_prefs) if session.bridge else 'BINANCE'
+        
+        # Per-exchange cooldown check
+        if cooldown_manager.is_on_cooldown(symbol, target_exchange):
+            logger.info(f"⏳ {session.chat_id}: {symbol} omitido en {target_exchange} (cooldown)", group=True)
+            continue
 
         user_exchange_prefs = session.get_exchange_preferences()
 
@@ -610,10 +611,9 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     
                     # Special handling for "Insufficient capital" (Min Notional)
                     elif "MIN_NOTIONAL" in result or "Insufficient capital" in result:
-                        # 1. Trigger Long Cooldown (1 hour) to stop spam
-                        from system_directive import COOLDOWN_SECONDS
-                        cooldown_manager.set_cooldown(symbol, 3600)
-                        
+                        # 1. Trigger Long Cooldown (1 hour) to stop spam (scoped to exchange)
+                        cooldown_manager.set_cooldown(symbol, seconds=3600, exchange=target_exchange)
+
                         # 2. Notify User only once
                         await bot.send_message(
                             session.chat_id,
@@ -630,13 +630,14 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                             parse_mode=None
                         )
                     
-            signal_processed = True
+            processed_exchanges.add(target_exchange)
         except Exception as e:
             logger.error(f"Synapse dispatch error for {session.chat_id}: {e}")
     
-    # Set cooldown ONLY if at least one session processed the signal
-    if signal_processed:
-        cooldown_manager.set_cooldown(symbol, atr=atr)
+    # Set cooldown ONLY for exchanges that processed the signal
+    if processed_exchanges:
+        for ex in processed_exchanges:
+            cooldown_manager.set_cooldown(symbol, atr=atr, exchange=ex)
     else:
         logger.debug(f"📭 Signal for {symbol} not dispatched (no eligible sessions)")
 

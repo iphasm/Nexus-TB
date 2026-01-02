@@ -123,6 +123,35 @@ class NexusBridge:
         """
         return self.shadow_wallet.positions.get(symbol, {})
 
+    async def get_positions(self, exchange: Optional[str] = None) -> list:
+        """
+        Obtener todas las posiciones activas de los adapters conectados.
+        Opcionalmente filtrar por exchange específico.
+        """
+        positions = []
+        target_adapters = {}
+
+        if exchange:
+            ex_name = exchange.upper()
+            if ex_name in self.adapters:
+                target_adapters = {ex_name: self.adapters[ex_name]}
+        else:
+            target_adapters = self.adapters
+
+        for name, adapter in target_adapters.items():
+            try:
+                adapter_positions = await adapter.get_positions()
+                for pos in adapter_positions:
+                    normalized = self.normalize_symbol(pos.get('symbol', ''))
+                    pos['symbol'] = normalized
+                    pos['exchange'] = name
+                    self.shadow_wallet.update_position(normalized, pos)
+                    positions.append(pos)
+            except Exception as e:
+                print(f"⚠️ NexusBridge: Error getting positions from {name}: {e}")
+
+        return positions
+
     async def get_last_price(self, symbol: str) -> float:
         """Get last price via adapter (using candles for compatibility)."""
         target = self._route_symbol(symbol)
@@ -397,14 +426,16 @@ class NexusBridge:
         # User preferences determine which exchanges to use within CRYPTO
         # Both BINANCE and BYBIT are equally important choices
 
-        # For symbols in CRYPTO group, route based on user preferences
+        # For symbols in CRYPTO group, route based on primary exchange preference
         if normalized_symbol in ASSET_GROUPS.get('CRYPTO', []):
-            # Check user preferences for crypto exchanges (both are equal priority)
-            if is_exchange_available('BYBIT'):
-                return 'BYBIT'  # Prefer Bybit if available
-            elif is_exchange_available('BINANCE'):
-                return 'BINANCE'  # Use Binance if Bybit not available
-            # Note: Both exchanges have equal priority in the new hierarchy
+            # Prefer user-selected primary exchange first
+            if self.primary_exchange and is_exchange_available(self.primary_exchange):
+                return self.primary_exchange
+
+            # Fallback to the other crypto exchange if primary not available
+            fallback_crypto = 'BYBIT' if self.primary_exchange == 'BINANCE' else 'BINANCE'
+            if is_exchange_available(fallback_crypto):
+                return fallback_crypto
 
         # 3. Stocks and ETFs - Alpaca only
         if normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or normalized_symbol in ASSET_GROUPS.get('ETFS', []):
@@ -488,15 +519,42 @@ class NexusBridge:
             print(f"📊 Unified crypto assets: {len(unified)} total")
 
             # Clasificar nuevos activos automáticamente
-            if new_crypto_assets:
-                categorized = self._categorize_new_assets(new_crypto_assets)
-                print(f"🏷️ Categorized {len(categorized)} new assets into subgroups")
+            # NOTE: new_crypto_assets deshabilitado; mantener bloque comentado para referencia
+            # if new_crypto_assets:
+            #     categorized = self._categorize_new_assets(new_crypto_assets)
+            #     print(f"🏷️ Categorized {len(categorized)} new assets into subgroups")
 
             return synced_assets
 
         except Exception as e:
             print(f"❌ Error in sync_crypto_assets: {e}")
             return synced_assets
+
+    async def sync_all_positions(self) -> int:
+        """
+        Sincroniza todas las posiciones de todos los exchanges al ShadowWallet.
+        
+        Returns:
+            int: Número de posiciones sincronizadas
+        """
+        synced = 0
+        for name, adapter in self.adapters.items():
+            try:
+                positions = await adapter.get_positions()
+                for pos in positions:
+                    normalized_symbol = self.normalize_symbol(pos.get('symbol', ''))
+                    self.shadow_wallet.update_position(normalized_symbol, {
+                        'symbol': normalized_symbol,
+                        'quantity': pos.get('quantity', 0),
+                        'side': pos.get('side', 'LONG'),
+                        'entry_price': pos.get('entryPrice', 0),
+                        'unrealized_pnl': pos.get('unrealizedPnl', 0),
+                        'exchange': name
+                    })
+                    synced += 1
+            except Exception as e:
+                print(f"⚠️ Position sync failed for {name}: {e}")
+        return synced
 
     def _categorize_new_assets(self, new_assets: list) -> Dict[str, list]:
         """

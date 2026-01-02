@@ -35,40 +35,46 @@ class DynamicCooldownManager:
         # Current cooldown per symbol
         self._cooldowns: Dict[str, int] = {}
         
-    def is_on_cooldown(self, symbol: str) -> bool:
-        """Check if symbol is still on cooldown."""
-        if symbol not in self._last_alert:
+    def _build_key(self, symbol: str, exchange: str = None) -> str:
+        """Build a cooldown key. Keeps backward compatibility if exchange is None."""
+        return f"{symbol}:{exchange}" if exchange else symbol
+
+    def is_on_cooldown(self, symbol: str, exchange: str = None) -> bool:
+        """Check if symbol (optionally scoped to an exchange) is still on cooldown."""
+        key = self._build_key(symbol, exchange)
+        if key not in self._last_alert:
             return False
         
-        cooldown = self._get_cooldown(symbol)
-        elapsed = time.time() - self._last_alert[symbol]
+        cooldown = self._get_cooldown(key)
+        elapsed = time.time() - self._last_alert[key]
         
         return elapsed < cooldown
     
-    def set_cooldown(self, symbol: str, atr: float = None):
-        """Mark symbol as alerted and record signal."""
+    def set_cooldown(self, symbol: str, atr: float = None, exchange: str = None, seconds: int = None):
+        """Mark symbol as alerted and record signal. Scoped per exchange if provided."""
+        key = self._build_key(symbol, exchange)
         current_time = time.time()
-        self._last_alert[symbol] = current_time
+        self._last_alert[key] = current_time
         
         # Record signal timestamp
-        if symbol not in self._signal_history:
-            self._signal_history[symbol] = deque(maxlen=20)  # Keep last 20 signals
-        self._signal_history[symbol].append(current_time)
+        if key not in self._signal_history:
+            self._signal_history[key] = deque(maxlen=20)  # Keep last 20 signals
+        self._signal_history[key].append(current_time)
         
         # Record ATR if provided
         if atr is not None:
-            if symbol not in self._atr_history:
-                self._atr_history[symbol] = deque(maxlen=10)  # Keep last 10 ATR values
-            self._atr_history[symbol].append(atr)
+            if key not in self._atr_history:
+                self._atr_history[key] = deque(maxlen=10)  # Keep last 10 ATR values
+            self._atr_history[key].append(atr)
         
         # Recalculate cooldown for this symbol
-        self._update_cooldown(symbol)
+        self._update_cooldown(key, override_seconds=seconds)
     
-    def _get_cooldown(self, symbol: str) -> int:
-        """Get current cooldown for symbol."""
-        return self._cooldowns.get(symbol, self.default_cooldown)
+    def _get_cooldown(self, key: str) -> int:
+        """Get current cooldown for symbol/exchange key."""
+        return self._cooldowns.get(key, self.default_cooldown)
     
-    def _update_cooldown(self, symbol: str):
+    def _update_cooldown(self, key: str, override_seconds: int = None):
         """
         Dynamically adjust cooldown based on signal frequency and volatility.
         
@@ -80,10 +86,10 @@ class DynamicCooldownManager:
         - Low volatility → Increase by 50% (filter noise)
         """
         # Calculate signal frequency
-        frequency = self._calculate_frequency(symbol)
+        frequency = self._calculate_frequency(key)
         
         # Calculate volatility factor
-        volatility_factor = self._calculate_volatility_factor(symbol)
+        volatility_factor = self._calculate_volatility_factor(key)
         
         # Base cooldown based on frequency
         if frequency > 4.0:
@@ -107,24 +113,28 @@ class DynamicCooldownManager:
             # Normal volatility
             adjusted_cooldown = base_cooldown
         
+        # Override if explicit seconds provided (e.g., freeze asset)
+        if override_seconds is not None:
+            adjusted_cooldown = override_seconds
+        
         # Store calculated cooldown
-        self._cooldowns[symbol] = adjusted_cooldown
+        self._cooldowns[key] = adjusted_cooldown
         
         # Log adjustment for debugging
-        print(f"📊 Cooldown adjusted for {symbol}: {adjusted_cooldown}s "
+        print(f"📊 Cooldown adjusted for {key}: {adjusted_cooldown}s "
               f"(freq: {frequency:.1f}/hr, vol: {volatility_factor:.2f}x)")
     
-    def _calculate_frequency(self, symbol: str) -> float:
+    def _calculate_frequency(self, key: str) -> float:
         """
         Calculate signals per hour for the symbol.
         
         Returns:
             float: Signals per hour (0.0 if no history)
         """
-        if symbol not in self._signal_history:
+        if key not in self._signal_history:
             return 0.0
         
-        history = self._signal_history[symbol]
+        history = self._signal_history[key]
         if len(history) < 2:
             return 0.0
         
@@ -147,17 +157,17 @@ class DynamicCooldownManager:
         
         return signals_per_hour
     
-    def _calculate_volatility_factor(self, symbol: str) -> float:
+    def _calculate_volatility_factor(self, key: str) -> float:
         """
         Calculate volatility factor based on ATR changes.
         
         Returns:
             float: Volatility factor (1.0 = normal, >1.5 = high, <0.7 = low)
         """
-        if symbol not in self._atr_history or len(self._atr_history[symbol]) < 3:
+        if key not in self._atr_history or len(self._atr_history[key]) < 3:
             return 1.0  # Normal volatility if no data
         
-        atr_values = list(self._atr_history[symbol])
+        atr_values = list(self._atr_history[key])
         
         # Calculate average ATR
         avg_atr = sum(atr_values) / len(atr_values)
@@ -171,14 +181,15 @@ class DynamicCooldownManager:
         
         return volatility_factor
     
-    def get_status(self, symbol: str) -> Dict:
-        """Get cooldown status for a symbol."""
-        cooldown = self._get_cooldown(symbol)
-        frequency = self._calculate_frequency(symbol)
-        volatility = self._calculate_volatility_factor(symbol)
+    def get_status(self, symbol: str, exchange: str = None) -> Dict:
+        """Get cooldown status for a symbol (optionally scoped to an exchange)."""
+        key = self._build_key(symbol, exchange)
+        cooldown = self._get_cooldown(key)
+        frequency = self._calculate_frequency(key)
+        volatility = self._calculate_volatility_factor(key)
         
-        if symbol in self._last_alert:
-            elapsed = time.time() - self._last_alert[symbol]
+        if key in self._last_alert:
+            elapsed = time.time() - self._last_alert[key]
             remaining = max(0, cooldown - elapsed)
         else:
             elapsed = 0
@@ -186,19 +197,21 @@ class DynamicCooldownManager:
         
         return {
             'symbol': symbol,
+            'exchange': exchange,
             'cooldown_seconds': cooldown,
             'remaining_seconds': remaining,
             'signals_per_hour': frequency,
             'volatility_factor': volatility,
-            'on_cooldown': self.is_on_cooldown(symbol)
+            'on_cooldown': self.is_on_cooldown(symbol, exchange)
         }
     
-    def reset(self, symbol: str):
-        """Reset cooldown for a symbol."""
-        if symbol in self._last_alert:
-            del self._last_alert[symbol]
-        if symbol in self._cooldowns:
-            del self._cooldowns[symbol]
+    def reset(self, symbol: str, exchange: str = None):
+        """Reset cooldown for a symbol (optionally per exchange)."""
+        key = self._build_key(symbol, exchange)
+        if key in self._last_alert:
+            del self._last_alert[key]
+        if key in self._cooldowns:
+            del self._cooldowns[key]
     
     def reset_all(self):
         """Reset all cooldowns."""
