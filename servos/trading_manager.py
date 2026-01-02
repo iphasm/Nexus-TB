@@ -2777,16 +2777,16 @@ class AsyncTradingSession:
             futures_balance = 0.0
             futures_available = 0.0
             if configured_exchanges.get('BINANCE', False):
-            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-            futures_balance = bin_bal.get('total', 0.0)
-            futures_available = bin_bal.get('available', 0.0)
-            futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
-            
+                bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+                futures_balance = bin_bal.get('total', 0.0)
+                futures_available = bin_bal.get('available', 0.0)
+                futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
+
             # 2. Bybit (only if configured)
             bybit_total = 0.0
             if configured_exchanges.get('BYBIT', False):
-            bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
-            bybit_total = bybit_bal.get('total', 0.0)
+                bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
+                bybit_total = bybit_bal.get('total', 0.0)
             
             # 3. Alpaca (only if configured)
             alpaca_equity = 0.0
