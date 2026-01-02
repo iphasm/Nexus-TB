@@ -1494,6 +1494,7 @@ class AsyncTradingSession:
         """
         Check if we have enough 'dry powder' to open a new position.
         Returns: (is_sufficient, available_balance, message)
+        Note: Threshold is very low ($1) to avoid blocking trades unnecessarily.
         """
         # 1. Get Min Notional (Minimum trade size allowed by exchange)
         qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
@@ -1514,21 +1515,62 @@ class AsyncTradingSession:
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
                 print(f"✅ Balance synced for {target_exchange}: ${fresh_balance.get('available', 0):.2f}")
             except Exception as sync_err:
-                self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
+                print(f"❌ Balance sync FAILED for {target_exchange}: {sync_err}")
+                # If sync fails, try to get cached balance but warn
+                cached_balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
+                if cached_balance > 0:
+                    print(f"⚠️ Using cached balance for {target_exchange}: ${cached_balance:.2f}")
+                    fresh_balance = {'available': cached_balance}
+                    self.shadow_wallet.update_balance(target_exchange, fresh_balance)
+                else:
+                    print(f"❌ No cached balance available for {target_exchange}")
 
         # Fetch balance from the CORRECT exchange (now fresh)
         balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
 
-        # Debug: Log which exchange we're checking
-        self.logger.debug(f"Liquidity Check: {symbol} -> {target_exchange} (Balance: ${balance:.2f})")
+        # Enhanced Debug: Log detailed balance info
+        print(f"💰 Liquidity Check: {symbol} -> {target_exchange}")
+        print(f"   Balance: ${balance:.2f}")
+        print(f"   ShadowWallet data: {self.shadow_wallet.balances.get(target_exchange, {})}")
+        print(f"   Bridge adapters: {list(self.bridge.adapters.keys()) if self.bridge else 'None'}")
              
-        # 3. Define Threshold (Min Notional + 10% buffer)
-        threshold = max(min_notional * 1.1, 6.0) # Ensure at least $6 for safety
-        
+        # 3. Define Threshold (Much more relaxed - only check if we have at least $1)
+        threshold = 1.0  # Very low threshold to avoid blocking trades unnecessarily
+
         if balance < threshold:
-             return False, balance, f"⚠️ **Low Budget Mode:** Balance (${balance:.2f}) on {target_exchange} < Min Req (${threshold:.2f}). Pausing entries."
-             
+             return False, balance, f"⚠️ **Insufficient Balance:** Balance (${balance:.2f}) on {target_exchange} < Min Req (${threshold:.2f}). Cannot open position."
+        else:
+             # Log successful liquidity check
+             self.logger.debug(f"✅ Liquidity OK: {symbol} -> {target_exchange} (${balance:.2f} >= ${threshold:.2f})")
+
         return True, balance, "OK"
+
+    async def diagnose_balance_issues(self) -> str:
+        """Diagnose balance synchronization issues for debugging."""
+        report = "🔍 **BALANCE DIAGNOSTIC REPORT**\n\n"
+
+        if not self.bridge:
+            report += "❌ Bridge not initialized\n"
+            return report
+
+        report += f"📊 Bridge adapters: {list(self.bridge.adapters.keys())}\n\n"
+
+        for exchange in ['BINANCE', 'BYBIT', 'ALPACA']:
+            if exchange in self.bridge.adapters:
+                try:
+                    fresh_balance = await self.bridge.adapters[exchange].get_account_balance()
+                    shadow_balance = self.shadow_wallet.balances.get(exchange, {})
+
+                    report += f"🏦 **{exchange}:**\n"
+                    report += f"   Fresh API: ${fresh_balance.get('available', 0):.2f}\n"
+                    report += f"   ShadowWallet: ${shadow_balance.get('available', 0):.2f}\n"
+                    report += f"   Status: {'✅ OK' if abs(fresh_balance.get('available', 0) - shadow_balance.get('available', 0)) < 0.01 else '⚠️ OUT OF SYNC'}\n\n"
+                except Exception as e:
+                    report += f"🏦 **{exchange}:** ❌ Error: {e}\n\n"
+            else:
+                report += f"🏦 **{exchange}:** ❌ Not connected\n\n"
+
+        return report
 
     async def _evaluate_trade_with_risk_policy(self, symbol: str, side: str, atr: Optional[float], strategy: str, force_exchange: str = None) -> Tuple[bool, dict, str]:
         """
