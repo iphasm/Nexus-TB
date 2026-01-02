@@ -354,6 +354,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 
         # --- ENHANCED FILTER: Exchange Available and Enabled? ---
         # Check if user has the required exchange connected AND enabled in preferences
+
+        # Determine target exchange for this session/symbol combination
+        target_exchange = session.bridge._route_symbol(symbol) if session.bridge else 'BINANCE'
+
         user_exchange_prefs = session.get_exchange_preferences()
 
         if not user_exchange_prefs.get(target_exchange, False):
@@ -387,8 +391,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             # Calculate SL/TP/TS preview
             sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
 
-            # Determine target exchange for display
-            target_exchange = session.bridge._route_symbol(symbol) if session.bridge else 'BINANCE'
+            # Use target_exchange already determined above
             exchange_display = 'Binance' if 'BINANCE' in target_exchange else 'Bybit' if 'BYBIT' in target_exchange else 'Alpaca'
 
             # Fetch Personality Data
