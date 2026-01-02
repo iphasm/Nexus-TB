@@ -787,6 +787,8 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
     parts = callback.data.split("|")
     nav_level = parts[1].lower()
 
+    print(f"🔍 ASSETS Navigation: {parts}")  # Debug
+
     session_manager = kwargs.get('session_manager')
 
     if not session_manager:
@@ -802,6 +804,7 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_assets
 
         if nav_level == "main":
+            print("📍 Navigating to main menu")
             # Go to main assets menu
             await cmd_assets(callback.message, session_manager=session_manager,
                            nav_level='main', edit_message=True)
@@ -809,20 +812,25 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
             if len(parts) > 2:
                 # Navigate to specific crypto category
                 category = parts[2]
+                print(f"📍 Navigating to crypto category: {category}")
                 await cmd_assets(callback.message, session_manager=session_manager,
                                nav_level='crypto', category=category, edit_message=True)
             else:
+                print("📍 Navigating to crypto categories menu")
                 # Go to crypto categories menu
                 await cmd_assets(callback.message, session_manager=session_manager,
                                nav_level='crypto', edit_message=True)
         elif nav_level in ["stocks", "etfs"]:
+            print(f"📍 Navigating to {nav_level} menu")
             # Navigate to stocks or ETFs menu
             await cmd_assets(callback.message, session_manager=session_manager,
                            nav_level=nav_level, edit_message=True)
         else:
+            print(f"❌ Unknown nav_level: {nav_level}")
             await safe_answer(callback, "❌ Opción no válida", show_alert=True)
 
     except Exception as e:
+        print(f"💥 ASSETS Navigation Error: {e}")
         await safe_answer(callback, f"Error: {e}", show_alert=True)
 
 

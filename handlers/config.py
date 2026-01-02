@@ -485,6 +485,8 @@ async def cmd_assets(message: Message, **kwargs):
     nav_level = kwargs.get('nav_level', 'main')  # main, crypto, stocks, etfs
     category = kwargs.get('category', None)      # major_caps, meme_coins, etc.
 
+    print(f"🔍 cmd_assets called with: nav_level={nav_level}, category={category}, edit_message={edit_message}")
+
     # Get session
     session = None
     if session_manager:
@@ -552,6 +554,7 @@ async def cmd_assets(message: Message, **kwargs):
 
         # Individual Category Assets Menu
         elif nav_level == 'crypto' and category:
+            print(f"🔍 Processing crypto category: {category}")
             if category in CRYPTO_SUBGROUPS:
                 assets = CRYPTO_SUBGROUPS[category]
 
