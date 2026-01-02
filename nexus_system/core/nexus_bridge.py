@@ -398,10 +398,11 @@ class NexusBridge:
         Lógica de enrutamiento inteligente basada en grupos de activos y preferencias de usuario.
 
         Determina automáticamente qué exchange usar para un símbolo basándose en:
-        1. Grupos de activos definidos en system_directive (BYBIT, CRYPTO, STOCKS, ETFS)
-        2. Preferencias del usuario (qué exchanges tiene habilitados)
-        3. Disponibilidad de adapters conectados
-        4. Fallback inteligente al exchange más apropiado
+        1. Disponibilidad del símbolo en cada exchange (usando BYBIT_EXCLUSIONS)
+        2. Grupos de activos definidos en system_directive (BYBIT, CRYPTO, STOCKS, ETFS)
+        3. Preferencias del usuario (qué exchanges tiene habilitados)
+        4. Disponibilidad de adapters conectados
+        5. Fallback inteligente al exchange más apropiado
 
         Args:
             symbol: Símbolo del activo
@@ -413,47 +414,71 @@ class NexusBridge:
         # Normalizar símbolo primero
         normalized_symbol = self.normalize_symbol(symbol)
 
-        # Helper function to check if exchange is available for user
-        def is_exchange_available(exchange: str) -> bool:
+        # Import symbol availability check
+        try:
+            from system_directive import is_symbol_available_on_exchange
+        except ImportError:
+            def is_symbol_available_on_exchange(s, e): return True
+
+        # Helper function to check if exchange is available for user AND symbol
+        def is_exchange_available(exchange: str, check_symbol: bool = True) -> bool:
             if exchange not in self.adapters:
                 return False
             if user_preferences and exchange in user_preferences:
-                return user_preferences[exchange]
-            return True  # If no preferences specified, assume available
+                if not user_preferences[exchange]:
+                    return False
+            # Check if symbol is tradeable on this exchange
+            if check_symbol and not is_symbol_available_on_exchange(normalized_symbol, exchange):
+                return False
+            return True
 
         # CRYPTO EXCHANGE ROUTING LOGIC (NUEVA JERARQUÍA):
         # CRYPTO group contains ALL cryptocurrency assets
         # User preferences determine which exchanges to use within CRYPTO
         # Both BINANCE and BYBIT are equally important choices
 
-        # For symbols in CRYPTO group, route based on primary exchange preference
-        if normalized_symbol in ASSET_GROUPS.get('CRYPTO', []):
-            # Prefer user-selected primary exchange first
-            if self.primary_exchange and is_exchange_available(self.primary_exchange):
-                return self.primary_exchange
+        # Check if this is a crypto symbol
+        is_crypto = 'USDT' in normalized_symbol or normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])
 
-            # Fallback to the other crypto exchange if primary not available
-            fallback_crypto = 'BYBIT' if self.primary_exchange == 'BINANCE' else 'BINANCE'
-            if is_exchange_available(fallback_crypto):
-                return fallback_crypto
+        if is_crypto:
+            # Get which exchanges are available for this specific symbol
+            binance_available = is_exchange_available('BINANCE')
+            bybit_available = is_exchange_available('BYBIT')
+
+            # If only one is available, use it
+            if binance_available and not bybit_available:
+                return 'BINANCE'
+            if bybit_available and not binance_available:
+                return 'BYBIT'
+
+            # If both are available, prefer user's primary exchange
+            if binance_available and bybit_available:
+                if self.primary_exchange and is_exchange_available(self.primary_exchange):
+                    return self.primary_exchange
+                # Fallback to first available
+                return 'BINANCE'
+
+            # Neither available - this symbol may not be tradeable
+            # Log and fallback to primary
+            print(f"⚠️ NexusBridge: {normalized_symbol} not available on any crypto exchange")
 
         # 3. Stocks and ETFs - Alpaca only
         if normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or normalized_symbol in ASSET_GROUPS.get('ETFS', []):
-            if is_exchange_available('ALPACA'):
+            if is_exchange_available('ALPACA', check_symbol=False):
                 return 'ALPACA'
 
         # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
         if 'USDT' not in normalized_symbol and 'USD' not in normalized_symbol:
-            if is_exchange_available('ALPACA'):
+            if is_exchange_available('ALPACA', check_symbol=False):
                 return 'ALPACA'
 
         # 5. Ultimate Fallback - use primary exchange if available and enabled
-        if self.primary_exchange and is_exchange_available(self.primary_exchange):
+        if self.primary_exchange and is_exchange_available(self.primary_exchange, check_symbol=False):
             return self.primary_exchange
 
         # 6. Last resort - return first available adapter according to user preferences
         for exchange_name in ['BINANCE', 'BYBIT', 'ALPACA']:
-            if is_exchange_available(exchange_name):
+            if is_exchange_available(exchange_name, check_symbol=False):
                 return exchange_name
 
         return 'BINANCE'  # Default if nothing available
