@@ -2,9 +2,12 @@
 Risk Policy Engine - Fase 2: Centralización de Lógica de Riesgo
 Unifica aprobación de trades, límites de exposición y ajustes dinámicos de tamaño.
 """
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
+
+if TYPE_CHECKING:
+    from nexus_system.core.risk_scaler import RiskMultipliers
 
 
 class TradeAction(Enum):
@@ -107,7 +110,7 @@ class RiskPolicy:
         }
 
         # Risk Scaler para ajuste dinámico
-        from nexus_system.core.risk_scaler import RiskScaler
+        from nexus_system.core.risk_scaler import RiskScaler, RiskMultipliers
         self.risk_scaler = RiskScaler()
 
     def evaluate(self, intent: StrategyIntent, portfolio: PortfolioState, market_data: Optional[Dict[str, Any]] = None) -> RiskDecision:
@@ -276,7 +279,7 @@ class RiskPolicy:
 
         return min(adjusted, base_size_pct)  # Nunca aumentar sobre base
 
-    def _compute_sl_tp(self, intent: StrategyIntent, config: Dict[str, Any], risk_multipliers: Optional[RiskMultipliers] = None) -> Tuple[float | None, float | None]:
+    def _compute_sl_tp(self, intent: StrategyIntent, config: Dict[str, Any], risk_multipliers: Optional['RiskMultipliers'] = None) -> Tuple[float | None, float | None]:
         """Calcula precios de SL/TP usando ATR o porcentajes"""
         if not intent.price > 0:
             return None, None
