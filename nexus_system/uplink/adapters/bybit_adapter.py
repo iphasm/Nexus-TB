@@ -76,13 +76,7 @@ class BybitAdapter(IExchangeAdapter):
 
             self._exchange = ccxt.bybit(config)
 
-            # For async CCXT, proxy must be set via aiohttp_proxy property AFTER creation
-            if http_proxy:
-                self._exchange.aiohttp_proxy = http_proxy
-            
-            await self._exchange.load_markets()
-
-            # DIRECT TIMESTAMP PATCHING FOR BYBIT
+            # DIRECT TIMESTAMP PATCHING FOR BYBIT - BEFORE ANY API CALLS
             # Bybit has extremely strict timestamp validation that can't be fixed with standard CCXT methods
             # We patch the milliseconds() method to always return timestamps 2 seconds in the past
             import time
@@ -95,13 +89,19 @@ class BybitAdapter(IExchangeAdapter):
                 def patched_milliseconds():
                     return int(time.time() * 1000) - 2000  # 2 seconds ago (tested and working)
 
-                # Apply the patch
+                # Apply the patch BEFORE any API calls
                 self._exchange.milliseconds = patched_milliseconds
 
                 if verbose:
                     print(f"✅ BybitAdapter: Direct timestamp patching applied")
                     print(f"   ⏰ All timestamps will be generated 2 seconds in the past")
                     print(f"   🛡️ This ensures compatibility with Bybit's recv_window")
+
+            # For async CCXT, proxy must be set via aiohttp_proxy property AFTER creation
+            if http_proxy:
+                self._exchange.aiohttp_proxy = http_proxy
+
+            await self._exchange.load_markets()
 
                 # Also disable automatic time adjustment to avoid conflicts
                 self._exchange.options['adjustForTimeDifference'] = False
