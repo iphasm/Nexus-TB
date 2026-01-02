@@ -153,7 +153,7 @@ class NexusBridge:
         return positions
 
     async def get_last_price(self, symbol: str, exchange: Optional[str] = None) -> float:
-        """Get last price via adapter (using candles for compatibility).
+        """Get last price via adapter (using ticker for speed, fallback to candles).
 
         IMPORTANT: In multi-exchange mode, callers should pass `exchange` explicitly to avoid
         re-routing to a different exchange than where the position/orders exist.
@@ -162,9 +162,22 @@ class NexusBridge:
         adapter = self.adapters.get(target)
         if not adapter:
             return 0.0
-            
+
+        # Format symbol for the adapter
+        formatted_symbol = adapter._format_symbol(symbol) if hasattr(adapter, '_format_symbol') else symbol
+
+        # Method 1: Try to use fetch_ticker (faster, no rate limiting issues)
         try:
-            # Efficient check: Use 1m candle, limit 1
+            if hasattr(adapter, '_exchange') and adapter._exchange:
+                ticker = await adapter._exchange.fetch_ticker(formatted_symbol)
+                if ticker and 'last' in ticker and ticker['last']:
+                    return float(ticker['last'])
+        except Exception as ticker_err:
+            # Ticker failed, try candles as fallback
+            pass
+
+        # Method 2: Fallback to candles (may be rate limited)
+        try:
             df = await adapter.fetch_candles(symbol, timeframe='1m', limit=1)
             if not df.empty:
                 return float(df['close'].iloc[-1])
@@ -661,18 +674,21 @@ class NexusBridge:
             binance_available = is_exchange_available('BINANCE')
             bybit_available = is_exchange_available('BYBIT')
 
-            # If only one is available, use it
-            if binance_available and not bybit_available:
+            # PRIORIDAD: Binance primero (más estable con timestamps)
+            # Solo usar Bybit si Binance no está disponible para este símbolo
+            if binance_available:
                 return 'BINANCE'
-            if bybit_available and not binance_available:
+
+            if bybit_available:
                 return 'BYBIT'
 
-            # If both are available, prefer user's primary exchange
-            if binance_available and bybit_available:
-                if self.primary_exchange and is_exchange_available(self.primary_exchange):
-                    return self.primary_exchange
-                # Fallback to first available
+            # Fallback: Intentar Binance si está conectado (ignorar disponibilidad de símbolo)
+            if 'BINANCE' in self.adapters:
                 return 'BINANCE'
+
+            # Fallback: Intentar Bybit si está conectado
+            if 'BYBIT' in self.adapters:
+                return 'BYBIT'
 
             # Neither available - this symbol may not be tradeable
             # Log and fallback to primary

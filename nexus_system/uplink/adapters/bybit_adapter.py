@@ -69,18 +69,45 @@ class BybitAdapter(IExchangeAdapter):
             
             # Unified Proxy Config (CCXT Async uses aiohttp_proxy, NOT proxies dict)
             http_proxy = config_options.get('http_proxy') or os.getenv('PROXY_URL') or os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            
+
             # Testnet support
             if self._testnet:
                 config['sandbox'] = True
-                
+
             self._exchange = ccxt.bybit(config)
-            
+
             # For async CCXT, proxy must be set via aiohttp_proxy property AFTER creation
             if http_proxy:
                 self._exchange.aiohttp_proxy = http_proxy
             
             await self._exchange.load_markets()
+
+            # DIRECT TIMESTAMP PATCHING FOR BYBIT
+            # Bybit has extremely strict timestamp validation that can't be fixed with standard CCXT methods
+            # We patch the milliseconds() method to always return timestamps 3 seconds in the past
+            import time
+
+            if not self._testnet:  # Only apply to live trading
+                # Store original method
+                original_milliseconds = self._exchange.milliseconds
+
+                # Create patched method that returns time - 3 seconds
+                def patched_milliseconds():
+                    return int(time.time() * 1000) - 3000  # 3 seconds ago
+
+                # Apply the patch
+                self._exchange.milliseconds = patched_milliseconds
+
+                if verbose:
+                    print(f"✅ BybitAdapter: Direct timestamp patching applied")
+                    print(f"   ⏰ All timestamps will be generated 3 seconds in the past")
+                    print(f"   🛡️ This ensures compatibility with Bybit's recv_window")
+
+                # Also disable automatic time adjustment to avoid conflicts
+                self._exchange.options['adjustForTimeDifference'] = False
+            else:
+                if verbose:
+                    print(f"ℹ️ BybitAdapter: Timestamp patching skipped (testnet mode)")
 
             # Clear cache for known available symbols that might have been incorrectly cached
             known_available = ['SUIUSDT', 'SEIUSDT', 'NEARUSDT', 'MATICUSDT', 'APTUSDT', 'OPUSDT', 'ARBUSDT', 'ATOMUSDT']

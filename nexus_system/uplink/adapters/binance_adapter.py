@@ -103,6 +103,19 @@ class BinanceAdapter(IExchangeAdapter):
                 if verbose: print(f"⚠️ BinanceAdapter: load_markets failed - {market_err}")
                 # Markets load can fail for non-auth reasons, try to continue
 
+            # Step 1.5: Load time difference for timestamp synchronization
+            try:
+                await self._exchange.load_time_difference()
+                time_diff = getattr(self._exchange, 'time_difference', 0)
+                if verbose:
+                    if time_diff != 0:
+                        print(f"✅ BinanceAdapter: Time difference loaded ({time_diff}ms)")
+                    else:
+                        print(f"✅ BinanceAdapter: Time synchronization checked (no difference)")
+            except Exception as time_err:
+                if verbose: print(f"⚠️ BinanceAdapter: Failed to load time difference - {time_err}")
+                # Continue without time sync - might still work
+
             # Step 2: Test authenticated endpoint
             try:
                 balance = await self._exchange.fetch_balance()

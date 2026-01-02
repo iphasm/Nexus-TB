@@ -339,6 +339,11 @@ class AsyncTradingSession:
         
         # Algo Order Tracking: Track algoIds for selective cancellation
         self.active_algo_orders = {}  # {symbol: {'sl_id': str, 'tp_id': str}}
+
+        # Cache para grupos habilitados (para evitar consultas repetidas a BD)
+        self._enabled_groups_cache = None  # {group: bool}
+        self._groups_cache_timestamp = 0  # timestamp del último refresh
+        self._groups_cache_ttl = 300  # 5 minutos TTL para el cache
         
         # Proxy Setup
         self._proxy = os.getenv('PROXY_URL') or os.getenv('HTTPS_PROXY') or os.getenv('HTTP_PROXY')
@@ -660,18 +665,43 @@ class AsyncTradingSession:
         current = groups.get(group, False)
         groups[group] = not current
         self.config['groups'] = groups
+
+        # Invalidar el cache para forzar refresh en la próxima consulta
+        self._enabled_groups_cache = None
+
         return groups[group]
+
+    def _refresh_groups_cache(self):
+        """Refresh the enabled groups cache from database."""
+        import time
+        from servos.db import get_user_enabled_groups
+
+        current_time = time.time()
+        # Solo refrescar si el cache está vacío o expiró
+        if self._enabled_groups_cache is None or (current_time - self._groups_cache_timestamp) > self._groups_cache_ttl:
+            user_groups = get_user_enabled_groups(self.chat_id)
+            if user_groups:
+                self._enabled_groups_cache = user_groups
+            else:
+                # Fallback to session config (legacy)
+                groups = self.config.get('groups', {})
+                self._enabled_groups_cache = {
+                    'CRYPTO': groups.get('CRYPTO', True),
+                    'STOCKS': groups.get('STOCKS', True),
+                    'ETFS': groups.get('ETFS', True)
+                }
+            self._groups_cache_timestamp = current_time
 
     def is_group_enabled(self, group: str) -> bool:
         """
         Check if group is enabled FOR THIS USER.
-        Fetches from DB (per-user preferences) first, falls back to session config.
+        Uses cached values to avoid repeated DB queries.
         """
-        # Try DB first (per-user preferences)
-        from servos.db import get_user_enabled_groups
-        user_groups = get_user_enabled_groups(self.chat_id)
-        if user_groups:
-            return user_groups.get(group, True)
+        # Refresh cache if needed
+        self._refresh_groups_cache()
+
+        # Return cached value
+        return self._enabled_groups_cache.get(group, True)
 
     def get_configured_exchanges(self) -> Dict[str, bool]:
         """
