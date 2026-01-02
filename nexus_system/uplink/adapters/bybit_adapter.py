@@ -103,12 +103,6 @@ class BybitAdapter(IExchangeAdapter):
 
             await self._exchange.load_markets()
 
-                # Also disable automatic time adjustment to avoid conflicts
-                self._exchange.options['adjustForTimeDifference'] = False
-            else:
-                if verbose:
-                    print(f"ℹ️ BybitAdapter: Timestamp patching skipped (testnet mode)")
-
             # Clear cache for known available symbols that might have been incorrectly cached
             known_available = ['SUIUSDT', 'SEIUSDT', 'NEARUSDT', 'MATICUSDT', 'APTUSDT', 'OPUSDT', 'ARBUSDT', 'ATOMUSDT']
             for symbol in known_available:
