@@ -166,6 +166,12 @@ async def cmd_start(message: Message, **kwargs):
                     for exchange in configured_exchange_names:
                         balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
 
+                        # Debug Alpaca balance specifically
+                        if exchange == 'ALPACA':
+                            print(f"🔍 ALPACA Balance Debug:")
+                            print(f"   Shadow Wallet: {session.shadow_wallet.balances.get('ALPACA', {})}")
+                            print(f"   Available: ${balance:.2f}")
+
                         # Different thresholds for different exchanges
                         if exchange == 'ALPACA':
                             threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
