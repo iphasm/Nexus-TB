@@ -169,18 +169,9 @@ class AlpacaAdapter(IExchangeAdapter):
             
         try:
             account = self._trading_client.get_account()
-            print(f"🔍 AlpacaAdapter: Raw account data:")
-            print(f"   Equity: {account.equity} (type: {type(account.equity)})")
-            print(f"   Buying Power: {account.buying_power} (type: {type(account.buying_power)})")
-            print(f"   Cash: {getattr(account, 'cash', 'N/A')} (type: {type(getattr(account, 'cash', 'N/A'))})")
-            print(f"   Portfolio Value: {getattr(account, 'portfolio_value', 'N/A')} (type: {type(getattr(account, 'portfolio_value', 'N/A'))})")
 
             equity = float(account.equity)
             cash = float(getattr(account, 'cash', account.equity))  # Fallback to equity if cash not available
-
-            print(f"🔍 AlpacaAdapter: Calculated values:")
-            print(f"   Total (Equity): ${equity:.2f}")
-            print(f"   Available (Cash): ${cash:.2f}")
 
             return {
                 'total': equity,
