@@ -149,54 +149,43 @@ async def cmd_start(message: Message, **kwargs):
         quote = quote.rstrip('.!?,;:')
         formatted_quote = f"      \"{quote}, **{user_name}**.\""
 
-        # 7. Verificar balances y generar mensaje dinámico (solo si hay problemas)
+        # 7. Verificar balances y generar advertencia SOLO si hay problemas
         balance_warning = ""
-        show_balance_section = False
 
-        # Fast balance check - only use cached data, no network calls
+        # Fast balance check - only show warnings when there are low balance issues
         if session and hasattr(session, 'shadow_wallet') and session.shadow_wallet:
             try:
-                # Only show balances for configured exchanges
+                # Only check balances for configured exchanges
                 configured_exchanges = session.get_configured_exchanges()
                 configured_exchange_names = [ex for ex, configured in configured_exchanges.items() if configured]
 
-                if configured_exchange_names:  # Only show if user has any exchanges configured
-                    balance_lines = []
+                if configured_exchange_names:  # Only check if user has exchanges configured
+                    low_balance_exchanges = []
 
                     for exchange in configured_exchange_names:
-                        balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
+                        available_balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
 
                         # Different thresholds for different exchanges
                         if exchange == 'ALPACA':
                             threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
-                            # For Alpaca, show equity (total account value) instead of available cash
-                            total_balance = session.shadow_wallet.balances.get(exchange, {}).get('total', 0)
-                            display_balance = total_balance if total_balance > 0 else balance
                         else:
                             threshold = 6.0  # $6 minimum for crypto exchanges
-                            display_balance = balance
 
-                        # Always show balance status with appropriate icon
-                        if display_balance == 0:
-                            balance_lines.append(f"⛔ **{exchange}:** $0.00")
-                            show_balance_section = True
-                        elif display_balance < threshold:
-                            balance_lines.append(f"⚠️ **{exchange}:** ${display_balance:.2f} (Mín: ${threshold:.2f})")
-                            show_balance_section = True
-                        else:
-                            balance_lines.append(f"✅ **{exchange}:** ${display_balance:.2f}")
+                        # Only show warning for low/zero balances
+                        if available_balance == 0:
+                            low_balance_exchanges.append(f"⛔ **{exchange}:** $0.00 (Forzado a modo Watcher)")
+                        elif available_balance < threshold:
+                            low_balance_exchanges.append(f"⛔ **{exchange}:** ${available_balance:.2f} (Forzado a modo Watcher)")
 
-                    if balance_lines:
-                        balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(balance_lines) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    else:
-                        balance_warning = ""  # No balance info to show
+                    # Only show warning section if there are low balance issues
+                    if low_balance_exchanges:
+                        balance_warning = f"⚠️ **Advertencia:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 else:
-                    # User has no exchanges configured - show helpful message
-                    balance_warning = "🔑 **Configura tus Exchanges:**\nUsa /set_keys para configurar API keys y ver balances.\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    # User has no exchanges configured - show setup message
+                    balance_warning = "🔑 **Configura tus Exchanges:**\nUsa /set_keys para configurar API keys.\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
             except Exception as e:
                 # Silent fail - don't block /start for balance check errors
-                # Silent fail for balance check - don't spam logs
                 balance_warning = ""
 
         # 8. Construir mensaje de bienvenida

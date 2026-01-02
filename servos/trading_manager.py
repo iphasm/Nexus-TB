@@ -1508,40 +1508,48 @@ class AsyncTradingSession:
         user_exchange_prefs = self.get_exchange_preferences()
         target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
 
-        # Debug: Log routing decision for MSFT
-        if symbol == 'MSFT':
-            print(f"🔍 TradingManager: MSFT routing debug:")
-            print(f"   - symbol: {symbol}")
-            print(f"   - user_exchange_prefs: {user_exchange_prefs}")
-            print(f"   - target_exchange: {target_exchange}")
-            print(f"   - bridge adapters: {list(self.bridge.adapters.keys()) if self.bridge else 'None'}")
-
         # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
                 self.shadow_wallet.update_balance(target_exchange, fresh_balance)
-                print(f"✅ Balance synced for {target_exchange}: ${fresh_balance.get('available', 0):.2f}")
             except Exception as sync_err:
-                print(f"❌ Balance sync FAILED for {target_exchange}: {sync_err}")
-                # If sync fails, try to get cached balance but warn
+                # If sync fails, try to use cached balance
                 cached_balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
                 if cached_balance > 0:
-                    print(f"⚠️ Using cached balance for {target_exchange}: ${cached_balance:.2f}")
                     fresh_balance = {'available': cached_balance}
                     self.shadow_wallet.update_balance(target_exchange, fresh_balance)
-                else:
-                    print(f"❌ No cached balance available for {target_exchange}")
 
         # Fetch balance from the CORRECT exchange (now fresh)
-        balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
+        raw_balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
 
-        # Enhanced Debug: Log detailed balance info
-        print(f"💰 Liquidity Check: {symbol} -> {target_exchange}")
-        print(f"   Balance: ${balance:.2f}")
-        print(f"   ShadowWallet data: {self.shadow_wallet.balances.get(target_exchange, {})}")
-        print(f"   Bridge adapters: {list(self.bridge.adapters.keys()) if self.bridge else 'None'}")
-             
+        # 2.5. Calculate available capital considering open positions margin requirements
+        available_capital = raw_balance
+
+        # For margin-based exchanges (Bybit), subtract margin used by open positions
+        if target_exchange == 'BYBIT':
+            try:
+                # Get all positions for this exchange
+                positions = self.shadow_wallet.positions.get(target_exchange, [])
+
+                # Calculate total margin used by open positions
+                total_margin_used = 0.0
+                for pos in positions:
+                    if pos.get('quantity', 0) != 0:  # Position is open
+                        # For futures, margin is typically position size / leverage
+                        # This is a simplified calculation - in production you'd get actual margin from API
+                        position_value = abs(pos.get('quantity', 0)) * pos.get('entry_price', 0)
+                        # Assume 10x leverage as default, so margin = position_value / 10
+                        margin_required = position_value / 10.0
+                        total_margin_used += margin_required
+
+                available_capital = max(0, raw_balance - total_margin_used)
+            except Exception as e:
+                available_capital = raw_balance  # Fallback to raw balance
+
+        # Use calculated available capital for the check
+        balance = available_capital
+
         # 3. Define Threshold (Much more relaxed - only check if we have at least $1)
         threshold = 1.0  # Very low threshold to avoid blocking trades unnecessarily
 
@@ -1550,7 +1558,7 @@ class AsyncTradingSession:
              return False, balance, ""
         else:
              # Log successful liquidity check
-             self.logger.debug(f"✅ Liquidity OK: {symbol} -> {target_exchange} (${balance:.2f} >= ${threshold:.2f})")
+             self.logger.debug(f"✅ Liquidity OK: {symbol} -> {target_exchange} (${balance:.2f} available capital >= ${threshold:.2f})")
 
         return True, balance, "OK"
 
