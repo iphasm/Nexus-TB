@@ -45,25 +45,26 @@ class BinanceAdapter(IExchangeAdapter):
 
             # Validate credentials
             if not self._api_key or not self._api_secret:
-                print(f"❌ BinanceAdapter: Missing API credentials!")
+                if verbose: print(f"❌ BinanceAdapter: Missing API credentials!")
                 return False
-            
+
             # Diagnostic: Show masked credentials for debugging (with repr to show hidden chars)
-            key_preview = f"{self._api_key[:4]}...{self._api_key[-4:]}" if len(self._api_key) > 8 else "TOO_SHORT"
-            print(f"🔑 BinanceAdapter: Using key [{key_preview}] (len={len(self._api_key)})")
-            
-            # Diagnostic: Check Public IP (to verify Proxy/Whitelist match)
-            try:
-                import aiohttp
-                async with aiohttp.ClientSession() as session:
-                    # Check explicit proxy if set for this check
-                    proxy_url = kwargs.get('http_proxy') or os.getenv('PROXY_URL')
-                    async with session.get('https://api.ipify.org', proxy=proxy_url) as resp:
-                        if resp.status == 200:
-                            ip = await resp.text()
-                            print(f"🌍 BinanceAdapter: Public IP -> {ip} (Proxy: {'Yes' if proxy_url else 'No'})")
-            except Exception as ip_err:
-                 print(f"⚠️ BinanceAdapter: IP Check failed - {ip_err}")
+            if verbose:
+                key_preview = f"{self._api_key[:4]}...{self._api_key[-4:]}" if len(self._api_key) > 8 else "TOO_SHORT"
+                print(f"🔑 BinanceAdapter: Using key [{key_preview}] (len={len(self._api_key)})")
+
+                # Diagnostic: Check Public IP (to verify Proxy/Whitelist match)
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        # Check explicit proxy if set for this check
+                        proxy_url = kwargs.get('http_proxy') or os.getenv('PROXY_URL')
+                        async with session.get('https://api.ipify.org', proxy=proxy_url) as resp:
+                            if resp.status == 200:
+                                ip = await resp.text()
+                                print(f"🌍 BinanceAdapter: Public IP -> {ip} (Proxy: {'Yes' if proxy_url else 'No'})")
+                except Exception as ip_err:
+                     print(f"⚠️ BinanceAdapter: IP Check failed - {ip_err}")
             
             config = {
                 'apiKey': self._api_key,
@@ -91,41 +92,42 @@ class BinanceAdapter(IExchangeAdapter):
             # Step 1: Test public endpoint first (no auth needed)
             try:
                 await self._exchange.load_markets()
-                print(f"✅ BinanceAdapter: Markets loaded (public endpoint OK)")
+                if verbose: print(f"✅ BinanceAdapter: Markets loaded (public endpoint OK)")
             except Exception as market_err:
-                print(f"⚠️ BinanceAdapter: load_markets failed - {market_err}")
+                if verbose: print(f"⚠️ BinanceAdapter: load_markets failed - {market_err}")
                 # Markets load can fail for non-auth reasons, try to continue
-            
+
             # Step 2: Test authenticated endpoint
             try:
                 balance = await self._exchange.fetch_balance()
-                print(f"✅ BinanceAdapter: Auth OK (balance fetched)")
-                
+                if verbose: print(f"✅ BinanceAdapter: Auth OK (balance fetched)")
+
                 # Step 3: Detect Position Mode (Hedge vs One-Way)
                 try:
                     mode_info = await self._exchange.fapiPrivateGetPositionSideDual()
                     # Response format: {"dualSidePosition": true} for Hedge, false for One-Way
                     self._is_hedge_mode = mode_info.get('dualSidePosition', False)
                     mode_str = "HEDGE" if self._is_hedge_mode else "ONE-WAY"
-                    print(f"⚙️ BinanceAdapter: Position Mode -> {mode_str}")
+                    if verbose: print(f"⚙️ BinanceAdapter: Position Mode -> {mode_str}")
                 except Exception as mode_err:
-                    print(f"⚠️ BinanceAdapter: Could not detect Position Mode - {mode_err}")
+                    if verbose: print(f"⚠️ BinanceAdapter: Could not detect Position Mode - {mode_err}")
                     # Keep default _is_hedge_mode = False
-                
+
                 return True
             except Exception as auth_err:
                 err_str = str(auth_err)
-                print(f"❌ BinanceAdapter: Auth failed - {auth_err}")
-                
+                if verbose: print(f"❌ BinanceAdapter: Auth failed - {auth_err}")
+
                 # Specific error guidance
-                if '-2015' in err_str:
-                    print(f"   💡 Error -2015 = Invalid API-key, IP not whitelisted, or missing Futures permission")
-                    print(f"   💡 Check: 1) API key exists in Binance, 2) IP whitelisted, 3) 'Enable Futures' checked")
-                    print(f"   💡 Ensure the IP {kwargs.get('discovered_ip', 'DETECTED_ABOVE')} is whitelisted.")
-                elif '-1021' in err_str:
-                    print(f"   💡 Error -1021 = Timestamp sync issue. Server time differs from Binance.")
-                elif '-2014' in err_str:
-                    print(f"   💡 Error -2014 = API key format is invalid")
+                if verbose:
+                    if '-2015' in err_str:
+                        print(f"   💡 Error -2015 = Invalid API-key, IP not whitelisted, or missing Futures permission")
+                        print(f"   💡 Check: 1) API key exists in Binance, 2) IP whitelisted, 3) 'Enable Futures' checked")
+                        print(f"   💡 Ensure the IP {kwargs.get('discovered_ip', 'DETECTED_ABOVE')} is whitelisted.")
+                    elif '-1021' in err_str:
+                        print(f"   💡 Error -1021 = Timestamp sync issue. Server time differs from Binance.")
+                    elif '-2014' in err_str:
+                        print(f"   💡 Error -2014 = API key format is invalid")
                     
                 raise auth_err
                 

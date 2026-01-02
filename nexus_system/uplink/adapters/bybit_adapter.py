@@ -72,7 +72,7 @@ class BybitAdapter(IExchangeAdapter):
             return True
             
         except Exception as e:
-            print(f"❌ BybitAdapter: Init failed - {e}")
+            if verbose: print(f"❌ BybitAdapter: Init failed - {e}")
             return False
 
     async def fetch_candles(

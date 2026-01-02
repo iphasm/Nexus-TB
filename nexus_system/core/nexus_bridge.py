@@ -79,7 +79,8 @@ class NexusBridge:
                 # Set bridge reference for centralized symbol formatting
                 adapter._bridge = self
 
-                if await adapter.initialize(**credentials):
+                # Pass verbose=False to suppress detailed adapter logs (bridge shows consolidated messages)
+                if await adapter.initialize(verbose=False, **credentials):
                     self.adapters[name] = adapter
 
                     # Initial sync to Shadow Wallet (Balance & Positions) - silent
