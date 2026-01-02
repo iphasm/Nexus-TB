@@ -172,8 +172,11 @@ async def cmd_start(message: Message, **kwargs):
                         else:
                             threshold = 6.0  # $6 minimum for crypto exchanges
 
-                        if balance < threshold and balance > 0:  # Only show if we have data and it's low
-                            low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                        if balance < threshold:  # Show for any low balance including $0.00
+                            if balance == 0:
+                                low_balance_exchanges.append(f"⚠️ **{exchange}:** $0.00 ⛔")
+                            else:
+                                low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
                             show_balance_section = True
 
                     if show_balance_section and low_balance_exchanges:

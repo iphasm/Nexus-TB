@@ -677,7 +677,8 @@ class AsyncTradingSession:
                       os.getenv('BINANCE_API_KEY'))
         binance_secret = (self.config.get('binance_api_secret') or
                          self.config.get('api_secret') or
-                         os.getenv('BINANCE_API_SECRET'))
+                         os.getenv('BINANCE_API_SECRET') or
+                         os.getenv('BINANCE_SECRET'))  # Legacy support
         configured['BINANCE'] = bool(binance_key and binance_secret)
 
         # Check Bybit configuration (config OR environment variables)
@@ -3547,9 +3548,10 @@ class AsyncSessionManager:
         # Sanitize inputs
         raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip().strip("'\"")
         
-        # Binance
+        # Binance (support both BINANCE_API_SECRET and legacy BINANCE_SECRET)
         bin_key = os.getenv('BINANCE_API_KEY', '').strip().strip("'\"")
-        bin_sec = os.getenv('BINANCE_SECRET', '').strip().strip("'\"")
+        bin_sec = (os.getenv('BINANCE_API_SECRET', '').strip().strip("'\"") or
+                   os.getenv('BINANCE_SECRET', '').strip().strip("'\""))
         
         # Alpaca
         alp_key = os.getenv('APCA_API_KEY_ID', '').strip().strip("'\"")
