@@ -94,7 +94,13 @@ TELEGRAM_ADMIN_ID = os.getenv('TELEGRAM_ADMIN_ID')
 _vars_to_log = ['TELEGRAM_ADMIN_ID', 'BINANCE_API_KEY', 'BINANCE_API_SECRET', 'BYBIT_API_KEY', 'BYBIT_API_SECRET', 'OPENAI_API_KEY', 'PROXY_URL', 'APCA_API_KEY_ID', 'APCA_API_SECRET_KEY', 'APCA_API_BASE_URL']
 status_parts = []
 for v in _vars_to_log:
-    val = os.getenv(v, '').strip().strip("'\"")
+    # Special handling for BINANCE_API_SECRET - check both standard and legacy names
+    if v == 'BINANCE_API_SECRET':
+        val = (os.getenv('BINANCE_API_SECRET', '').strip().strip("'\"") or
+               os.getenv('BINANCE_SECRET', '').strip().strip("'\""))
+    else:
+        val = os.getenv(v, '').strip().strip("'\"")
+
     found = "✅" if val else "❌"
     short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('BYBIT_', 'BYB_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
     if v == 'PROXY_URL': short_name = "PROXY"
