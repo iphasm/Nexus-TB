@@ -787,8 +787,6 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
     parts = callback.data.split("|")
     nav_level = parts[1].lower()
 
-    print(f"🔍 ASSETS Navigation: {parts}")  # Debug
-
     session_manager = kwargs.get('session_manager')
 
     if not session_manager:
@@ -804,7 +802,6 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
         from handlers.config import cmd_assets
 
         if nav_level == "main":
-            print("📍 Navigating to main menu")
             # Go to main assets menu
             kwargs_dict = {
                 'session_manager': session_manager,
@@ -816,7 +813,6 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
             if len(parts) > 2:
                 # Navigate to specific crypto category
                 category = parts[2]
-                print(f"📍 Navigating to crypto category: {category}")
                 kwargs_dict = {
                     'session_manager': session_manager,
                     'nav_level': 'crypto',
@@ -825,7 +821,6 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
                 }
                 await cmd_assets(callback.message, **kwargs_dict)
             else:
-                print("📍 Navigating to crypto categories menu")
                 # Go to crypto categories menu
                 kwargs_dict = {
                     'session_manager': session_manager,
@@ -834,7 +829,6 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
                 }
                 await cmd_assets(callback.message, **kwargs_dict)
         elif nav_level in ["stocks", "etfs"]:
-            print(f"📍 Navigating to {nav_level} menu")
             # Navigate to stocks or ETFs menu
             kwargs_dict = {
                 'session_manager': session_manager,
@@ -843,11 +837,9 @@ async def handle_assets_navigation(callback: CallbackQuery, **kwargs):
             }
             await cmd_assets(callback.message, **kwargs_dict)
         else:
-            print(f"❌ Unknown nav_level: {nav_level}")
             await safe_answer(callback, "❌ Opción no válida", show_alert=True)
 
     except Exception as e:
-        print(f"💥 ASSETS Navigation Error: {e}")
         await safe_answer(callback, f"Error: {e}", show_alert=True)
 
 
