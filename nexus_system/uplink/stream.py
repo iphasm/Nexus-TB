@@ -78,20 +78,52 @@ class MarketStream:
         self.logger.info(f"🔌 Registered adapter: {name}")
 
     def _get_adapter(self, symbol: str) -> Optional[IExchangeAdapter]:
-        """Get the appropriate adapter for a symbol."""
-        from system_directive import get_asset_group
-        group = get_asset_group(symbol)
-        
-        if group in ['STOCKS', 'ETFS']:
-            return self._adapters.get('alpaca')
-        elif group == 'BYBIT':
-            return self._adapters.get('bybit')
-        elif group == 'CRYPTO':
-            return self._adapters.get('binance')
-            
-        # Fallback patterns
-        if 'USDT' in symbol:
-            return self._adapters.get('binance')
+        """Get the appropriate adapter for a symbol using intelligent routing."""
+        from system_directive import ASSET_GROUPS
+
+        # Normalize symbol first
+        normalized_symbol = symbol
+        if 'USDT' in symbol and not symbol.endswith('USDT'):
+            normalized_symbol = symbol.replace('/', '').replace(':USDT', 'USDT')
+
+        # Helper function to check if exchange adapter is available
+        def is_exchange_available(exchange: str) -> bool:
+            return exchange.lower() in self._adapters
+
+        # CRYPTO EXCHANGE ROUTING LOGIC (intelligent fallback):
+        # For symbols in CRYPTO group, prefer Bybit over Binance
+        # If Bybit fails, the calling code will fallback to Binance
+        if normalized_symbol in ASSET_GROUPS.get('CRYPTO', []):
+            # Prefer Bybit for crypto symbols (will fallback if not available)
+            if is_exchange_available('bybit'):
+                return self._adapters.get('bybit')
+            elif is_exchange_available('binance'):
+                return self._adapters.get('binance')
+
+        # Stocks and ETFs - Alpaca only
+        if (normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or
+            normalized_symbol in ASSET_GROUPS.get('ETFS', [])):
+            if is_exchange_available('alpaca'):
+                return self._adapters.get('alpaca')
+
+        # BYBIT exclusive group
+        if normalized_symbol in ASSET_GROUPS.get('BYBIT', []):
+            if is_exchange_available('bybit'):
+                return self._adapters.get('bybit')
+
+        # Fallback patterns for crypto symbols
+        if 'USDT' in normalized_symbol:
+            if is_exchange_available('bybit'):
+                return self._adapters.get('bybit')  # Prefer Bybit for crypto
+            elif is_exchange_available('binance'):
+                return self._adapters.get('binance')
+
+        # Ultimate fallback for stocks (symbols without USDT/USD)
+        if ('USDT' not in normalized_symbol and 'USD' not in normalized_symbol and
+            '/' not in normalized_symbol):
+            if is_exchange_available('alpaca'):
+                return self._adapters.get('alpaca')
+
         return None
 
     async def initialize(self, alpaca_key: str = None, alpaca_secret: str = None, crypto_symbols: list = None):
@@ -309,6 +341,61 @@ class MarketStream:
                         "dataframe": df,
                         "source": f"adapter:{adapter.name}"
                     }
+                else:
+                    # Adapter returned empty data, try fallback for crypto symbols
+                    if 'USDT' in symbol and adapter.name.lower() == 'bybit':
+                        # Try Binance as fallback for crypto symbols
+                        binance_adapter = self._adapters.get('binance')
+                        if binance_adapter:
+                            self.logger.info(f"Bybit returned no data for {symbol}, trying Binance fallback")
+                            df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                            if not df.empty:
+                                # Add Indicators (Unified)
+                                df = self._add_indicators(df)
+
+                                # Backfill WebSocket cache with REST data
+                                if self.price_cache:
+                                    candles = df.to_dict('records')
+                                    for c in candles:
+                                        c['is_closed'] = True
+                                    self.price_cache.backfill(symbol, candles)
+
+                                return {
+                                    "symbol": symbol,
+                                    "timeframe": timeframe,
+                                    "dataframe": df,
+                                    "source": "adapter:binance (fallback)"
+                                }
+            except Exception as adapter_error:
+                # Adapter failed, try fallback for crypto symbols
+                if 'USDT' in symbol and adapter and adapter.name.lower() == 'bybit':
+                    binance_adapter = self._adapters.get('binance')
+                    if binance_adapter:
+                        self.logger.info(f"Bybit failed for {symbol} ({adapter_error}), trying Binance fallback")
+                        try:
+                            df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                            if not df.empty:
+                                # Add Indicators (Unified)
+                                df = self._add_indicators(df)
+
+                                # Backfill WebSocket cache with REST data
+                                if self.price_cache:
+                                    candles = df.to_dict('records')
+                                    for c in candles:
+                                        c['is_closed'] = True
+                                    self.price_cache.backfill(symbol, candles)
+
+                                return {
+                                    "symbol": symbol,
+                                    "timeframe": timeframe,
+                                    "dataframe": df,
+                                    "source": "adapter:binance (fallback)"
+                                }
+                        except Exception as binance_error:
+                            self.logger.warning(f"Binance fallback also failed for {symbol}: {binance_error}")
+                else:
+                    # Re-raise the original error if not a crypto symbol or not Bybit
+                    raise adapter_error
 
             # Original fallback to self.exchange (Binance) if no adapter found
             # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
