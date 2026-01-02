@@ -152,7 +152,7 @@ async def handle_cmd_callback(callback: CallbackQuery, **kwargs):
     elif cmd == "config":
         from handlers.config import cmd_config
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
-
+    
     elif cmd == "exchanges":
         from handlers.config import cmd_exchanges
         await cmd_exchanges(callback.message, session_manager=session_manager)
@@ -298,9 +298,9 @@ async def handle_primary_exchange(callback: CallbackQuery, **kwargs):
     
     # Handle exchanges panel actions
     if action == "REFRESH":
-        # Refresh the exchanges panel
-        from handlers.config import cmd_exchanges
-        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+    # Refresh the exchanges panel
+    from handlers.config import cmd_exchanges
+    await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
     else:
         await callback.answer("❌ Acción no reconocida")
 
@@ -1082,7 +1082,7 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     """Handle scanner exchange selection - Execute scan for selected exchange or category."""
     filter_param = callback.data.split("|")[1]
     session_manager = kwargs.get('session_manager')
-
+    
     # Handle menu selections
     if filter_param == "BINANCE_MENU":
         await safe_answer(callback, "🟡 Abriendo menú Binance...")
@@ -1107,9 +1107,9 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     thematic_categories = ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA', 'BYBIT_EXCLUSIVE']
     if filter_param in thematic_categories:
         await safe_answer(callback, f"🎯 Escaneando categoría {filter_param}...")
-
-        try:
-            # Update message to show scanning
+    
+    try:
+        # Update message to show scanning
             category_display = {
                 'MAJOR_CAPS': 'Major Caps',
                 'MEME_COINS': 'Meme Coins',
@@ -1120,7 +1120,7 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
                 'BYBIT_EXCLUSIVE': 'Bybit Exclusive'
             }
 
-            msg = await callback.message.edit_text(
+        msg = await callback.message.edit_text(
                 f"🎯 <b>Escaneando {category_display.get(filter_param, filter_param)}...</b>\n\n"
                 "Esto puede tomar unos momentos.",
                 parse_mode="HTML"
@@ -1145,11 +1145,11 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
             "Esto puede tomar unos momentos.",
             parse_mode="HTML"
         )
-
+        
         # Import and execute scanner
         from handlers.commands import execute_scanner
         await execute_scanner(msg, exchange_filter=filter_param)
-
+        
     except Exception as e:
         err_clean = str(e).replace('<', '').replace('>', '')
         await callback.message.edit_text(f"❌ Scanner Error: {err_clean}", parse_mode=None)

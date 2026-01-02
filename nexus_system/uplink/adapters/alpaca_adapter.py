@@ -194,9 +194,9 @@ class AlpacaAdapter(IExchangeAdapter):
         try:
             from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
             from alpaca.trading.enums import OrderSide, TimeInForce
-
+            
             alpaca_side = OrderSide.BUY if side.upper() == 'BUY' else OrderSide.SELL
-
+            
             # Handle conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
             if order_type.upper() in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
                 return {

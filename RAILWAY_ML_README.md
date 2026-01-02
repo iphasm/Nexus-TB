@@ -33,7 +33,69 @@ Este servicio permite entrenar modelos de Machine Learning en la nube usando Rai
 
 # 🐳 Despliegue en Railway con Docker
 
+## 🎯 OPCIONES DE DESPLIEGUE
+
+### **Opción A: Proyecto Dedicado (Recomendado para testing)**
+Crear un proyecto completamente separado solo para ML training.
+- ✅ Aislamiento completo
+- ✅ Costos separados
+- ✅ Reinicio independiente
+- ✅ Configuración más simple
+
+### **Opción B: Servicio Paralelo (Recomendado para producción)**
+Agregar el servicio ML a tu proyecto existente del bot.
+- ✅ Costos compartidos
+- ✅ Gestión unificada
+- ✅ Comunicación interna más fácil
+- ✅ Monitoreo centralizado
+
+---
+
 ## 🚀 PASO A PASO: Configuración Completa
+
+### **ESCENARIO 1: Agregar a Proyecto Existente (Más Común)**
+
+#### **PASO 1: Verificar Railway CLI**
+```bash
+railway --version
+railway whoami  # Verificar login
+```
+
+#### **PASO 2: Linkear al proyecto existente**
+```bash
+# Si tienes el project ID específico:
+railway link -p 7674fd20-f218-4ff2-aa5d-427994c7ff70
+
+# O seleccionar interactivamente:
+railway link
+```
+
+#### **PASO 3: Agregar servicio ML**
+```bash
+python add_ml_service_to_railway.py
+```
+
+#### **PASO 4: Configurar variables de entorno**
+En Railway Dashboard → Tu proyecto → Variables:
+```
+BINANCE_API_KEY=tu_api_key_real
+BINANCE_API_SECRET=tu_secret_real
+ALPHA_VANTAGE_API_KEY=tu_alpha_key_opcional
+```
+
+#### **PASO 5: Obtener URL del servicio ML**
+```bash
+railway domain --service ml-training
+```
+
+#### **PASO 6: Configurar bot principal**
+```bash
+export RAILWAY_ML_URL="https://tu-servicio-ml.up.railway.app"
+```
+
+---
+
+### **ESCENARIO 2: Proyecto Dedicado Nuevo**
 
 ### **PASO 1: Preparación del Entorno**
 ```bash

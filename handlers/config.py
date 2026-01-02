@@ -173,10 +173,10 @@ async def cmd_config(message: Message, **kwargs):
     session_manager = kwargs.get('session_manager')
     edit_message = kwargs.get('edit_message', False)
     session = None
-
+    
     if session_manager:
         session = session_manager.get_session(str(message.chat.id))
-
+    
     # Get current values
     lev = session.config.get('leverage', 5) if session else 5
     margin = (session.config.get('max_capital_pct', 0.1) * 100) if session else 10
