@@ -973,7 +973,7 @@ async def handle_subgroup_toggle(callback: CallbackQuery, **kwargs):
 
     try:
         new_val = session.toggle_group(subgroup)
-        session_manager.save_sessions()
+        await session_manager.save_sessions()
 
         status = "Activada" if new_val else "Desactivada"
         subgroup_name = subgroup.replace('_', ' ').title()
@@ -1144,7 +1144,7 @@ async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
 
         current_value = session.config.get(config_key, True)
         session.config[config_key] = not current_value
-        session_manager.save_sessions()
+        await session_manager.save_sessions()
 
         # Update message
         from handlers.config import cmd_exchanges
@@ -1416,7 +1416,7 @@ async def handle_risk_profile_callback(callback: CallbackQuery, **kwargs):
         session.config['use_atr_for_sl_tp'] = True
 
         # Save session
-        session_manager.save_sessions()
+        await session_manager.save_sessions()
 
         await safe_answer(callback, f"✅ {profile_config['description']}")
 
