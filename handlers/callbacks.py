@@ -839,20 +839,56 @@ async def handle_assets_category(callback: CallbackQuery, **kwargs):
     try:
         from system_directive import DISABLED_ASSETS, ASSET_GROUPS, TICKER_MAP
         
-        # Special case: If CRYPTO is selected, show Binance and Bybit options
+        # Special case: If CRYPTO is selected, show thematic categories
         if category == 'CRYPTO':
-            crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
-            bybit_count = len(ASSET_GROUPS.get('BYBIT', []))
-            
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=f"🟡 Binance ({crypto_count})", callback_data="ASSETS_CAT|BINANCE")],
-                [InlineKeyboardButton(text=f"⬛ Bybit ({bybit_count})", callback_data="ASSETS_CAT|BYBIT")],
-                [InlineKeyboardButton(text="⬅️ Volver a Categorías", callback_data="ASSETS|GLOBAL")]
+            from system_directive import CRYPTO_SUBGROUPS, GROUP_CONFIG
+
+            # Build keyboard with crypto categories
+            keyboard_buttons = []
+
+            # Thematic categories mapping with emojis
+            category_emojis = {
+                'MAJOR_CAPS': '🌟',
+                'MEME_COINS': '🐕',
+                'DEFI': '🏛️',
+                'AI_TECH': '🤖',
+                'GAMING_METAVERSE': '🎮',
+                'LAYER1_INFRA': '🛠️',
+                'BYBIT_EXCLUSIVE': '🔥'
+            }
+
+            # Add thematic categories
+            for category_key, assets in CRYPTO_SUBGROUPS.items():
+                # Skip BYBIT_EXCLUSIVE if disabled
+                if category_key == 'BYBIT_EXCLUSIVE' and not GROUP_CONFIG.get('BYBIT_EXCLUSIVE', False):
+                    continue
+
+                emoji = category_emojis.get(category_key, '📊')
+                display_name = category_key.replace('_', ' ').title()
+                count = len(assets)
+
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text=f"{emoji} {display_name} ({count})",
+                        callback_data=f"TOGGLE_SUBGROUP|{category_key}"
+                    )
+                ])
+
+            keyboard_buttons.append([
+                InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|GLOBAL")
             ])
-            
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
             await callback.message.edit_text(
-                "🟡 *CRYPTO*\n\n"
-                "Selecciona un exchange:",
+                "₿ *CATEGORÍAS CRYPTO*\n\n"
+                "Activa/desactiva categorías temáticas:\n\n"
+                "🌟 Major Caps → BTC, ETH, principales\n"
+                "🐕 Meme Coins → PEPE, DOGE, virales\n"
+                "🏛️ DeFi → UNI, AAVE, protocolos\n"
+                "🤖 AI & Tech → FET, RENDER, innovación\n"
+                "🎮 Gaming → AXS, SAND, metaverso\n"
+                "🛠️ Layer 1 → SUI, SEI, infraestructura",
                 reply_markup=keyboard,
                 parse_mode="Markdown"
             )
@@ -1050,6 +1086,56 @@ async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
         await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
         status = "activadas" if not current_value else "desactivadas"
         await callback.answer(f"📡 Señales {exchange} {status}")
+
+    elif action.startswith("TOGGLE_SUBGROUP|"):
+        # Handle crypto subgroup toggles
+        subgroup = action.split("|")[1]  # TOGGLE_SUBGROUP|MAJOR_CAPS -> MAJOR_CAPS
+
+        # Toggle the subgroup
+        new_val = session.toggle_group(subgroup)
+        session_manager.save_sessions()
+
+        status = "✅ Activada" if new_val else "❌ Desactivada"
+        subgroup_name = subgroup.replace('_', ' ').title()
+        await callback.answer(f"{subgroup_name}: {status}")
+
+        # Rebuild the crypto categories menu
+        from system_directive import CRYPTO_SUBGROUPS, GROUP_CONFIG
+
+        keyboard_buttons = []
+        category_emojis = {
+            'MAJOR_CAPS': '🌟',
+            'MEME_COINS': '🐕',
+            'DEFI': '🏛️',
+            'AI_TECH': '🤖',
+            'GAMING_METAVERSE': '🎮',
+            'LAYER1_INFRA': '🛠️',
+            'BYBIT_EXCLUSIVE': '🔥'
+        }
+
+        for category_key, assets in CRYPTO_SUBGROUPS.items():
+            if category_key == 'BYBIT_EXCLUSIVE' and not GROUP_CONFIG.get('BYBIT_EXCLUSIVE', False):
+                continue
+
+            emoji = category_emojis.get(category_key, '📊')
+            display_name = category_key.replace('_', ' ').title()
+            count = len(assets)
+            enabled = session.config.get(f'groups_{category_key.lower()}', True)
+            icon = "✅" if enabled else "❌"
+
+            keyboard_buttons.append([
+                InlineKeyboardButton(
+                    text=f"{icon} {emoji} {display_name} ({count})",
+                    callback_data=f"TOGGLE_SUBGROUP|{category_key}"
+                )
+            ])
+
+        keyboard_buttons.append([
+            InlineKeyboardButton(text="⬅️ Volver", callback_data="ASSETS|GLOBAL")
+        ])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+        await callback.message.edit_reply_markup(reply_markup=keyboard)
 
     elif action.startswith("ENABLE_") or action.startswith("DISABLE_"):
         # Handle exchange toggle
