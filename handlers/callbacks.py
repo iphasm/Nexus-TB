@@ -1096,17 +1096,21 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
         await cmd_scan_exchange(callback.message, exchange="BYBIT")
         return
 
-    # Handle category selection
-    if filter_param == "CATEGORY":
-        await safe_answer(callback, "🎯 Abriendo scanner por categoría...")
-        from handlers.commands import cmd_scan_category
-        await cmd_scan_category(callback.message)
-        return
+    # Handle main asset group scanning
+    if filter_param in ['CRYPTO', 'STOCKS', 'ETFS', 'ALL']:
+        asset_groups = {
+            'CRYPTO': ('₿ Crypto', 'crypto'),
+            'STOCKS': ('🏛️ Stocks', 'stocks'),
+            'ETFS': ('📈 ETFs', 'ETFs'),
+            'ALL': ('🌐 Global', 'todos los activos')
+        }
 
-    if filter_param == "EXCHANGE_MENUS":
-        await safe_answer(callback, "🏪 Abriendo menús por exchange...")
-        from handlers.commands import cmd_scanner_exchange_menus
-        await cmd_scanner_exchange_menus(callback.message)
+        emoji, desc = asset_groups[filter_param]
+        await safe_answer(callback, f"{emoji} Escaneando {desc}...")
+
+        # Use existing execute_scanner function
+        from handlers.commands import execute_scanner
+        await execute_scanner(callback.message, filter_param)
         return
 
     # Handle thematic category scan

@@ -2271,65 +2271,21 @@ async def callback_toggle_group(callback: CallbackQuery, **kwargs):
 @router.message(Command("scanner"))
 async def cmd_scanner(message: Message, **kwargs):
     """
-    Main scanner menu - Direct access to thematic categories.
+    Main scanner menu - Shows main asset groups for scanning.
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    from system_directive import CRYPTO_SUBGROUPS, GROUP_CONFIG, ASSET_GROUPS
+    from system_directive import ASSET_GROUPS
 
-    # Build keyboard with thematic categories
-    keyboard_buttons = []
-
-    # Quick category access
-    category_emojis = {
-        'MAJOR_CAPS': '🌟',
-        'MEME_COINS': '🐕',
-        'DEFI': '🏛️',
-        'AI_TECH': '🤖',
-        'GAMING_METAVERSE': '🎮',
-        'LAYER1_INFRA': '🛠️'
-    }
-
-    # Add main crypto categories
-    for category_key in ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA']:
-        if GROUP_CONFIG.get(category_key, True):
-            assets = CRYPTO_SUBGROUPS.get(category_key, [])
-            emoji = category_emojis.get(category_key, '📊')
-            display_name = category_key.replace('_', ' ').title()
-            count = len(assets)
-
-            keyboard_buttons.append([
-                InlineKeyboardButton(
-                    text=f"{emoji} {display_name} ({count})",
-                    callback_data=f"SCANNER|{category_key}"
-                )
-            ])
-
-    # Add exchange-specific and global options
-    keyboard_buttons.extend([
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🏪 Menús por Exchange", callback_data="SCANNER|EXCHANGE_MENUS"),
+            InlineKeyboardButton(text="₿ Crypto", callback_data="SCANNER|CRYPTO"),
+            InlineKeyboardButton(text="🏛️ Stocks", callback_data="SCANNER|STOCKS"),
+        ],
+        [
+            InlineKeyboardButton(text="📈 ETFs", callback_data="SCANNER|ETFS"),
         ],
         [
             InlineKeyboardButton(text="🌐 Global Scan", callback_data="SCANNER|ALL"),
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|start"),
-        ]
-    ])
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        [
-            InlineKeyboardButton(text="🟡 Binance", callback_data="SCANNER|BINANCE_MENU"),
-            InlineKeyboardButton(text="🟣 Bybit", callback_data="SCANNER|BYBIT_MENU"),
-        ],
-        [
-            InlineKeyboardButton(text="🟢 Alpaca", callback_data="SCANNER|ALPACA"),
-        ],
-        [
-            InlineKeyboardButton(text="🎯 Por Categoría", callback_data="SCANNER|CATEGORY"),
-        ],
-        [
-            InlineKeyboardButton(text="🌐 Escaneo Global", callback_data="SCANNER|ALL"),
         ],
         [
             InlineKeyboardButton(text="⬅️ Volver", callback_data="CMD|start"),
@@ -2343,17 +2299,13 @@ async def cmd_scanner(message: Message, **kwargs):
     msg_text = (
         "🔍 <b>NEXUS MARKET SCANNER</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📊 <b>Activos Optimizados:</b> {crypto_count} Crypto, {stocks_count} Stocks, {etfs_count} ETFs\n\n"
-        "🎯 <b>Escaneo por Categoría:</b>\n"
-        "🌟 Major Caps → BTC, ETH, principales\n"
-        "🐕 Meme Coins → PEPE, DOGE, virales\n"
-        "🏛️ DeFi → UNI, AAVE, protocolos\n"
-        "🤖 AI & Tech → FET, RENDER, innovación\n"
-        "🎮 Gaming → AXS, SAND, metaverso\n"
-        "🛠️ Layer 1 → SUI, SEI, infraestructura\n\n"
-        "🏪 <b>Menús Avanzados:</b>\n"
-        "🏪 Menús por Exchange → Binance/Bybit específicos\n"
-        "🌐 Global → Todos los activos optimizados"
+        f"📊 <b>Activos Disponibles:</b> {crypto_count} Crypto, {stocks_count} Stocks, {etfs_count} ETFs\n\n"
+        "<b>Selecciona el tipo de activos para escanear:</b>\n\n"
+        f"₿ <b>Crypto</b> → {crypto_count} activos optimizados\n"
+        f"🏛️ <b>Stocks</b> → {stocks_count} acciones principales\n"
+        f"📈 <b>ETFs</b> → {etfs_count} fondos indexados\n\n"
+        "🌐 <b>Global</b> → Escanear todos los activos\n\n"
+        "<i>💡 Configura qué categorías crypto activar en /set_config</i>"
     )
 
     edit_message = kwargs.get('edit_message', False)
@@ -2607,11 +2559,11 @@ async def cmd_scan_category(message: Message, **kwargs):
 
 async def execute_scanner(message, exchange_filter: str = 'ALL'):
     """
-    Execute deep scan for specified exchange(s).
-    
+    Execute deep scan for specified asset groups.
+
     Args:
         message: Telegram message to edit
-        exchange_filter: 'BINANCE', 'BYBIT', 'ALPACA', or 'ALL'
+        exchange_filter: 'CRYPTO', 'STOCKS', 'ETFS', 'ALL', 'BINANCE', 'BYBIT', 'ALPACA', or 'CATEGORY_*'
     """
     from system_directive import ASSET_GROUPS, get_display_name
     from system_directive import DISABLED_ASSETS, ML_CLASSIFIER_ENABLED
@@ -2632,18 +2584,28 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
         category_groups[f"CATEGORY_{subgroup_name}"] = [('CRYPTO', assets)]
 
     exchange_groups = {
-        'BINANCE': ['CRYPTO'],
-        'BYBIT': ['CRYPTO'],  # Now uses CRYPTO group (expanded)
-        'ALPACA': ['STOCKS', 'ETFS'],
+        # Main asset groups
+        'CRYPTO': ['CRYPTO'],
+        'STOCKS': ['STOCKS'],
+        'ETFS': ['ETFS'],
         'ALL': ['CRYPTO', 'STOCKS', 'ETFS'],
+        # Legacy exchange filters (for compatibility)
+        'BINANCE': ['CRYPTO'],
+        'BYBIT': ['CRYPTO'],
+        'ALPACA': ['STOCKS', 'ETFS'],
         **category_groups  # Add thematic categories
     }
     
     exchange_icons = {
+        # Main asset groups
+        'CRYPTO': '₿',
+        'STOCKS': '🏛️',
+        'ETFS': '📈',
+        'ALL': '🌐',
+        # Legacy exchange filters (for compatibility)
         'BINANCE': '🟡',
-        'BYBIT': '🟣', 
-        'ALPACA': '🟢',
-        'ALL': '🌐'
+        'BYBIT': '🟣',
+        'ALPACA': '🟢'
     }
     
     # Handle thematic categories
