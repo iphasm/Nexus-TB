@@ -189,7 +189,15 @@ class NexusCore:
                 await self.risk_guardian.update_macro_health()
             except Exception as e:
                 self.logger.error(f"Macro Poll Failed: {e}")
-            
+
+            # --- WEBSOCKET RECONNECTION ATTEMPT ---
+            # Try to reconnect WebSocket if it failed during initialization
+            if not self.market_stream.ws_manager and self.market_stream._ws_retry_count < self.market_stream._ws_max_retries:
+                try:
+                    await self.market_stream._try_reconnect_websocket(self.assets)
+                except Exception as e:
+                    self.logger.debug(f"WebSocket reconnection attempt failed: {e}")
+
             await asyncio.sleep(60)  # Sleep long, just keep process alive
 
     async def run(self):

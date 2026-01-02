@@ -2,8 +2,9 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import time
 
 # Adapter Pattern Support
 from .adapters.base import IExchangeAdapter
@@ -195,9 +196,17 @@ class MarketStream:
             if await self.ws_manager.connect():
                 self._ws_task = asyncio.create_task(self.ws_manager.listen())
                 self.logger.info(f"WebSocket: Streaming {len(crypto_symbols)} crypto symbols")
+                self._ws_retry_count = 0  # Reset retry count on success
             else:
-                self.logger.warning("WebSocket: Failed to connect, using REST fallback")
-                self.use_websocket = False
+                self._ws_retry_count += 1
+                self._ws_last_retry = time.time()
+
+                if self._ws_retry_count < self._ws_max_retries:
+                    self.logger.warning(f"WebSocket: Failed to connect (attempt {self._ws_retry_count}/{self._ws_max_retries}), will retry later")
+                    # Keep websocket enabled for future reconnection attempts
+                else:
+                    self.logger.warning(f"WebSocket: Failed to connect after {self._ws_max_retries} attempts, disabling")
+                    self.use_websocket = False
                 
         except ImportError as e:
             self.logger.warning(f"WebSocket: Module not available ({e}), using REST")
@@ -318,7 +327,12 @@ class MarketStream:
                     "dataframe": df,
                     "source": "websocket"
                 }
-        
+
+        # 2.5. Rate limiting check for REST requests
+        if not self._can_make_rest_request(symbol):
+            self.logger.debug(f"REST Rate Limited for {symbol}, skipping")
+            return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": timeframe, "source": "rate_limited"}
+
         # 3. REST Fallback
         try:
             adapter = self._get_adapter(symbol)
@@ -520,6 +534,61 @@ class MarketStream:
         df = self._add_indicators(df)
         
         return df
+
+    async def _try_reconnect_websocket(self, symbols: list = None):
+        """Try to reconnect WebSocket if previously failed."""
+        if not self.use_websocket or self.ws_manager or self._ws_retry_count >= self._ws_max_retries:
+            return False
+
+        current_time = time.time()
+        # Only retry every 5 minutes
+        if current_time - self._ws_last_retry < 300:
+            return False
+
+        self.logger.info("WebSocket: Attempting reconnection...")
+        try:
+            if symbols:
+                await self._init_websocket(symbols)
+            else:
+                # Try with default symbols if none provided
+                crypto_symbols = ['BTCUSDT', 'ETHUSDT']  # Minimal set for reconnection
+                await self._init_websocket(crypto_symbols)
+            return self.ws_manager is not None
+        except Exception as e:
+            self.logger.warning(f"WebSocket reconnection failed: {e}")
+            self._ws_retry_count += 1
+            self._ws_last_retry = current_time
+            return False
+
+    def _can_make_rest_request(self, symbol: str) -> bool:
+        """Check if we can make a REST request based on rate limiting."""
+        current_time = time.time()
+
+        # Global rate limiting: max 10 requests per minute
+        if current_time - self._last_rest_call_time < 6:  # 6 seconds between calls
+            return False
+
+        # Per-symbol rate limiting: max 1 request per 30 seconds
+        last_call = self._rest_rate_limiter.get(symbol, 0)
+        if current_time - last_call < 30:
+            return False
+
+        # Total call count limiting: max 50 calls per hour
+        if self._rest_call_count > 50:
+            # Reset counter every hour
+            if current_time - self._last_rest_call_time > 3600:
+                self._rest_call_count = 0
+            else:
+                return False
+
+        return True
+
+    def _update_rest_rate_limiter(self, symbol: str):
+        """Update rate limiter after successful REST call."""
+        current_time = time.time()
+        self._rest_rate_limiter[symbol] = current_time
+        self._last_rest_call_time = current_time
+        self._rest_call_count += 1
 
     async def close(self):
         """Close all connections (REST + WebSocket)."""
