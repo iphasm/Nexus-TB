@@ -1126,9 +1126,9 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
                 parse_mode="HTML"
             )
 
-            # Import and execute scanner with category filter
-            from handlers.commands import execute_scanner
-            await execute_scanner(msg, exchange_filter=f"CATEGORY_{filter_param}")
+        # Import and execute scanner with category filter
+        from handlers.commands import execute_scanner
+        await execute_scanner(msg, exchange_filter=f"CATEGORY_{filter_param}")
 
         except Exception as e:
             err_clean = str(e).replace('<', '').replace('>', '')
