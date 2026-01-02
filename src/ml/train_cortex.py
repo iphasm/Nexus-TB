@@ -30,7 +30,7 @@ warnings.filterwarnings('ignore')
 
 import yfinance as yf
 from system_directive import get_all_assets, is_crypto
-from ta_compat import ta
+import pandas_ta as ta
 from .add_new_features import add_all_new_features
 
 # Configure logging with timeout awareness
