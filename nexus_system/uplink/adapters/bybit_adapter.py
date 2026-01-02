@@ -75,6 +75,9 @@ class BybitAdapter(IExchangeAdapter):
             if verbose: print(f"❌ BybitAdapter: Init failed - {e}")
             return False
 
+    # Cache de símbolos que fallaron (auto-aprendizaje)
+    _failed_symbols_cache: set = set()
+
     async def fetch_candles(
         self, 
         symbol: str, 
@@ -85,7 +88,11 @@ class BybitAdapter(IExchangeAdapter):
         if not self._exchange:
             return pd.DataFrame()
 
-        # Check if symbol is available on Bybit
+        # Check if symbol already failed before (cached)
+        if symbol in self._failed_symbols_cache:
+            return pd.DataFrame()  # Silently skip known unavailable symbols
+
+        # Check if symbol is in static exclusion list
         try:
             from system_directive import is_symbol_available_on_exchange
             if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
@@ -103,7 +110,14 @@ class BybitAdapter(IExchangeAdapter):
             return df
 
         except Exception as e:
-            print(f"⚠️ BybitAdapter: fetch_candles error ({symbol}): {e}")
+            error_str = str(e).lower()
+            # Auto-learn: If symbol doesn't exist, cache it
+            if 'symbol' in error_str or 'not found' in error_str or 'invalid' in error_str:
+                self._failed_symbols_cache.add(symbol)
+                # Only log once per symbol
+                print(f"🔇 BybitAdapter: {symbol} not available on Bybit (cached)")
+            else:
+                print(f"⚠️ BybitAdapter: fetch_candles error ({symbol}): {e}")
             return pd.DataFrame()
 
     async def get_account_balance(self) -> Dict[str, float]:
@@ -233,7 +247,11 @@ class BybitAdapter(IExchangeAdapter):
         if not self._exchange:
             return {'error': 'Not initialized'}
 
-        # Check if symbol is available on Bybit
+        # Check if symbol already failed before (cached)
+        if symbol in self._failed_symbols_cache:
+            return {'error': f'{symbol} not available on Bybit (cached)'}
+
+        # Check if symbol is in static exclusion list
         try:
             from system_directive import is_symbol_available_on_exchange
             if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
