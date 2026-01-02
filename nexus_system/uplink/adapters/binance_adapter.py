@@ -16,6 +16,12 @@ class BinanceAdapter(IExchangeAdapter):
     Binance USD-M Futures implementation.
     Uses CCXT for REST and custom WebSocket for streaming.
     """
+    
+    # Rate limiting for fetch_candles (prevents API rate limit errors)
+    _candles_rate_limiter: Dict[str, float] = {}  # Per-symbol last call time
+    _candles_global_last_call: float = 0
+    _candles_min_interval: float = 0.5  # Minimum 0.5 seconds between ANY candle calls (Binance is less strict)
+    _candles_per_symbol_interval: float = 15.0  # Minimum 15 seconds between calls for SAME symbol
 
     def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BINANCE_API_KEY', '')
@@ -148,14 +154,34 @@ class BinanceAdapter(IExchangeAdapter):
         timeframe: str = '15m', 
         limit: int = 100
     ) -> pd.DataFrame:
-        """Fetch OHLCV data from Binance Futures."""
+        """Fetch OHLCV data from Binance Futures with rate limiting."""
+        import time
+        
         if not self._exchange:
             return pd.DataFrame()
+        
+        # === RATE LIMITING ===
+        current_time = time.time()
+        
+        # Global rate limit: minimum 0.5 seconds between ANY candle calls
+        time_since_global = current_time - BinanceAdapter._candles_global_last_call
+        if time_since_global < self._candles_min_interval:
+            return pd.DataFrame()  # Too fast - silently skip
+        
+        # Per-symbol rate limit: minimum 15 seconds between calls for SAME symbol
+        cache_key = f"{symbol}:{timeframe}"
+        last_call = BinanceAdapter._candles_rate_limiter.get(cache_key, 0)
+        if current_time - last_call < self._candles_per_symbol_interval:
+            return pd.DataFrame()  # Too soon for this symbol/timeframe
             
         try:
             # Format symbol for CCXT (BTC/USDT:USDT for futures)
             formatted = self._format_symbol(symbol)
             ohlcv = await self._exchange.fetch_ohlcv(formatted, timeframe, limit=limit)
+            
+            # Update rate limiters on SUCCESS
+            BinanceAdapter._candles_global_last_call = time.time()
+            BinanceAdapter._candles_rate_limiter[cache_key] = time.time()
             
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -165,6 +191,13 @@ class BinanceAdapter(IExchangeAdapter):
             # Parse error
             err_msg = str(e)
             import re, json
+            
+            # Detect rate limiting errors and back off
+            if '418' in err_msg or '429' in err_msg or 'rate limit' in err_msg.lower() or 'too many' in err_msg.lower() or 'banned' in err_msg.lower():
+                BinanceAdapter._candles_rate_limiter[cache_key] = time.time() + 300  # 5 min backoff for 418
+                print(f"⏳ BinanceAdapter: Rate limited on {symbol}, backing off 5 min")
+                return pd.DataFrame()
+            
             match = re.search(r'\{.*"code":.*\}', err_msg)
             if match:
                  try:

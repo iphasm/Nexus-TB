@@ -28,6 +28,12 @@ class BybitAdapter(IExchangeAdapter):
     _balance_cache_ttl: float = 30.0  # Cache TTL in seconds
     _last_balance_call: float = 0
     _balance_rate_limit: float = 10.0  # Minimum seconds between balance API calls
+    
+    # Rate limiting for fetch_candles (prevents API rate limit errors)
+    _candles_rate_limiter: Dict[str, float] = {}  # Per-symbol last call time
+    _candles_global_last_call: float = 0
+    _candles_min_interval: float = 1.0  # Minimum 1 second between ANY candle calls
+    _candles_per_symbol_interval: float = 30.0  # Minimum 30 seconds between calls for SAME symbol
 
     def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BYBIT_API_KEY', '')
@@ -129,7 +135,9 @@ class BybitAdapter(IExchangeAdapter):
         timeframe: str = '15m',
         limit: int = 100
     ) -> pd.DataFrame:
-        """Fetch OHLCV data from Bybit."""
+        """Fetch OHLCV data from Bybit with rate limiting."""
+        import time
+        
         if not self._exchange:
             return pd.DataFrame()
 
@@ -137,10 +145,30 @@ class BybitAdapter(IExchangeAdapter):
         if not await self.check_symbol_availability(symbol):
             return pd.DataFrame()  # Silently skip unavailable symbols
 
+        # === RATE LIMITING ===
+        current_time = time.time()
+        
+        # Global rate limit: minimum 1 second between ANY candle calls
+        time_since_global = current_time - BybitAdapter._candles_global_last_call
+        if time_since_global < self._candles_min_interval:
+            # Too fast - silently skip (will retry next cycle)
+            return pd.DataFrame()
+        
+        # Per-symbol rate limit: minimum 30 seconds between calls for SAME symbol
+        cache_key = f"{symbol}:{timeframe}"
+        last_call = BybitAdapter._candles_rate_limiter.get(cache_key, 0)
+        if current_time - last_call < self._candles_per_symbol_interval:
+            # Too soon for this symbol/timeframe - silently skip
+            return pd.DataFrame()
+
         try:
             # Format symbol for CCXT (BTC/USDT:USDT for linear)
             formatted = self._format_symbol(symbol)
             ohlcv = await self._exchange.fetch_ohlcv(formatted, timeframe, limit=limit)
+            
+            # Update rate limiters on SUCCESS
+            BybitAdapter._candles_global_last_call = time.time()
+            BybitAdapter._candles_rate_limiter[cache_key] = time.time()
 
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -148,6 +176,14 @@ class BybitAdapter(IExchangeAdapter):
 
         except Exception as e:
             error_str = str(e).lower()
+            
+            # Detect rate limiting errors and back off
+            if '429' in error_str or 'rate limit' in error_str or 'too many' in error_str:
+                # Rate limited - set a longer backoff for this symbol
+                BybitAdapter._candles_rate_limiter[cache_key] = time.time() + 60  # 1 min extra backoff
+                print(f"⏳ BybitAdapter: Rate limited on {symbol}, backing off 60s")
+                return pd.DataFrame()
+            
             # Auto-learn: Only cache if clearly a "symbol not found" error
             if ('symbol' in error_str and ('not found' in error_str or 'invalid' in error_str or 'does not exist' in error_str)) or 'market not found' in error_str:
                 self._failed_symbols_cache.add(symbol)
