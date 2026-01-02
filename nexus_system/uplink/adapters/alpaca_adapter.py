@@ -169,9 +169,22 @@ class AlpacaAdapter(IExchangeAdapter):
             
         try:
             account = self._trading_client.get_account()
+            print(f"🔍 AlpacaAdapter: Raw account data:")
+            print(f"   Equity: {account.equity} (type: {type(account.equity)})")
+            print(f"   Buying Power: {account.buying_power} (type: {type(account.buying_power)})")
+            print(f"   Cash: {getattr(account, 'cash', 'N/A')} (type: {type(getattr(account, 'cash', 'N/A'))})")
+            print(f"   Portfolio Value: {getattr(account, 'portfolio_value', 'N/A')} (type: {type(getattr(account, 'portfolio_value', 'N/A'))})")
+
+            equity = float(account.equity)
+            buying_power = float(account.buying_power)
+
+            print(f"🔍 AlpacaAdapter: Calculated values:")
+            print(f"   Total (Equity): ${equity:.2f}")
+            print(f"   Available (Buying Power): ${buying_power:.2f}")
+
             return {
-                'total': float(account.equity),
-                'available': float(account.buying_power),
+                'total': equity,
+                'available': buying_power,
                 'currency': 'USD'
             }
         except Exception as e:
