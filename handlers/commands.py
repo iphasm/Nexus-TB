@@ -161,7 +161,7 @@ async def cmd_start(message: Message, **kwargs):
                 configured_exchange_names = [ex for ex, configured in configured_exchanges.items() if configured]
 
                 if configured_exchange_names:  # Only show if user has any exchanges configured
-                    low_balance_exchanges = []
+                    balance_lines = []
 
                     for exchange in configured_exchange_names:
                         balance = session.shadow_wallet.balances.get(exchange, {}).get('available', 0)
@@ -172,17 +172,20 @@ async def cmd_start(message: Message, **kwargs):
                         else:
                             threshold = 6.0  # $6 minimum for crypto exchanges
 
-                        if balance < threshold:  # Show for any low balance including $0.00
-                            if balance == 0:
-                                low_balance_exchanges.append(f"⚠️ **{exchange}:** $0.00 ⛔")
-                            else:
-                                low_balance_exchanges.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                        # Always show balance status with appropriate icon
+                        if balance == 0:
+                            balance_lines.append(f"⛔ **{exchange}:** $0.00")
                             show_balance_section = True
+                        elif balance < threshold:
+                            balance_lines.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                            show_balance_section = True
+                        else:
+                            balance_lines.append(f"✅ **{exchange}:** ${balance:.2f}")
 
-                    if show_balance_section and low_balance_exchanges:
-                        balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(low_balance_exchanges) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    if balance_lines:
+                        balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(balance_lines) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     else:
-                        balance_warning = ""  # No low balance warnings needed
+                        balance_warning = ""  # No balance info to show
                 else:
                     # User has no exchanges configured - show helpful message
                     balance_warning = "🔑 **Configura tus Exchanges:**\nUsa /set_keys para configurar API keys y ver balances.\n━━━━━━━━━━━━━━━━━━━━━━━━\n"

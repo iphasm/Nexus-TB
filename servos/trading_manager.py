@@ -1546,7 +1546,8 @@ class AsyncTradingSession:
         threshold = 1.0  # Very low threshold to avoid blocking trades unnecessarily
 
         if balance < threshold:
-             return False, balance, f"⚠️ **Insufficient Balance:** Balance (${balance:.2f}) on {target_exchange} < Min Req (${threshold:.2f}). Cannot open position."
+             # Balance alerts now shown dynamically in /start menu - no spam during operations
+             return False, balance, ""
         else:
              # Log successful liquidity check
              self.logger.debug(f"✅ Liquidity OK: {symbol} -> {target_exchange} (${balance:.2f} >= ${threshold:.2f})")
