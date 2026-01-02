@@ -23,6 +23,12 @@ class BybitAdapter(IExchangeAdapter):
     - amend_order(): Hot-edit orders without cancel+replace
     """
 
+    # Class-level cache for balance (persists across instances)
+    _balance_cache: Dict[str, Any] = {'total': 0, 'available': 0, 'currency': 'USDT', 'timestamp': 0}
+    _balance_cache_ttl: float = 30.0  # Cache TTL in seconds
+    _last_balance_call: float = 0
+    _balance_rate_limit: float = 10.0  # Minimum seconds between balance API calls
+
     def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BYBIT_API_KEY', '')
         self._api_secret = api_secret or os.getenv('BYBIT_API_SECRET', '')
@@ -153,101 +159,115 @@ class BybitAdapter(IExchangeAdapter):
             return pd.DataFrame()
 
     async def get_account_balance(self) -> Dict[str, float]:
-        """Get Bybit UTA (Unified Trading Account) balance."""
+        """Get Bybit UTA (Unified Trading Account) balance with rate limiting and caching."""
+        import time
+
+        # 1. Return cached balance if within TTL (prevent excessive API calls)
+        current_time = time.time()
+        cache_age = current_time - BybitAdapter._balance_cache.get('timestamp', 0)
+
+        if cache_age < self._balance_cache_ttl and BybitAdapter._balance_cache.get('available', 0) > 0:
+            # Cache is fresh and has valid data
+            return {
+                'total': BybitAdapter._balance_cache.get('total', 0),
+                'available': BybitAdapter._balance_cache.get('available', 0),
+                'currency': 'USDT'
+            }
+
+        # 2. Rate limit: Minimum 10 seconds between API calls
+        time_since_last_call = current_time - BybitAdapter._last_balance_call
+        if time_since_last_call < self._balance_rate_limit:
+            # Too soon - return cached balance (even if stale)
+            cached = BybitAdapter._balance_cache
+            if cached.get('available', 0) > 0:
+                return {
+                    'total': cached.get('total', 0),
+                    'available': cached.get('available', 0),
+                    'currency': 'USDT'
+                }
+            # No valid cache, return zeros (rare edge case)
+            return {'total': 0, 'available': 0, 'currency': 'USDT'}
+
         if not self._exchange:
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 
+        # 3. Attempt API call with rate limiting
+        BybitAdapter._last_balance_call = current_time
+
         try:
             # CCXT's fetch_balance for Bybit V5 can vary by account type / permissions.
-            # Try UNIFIED first, then fall back to default / other types.
+            # Try UNIFIED first, then fall back to default only (reduce API calls)
             balance = None
-            last_err = None
 
             candidates = [
+                None,  # default (most common)
                 {'accountType': 'UNIFIED'},
-                None,  # default
-                {'accountType': 'CONTRACT'},
-                {'accountType': 'SPOT'},
             ]
 
-            print(f"🔍 BybitAdapter: Attempting balance fetch...")
-            for i, params in enumerate(candidates):
+            for params in candidates:
                 try:
-                    account_type = params.get('accountType', 'default') if params else 'default'
-                    print(f"🔍 BybitAdapter: Trying account type: {account_type}")
-
                     if params is None:
                         balance = await self._exchange.fetch_balance()
                     else:
                         balance = await self._exchange.fetch_balance(params)
-
-                    print(f"✅ BybitAdapter: Balance fetched successfully with {account_type}")
-                    # Debug: Show balance structure
-                    print(f"📊 BybitAdapter: Raw balance keys: {list(balance.keys())}")
-                    if 'USDT' in balance:
-                        print(f"📊 BybitAdapter: USDT balance: {balance['USDT']}")
-                    if 'info' in balance:
-                        print(f"📊 BybitAdapter: Info section present")
                     break
-                except Exception as e:
-                    print(f"❌ BybitAdapter: Failed with {account_type}: {str(e)[:200]}...")
-                    last_err = e
+                except Exception:
                     continue
 
             if balance is None:
-                print(f"💥 BybitAdapter: All balance fetch attempts failed")
-                raise last_err or RuntimeError("Bybit fetch_balance failed (unknown error)")
-            
-            # 1. Try CCXT standard mapping
+                # All attempts failed - return cached balance if available
+                cached = BybitAdapter._balance_cache
+                if cached.get('available', 0) > 0:
+                    return {
+                        'total': cached.get('total', 0),
+                        'available': cached.get('available', 0),
+                        'currency': 'USDT'
+                    }
+                return {'total': 0, 'available': 0, 'currency': 'USDT'}
+
+            # 4. Parse balance
             usdt = balance.get('USDT', {})
-            print(f"🔍 BybitAdapter: Processing USDT dict: {usdt}")
             total = float(usdt.get('total', 0))
             available = float(usdt.get('free', 0))
-            print(f"🔍 BybitAdapter: Parsed total={total}, available={available}")
-            
-            # 2. UTA Fallback: If standard mapping is empty, check 'info' for UTA fields
-            # In Unified Trading Accounts, Bybit reports net worth in USD/USDT via totalEquity
+
+            # UTA Fallback: If standard mapping is empty, check 'info' for UTA fields
             if total <= 0 and 'info' in balance:
                 try:
-                    # Bybit V5 structure
                     infoList = balance['info'].get('result', {}).get('list', [])
                     if infoList:
                         uta = infoList[0]
-                        # Use totalEquity which represents the whole account value in USD
                         total = float(uta.get('totalEquity', 0))
                         available = float(uta.get('totalAvailableBalance', 0))
-                except Exception as e:
-                    print(f"⚠️ BybitAdapter: UTA info parsing error: {e}")
-            
-            # 3. Last Resort: Check CCXT total dict
+                except Exception:
+                    pass
+
+            # Last Resort: Check CCXT total dict
             if total <= 0:
                 total = float(balance.get('total', {}).get('USDT', 0))
                 available = float(balance.get('free', {}).get('USDT', 0))
 
-            result = {
+            # 5. Update cache with fresh data
+            BybitAdapter._balance_cache = {
+                'total': total,
+                'available': available,
+                'currency': 'USDT',
+                'timestamp': current_time
+            }
+
+            return {
                 'total': total,
                 'available': available,
                 'currency': 'USDT'
             }
-            print(f"🔍 BybitAdapter: Returning balance: {result}")
-            return result
         except Exception as e:
-            # Parse error (debounced to avoid log spam)
-            err_msg = str(e)
-            import re, json, time
-            match = re.search(r'\{.*"code":.*\}', err_msg)
-            if match:
-                 try:
-                     data = json.loads(match.group(0))
-                     err_msg = f"Bybit Error {data.get('code')}: {data.get('msg')}"
-                 except Exception:
-                     pass
-
-            now = time.time()
-            last_ts = getattr(self, '_last_balance_error_ts', 0)
-            if now - last_ts > 300:  # 5 min debounce
-                print(f"⚠️ BybitAdapter: get_balance error: {err_msg}")
-                self._last_balance_error_ts = now
+            # On error, return cached balance if available (never return 0 if we have valid cache)
+            cached = BybitAdapter._balance_cache
+            if cached.get('available', 0) > 0:
+                return {
+                    'total': cached.get('total', 0),
+                    'available': cached.get('available', 0),
+                    'currency': 'USDT'
+                }
 
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 

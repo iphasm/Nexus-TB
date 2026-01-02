@@ -440,19 +440,6 @@ class NexusBridge:
         # Check if this is a crypto symbol
         is_crypto = 'USDT' in normalized_symbol or normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])
 
-        # Debug: Log routing decision for MSFT
-        if normalized_symbol == 'MSFT':
-            print(f"🔍 NexusBridge: MSFT routing debug:")
-            print(f"   - normalized_symbol: {normalized_symbol}")
-            print(f"   - is_crypto: {is_crypto} (USDT in symbol: {'USDT' in normalized_symbol})")
-            print(f"   - in CRYPTO group: {normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])}")
-            stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
-            print(f"   - in STOCKS/ETFS: {normalized_symbol in stocks_etfs}")
-            print(f"   - STOCKS: {ASSET_GROUPS.get('STOCKS', [])}")
-            print(f"   - ETFS: {ASSET_GROUPS.get('ETFS', [])}")
-            print(f"   - ALPACA available: {'ALPACA' in self.adapters}")
-            print(f"   - primary_exchange: {self.primary_exchange}")
-
         if is_crypto:
             # Get which exchanges are available for this specific symbol
             binance_available = is_exchange_available('BINANCE')
@@ -475,23 +462,34 @@ class NexusBridge:
             # Log and fallback to primary
             print(f"⚠️ NexusBridge: {normalized_symbol} not available on any crypto exchange")
 
-        # 3. Stocks and ETFs - Alpaca only
+        # 3. Stocks and ETFs - Alpaca ONLY (never route to crypto exchanges)
         stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
         if normalized_symbol in stocks_etfs:
-            if is_exchange_available('ALPACA', check_symbol=False):
+            # Always return ALPACA for stocks/ETFs - don't fallback to crypto exchanges
+            if 'ALPACA' in self.adapters:
+                return 'ALPACA'
+            else:
+                # Alpaca not connected - still return ALPACA (will fail gracefully)
+                print(f"⚠️ NexusBridge: {normalized_symbol} is a stock/ETF but ALPACA not connected")
                 return 'ALPACA'
 
-        # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
-        if 'USDT' not in normalized_symbol and 'USD' not in normalized_symbol:
-            if is_exchange_available('ALPACA', check_symbol=False):
-                return 'ALPACA'
+        # 4. Fallback: Rough check for stocks (symbols without USDT suffix)
+        # These are likely stocks/ETFs that should go to Alpaca
+        if 'USDT' not in normalized_symbol and not normalized_symbol.endswith('USD'):
+            # Check if it looks like a stock symbol (all uppercase, 1-5 chars, no numbers)
+            if normalized_symbol.isalpha() and len(normalized_symbol) <= 5:
+                if 'ALPACA' in self.adapters:
+                    return 'ALPACA'
+                else:
+                    print(f"⚠️ NexusBridge: {normalized_symbol} looks like a stock but ALPACA not connected")
+                    return 'ALPACA'  # Return ALPACA anyway - will fail gracefully
 
-        # 5. Ultimate Fallback - use primary exchange if available and enabled
+        # 5. Ultimate Fallback for crypto - use primary exchange if available and enabled
         if self.primary_exchange and is_exchange_available(self.primary_exchange, check_symbol=False):
             return self.primary_exchange
 
-        # 6. Last resort - return first available adapter according to user preferences
-        for exchange_name in ['BINANCE', 'BYBIT', 'ALPACA']:
+        # 6. Last resort for crypto - return first available crypto adapter
+        for exchange_name in ['BINANCE', 'BYBIT']:
             if is_exchange_available(exchange_name, check_symbol=False):
                 return exchange_name
 
