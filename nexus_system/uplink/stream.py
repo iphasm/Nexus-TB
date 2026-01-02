@@ -322,107 +322,95 @@ class MarketStream:
         # 3. REST Fallback
         try:
             adapter = self._get_adapter(symbol)
+
+            # If an adapter exists, prefer it and avoid falling back to raw Binance REST on failure/empty.
             if adapter:
-                df = await adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                # 3.a Primary adapter fetch
+                try:
+                    df = await adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                except Exception as adapter_error:
+                    # Optional: fallback to Binance adapter only if explicitly registered
+                    if 'USDT' in symbol and adapter.name.lower() == 'bybit':
+                        binance_adapter = self._adapters.get('binance')
+                        if binance_adapter:
+                            self.logger.info(f"Bybit failed for {symbol} ({adapter_error}), trying Binance fallback")
+                            df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                            if not df.empty:
+                                df = self._add_indicators(df)
+                                if self.price_cache:
+                                    candles = df.to_dict('records')
+                                    for c in candles:
+                                        c['is_closed'] = True
+                                    self.price_cache.backfill(symbol, candles)
+                                return {
+                                    "symbol": symbol,
+                                    "timeframe": timeframe,
+                                    "dataframe": df,
+                                    "source": "adapter:binance (fallback)"
+                                }
+
+                    # Adapter path failed; do not call raw Binance REST here.
+                    return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": timeframe, "source": f"adapter:{adapter.name}"}
+
+                # 3.b Adapter returned data
                 if not df.empty:
-                    # Add Indicators (Unified)
                     df = self._add_indicators(df)
-                    
-                    # Backfill WebSocket cache with REST data
                     if self.price_cache:
                         candles = df.to_dict('records')
                         for c in candles:
                             c['is_closed'] = True
                         self.price_cache.backfill(symbol, candles)
-                        
                     return {
                         "symbol": symbol,
                         "timeframe": timeframe,
                         "dataframe": df,
                         "source": f"adapter:{adapter.name}"
                     }
-                else:
-                    # Adapter returned empty data, try fallback for crypto symbols
-                    if 'USDT' in symbol and adapter.name.lower() == 'bybit':
-                        # Try Binance as fallback for crypto symbols
-                        binance_adapter = self._adapters.get('binance')
-                        if binance_adapter:
-                            self.logger.info(f"Bybit returned no data for {symbol}, trying Binance fallback")
-                            df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
-                            if not df.empty:
-                                # Add Indicators (Unified)
-                                df = self._add_indicators(df)
 
-                                # Backfill WebSocket cache with REST data
-                                if self.price_cache:
-                                    candles = df.to_dict('records')
-                                    for c in candles:
-                                        c['is_closed'] = True
-                                    self.price_cache.backfill(symbol, candles)
-
-                                return {
-                                    "symbol": symbol,
-                                    "timeframe": timeframe,
-                                    "dataframe": df,
-                                    "source": "adapter:binance (fallback)"
-                                }
-            except Exception as adapter_error:
-                # Adapter failed, try fallback for crypto symbols
-                if 'USDT' in symbol and adapter and adapter.name.lower() == 'bybit':
+                # 3.c Adapter returned empty; optional fallback to Binance adapter if registered
+                if 'USDT' in symbol and adapter.name.lower() == 'bybit':
                     binance_adapter = self._adapters.get('binance')
                     if binance_adapter:
-                        self.logger.info(f"Bybit failed for {symbol} ({adapter_error}), trying Binance fallback")
-                        try:
-                            df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
-                            if not df.empty:
-                                # Add Indicators (Unified)
-                                df = self._add_indicators(df)
+                        self.logger.info(f"Bybit returned no data for {symbol}, trying Binance fallback")
+                        df = await binance_adapter.fetch_candles(symbol, timeframe=timeframe, limit=limit)
+                        if not df.empty:
+                            df = self._add_indicators(df)
+                            if self.price_cache:
+                                candles = df.to_dict('records')
+                                for c in candles:
+                                    c['is_closed'] = True
+                                self.price_cache.backfill(symbol, candles)
+                            return {
+                                "symbol": symbol,
+                                "timeframe": timeframe,
+                                "dataframe": df,
+                                "source": "adapter:binance (fallback)"
+                            }
 
-                                # Backfill WebSocket cache with REST data
-                                if self.price_cache:
-                                    candles = df.to_dict('records')
-                                    for c in candles:
-                                        c['is_closed'] = True
-                                    self.price_cache.backfill(symbol, candles)
+                # No data from adapter(s); do not fall back to raw Binance REST here.
+                return {"dataframe": pd.DataFrame(), "symbol": symbol, "timeframe": timeframe, "source": f"adapter:{adapter.name}"}
 
-                                return {
-                                    "symbol": symbol,
-                                    "timeframe": timeframe,
-                                    "dataframe": df,
-                                    "source": "adapter:binance (fallback)"
-                                }
-                        except Exception as binance_error:
-                            self.logger.warning(f"Binance fallback also failed for {symbol}: {binance_error}")
-                else:
-                    # Re-raise the original error if not a crypto symbol or not Bybit
-                    raise adapter_error
-
-            # Original fallback to self.exchange (Binance) if no adapter found
-            # NOTE: Binance USDM Futures uses 'BASE/QUOTE:QUOTE' format (e.g. BTC/USDT:USDT)
+            # 3.d No adapter found -> raw Binance REST fallback (uses proxy if configured)
             formatted_symbol = symbol.replace('USDT', '/USDT:USDT') if 'USDT' in symbol and ':' not in symbol else symbol
             ohlcv = await self.exchange.fetch_ohlcv(formatted_symbol, timeframe, limit=limit)
-            
-            # Parse to DataFrame
+
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            
-            # Add Indicators (Unified)
             df = self._add_indicators(df)
-            
-            # Backfill WebSocket cache with REST data
+
             if self.price_cache:
                 candles = df.to_dict('records')
                 for c in candles:
                     c['is_closed'] = True
                 self.price_cache.backfill(symbol, candles)
-            
+
             return {
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "dataframe": df,
                 "source": "rest"
             }
-            
+
         except Exception as e:
             self.logger.warning_debounced(f"Data Fetch Error ({symbol}): {e}", interval=300)
             return {"dataframe": pd.DataFrame()}
