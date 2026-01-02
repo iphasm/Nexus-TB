@@ -940,6 +940,23 @@ async def cmd_debug_exchanges(message: Message, **kwargs):
     else:
         debug_msg += "• No se detectaron problemas evidentes"
 
+    # Add routing test
+    debug_msg += "\n\n<b>🧭 ROUTING TEST:</b>\n"
+    if hasattr(session, 'bridge') and session.bridge:
+        primary = getattr(session.bridge, 'primary_exchange', 'NOT SET')
+        debug_msg += f"• Primary Exchange: <b>{primary}</b>\n"
+        debug_msg += f"• crypto_exchange config: {session.config.get('crypto_exchange', 'NOT SET')}\n\n"
+        
+        # Test routing for sample symbols
+        test_symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT']
+        debug_msg += "<b>Rutas de símbolos de prueba:</b>\n"
+        for sym in test_symbols:
+            try:
+                route = session.bridge._route_symbol(sym, exchange_prefs)
+                debug_msg += f"• {sym} → <b>{route}</b>\n"
+            except Exception as e:
+                debug_msg += f"• {sym} → Error: {e}\n"
+
     # Add hierarchy explanation
     debug_msg += "\n\n" + "="*50 + "\n"
     debug_msg += session.explain_group_hierarchy()
