@@ -292,17 +292,19 @@ async def handle_primary_exchange(callback: CallbackQuery, **kwargs):
         await callback.message.answer("⚠️ Sin sesión activa.")
         return
     
-    # Update primary exchange
+    # Update primary exchange in config
     await session.update_config('primary_exchange', exchange)
     await session_manager.save_sessions()
     
-    # Handle exchanges panel actions
-    if action == "REFRESH":
-        # Refresh the exchanges panel
-        from handlers.config import cmd_exchanges
-        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
-    else:
-        await callback.answer("❌ Acción no reconocida")
+    # Also update the bridge in real-time if it exists
+    if hasattr(session, 'bridge') and session.bridge:
+        session.bridge.primary_exchange = exchange.upper()
+    
+    # Refresh the exchanges panel to show the change
+    from handlers.config import cmd_exchanges
+    await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+    
+    await callback.message.answer(f"✅ Exchange principal establecido: **{exchange}**\n\nTodas las señales crypto ahora se enrutarán a {exchange} por defecto.", parse_mode="Markdown")
 
 
 @router.callback_query(F.data == "CONFIRM_DELETE_KEYS")
