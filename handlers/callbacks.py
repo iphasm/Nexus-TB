@@ -1103,6 +1103,12 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
         await cmd_scan_category(callback.message)
         return
 
+    if filter_param == "EXCHANGE_MENUS":
+        await safe_answer(callback, "🏪 Abriendo menús por exchange...")
+        from handlers.commands import cmd_scanner_exchange_menus
+        await cmd_scanner_exchange_menus(callback.message)
+        return
+
     # Handle thematic category scan
     thematic_categories = ['MAJOR_CAPS', 'MEME_COINS', 'DEFI', 'AI_TECH', 'GAMING_METAVERSE', 'LAYER1_INFRA', 'BYBIT_EXCLUSIVE']
     if filter_param in thematic_categories:
