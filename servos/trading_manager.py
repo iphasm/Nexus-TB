@@ -1508,6 +1508,14 @@ class AsyncTradingSession:
         user_exchange_prefs = self.get_exchange_preferences()
         target_exchange = self.bridge._route_symbol(symbol, user_exchange_prefs) if self.bridge else ('BINANCE' if is_crypto else 'ALPACA')
 
+        # Debug: Log routing decision for MSFT
+        if symbol == 'MSFT':
+            print(f"🔍 TradingManager: MSFT routing debug:")
+            print(f"   - symbol: {symbol}")
+            print(f"   - user_exchange_prefs: {user_exchange_prefs}")
+            print(f"   - target_exchange: {target_exchange}")
+            print(f"   - bridge adapters: {list(self.bridge.adapters.keys()) if self.bridge else 'None'}")
+
         # Force-sync balance for target exchange BEFORE checking (avoid stale ShadowWallet data)
         if self.bridge and target_exchange in self.bridge.adapters:
             try:

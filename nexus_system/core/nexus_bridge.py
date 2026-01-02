@@ -440,6 +440,19 @@ class NexusBridge:
         # Check if this is a crypto symbol
         is_crypto = 'USDT' in normalized_symbol or normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])
 
+        # Debug: Log routing decision for MSFT
+        if normalized_symbol == 'MSFT':
+            print(f"🔍 NexusBridge: MSFT routing debug:")
+            print(f"   - normalized_symbol: {normalized_symbol}")
+            print(f"   - is_crypto: {is_crypto} (USDT in symbol: {'USDT' in normalized_symbol})")
+            print(f"   - in CRYPTO group: {normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])}")
+            stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
+            print(f"   - in STOCKS/ETFS: {normalized_symbol in stocks_etfs}")
+            print(f"   - STOCKS: {ASSET_GROUPS.get('STOCKS', [])}")
+            print(f"   - ETFS: {ASSET_GROUPS.get('ETFS', [])}")
+            print(f"   - ALPACA available: {'ALPACA' in self.adapters}")
+            print(f"   - primary_exchange: {self.primary_exchange}")
+
         if is_crypto:
             # Get which exchanges are available for this specific symbol
             binance_available = is_exchange_available('BINANCE')

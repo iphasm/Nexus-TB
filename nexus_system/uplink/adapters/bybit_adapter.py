@@ -156,7 +156,7 @@ class BybitAdapter(IExchangeAdapter):
         """Get Bybit UTA (Unified Trading Account) balance."""
         if not self._exchange:
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
-            
+
         try:
             # CCXT's fetch_balance for Bybit V5 can vary by account type / permissions.
             # Try UNIFIED first, then fall back to default / other types.
@@ -170,18 +170,32 @@ class BybitAdapter(IExchangeAdapter):
                 {'accountType': 'SPOT'},
             ]
 
-            for params in candidates:
+            print(f"🔍 BybitAdapter: Attempting balance fetch...")
+            for i, params in enumerate(candidates):
                 try:
+                    account_type = params.get('accountType', 'default') if params else 'default'
+                    print(f"🔍 BybitAdapter: Trying account type: {account_type}")
+
                     if params is None:
                         balance = await self._exchange.fetch_balance()
                     else:
                         balance = await self._exchange.fetch_balance(params)
+
+                    print(f"✅ BybitAdapter: Balance fetched successfully with {account_type}")
+                    # Debug: Show balance structure
+                    print(f"📊 BybitAdapter: Raw balance keys: {list(balance.keys())}")
+                    if 'USDT' in balance:
+                        print(f"📊 BybitAdapter: USDT balance: {balance['USDT']}")
+                    if 'info' in balance:
+                        print(f"📊 BybitAdapter: Info section present")
                     break
                 except Exception as e:
+                    print(f"❌ BybitAdapter: Failed with {account_type}: {str(e)[:200]}...")
                     last_err = e
                     continue
 
             if balance is None:
+                print(f"💥 BybitAdapter: All balance fetch attempts failed")
                 raise last_err or RuntimeError("Bybit fetch_balance failed (unknown error)")
             
             # 1. Try CCXT standard mapping
