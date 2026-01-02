@@ -1,4 +1,5 @@
 # Use lightweight Python 3.11
+# Force rebuild: 2025-01-02 - Fix cached Dockerfile issue
 FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm
 
 # Set working directory
