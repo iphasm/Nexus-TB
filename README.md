@@ -142,7 +142,7 @@ TELEGRAM_ADMIN_ID=your_chat_id
 
 # Binance Futures
 BINANCE_API_KEY=your_key
-BINANCE_SECRET=your_secret
+BINANCE_API_SECRET=your_secret
 
 # Alpaca (Optional - Stocks)
 APCA_API_KEY_ID=your_key

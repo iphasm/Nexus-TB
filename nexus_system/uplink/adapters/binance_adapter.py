@@ -19,7 +19,7 @@ class BinanceAdapter(IExchangeAdapter):
 
     def __init__(self, api_key: str = None, api_secret: str = None, **kwargs):
         self._api_key = api_key or os.getenv('BINANCE_API_KEY', '')
-        self._api_secret = api_secret or os.getenv('BINANCE_SECRET', '')
+        self._api_secret = api_secret or os.getenv('BINANCE_API_SECRET') or os.getenv('BINANCE_SECRET', '')
         self._ws_manager = None
         self._price_cache = None
         self._is_hedge_mode = False # Default to One-Way

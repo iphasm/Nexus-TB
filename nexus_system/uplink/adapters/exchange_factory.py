@@ -40,7 +40,7 @@ def get_exchange_driver(
     if name == 'BINANCE':
         return BinanceAdapter(
             api_key=api_key or os.getenv('BINANCE_API_KEY'),
-            api_secret=api_secret or os.getenv('BINANCE_SECRET')
+            api_secret=api_secret or os.getenv('BINANCE_API_SECRET') or os.getenv('BINANCE_SECRET')
         )
     
     elif name == 'BYBIT':

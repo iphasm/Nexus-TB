@@ -36,7 +36,7 @@ Una vez desplegado, ve a la pestaña **Variables** en Railway y AGREGA las sigui
 | :--- | :--- | :--- |
 | `TELEGRAM_ADMIN_ID` | **(Requerido)** Tu ID personal de Telegram. Solo este ID podrá usar `/long`. | `123456789` |
 | `BINANCE_API_KEY` | Tu API Key de Binance Futures. | `vmPUZE...` |
-| `BINANCE_SECRET` | Tu Secret Key de Binance Futures. | `NhqPt...` |
+| `BINANCE_API_SECRET` | Tu Secret Key de Binance Futures. | `NhqPt...` |
 | `LEVERAGE` | Apalancamiento para operaciones (x). | `5` |
 | `STOP_LOSS_PCT` | Porcentaje de Stop Loss (0.02 = 2%). | `0.02` |
 | `MAX_CAPITAL_PCT` | Máximo % de balance a arriesgar por trade. | `0.10` |

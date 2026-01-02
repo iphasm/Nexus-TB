@@ -149,7 +149,7 @@ async def run_diagnostics(
     
     # 2. Credentials - Use provided or fallback to env
     used_api_key = api_key or os.getenv('BINANCE_API_KEY')
-    used_api_secret = api_secret or os.getenv('BINANCE_SECRET')
+    used_api_secret = api_secret or os.getenv('BINANCE_API_SECRET') or os.getenv('BINANCE_SECRET')
     
     # Indicate source of credentials
     cred_source = "Session" if api_key else "Environment"
