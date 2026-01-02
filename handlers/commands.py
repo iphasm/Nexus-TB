@@ -1244,8 +1244,17 @@ async def cmd_cooldowns(message: Message, **kwargs):
 # =================================================================
 
 @router.message(Command("long"))
-async def _execute_manual_position(message: Message, side: str, force_exchange: str, **kwargs):
+async def _execute_manual_position(message: Message, side: str = None, force_exchange: str = None, **kwargs):
     """Helper function to execute manual positions with forced exchange."""
+
+    # DEBUG: Log incorrect calls to help identify the issue
+    if side is None or force_exchange is None:
+        logger.error(f"❌ _execute_manual_position called with missing args: side={side}, force_exchange={force_exchange}")
+        logger.error(f"   Message: {message.text if hasattr(message, 'text') else 'No text'}")
+        logger.error(f"   Chat ID: {message.chat.id if hasattr(message, 'chat') else 'No chat'}")
+        # Don't crash, just return
+        return
+
     session_manager = kwargs.get('session_manager')
     if not session_manager: return
 

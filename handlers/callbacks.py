@@ -1650,3 +1650,35 @@ async def handle_info_callback(callback: CallbackQuery, **kwargs):
         await callback.message.edit_text(msg, reply_markup=keyboard, parse_mode="Markdown")
     except Exception as e:
         await safe_answer(callback, f"Error mostrando info: {str(e)[:50]}")
+
+
+# =================================================================
+# GENERIC HANDLER - Catch unhandled callbacks for debugging
+# =================================================================
+
+@router.callback_query()
+async def handle_unhandled_callback(callback: CallbackQuery, **kwargs):
+    """
+    Catch-all handler for unhandled callbacks.
+    This helps identify callbacks that don't have specific handlers.
+    """
+    callback_data = callback.data
+    logger.warning(f"⚠️ Unhandled callback: {callback_data}")
+
+    # Try to provide helpful feedback for common unhandled callbacks
+    if callback_data == "ignore":
+        await safe_answer(callback)
+        return
+
+    if callback_data == "back_to_start":
+        from handlers.commands import cmd_start
+        await cmd_start(callback.message, **kwargs)
+        return
+
+    if callback_data.startswith("toggle_group:"):
+        # This should be handled in commands.py, but add fallback here
+        await safe_answer(callback, "Función no disponible temporalmente", show_alert=True)
+        return
+
+    # For any other unhandled callback, show an error
+    await safe_answer(callback, f"Función no implementada: {callback_data[:30]}...", show_alert=True)
