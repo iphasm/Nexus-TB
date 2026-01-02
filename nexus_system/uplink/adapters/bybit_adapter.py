@@ -69,8 +69,14 @@ class BybitAdapter(IExchangeAdapter):
                 self._exchange.aiohttp_proxy = http_proxy
             
             await self._exchange.load_markets()
+
+            # Clear cache for known available symbols that might have been incorrectly cached
+            known_available = ['SUIUSDT', 'SEIUSDT', 'NEARUSDT', 'MATICUSDT', 'APTUSDT', 'OPUSDT', 'ARBUSDT', 'ATOMUSDT']
+            for symbol in known_available:
+                self._failed_symbols_cache.discard(symbol)
+
             return True
-            
+
         except Exception as e:
             if verbose: print(f"❌ BybitAdapter: Init failed - {e}")
             return False
@@ -78,27 +84,52 @@ class BybitAdapter(IExchangeAdapter):
     # Cache de símbolos que fallaron (auto-aprendizaje)
     _failed_symbols_cache: set = set()
 
+    async def check_symbol_availability(self, symbol: str) -> bool:
+        """Check if a symbol is actually available on Bybit by querying the exchange."""
+        if not self._exchange:
+            return False
+
+        try:
+            # First check static exclusions
+            from system_directive import is_symbol_available_on_exchange
+            if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
+                return False
+
+            # Check cache first
+            if symbol in self._failed_symbols_cache:
+                return False
+
+            # Try to get symbol info (lightweight call)
+            formatted = self._format_symbol(symbol)
+            markets = self._exchange.markets
+            return formatted in markets
+
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: Error checking {symbol} availability: {e}")
+            return False
+
+    def clear_failed_cache(self, symbol: str = None):
+        """Clear the failed symbols cache. If symbol is None, clear all."""
+        if symbol:
+            self._failed_symbols_cache.discard(symbol)
+            print(f"🧹 BybitAdapter: Cleared cache for {symbol}")
+        else:
+            self._failed_symbols_cache.clear()
+            print(f"🧹 BybitAdapter: Cleared all failed symbols cache")
+
     async def fetch_candles(
-        self, 
-        symbol: str, 
-        timeframe: str = '15m', 
+        self,
+        symbol: str,
+        timeframe: str = '15m',
         limit: int = 100
     ) -> pd.DataFrame:
         """Fetch OHLCV data from Bybit."""
         if not self._exchange:
             return pd.DataFrame()
 
-        # Check if symbol already failed before (cached)
-        if symbol in self._failed_symbols_cache:
-            return pd.DataFrame()  # Silently skip known unavailable symbols
-
-        # Check if symbol is in static exclusion list
-        try:
-            from system_directive import is_symbol_available_on_exchange
-            if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
-                return pd.DataFrame()  # Silently skip unavailable symbols
-        except ImportError:
-            pass
+        # Check if symbol is available using smart verification
+        if not await self.check_symbol_availability(symbol):
+            return pd.DataFrame()  # Silently skip unavailable symbols
 
         try:
             # Format symbol for CCXT (BTC/USDT:USDT for linear)
@@ -111,12 +142,13 @@ class BybitAdapter(IExchangeAdapter):
 
         except Exception as e:
             error_str = str(e).lower()
-            # Auto-learn: If symbol doesn't exist, cache it
-            if 'symbol' in error_str or 'not found' in error_str or 'invalid' in error_str:
+            # Auto-learn: Only cache if clearly a "symbol not found" error
+            if ('symbol' in error_str and ('not found' in error_str or 'invalid' in error_str or 'does not exist' in error_str)) or 'market not found' in error_str:
                 self._failed_symbols_cache.add(symbol)
                 # Only log once per symbol
                 print(f"🔇 BybitAdapter: {symbol} not available on Bybit (cached)")
             else:
+                # Don't cache temporary errors (rate limits, network issues, etc.)
                 print(f"⚠️ BybitAdapter: fetch_candles error ({symbol}): {e}")
             return pd.DataFrame()
 
@@ -247,17 +279,9 @@ class BybitAdapter(IExchangeAdapter):
         if not self._exchange:
             return {'error': 'Not initialized'}
 
-        # Check if symbol already failed before (cached)
-        if symbol in self._failed_symbols_cache:
-            return {'error': f'{symbol} not available on Bybit (cached)'}
-
-        # Check if symbol is in static exclusion list
-        try:
-            from system_directive import is_symbol_available_on_exchange
-            if not is_symbol_available_on_exchange(symbol, 'BYBIT'):
-                return {'error': f'{symbol} not available on Bybit'}
-        except ImportError:
-            pass
+        # Check if symbol is available using smart verification
+        if not await self.check_symbol_availability(symbol):
+            return {'error': f'{symbol} not available on Bybit'}
 
         try:
             formatted = self._format_symbol(symbol)

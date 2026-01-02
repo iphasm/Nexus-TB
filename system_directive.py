@@ -69,35 +69,35 @@ BYBIT_TICKER_MAPPING = {
 BINANCE_EXCLUSIONS = set()  # Binance tiene casi todo
 
 BYBIT_EXCLUSIONS = {
-    # === Binance Ecosystem Tokens ===
+    # === Binance Ecosystem Tokens (NO disponibles en Bybit) ===
     "BNBUSDT",      # Token nativo de Binance - NO en Bybit
     "BAKEUSDT",     # Binance ecosystem token
     "ALPACAUSDT",   # Binance-specific
     "BIFIUSDT",     # Binance-specific
-    "CAKEUSDT",     # PancakeSwap (BSC)
-    "XVSUSDT",      # Venus (BSC)
-    "SFPUSDT",      # SafePal (BSC)
-    "TRUUSDT",      # TrueFi (BSC)
-    
-    # === Meme Coins NO en Bybit ===
+    "CAKEUSDT",     # PancakeSwap (BSC) - NO en Bybit futures
+    "XVSUSDT",      # Venus (BSC) - NO en Bybit futures
+    "SFPUSDT",      # SafePal (BSC) - verificar
+    "TRUUSDT",      # TrueFi (BSC) - verificar
+
+    # === Meme Coins NO en Bybit futures ===
     "BOMEUSDT",     # Book of Meme - NO en Bybit perpetuos
     "BRETTUSDT",    # Brett - NO en Bybit
     "MEWUSDT",      # Cat in a Dogs World - NO en Bybit
-    
+
     # === AI/Tech tokens limitados ===
     "TRBUSDT",      # Tellor - NO en Bybit
-    "ARKMUSDT",     # Arkham - verificar disponibilidad
-    
+    "ARKMUSDT",     # Arkham - verificar
+
     # === Gaming tokens limitados ===
     "ILVUSDT",      # Illuvium - puede no estar
     "ENJUSDT",      # Enjin - verificar
-    
+
     # === Stablecoins/Otros ===
     "BTTCUSDT",     # BitTorrent en formato Binance
     "TUSDUSDT",     # TrueUSD puede no estar en Bybit
-    "USDCUSDT",     # Stablecoin pair
-    "PAXGUSDT",     # Pax Gold
-    
+    "USDCUSDT",     # Stablecoin pair - verificar
+    "PAXGUSDT",     # Pax Gold - verificar
+
     # === DeFi limitados ===
     "COMPUSDT",     # Compound - verificar
     "SNXUSDT",      # Synthetix - verificar
