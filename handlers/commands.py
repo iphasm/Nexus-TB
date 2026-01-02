@@ -2406,31 +2406,59 @@ async def cmd_scan_exchange(message: Message, **kwargs):
 @router.message(Command("scan_exchange_menus"))
 async def cmd_scanner_exchange_menus(message: Message, **kwargs):
     """
-    Show traditional exchange-based scanner menus.
+    Show crypto category scanner menus (replaces exchange-based menus).
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from system_directive import CRYPTO_SUBGROUPS, GROUP_CONFIG
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🟡 Binance", callback_data="SCANNER|BINANCE_MENU"),
-            InlineKeyboardButton(text="🟣 Bybit", callback_data="SCANNER|BYBIT_MENU"),
-        ],
-        [
-            InlineKeyboardButton(text="🟢 Alpaca", callback_data="SCANNER|ALPACA"),
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Volver al Scanner", callback_data="CMD|scanner"),
-        ]
+    # Build keyboard with crypto categories (same as thematic scanner)
+    keyboard_buttons = []
+
+    # Thematic categories mapping with emojis
+    category_emojis = {
+        'MAJOR_CAPS': '🌟',
+        'MEME_COINS': '🐕',
+        'DEFI': '🏛️',
+        'AI_TECH': '🤖',
+        'GAMING_METAVERSE': '🎮',
+        'LAYER1_INFRA': '🛠️',
+        'BYBIT_EXCLUSIVE': '🔥'
+    }
+
+    # Add thematic categories
+    for category_key, assets in CRYPTO_SUBGROUPS.items():
+        # Skip BYBIT_EXCLUSIVE if disabled
+        if category_key == 'BYBIT_EXCLUSIVE' and not GROUP_CONFIG.get('BYBIT_EXCLUSIVE', False):
+            continue
+
+        emoji = category_emojis.get(category_key, '📊')
+        display_name = category_key.replace('_', ' ').title()
+        count = len(assets)
+
+        keyboard_buttons.append([
+            InlineKeyboardButton(
+                text=f"{emoji} {display_name} ({count})",
+                callback_data=f"SCANNER|{category_key}"
+            )
+        ])
+
+    keyboard_buttons.append([
+        InlineKeyboardButton(text="⬅️ Volver al Scanner", callback_data="CMD|scanner"),
     ])
 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
     msg_text = (
-        "🏪 <b>MENÚS POR EXCHANGE</b>\n"
+        "🎯 <b>ESCANEO POR CATEGORÍAS CRYPTO</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Selecciona un exchange para ver sus categorías:\n\n"
-        "🟡 <b>Binance</b> → Submenús temáticos\n"
-        "🟣 <b>Bybit</b> → Submenús temáticos\n"
-        "🟢 <b>Alpaca</b> → Stocks & ETFs\n\n"
-        "<b>Nota:</b> Estos menús muestran categorías específicas por exchange."
+        "<b>Selecciona una categoría para escanear:</b>\n\n"
+        "🏆 <b>Major Caps</b> → BTC, ETH, BNB, etc.\n"
+        "🐕 <b>Meme Coins</b> → PEPE, DOGE, SHIB, etc.\n"
+        "🏛️ <b>DeFi</b> → UNI, AAVE, CRV, etc.\n"
+        "🤖 <b>AI & Tech</b> → FET, AGIX, OCEAN, etc.\n"
+        "🎮 <b>Gaming</b> → AXS, SAND, MANA, etc.\n"
+        "🏗️ <b>Layer 1</b> → SUI, SEI, MINA, etc.\n\n"
+        "<b>Nota:</b> Solo escanea activos disponibles en tus exchanges configurados."
     )
 
     await message.answer(msg_text, reply_markup=keyboard, parse_mode="HTML")
@@ -2583,12 +2611,20 @@ async def execute_scanner(message, exchange_filter: str = 'ALL'):
     for subgroup_name, assets in CRYPTO_SUBGROUPS.items():
         category_groups[f"CATEGORY_{subgroup_name}"] = [('CRYPTO', assets)]
 
+    # For 'ALL', scan all available assets from connected exchanges
+    all_assets = []
+    if 'ALL' in exchange_filter:
+        # Get all available assets from connected exchanges
+        # This should include all crypto assets available, not just optimized ones
+        all_assets = ASSET_GROUPS.get('CRYPTO', [])
+        # TODO: In the future, this could dynamically fetch all available assets from exchanges
+
     exchange_groups = {
         # Main asset groups
         'CRYPTO': ['CRYPTO'],
         'STOCKS': ['STOCKS'],
         'ETFS': ['ETFS'],
-        'ALL': ['CRYPTO', 'STOCKS', 'ETFS'],
+        'ALL': [('ALL', all_assets)] if all_assets else ['CRYPTO', 'STOCKS', 'ETFS'],
         # Legacy exchange filters (for compatibility)
         'BINANCE': ['CRYPTO'],
         'BYBIT': ['CRYPTO'],

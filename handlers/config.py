@@ -306,12 +306,22 @@ async def cmd_exchanges(message: Message, **kwargs):
     # Primary exchange
     primary = session.config.get('primary_exchange', 'BINANCE')
     
+    # Get exchange signal toggles
+    binance_signals = session.config.get('signals_binance', True)
+    bybit_signals = session.config.get('signals_bybit', True)
+    alpaca_signals = session.config.get('signals_alpaca', True)
+
     msg_text = (
         "🔗 *GESTIÓN DE EXCHANGES*\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🟡 *Binance:* {binance_status}\n"
         f"🟣 *Bybit:* {bybit_status}\n"
         f"🟢 *Alpaca:* {alpaca_status}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "📡 *SEÑALES POR EXCHANGE:*\n"
+        f"{'✅' if binance_signals else '❌'} Binance\n"
+        f"{'✅' if bybit_signals else '❌'} Bybit\n"
+        f"{'✅' if alpaca_signals else '❌'} Alpaca\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"⭐ *Exchange Principal (Crypto):* `{primary}`\n"
         "_Usado para comandos genéricos como /long BTCUSDT_"
@@ -324,6 +334,13 @@ async def cmd_exchanges(message: Message, **kwargs):
         ],
         [
             InlineKeyboardButton(text="🔑 Config Alpaca", callback_data="WIZARD|ALPACA")
+        ],
+        [
+            InlineKeyboardButton(text=f"📡 Binance: {'✅' if binance_signals else '❌'}", callback_data="TOGGLE_SIGNALS|BINANCE"),
+            InlineKeyboardButton(text=f"📡 Bybit: {'✅' if bybit_signals else '❌'}", callback_data="TOGGLE_SIGNALS|BYBIT")
+        ],
+        [
+            InlineKeyboardButton(text=f"📡 Alpaca: {'✅' if alpaca_signals else '❌'}", callback_data="TOGGLE_SIGNALS|ALPACA")
         ],
         [
             InlineKeyboardButton(text=f"⭐ Set Primary: BINANCE", callback_data="EXCHANGE|PRIMARY|BINANCE"),

@@ -1035,6 +1035,21 @@ async def handle_exchanges_callback(callback: CallbackQuery, **kwargs):
         await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
         await callback.answer("✅ Estado actualizado")
 
+    elif action.startswith("TOGGLE_SIGNALS|"):
+        # Handle signal toggles per exchange
+        exchange = action.split("|")[1]  # TOGGLE_SIGNALS|BINANCE -> BINANCE
+        config_key = f"signals_{exchange.lower()}"
+
+        current_value = session.config.get(config_key, True)
+        session.config[config_key] = not current_value
+        session_manager.save_sessions()
+
+        # Update message
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+        status = "activadas" if not current_value else "desactivadas"
+        await callback.answer(f"📡 Señales {exchange} {status}")
+
     elif action.startswith("ENABLE_") or action.startswith("DISABLE_"):
         # Handle exchange toggle
         exchange = action.split("_")[1]  # ENABLE_BINANCE -> BINANCE
@@ -1085,15 +1100,21 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
     
     # Handle menu selections
     if filter_param == "BINANCE_MENU":
-        await safe_answer(callback, "🟡 Abriendo menú Binance...")
-        from handlers.commands import cmd_scan_exchange
-        await cmd_scan_exchange(callback.message, exchange="BINANCE")
+        await safe_answer(callback, "🎯 Abriendo categorías crypto...")
+        from handlers.commands import cmd_scanner_exchange_menus
+        await cmd_scanner_exchange_menus(callback.message)
         return
 
     if filter_param == "BYBIT_MENU":
-        await safe_answer(callback, "🟣 Abriendo menú Bybit...")
-        from handlers.commands import cmd_scan_exchange
-        await cmd_scan_exchange(callback.message, exchange="BYBIT")
+        await safe_answer(callback, "🎯 Abriendo categorías crypto...")
+        from handlers.commands import cmd_scanner_exchange_menus
+        await cmd_scanner_exchange_menus(callback.message)
+        return
+
+    if filter_param == "EXCHANGE_MENUS":
+        await safe_answer(callback, "🎯 Abriendo categorías crypto...")
+        from handlers.commands import cmd_scanner_exchange_menus
+        await cmd_scanner_exchange_menus(callback.message)
         return
 
     # Handle main asset group scanning
@@ -1423,7 +1444,7 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎛️ Estrategias (Motor)", callback_data="CMD|strategies")],
-            [InlineKeyboardButton(text="📡 Grupos y Activos", callback_data="CMD|assets")],
+            [InlineKeyboardButton(text="📡 Configuración de Activos", callback_data="CMD|assets")],
             [InlineKeyboardButton(text="⬅️ Volver a Config", callback_data="CMD|config")]
         ])
 
