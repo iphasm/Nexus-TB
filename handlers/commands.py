@@ -8,7 +8,7 @@ import asyncio
 import logging
 import random
 import os
-import requests
+import aiohttp
 from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -21,32 +21,39 @@ router = Router(name="commands")
 from system_directive import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP, get_display_name
 
 
-def get_fear_and_greed_index() -> str:
-    """Fetch Fear and Greed Index from alternative.me with retry and extended timeout"""
+async def get_fear_and_greed_index_async() -> str:
+    """Fetch Fear and Greed Index from alternative.me with retry and extended timeout (async)"""
     url = "https://api.alternative.me/fng/"
-    for attempt in range(2):
-        try:
-            resp = requests.get(url, timeout=15)
-            data = resp.json()
-            if 'data' in data and len(data['data']) > 0:
-                item = data['data'][0]
-                val = int(item['value'])
-                classification = item['value_classification']
-                
-                icon = "😐"
-                if val >= 75: icon = "🤑"
-                elif val >= 55: icon = "😏"
-                elif val <= 25: icon = "😱"
-                elif val <= 45: icon = "😨"
-                
-                return f"{icon} *{classification}* ({val}/100)"
-        except Exception as e:
-            if attempt == 1:
-                print(f"F&G Error (Final): {e}")
-            else:
-                print(f"F&G Error (Retrying...): {e}")
-    
+    async with aiohttp.ClientSession() as session:
+        for attempt in range(2):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    data = await resp.json()
+                    if 'data' in data and len(data['data']) > 0:
+                        item = data['data'][0]
+                        val = int(item['value'])
+                        classification = item['value_classification']
+
+                        icon = "😐"
+                        if val >= 75: icon = "🤑"
+                        elif val >= 55: icon = "😏"
+                        elif val <= 25: icon = "😱"
+                        elif val <= 45: icon = "😨"
+
+                        return f"{icon} *{classification}* ({val}/100)"
+            except Exception as e:
+                if attempt == 1:
+                    print(f"F&G Error (Final): {e}")
+                else:
+                    print(f"F&G Error (Retrying...): {e}")
+
     return "N/A"
+
+# Keep sync version for backward compatibility (but mark as deprecated)
+def get_fear_and_greed_index() -> str:
+    """DEPRECATED: Use get_fear_and_greed_index_async() instead"""
+    import asyncio
+    return asyncio.run(get_fear_and_greed_index_async())
 
 
 @router.message(CommandStart())
@@ -459,7 +466,7 @@ async def cmd_dashboard(message: Message, edit_message: bool = False, **kwargs):
         pnl_icon = "🟢" if pnl >= 0 else "🔴"
         
         # Fear & Greed
-        fg_text = get_fear_and_greed_index()
+        fg_text = await get_fear_and_greed_index_async()
         
         # Macro Data
         macro = data.get('macro', {})
@@ -1710,7 +1717,7 @@ async def cmd_price(message: Message, **kwargs):
         loading = await message.answer("🔍 _Analizando mercado..._", parse_mode="Markdown")
         
         # 1. Fear & Greed
-        fng = get_fear_and_greed_index()
+        fng = await get_fear_and_greed_index_async()
         
         # 2. Build dynamic target lists
         from system_directive import ASSET_GROUPS, GROUP_CONFIG, TICKER_MAP
@@ -1746,9 +1753,12 @@ async def cmd_price(message: Message, **kwargs):
                 # B. Get Klines for RSI (4h interval, 20 candles)
                 klines_url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=4h&limit=20"
                 
-                # Fetch
-                t_resp = requests.get(ticker_url, timeout=2).json()
-                k_resp = requests.get(klines_url, timeout=2).json()
+                # Fetch (async)
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(ticker_url, timeout=aiohttp.ClientTimeout(total=2)) as t_response:
+                        t_resp = await t_response.json()
+                    async with session.get(klines_url, timeout=aiohttp.ClientTimeout(total=2)) as k_response:
+                        k_resp = await k_response.json()
                 
                 if 'lastPrice' in t_resp:
                     # Data Extraction
@@ -1784,44 +1794,45 @@ async def cmd_price(message: Message, **kwargs):
         
         if yf_symbols:
             headers = {'User-Agent': 'Mozilla/5.0'}
-            for sym in yf_symbols:
-                try:
-                    # Fetch History (1 month daily to calc RSI)
-                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1mo"
-                    resp = requests.get(url, headers=headers, timeout=3)
-                    data = resp.json()
+            async with aiohttp.ClientSession(headers=headers) as session:
+                for sym in yf_symbols:
+                    try:
+                        # Fetch History (1 month daily to calc RSI)
+                        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1mo"
+                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                            data = await resp.json()
                     
-                    result = data.get('chart', {}).get('result', [{}])[0]
-                    meta = result.get('meta', {})
-                    indicators = result.get('indicators', {}).get('quote', [{}])[0]
-                    
-                    price = meta.get('regularMarketPrice')
-                    prev_close = meta.get('chartPreviousClose')
-                    
-                    if price and prev_close:
-                        # Calcs
-                        pct_change = ((price - prev_close) / prev_close) * 100
-                        closes = indicators.get('close', [])
-                        clean_closes = [c for c in closes if c is not None]
-                        rsi_series = calculate_rsi(clean_closes)
-                        rsi = float(rsi_series.iloc[-1]) if hasattr(rsi_series, 'iloc') else float(rsi_series)
-                        
-                        name = TICKER_MAP.get(sym, sym)
-                        
-                        # Formatting
-                        trend_icon = "🐂" if pct_change > 0 else "🐻"
-                        pct_str = f"{'+' if pct_change > 0 else ''}{pct_change:.1f}%"
-                        
-                        rsi_status = ""
-                        if rsi > 70: rsi_status = "🔥"
-                        elif rsi < 30: rsi_status = "🧊"
-                        
-                        line = f"• *{name}:* `${price:,.2f}` {trend_icon} `{pct_str}` | `RSI {int(rsi)}` {rsi_status}\n"
-                        
-                        if sym in stock_targets: stocks_str += line
-                        elif sym in commodity_targets: commodities_str += line
-                except:
-                    continue
+                        result = data.get('chart', {}).get('result', [{}])[0]
+                        meta = result.get('meta', {})
+                        indicators = result.get('indicators', {}).get('quote', [{}])[0]
+
+                        price = meta.get('regularMarketPrice')
+                        prev_close = meta.get('chartPreviousClose')
+
+                        if price and prev_close:
+                            # Calcs
+                            pct_change = ((price - prev_close) / prev_close) * 100
+                            closes = indicators.get('close', [])
+                            clean_closes = [c for c in closes if c is not None]
+                            rsi_series = calculate_rsi(clean_closes)
+                            rsi = float(rsi_series.iloc[-1]) if hasattr(rsi_series, 'iloc') else float(rsi_series)
+
+                            name = TICKER_MAP.get(sym, sym)
+
+                            # Formatting
+                            trend_icon = "🐂" if pct_change > 0 else "🐻"
+                            pct_str = f"{'+' if pct_change > 0 else ''}{pct_change:.1f}%"
+
+                            rsi_status = ""
+                            if rsi > 70: rsi_status = "🔥"
+                            elif rsi < 30: rsi_status = "🧊"
+
+                            line = f"• *{name}:* `${price:,.2f}` {trend_icon} `{pct_str}` | `RSI {int(rsi)}` {rsi_status}\n"
+
+                            if sym in stock_targets: stocks_str += line
+                            elif sym in commodity_targets: commodities_str += line
+                    except:
+                        continue
 
         # --- GET CMC DATA ---
         cmc_data = {}
