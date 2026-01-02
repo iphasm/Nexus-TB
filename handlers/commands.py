@@ -169,18 +169,22 @@ async def cmd_start(message: Message, **kwargs):
                         # Different thresholds for different exchanges
                         if exchange == 'ALPACA':
                             threshold = 1000.0  # $1000 minimum for Alpaca (stocks/forex)
+                            # For Alpaca, show equity (total account value) instead of available cash
+                            total_balance = session.shadow_wallet.balances.get(exchange, {}).get('total', 0)
+                            display_balance = total_balance if total_balance > 0 else balance
                         else:
                             threshold = 6.0  # $6 minimum for crypto exchanges
+                            display_balance = balance
 
                         # Always show balance status with appropriate icon
-                        if balance == 0:
+                        if display_balance == 0:
                             balance_lines.append(f"⛔ **{exchange}:** $0.00")
                             show_balance_section = True
-                        elif balance < threshold:
-                            balance_lines.append(f"⚠️ **{exchange}:** ${balance:.2f} (Mín: ${threshold:.2f})")
+                        elif display_balance < threshold:
+                            balance_lines.append(f"⚠️ **{exchange}:** ${display_balance:.2f} (Mín: ${threshold:.2f})")
                             show_balance_section = True
                         else:
-                            balance_lines.append(f"✅ **{exchange}:** ${balance:.2f}")
+                            balance_lines.append(f"✅ **{exchange}:** ${display_balance:.2f}")
 
                     if balance_lines:
                         balance_warning = f"💰 **Estado de Balances:**\n" + "\n".join(balance_lines) + "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
