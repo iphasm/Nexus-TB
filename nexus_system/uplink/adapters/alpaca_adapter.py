@@ -176,15 +176,15 @@ class AlpacaAdapter(IExchangeAdapter):
             print(f"   Portfolio Value: {getattr(account, 'portfolio_value', 'N/A')} (type: {type(getattr(account, 'portfolio_value', 'N/A'))})")
 
             equity = float(account.equity)
-            buying_power = float(account.buying_power)
+            cash = float(getattr(account, 'cash', account.equity))  # Fallback to equity if cash not available
 
             print(f"🔍 AlpacaAdapter: Calculated values:")
             print(f"   Total (Equity): ${equity:.2f}")
-            print(f"   Available (Buying Power): ${buying_power:.2f}")
+            print(f"   Available (Cash): ${cash:.2f}")
 
             return {
                 'total': equity,
-                'available': buying_power,
+                'available': cash,  # Use cash instead of buying_power for available balance
                 'currency': 'USD'
             }
         except Exception as e:
