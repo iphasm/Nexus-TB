@@ -440,6 +440,19 @@ class NexusBridge:
         # Check if this is a crypto symbol
         is_crypto = 'USDT' in normalized_symbol or normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])
 
+        # Debug: Log routing decision for QQQ
+        if normalized_symbol == 'QQQ':
+            print(f"🔍 NexusBridge: QQQ routing debug:")
+            print(f"   - normalized_symbol: {normalized_symbol}")
+            print(f"   - is_crypto: {is_crypto} (USDT in symbol: {'USDT' in normalized_symbol})")
+            print(f"   - in CRYPTO group: {normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])}")
+            stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
+            print(f"   - in STOCKS/ETFS: {normalized_symbol in stocks_etfs}")
+            print(f"   - STOCKS: {ASSET_GROUPS.get('STOCKS', [])}")
+            print(f"   - ETFS: {ASSET_GROUPS.get('ETFS', [])}")
+            print(f"   - ALPACA available: {'ALPACA' in self.adapters}")
+            print(f"   - primary_exchange: {self.primary_exchange}")
+
         if is_crypto:
             # Get which exchanges are available for this specific symbol
             binance_available = is_exchange_available('BINANCE')
@@ -463,15 +476,10 @@ class NexusBridge:
             print(f"⚠️ NexusBridge: {normalized_symbol} not available on any crypto exchange")
 
         # 3. Stocks and ETFs - Alpaca only
-        if normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or normalized_symbol in ASSET_GROUPS.get('ETFS', []):
-            print(f"🎯 NexusBridge: {normalized_symbol} found in STOCKS/ETFS groups, routing to ALPACA")
+        stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
+        if normalized_symbol in stocks_etfs:
             if is_exchange_available('ALPACA', check_symbol=False):
-                print(f"✅ NexusBridge: ALPACA available for {normalized_symbol}")
                 return 'ALPACA'
-            else:
-                print(f"❌ NexusBridge: ALPACA not available for {normalized_symbol}")
-        else:
-            print(f"ℹ️ NexusBridge: {normalized_symbol} not in STOCKS/ETFS groups")
 
         # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
         if 'USDT' not in normalized_symbol and 'USD' not in normalized_symbol:
