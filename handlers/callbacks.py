@@ -800,27 +800,28 @@ async def handle_assets_menu(callback: CallbackQuery, **kwargs):
             )
             return
         
-        # === GLOBAL SCANNER: Show Category Selector ===
-        # Show: CRYPTO | STOCKS | ETFs
-        # When CRYPTO is pressed, show Binance and Bybit options
+        # === ASSET CONFIG: Show group selector ===
+        # Show: CRYPTO | STOCKS | ETFs for configuration
         crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
-        bybit_count = len(ASSET_GROUPS.get('BYBIT', []))
         stocks_count = len(ASSET_GROUPS.get('STOCKS', []))
         etfs_count = len(ASSET_GROUPS.get('ETFS', []))
-        
+
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🟡 CRYPTO ({crypto_count + bybit_count})", callback_data="ASSETS_CAT|CRYPTO")],
-            [InlineKeyboardButton(text=f"📈 STOCKS ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
-            [InlineKeyboardButton(text=f"📦 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
+            [InlineKeyboardButton(text=f"₿ CRYPTO ({crypto_count})", callback_data="ASSETS_CAT|CRYPTO")],
+            [InlineKeyboardButton(text=f"🏛️ STOCKS ({stocks_count})", callback_data="ASSETS_CAT|STOCKS")],
+            [InlineKeyboardButton(text=f"📈 ETFs ({etfs_count})", callback_data="ASSETS_CAT|ETFS")],
             [InlineKeyboardButton(text="⬅️ Volver a Configuración", callback_data="CMD|config")]
         ])
-        
+
         await callback.message.edit_text(
-            "📡 *SCANNER GLOBAL*\n\n"
-            f"Total: {crypto_count + bybit_count + stocks_count + etfs_count} activos\n\n"
-            "Selecciona una categoría:",
+            "⚙️ *CONFIGURACIÓN DE ACTIVOS*\n\n"
+            "Selecciona un grupo para configurar activación/desactivación:\n\n"
+            f"₿ *CRYPTO*: {crypto_count} activos (categorías temáticas)\n"
+            f"🏛️ *STOCKS*: {stocks_count} acciones principales\n"
+            f"📈 *ETFs*: {etfs_count} fondos indexados\n\n"
+            "<i>💡 Las señales solo se generan para grupos activos</i>",
             reply_markup=keyboard,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         
     except Exception as e:
@@ -1118,11 +1119,9 @@ async def handle_scanner_callback(callback: CallbackQuery, **kwargs):
         return
 
     # Handle main asset group scanning
-    if filter_param in ['CRYPTO', 'STOCKS', 'ETFS', 'ALL']:
+    if filter_param in ['CRYPTO', 'ALL']:
         asset_groups = {
             'CRYPTO': ('₿ Crypto', 'crypto'),
-            'STOCKS': ('🏛️ Stocks', 'stocks'),
-            'ETFS': ('📈 ETFs', 'ETFs'),
             'ALL': ('🌐 Global', 'todos los activos')
         }
 

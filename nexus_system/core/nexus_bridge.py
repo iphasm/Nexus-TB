@@ -94,12 +94,13 @@ class NexusBridge:
                         print(f"⚠️ NexusBridge: Error syncing {name} to Shadow Wallet: {e}")
                         # Continue anyway - adapter is connected
 
-                    # Si es un exchange crypto, sincronizar activos disponibles
-                    if name in ['BINANCE', 'BYBIT']:
-                        try:
-                            await self.sync_crypto_assets()
-                        except Exception as sync_err:
-                            print(f"⚠️ NexusBridge: Error syncing crypto assets for {name}: {sync_err}")
+                    # NOTA: No sincronizar activos automáticamente para mantener lista optimizada
+                    # La sincronización manual solo debe hacerse con /sync_crypto si es necesario
+                    # if name in ['BINANCE', 'BYBIT']:
+                    #     try:
+                    #         await self.sync_crypto_assets()
+                    #     except Exception as sync_err:
+                    #         print(f"⚠️ NexusBridge: Error syncing crypto assets for {name}: {sync_err}")
 
                     return True
                 else:
@@ -468,18 +469,20 @@ class NexusBridge:
             unified = list(set(synced_assets['BINANCE'] + synced_assets['BYBIT']))
             synced_assets['UNIFIED'] = sorted(unified)
 
-            # Actualizar ASSET_GROUPS dinámicamente
-            from system_directive import ASSET_GROUPS, CRYPTO_SUBGROUPS
+            # NOTA: No modificar ASSET_GROUPS automáticamente para mantener lista optimizada
+            # Solo informar sobre los activos disponibles
+            print(f"ℹ️  Información: {len(unified)} activos disponibles en exchanges conectados")
+            print(f"ℹ️  Configuración actual: {len(ASSET_GROUPS.get('CRYPTO', []))} activos optimizados")
+            print(f"ℹ️  Para modificar la lista optimizada, editar system_directive.py manualmente")
 
-            # Mantener la estructura existente pero agregar los nuevos activos
-            existing_crypto = ASSET_GROUPS.get('CRYPTO', [])
-
-            # Agregar activos nuevos que no estén ya en la lista
-            new_crypto_assets = [asset for asset in unified if asset not in existing_crypto]
-            if new_crypto_assets:
-                updated_crypto = existing_crypto + new_crypto_assets
-                ASSET_GROUPS['CRYPTO'] = sorted(list(set(updated_crypto)))
-                print(f"🔄 Added {len(new_crypto_assets)} new crypto assets to CRYPTO group")
+            # Comentar código que modifica ASSET_GROUPS
+            # from system_directive import ASSET_GROUPS, CRYPTO_SUBGROUPS
+            # existing_crypto = ASSET_GROUPS.get('CRYPTO', [])
+            # new_crypto_assets = [asset for asset in unified if asset not in existing_crypto]
+            # if new_crypto_assets:
+            #     updated_crypto = existing_crypto + new_crypto_assets
+            #     ASSET_GROUPS['CRYPTO'] = sorted(list(set(updated_crypto)))
+            #     print(f"🔄 Added {len(new_crypto_assets)} new crypto assets to CRYPTO group")
 
             print(f"📊 Unified crypto assets: {len(unified)} total")
 

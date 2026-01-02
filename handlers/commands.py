@@ -2287,13 +2287,11 @@ async def cmd_scanner(message: Message, **kwargs):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     from system_directive import ASSET_GROUPS
 
+    crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="₿ Crypto", callback_data="SCANNER|CRYPTO"),
-            InlineKeyboardButton(text="🏛️ Stocks", callback_data="SCANNER|STOCKS"),
-        ],
-        [
-            InlineKeyboardButton(text="📈 ETFs", callback_data="SCANNER|ETFS"),
+            InlineKeyboardButton(text=f"₿ Crypto ({crypto_count})", callback_data="SCANNER|CRYPTO"),
         ],
         [
             InlineKeyboardButton(text="🌐 Global Scan", callback_data="SCANNER|ALL"),
@@ -2303,20 +2301,13 @@ async def cmd_scanner(message: Message, **kwargs):
         ]
     ])
 
-    crypto_count = len(ASSET_GROUPS.get('CRYPTO', []))
-    stocks_count = len(ASSET_GROUPS.get('STOCKS', []))
-    etfs_count = len(ASSET_GROUPS.get('ETFS', []))
-
     msg_text = (
         "🔍 <b>NEXUS MARKET SCANNER</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📊 <b>Activos Disponibles:</b> {crypto_count} Crypto, {stocks_count} Stocks, {etfs_count} ETFs\n\n"
-        "<b>Selecciona el tipo de activos para escanear:</b>\n\n"
-        f"₿ <b>Crypto</b> → {crypto_count} activos optimizados\n"
-        f"🏛️ <b>Stocks</b> → {stocks_count} acciones principales\n"
-        f"📈 <b>ETFs</b> → {etfs_count} fondos indexados\n\n"
-        "🌐 <b>Global</b> → Escanear todos los activos\n\n"
-        "<i>💡 Configura qué categorías crypto activar en /set_config</i>"
+        f"📊 <b>Activos Disponibles:</b> {crypto_count} crypto optimizados\n\n"
+        f"₿ <b>Crypto</b> → Escanear todos los activos crypto\n"
+        "🌐 <b>Global</b> → Escaneo completo\n\n"
+        "<i>💡 Configura categorías activas en /set_config</i>"
     )
 
     edit_message = kwargs.get('edit_message', False)
