@@ -679,6 +679,11 @@ class BybitAdapter(IExchangeAdapter):
 
     def _format_symbol(self, symbol: str) -> str:
         """Convert BTCUSDT to BTC/USDT:USDT for CCXT linear futures."""
+        # Use centralized bridge formatting if available
+        if hasattr(self, '_bridge') and self._bridge:
+            return self._bridge.format_symbol_for_exchange(symbol, 'BYBIT')
+
+        # Fallback to local implementation
         if ':' in symbol:
             return symbol
         if '/' in symbol:
@@ -689,4 +694,9 @@ class BybitAdapter(IExchangeAdapter):
 
     def _unformat_symbol(self, symbol: str) -> str:
         """Convert BTC/USDT:USDT back to BTCUSDT."""
+        # Use centralized bridge normalization if available
+        if hasattr(self, '_bridge') and self._bridge:
+            return self._bridge.normalize_symbol(symbol)
+
+        # Fallback to local implementation
         return symbol.replace('/USDT:USDT', 'USDT').replace('/', '')

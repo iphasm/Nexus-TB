@@ -76,21 +76,31 @@ class NexusBridge:
                 return False
             
             if adapter:
+                # Set bridge reference for centralized symbol formatting
+                adapter._bridge = self
+
                 if await adapter.initialize(**credentials):
                     self.adapters[name] = adapter
-                    
+
                     # Initial sync to Shadow Wallet (Balance & Positions) - silent
                     try:
                         balance = await adapter.get_account_balance()
                         self.shadow_wallet.update_balance(name, balance)
-                        
+
                         positions = await adapter.get_positions()
                         for pos in positions:
                             self.shadow_wallet.update_position(pos['symbol'], pos)
                     except Exception as e:
                         print(f"⚠️ NexusBridge: Error syncing {name} to Shadow Wallet: {e}")
                         # Continue anyway - adapter is connected
-                        
+
+                    # Si es un exchange crypto, sincronizar activos disponibles
+                    if name in ['BINANCE', 'BYBIT']:
+                        try:
+                            await self.sync_crypto_assets()
+                        except Exception as sync_err:
+                            print(f"⚠️ NexusBridge: Error syncing crypto assets for {name}: {sync_err}")
+
                     return True
                 else:
                     print(f"❌ NexusBridge: Failed to connect {name}")
@@ -233,6 +243,125 @@ class NexusBridge:
             print(f"❌ Bridge: Order placement error ({symbol}): {e}")
             return {'error': str(e), 'symbol': symbol, 'side': side}
 
+    def normalize_symbol(self, symbol: str) -> str:
+        """
+        Normaliza un símbolo a formato estándar BTCUSDT independientemente del formato de entrada.
+
+        Soporta múltiples formatos:
+        - BTCUSDT (formato estándar del sistema)
+        - BTC/USDT (formato CCXT estándar)
+        - BTC/USDT:USDT (formato Bybit futures)
+        - BTCUSDT:USDT (variante)
+        - btcusdt (minúsculas)
+        - BTC_USDT (con guiones bajos)
+        - BTC-USDT (con guiones)
+
+        Returns:
+            str: Símbolo normalizado (ej: 'BTCUSDT')
+        """
+        if not symbol or not isinstance(symbol, str):
+            return symbol
+
+        # Limpiar y normalizar
+        clean_symbol = symbol.strip().upper().replace('_', '').replace('-', '')
+
+        # Si ya está en formato correcto (termina con USDT y no tiene separadores), devolver tal cual
+        if clean_symbol.endswith('USDT') and '/' not in clean_symbol and ':' not in clean_symbol:
+            return clean_symbol
+
+        # Extraer la base del símbolo eliminando sufijos conocidos
+        base = clean_symbol
+
+        # Primero intentar con sufijos que incluyen separadores
+        complex_suffixes = ['/USDT:USDT', '/USDT', ':USDT']
+        for suffix in complex_suffixes:
+            if base.endswith(suffix.upper()):
+                base = base[:-len(suffix)]
+                break
+        else:
+            # Si no encontró sufijos complejos, intentar sufijo simple
+            if base.endswith('USDT'):
+                base = base[:-4]
+
+        # Limpiar separadores restantes de la base
+        if '/' in base:
+            base = base.split('/')[0]
+        if ':' in base:
+            base = base.split(':')[0]
+
+        # Asegurar que la base no esté vacía y sea válida
+        if base and len(base) >= 2 and base.isalpha():
+            return f"{base}USDT"
+
+        # Fallback para casos extremos
+        return symbol.upper().replace('/', '').replace(':', '').replace('_', '').replace('-', '')
+
+    def format_symbol_for_exchange(self, symbol: str, exchange: str) -> str:
+        """
+        Formatea un símbolo normalizado para un exchange específico.
+        Incluye correcciones específicas de Bybit.
+
+        Args:
+            symbol: Símbolo en formato normalizado (BTCUSDT)
+            exchange: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
+
+        Returns:
+            str: Símbolo formateado para el exchange
+        """
+        normalized = self.normalize_symbol(symbol)
+
+        if exchange.upper() == 'BYBIT':
+            # Aplicar correcciones específicas de Bybit primero
+            try:
+                from system_directive import get_bybit_corrected_ticker
+                corrected = get_bybit_corrected_ticker(normalized)
+                if corrected != normalized:
+                    normalized = corrected
+            except ImportError:
+                pass  # Si no está disponible, continuar sin corrección
+
+            # Bybit usa BTC/USDT:USDT para futures
+            if normalized.endswith('USDT'):
+                base = normalized[:-4]  # Remover USDT
+                return f"{base}/USDT:USDT"
+        elif exchange.upper() == 'BINANCE':
+            # Binance usa BTCUSDT para futures
+            return normalized
+        elif exchange.upper() == 'ALPACA':
+            # Alpaca usa símbolos sin USDT (AAPL, MSFT, etc.)
+            if normalized.endswith('USDT'):
+                return normalized[:-4]  # Remover USDT
+            return normalized
+
+        return normalized
+
+    async def validate_symbol(self, symbol: str, exchange: str) -> bool:
+        """
+        Valida si un símbolo está disponible en un exchange específico.
+
+        Args:
+            symbol: Símbolo a validar (en cualquier formato)
+            exchange: Nombre del exchange
+
+        Returns:
+            bool: True si el símbolo es válido y está disponible
+        """
+        try:
+            normalized = self.normalize_symbol(symbol)
+            formatted = self.format_symbol_for_exchange(normalized, exchange)
+
+            adapter = self.adapters.get(exchange.upper())
+            if not adapter:
+                return False
+
+            # Intentar obtener información del símbolo
+            symbol_info = await adapter.get_symbol_info(formatted)
+            return symbol_info is not None and 'symbol' in symbol_info
+
+        except Exception as e:
+            print(f"⚠️ Symbol validation error for {symbol} on {exchange}: {e}")
+            return False
+
     def _route_symbol(self, symbol: str, user_preferences: Optional[Dict[str, bool]] = None) -> str:
         """
         Lógica de enrutamiento inteligente basada en grupos de activos y preferencias de usuario.
@@ -250,6 +379,9 @@ class NexusBridge:
         Returns:
             str: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
         """
+        # Normalizar símbolo primero
+        normalized_symbol = self.normalize_symbol(symbol)
+
         # Helper function to check if exchange is available for user
         def is_exchange_available(exchange: str) -> bool:
             if exchange not in self.adapters:
@@ -264,7 +396,7 @@ class NexusBridge:
         # Both BINANCE and BYBIT are equally important choices
 
         # For symbols in CRYPTO group, route based on user preferences
-        if symbol in ASSET_GROUPS.get('CRYPTO', []):
+        if normalized_symbol in ASSET_GROUPS.get('CRYPTO', []):
             # Check user preferences for crypto exchanges (both are equal priority)
             if is_exchange_available('BYBIT'):
                 return 'BYBIT'  # Prefer Bybit if available
@@ -273,12 +405,12 @@ class NexusBridge:
             # Note: Both exchanges have equal priority in the new hierarchy
 
         # 3. Stocks and ETFs - Alpaca only
-        if symbol in ASSET_GROUPS.get('STOCKS', []) or symbol in ASSET_GROUPS.get('ETFS', []):
+        if normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or normalized_symbol in ASSET_GROUPS.get('ETFS', []):
             if is_exchange_available('ALPACA'):
                 return 'ALPACA'
 
         # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
-        if 'USDT' not in symbol and 'USD' not in symbol:
+        if 'USDT' not in normalized_symbol and 'USD' not in normalized_symbol:
             if is_exchange_available('ALPACA'):
                 return 'ALPACA'
 
@@ -294,6 +426,153 @@ class NexusBridge:
         return 'BINANCE'  # Default if nothing available
 
 
+    async def sync_crypto_assets(self) -> Dict[str, list]:
+        """
+        Sincroniza activos crypto entre exchanges y actualiza ASSET_GROUPS dinámicamente.
+
+        Returns:
+            Dict con estadísticas de sincronización
+        """
+        synced_assets = {
+            'BINANCE': [],
+            'BYBIT': [],
+            'UNIFIED': []
+        }
+
+        try:
+            # Obtener activos de Binance
+            if 'BINANCE' in self.adapters:
+                try:
+                    binance_markets = await self.adapters['BINANCE']._exchange.load_markets()
+                    binance_usdt = [symbol for symbol in binance_markets.keys()
+                                  if 'USDT' in symbol and not symbol.endswith(':USDT')]
+                    binance_normalized = [self.normalize_symbol(s) for s in binance_usdt]
+                    synced_assets['BINANCE'] = binance_normalized
+                    print(f"✅ Binance: {len(binance_normalized)} USDT assets")
+                except Exception as e:
+                    print(f"⚠️ Error syncing Binance assets: {e}")
+
+            # Obtener activos de Bybit
+            if 'BYBIT' in self.adapters:
+                try:
+                    bybit_markets = await self.adapters['BYBIT']._exchange.load_markets()
+                    bybit_usdt = [symbol for symbol in bybit_markets.keys()
+                                if 'USDT' in symbol and not symbol.endswith(':USDT')]
+                    bybit_normalized = [self.normalize_symbol(s) for s in bybit_usdt]
+                    synced_assets['BYBIT'] = bybit_normalized
+                    print(f"✅ Bybit: {len(bybit_normalized)} USDT assets")
+                except Exception as e:
+                    print(f"⚠️ Error syncing Bybit assets: {e}")
+
+            # Unificar activos (intersección + específicos de cada exchange)
+            unified = list(set(synced_assets['BINANCE'] + synced_assets['BYBIT']))
+            synced_assets['UNIFIED'] = sorted(unified)
+
+            # Actualizar ASSET_GROUPS dinámicamente
+            from system_directive import ASSET_GROUPS, CRYPTO_SUBGROUPS
+
+            # Mantener la estructura existente pero agregar los nuevos activos
+            existing_crypto = ASSET_GROUPS.get('CRYPTO', [])
+
+            # Agregar activos nuevos que no estén ya en la lista
+            new_crypto_assets = [asset for asset in unified if asset not in existing_crypto]
+            if new_crypto_assets:
+                updated_crypto = existing_crypto + new_crypto_assets
+                ASSET_GROUPS['CRYPTO'] = sorted(list(set(updated_crypto)))
+                print(f"🔄 Added {len(new_crypto_assets)} new crypto assets to CRYPTO group")
+
+            print(f"📊 Unified crypto assets: {len(unified)} total")
+
+            # Clasificar nuevos activos automáticamente
+            if new_crypto_assets:
+                categorized = self._categorize_new_assets(new_crypto_assets)
+                print(f"🏷️ Categorized {len(categorized)} new assets into subgroups")
+
+            return synced_assets
+
+        except Exception as e:
+            print(f"❌ Error in sync_crypto_assets: {e}")
+            return synced_assets
+
+    def _categorize_new_assets(self, new_assets: list) -> Dict[str, list]:
+        """
+        Clasifica automáticamente nuevos activos crypto en categorías temáticas
+        basándose en nombres, símbolos y características conocidas.
+
+        Args:
+            new_assets: Lista de nuevos símbolos para clasificar
+
+        Returns:
+            Dict con assets clasificados por categoría
+        """
+        from system_directive import CRYPTO_SUBGROUPS
+
+        categorized = {
+            'MAJOR_CAPS': [],
+            'MEME_COINS': [],
+            'DEFI': [],
+            'AI_TECH': [],
+            'GAMING_METAVERSE': [],
+            'LAYER1_INFRA': [],
+            'BYBIT_EXCLUSIVE': []
+        }
+
+        # Keywords para clasificación automática
+        classification_rules = {
+            'MEME_COINS': [
+                'pepe', 'doge', 'shib', 'wif', 'bonk', 'floki', 'ponke', 'brett', 'mew', 'turbo',
+                'aibot', 'baby', 'hoge', 'kishu', 'slerf', 'bome', 'paws', 'wojak', 'landwolf',
+                'mog', 'corgi', 'inu', 'cat', 'frog', 'duck', 'bird', 'fish', 'moon', 'rocket'
+            ],
+            'DEFI': [
+                'uni', 'aave', 'crv', 'sushi', 'comp', 'mkr', 'yfi', 'bal', 'ren', 'knc',
+                'zrx', 'bat', 'lrc', 'omg', 'ant', 'storj', 'rep', 'cake', 'pancake', 'joe',
+                'trader', 'farm', 'alpha', 'beta', 'gamma', 'theta', 'yield', 'vault', 'stake'
+            ],
+            'AI_TECH': [
+                'fet', 'agix', 'ocean', 'nmr', 'ctxc', 'amb', 'grt', 'skl', 'trb', 'pol',
+                'ldo', 'arpa', 'data', 'qsp', 'tao', 'vai', 'synth', 'bot', 'ai', 'gpt',
+                'neuron', 'cortex', 'brain', 'mind', 'think', 'learn', 'data', 'oracle'
+            ],
+            'GAMING_METAVERSE': [
+                'axs', 'sand', 'mana', 'enj', 'ilv', 'ygg', 'dar', 'tlm', 'atlas', 'fis',
+                'ghst', 'imx', 'gal', 'gmt', 'pixel', 'beam', 'pixel', 'mavia', 'nfp', 'cfg',
+                'ace', 'game', 'play', 'meta', 'verse', 'land', 'world', 'space', 'galaxy'
+            ],
+            'LAYER1_INFRA': [
+                'inj', 'sei', 'mina', 'sc', 'ctsi', 'celr', 'one', 'ftm', 'harmony', 'iotx',
+                'tia', 'omni', 'zks', 'alt', 'flow', 'lpt', 'pendle', 'astr', 'op', 'arb',
+                'matic', 'poly', 'near', 'atom', 'cosmos', 'dot', 'ksm', 'avax', 'sol', 'ada'
+            ]
+        }
+
+        for asset in new_assets:
+            # Remover USDT para análisis
+            base_symbol = asset.replace('USDT', '').lower()
+            classified = False
+
+            # Verificar reglas de clasificación
+            for category, keywords in classification_rules.items():
+                if any(keyword in base_symbol for keyword in keywords):
+                    categorized[category].append(asset)
+                    classified = True
+                    break
+
+            # Si no se clasificó, verificar si es exclusivo de Bybit
+            if not classified:
+                # Los nuevos assets que no están en la lista original probablemente son de Bybit
+                categorized['BYBIT_EXCLUSIVE'].append(asset)
+
+        # Actualizar CRYPTO_SUBGROUPS con los nuevos assets
+        for category, assets in categorized.items():
+            if assets:  # Solo actualizar si hay nuevos assets
+                if category not in CRYPTO_SUBGROUPS:
+                    CRYPTO_SUBGROUPS[category] = []
+                CRYPTO_SUBGROUPS[category].extend(assets)
+                CRYPTO_SUBGROUPS[category] = sorted(list(set(CRYPTO_SUBGROUPS[category])))
+
+        return categorized
+
     async def close_all(self):
         """Shutdown all connections."""
         for name, adapter in self.adapters.items():
@@ -302,5 +581,5 @@ class NexusBridge:
                 await adapter.close()
             except Exception as e:
                 print(f"⚠️ Bridge: Error disconnecting {name}: {e}")
-        
+
         self.adapters.clear()

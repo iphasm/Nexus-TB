@@ -19,47 +19,13 @@ import os
 # Dentro de CRYPTO, los exchanges (Binance/Bybit) son elecciones equivalentes
 # del usuario, no grupos separados.
 
+# =================================================================
+# ASSET GROUPS - OPTIMIZED (2025)
+# =================================================================
+# Grupos principales de activos - CRYPTO se genera dinámicamente desde CRYPTO_SUBGROUPS
+
+# Initialize ASSET_GROUPS with static groups
 ASSET_GROUPS = {
-    'CRYPTO': [
-        # ===== MAJOR CAPS - Available on both Binance and Bybit =====
-        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
-        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT', 'AVAXUSDT', 'DOTUSDT',
-        'LINKUSDT', 'MATICUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT',
-        'TRXUSDT', 'ETCUSDT', 'XLMUSDT', 'THETAUSDT', 'HBARUSDT', 'CAKEUSDT',
-
-        # ===== MEME COINS - Available on both =====
-        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
-        '1000BONKUSDT', '1000FLOKIUSDT', 'PONKEUSDT', 'BRETTUSDT', 'MEWUSDT',
-        'TURBOUSDT', 'AIDOGEUSDT', 'BABYDOGEUSDT', 'HOGEUSDT', 'KISHUUSDT',
-
-        # ===== DEFI TOKENS - Available on both =====
-        'UNIUSDT', 'AAVEUSDT', 'CRVUSDT', 'SUSHIUSDT', 'COMPUSDT', 'MKRUSDT',
-        'YFIUSDT', 'BALUSDT', 'RENUSDT', 'KNCUSDT', 'ZRXUSDT', 'BATUSDT',
-        'LRCUSDT', 'OMGUSDT', 'ANTUSDT', 'STORJUSDT', 'REPUSDT',
-
-        # ===== AI & TECH - Available on both =====
-        'FETUSDT', 'AGIXUSDT', 'OCEANUSDT', 'NMRUSDT', 'CTXCUSDT', 'AMBUSDT',
-        'GRTUSDT', 'SKLUSDT', 'TRBUSDT', 'POLUSDT', 'LDOUSDT', 'ARPAUSDT',
-        'STORJUSDT', 'DATAUSDT', 'QSPUSDT',
-
-        # ===== GAMING & METAVERSE - Available on both =====
-        'AXSUSDT', 'SANDUSDT', 'MANAUSDT', 'ENJUSDT', 'ILVUSDT', 'YGGUSDT',
-        'DARUSDT', 'TLMUSDT', 'ATLASUSDT', 'FISUSDT', 'GHSTUSDT',
-
-        # ===== LAYER 1 & INFRASTRUCTURE - Available on both =====
-        'INJUSDT', 'SEIUSDT', 'MINAUSDT', 'SCUSDT', 'CTSIUSDT', 'CELRUSDT',
-        'ONEUSDT', 'FTMUSDT', 'HARMONYUSDT', 'IOTXUSDT',
-
-        # ===== Bybit-specific assets (also included in CRYPTO) =====
-        'FLOWUSDT', 'IMXUSDT', 'LPTUSDT', 'PENDLEUSDT', 'ASTRUSDT',
-        'CFGUSDT', 'ACEUSDT', 'NFPUSDT', 'MAVIAUSDT', 'PIXELUSDT',
-        'BEAMUSDT', 'TIAUSDT', 'OMNIUSDT', 'ZKSUSDT', 'ALTUSDT',
-
-        # Bybit-exclusive (high volume, ready for activation):
-        'NIGHTUSDT', 'MNTUSDT', 'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT',
-        'AIUSDT', 'XAIUSDT', 'FOXYUSDT', 'SANTOSUSDT', 'PORTOUSDT',
-        'CITYUSDT', 'INTERUSDT', 'BARUSDT', 'PSGUSDT', 'JUVUSDT'
-    ],
     'STOCKS': [
         # High Liquidity Day Trading Workhorses (Alpaca)
         'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN',
@@ -75,39 +41,56 @@ ASSET_GROUPS = {
     ]
 }
 
+# CRYPTO group will be generated after function definitions
+
 # =================================================================
 # CRYPTO SUBGROUPS - Thematic categorization within CRYPTO
 # =================================================================
 
+# =================================================================
+# BYBIT TICKER MAPPING - CORRECTIONS
+# =================================================================
+# Mapping específico para Bybit cuando los tickers difieren de Binance
+# Nexus Bot debe consultar esto antes de enviar orden a Bybit
+BYBIT_TICKER_MAPPING = {
+    "1000SHIBUSDT": "SHIBUSDT",     # Bybit no usa el 1000 en algunos casos
+    "1000PEPEUSDT": "PEPEUSDT",     # Corrección para PEPE
+    "1000BONKUSDT": "BONKUSDT",     # Corrección para BONK
+    "1000FLOKIUSDT": "FLOKIUSDT",   # Corrección para FLOKI
+    "MATICUSDT": "POLUSDT",         # Si Bybit ya migró completo a POL
+    "RENDERUSDT": "RNDRUSDT",       # Ticker legacy para Render
+    # Agregar más correcciones según sean necesarias
+}
+
+# =================================================================
+# CRYPTO SUBGROUPS - OPTIMIZED LIST (2025)
+# =================================================================
+# Lista optimizada y actualizada con los activos más relevantes y líquidos
 CRYPTO_SUBGROUPS = {
     'MAJOR_CAPS': [
-        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
-        'NEARUSDT', 'ATOMUSDT', 'ICPUSDT', 'BCHUSDT', 'AVAXUSDT', 'DOTUSDT',
-        'LINKUSDT', 'MATICUSDT', 'ALGOUSDT', 'VETUSDT', 'FILUSDT', 'TRXUSDT'
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT",
+        "AVAXUSDT", "DOTUSDT", "LINKUSDT", "TRXUSDT"
     ],
     'MEME_COINS': [
-        'WIFUSDT', '1000PEPEUSDT', 'DOGEUSDT', '1000SHIBUSDT', 'SUIUSDT',
-        '1000BONKUSDT', '1000FLOKIUSDT', 'PONKEUSDT', 'BRETTUSDT', 'MEWUSDT',
-        'TURBOUSDT', 'AIDOGEUSDT', 'BABYDOGEUSDT', 'HOGEUSDT', 'KISHUUSDT'
+        "DOGEUSDT", "1000SHIBUSDT", "1000PEPEUSDT", "WIFUSDT", "1000BONKUSDT",
+        "1000FLOKIUSDT", "BRETTUSDT", "MEWUSDT", "TURBOUSDT", "BOMEUSDT"
     ],
     'DEFI': [
-        'UNIUSDT', 'AAVEUSDT', 'CRVUSDT', 'SUSHIUSDT', 'COMPUSDT', 'MKRUSDT',
-        'YFIUSDT', 'BALUSDT', 'RENUSDT', 'KNCUSDT', 'ZRXUSDT', 'BATUSDT',
-        'LRCUSDT', 'OMGUSDT', 'ANTUSDT', 'STORJUSDT', 'REPUSDT'
+        "UNIUSDT", "AAVEUSDT", "MKRUSDT", "CRVUSDT", "COMPUSDT", "SNXUSDT",
+        "LDOUSDT", "ENAUSDT", "DYDXUSDT", "INJUSDT"
     ],
     'AI_TECH': [
-        'FETUSDT', 'AGIXUSDT', 'OCEANUSDT', 'NMRUSDT', 'CTXCUSDT', 'AMBUSDT',
-        'GRTUSDT', 'SKLUSDT', 'TRBUSDT', 'POLUSDT', 'LDOUSDT', 'ARPAUSDT',
-        'STORJUSDT', 'DATAUSDT', 'QSPUSDT', 'TAOUSDT'
+        "FETUSDT", "TAOUSDT", "RENDERUSDT", "WLDUSDT", "GRTUSDT", "ARKMUSDT",
+        "TRBUSDT", "TIAUSDT"
     ],
     'GAMING_METAVERSE': [
-        'AXSUSDT', 'SANDUSDT', 'MANAUSDT', 'ENJUSDT', 'ILVUSDT', 'YGGUSDT',
-        'DARUSDT', 'TLMUSDT', 'ATLASUSDT', 'FISUSDT', 'GHSTUSDT', 'IMXUSDT'
+        "AXSUSDT", "SANDUSDT", "MANAUSDT", "IMXUSDT", "GALAUSDT", "ENJUSDT",
+        "ILVUSDT", "PIXELUSDT"
     ],
     'LAYER1_INFRA': [
-        'INJUSDT', 'SEIUSDT', 'MINAUSDT', 'SCUSDT', 'CTSIUSDT', 'CELRUSDT',
-        'ONEUSDT', 'FTMUSDT', 'HARMONYUSDT', 'IOTXUSDT', 'TIAUSDT', 'OMNIUSDT',
-        'ZKSUSDT', 'ALTUSDT'
+        "SUIUSDT", "SEIUSDT", "FTMUSDT", "NEARUSDT", "MATICUSDT", "APTUSDT",
+        "OPUSDT", "ARBUSDT", "ATOMUSDT", "ETCUSDT", "LTCUSDT", "BCHUSDT",
+        "ALGOUSDT", "VETUSDT"
     ],
     'BYBIT_EXCLUSIVE': [
         'FLOWUSDT', 'LPTUSDT', 'PENDLEUSDT', 'ASTRUSDT', 'CFGUSDT', 'ACEUSDT',
@@ -346,6 +329,27 @@ def get_all_assets():
         assets.extend(group)
     return list(set(assets))
 
+def get_crypto_assets() -> list:
+    """
+    Generate CRYPTO group dynamically from enabled subgroups.
+    Excludes BYBIT_EXCLUSIVE if disabled in GROUP_CONFIG.
+    """
+    crypto_assets = []
+
+    for subgroup_name, assets in CRYPTO_SUBGROUPS.items():
+        # Skip BYBIT_EXCLUSIVE if disabled
+        if subgroup_name == 'BYBIT_EXCLUSIVE' and not GROUP_CONFIG.get('BYBIT_EXCLUSIVE', False):
+            continue
+        crypto_assets.extend(assets)
+
+    return sorted(list(set(crypto_assets)))
+
+def get_bybit_corrected_ticker(ticker: str) -> str:
+    """
+    Get Bybit-corrected ticker if available, otherwise return original.
+    """
+    return BYBIT_TICKER_MAPPING.get(ticker, ticker)
+
 
 def get_display_name(symbol: str) -> str:
     """Get human-readable name for a symbol."""
@@ -395,6 +399,12 @@ def resolve_symbol(text: str) -> str:
     s_usdt = s + "USDT"
     if s_usdt in ASSET_GROUPS.get('CRYPTO', []):
         return s_usdt
-    
+
     return s
+
+# =================================================================
+# DYNAMIC CRYPTO GROUP GENERATION
+# =================================================================
+# Generate CRYPTO group dynamically after all functions are defined
+ASSET_GROUPS['CRYPTO'] = get_crypto_assets()
 

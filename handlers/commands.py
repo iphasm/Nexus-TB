@@ -1489,6 +1489,152 @@ async def cmd_sync(message: Message, **kwargs):
     
     await msg.edit_text(final_report, parse_mode="Markdown")
 
+
+@router.message(Command("sync_crypto", "syncassets"))
+async def cmd_sync_crypto(message: Message, **kwargs):
+    """
+    Sincroniza activos crypto entre exchanges y actualiza las listas disponibles.
+    Unifica activos de Binance y Bybit, organizándolos por categorías.
+    """
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.answer("⚠️ Sesión no encontrada.")
+        return
+
+    # Verificar permisos de admin
+    if not is_authorized_admin(str(message.chat.id)):
+        await message.answer("⚠️ Este comando requiere permisos de administrador.")
+        return
+
+    msg = await message.answer("🔄 **Sincronizando activos crypto...**\n\n"
+                              "📊 Analizando exchanges disponibles...\n"
+                              "🏷️ Clasificando nuevos activos...\n"
+                              "💾 Actualizando configuración...", parse_mode="Markdown")
+
+    try:
+        # Obtener bridge desde la sesión
+        bridge = getattr(session, 'bridge', None) or getattr(session, 'nexus_bridge', None)
+        if not bridge:
+            await msg.edit_text("❌ **Error:** Bridge no disponible en la sesión.")
+            return
+
+        # Ejecutar sincronización
+        sync_result = await bridge.sync_crypto_assets()
+
+        # Generar reporte
+        binance_count = len(sync_result.get('BINANCE', []))
+        bybit_count = len(sync_result.get('BYBIT', []))
+        unified_count = len(sync_result.get('UNIFIED', []))
+
+        # Verificar si se agregaron nuevos activos
+        from system_directive import ASSET_GROUPS
+        total_crypto = len(ASSET_GROUPS.get('CRYPTO', []))
+
+        report = (
+            "✅ **SINCRONIZACIÓN DE ACTIVOS COMPLETADA**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📊 **Exchanges Analizados:**\n"
+            f"• Binance: {binance_count} activos\n"
+            f"• Bybit: {bybit_count} activos\n"
+            f"• Unificados: {unified_count} activos totales\n\n"
+            f"🏷️ **Grupo CRYPTO Actualizado:** {total_crypto} activos\n\n"
+            "🎯 **Categorías Disponibles:**\n"
+        )
+
+        # Mostrar resumen de categorías
+        from system_directive import CRYPTO_SUBGROUPS
+        for category, assets in CRYPTO_SUBGROUPS.items():
+            if assets:  # Solo mostrar categorías con activos
+                category_name = category.replace('_', ' ').title()
+                report += f"• {category_name}: {len(assets)} activos\n"
+
+        report += "\n🔄 Los activos están ahora disponibles para trading inteligente."
+
+        await msg.edit_text(report, parse_mode="Markdown")
+
+    except Exception as e:
+        error_msg = f"❌ **Error en sincronización:**\n`{str(e)}`"
+        await msg.edit_text(error_msg, parse_mode="Markdown")
+
+
+@router.message(Command("assets", "list_assets"))
+async def cmd_assets(message: Message, **kwargs):
+    """
+    Muestra los activos disponibles por exchange y categoría.
+    Útil para ver qué símbolos están disponibles para trading.
+    """
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("⚠️ Session manager not available.")
+        return
+
+    session = session_manager.get_session(str(message.chat.id))
+    if not session:
+        await message.answer("⚠️ Sesión no encontrada.")
+        return
+
+    msg = await message.answer("🔄 **Cargando lista de activos...**", parse_mode="Markdown")
+
+    try:
+        # Obtener exchanges configurados
+        configured_exchanges = session.get_configured_exchanges()
+
+        # Importar datos de activos
+        from system_directive import ASSET_GROUPS, CRYPTO_SUBGROUPS, GROUP_CONFIG
+
+        report = "📊 **ACTIVOS DISPONIBLES POR EXCHANGE**\n" + "="*50 + "\n\n"
+
+        # Mostrar activos por exchange
+        for exchange_name, is_configured in configured_exchanges.items():
+            status_icon = "✅" if is_configured else "❌"
+            report += f"{status_icon} **{exchange_name}**\n"
+
+            if exchange_name == 'ALPACA':
+                # Alpaca: stocks y ETFs
+                if GROUP_CONFIG.get('STOCKS', True):
+                    stocks = ASSET_GROUPS.get('STOCKS', [])
+                    report += f"   📈 Stocks: {len(stocks)} activos\n"
+                    if len(stocks) <= 10:  # Mostrar si no son muchos
+                        report += f"      {', '.join(stocks)}\n"
+
+                if GROUP_CONFIG.get('ETFS', True):
+                    etfs = ASSET_GROUPS.get('ETFS', [])
+                    report += f"   🏛️ ETFs: {len(etfs)} activos\n"
+                    if len(etfs) <= 10:
+                        report += f"      {', '.join(etfs)}\n"
+
+            elif exchange_name in ['BINANCE', 'BYBIT']:
+                # Crypto exchanges
+                if GROUP_CONFIG.get('CRYPTO', True):
+                    crypto_total = len(ASSET_GROUPS.get('CRYPTO', []))
+                    report += f"   ₿ Crypto: {crypto_total} activos\n"
+
+                    # Mostrar subcategorías
+                    for subcat, assets in CRYPTO_SUBGROUPS.items():
+                        if assets and len(assets) > 0:
+                            cat_name = subcat.replace('_', ' ').title()
+                            report += f"      • {cat_name}: {len(assets)}\n"
+
+            report += "\n"
+
+        # Mostrar información adicional
+        report += "💡 **Información:**\n"
+        report += "• Solo se muestran exchanges configurados\n"
+        report += "• Usa /set_keys para configurar exchanges\n"
+        report += "• Usa /sync_crypto para actualizar activos\n"
+
+        await msg.edit_text(report, parse_mode="Markdown")
+
+    except Exception as e:
+        error_msg = f"❌ **Error:** `{str(e)}`"
+        await msg.edit_text(error_msg, parse_mode="Markdown")
+
+
 @router.message(Command("about"))
 async def cmd_about(message: Message, **kwargs):
     """Show bot information with personality-aware message."""

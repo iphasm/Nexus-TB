@@ -696,6 +696,37 @@ class AsyncTradingSession:
 
         return configured
 
+    async def get_available_assets(self, exchange: str) -> list:
+        """
+        Obtiene la lista de activos disponibles en un exchange específico.
+
+        Args:
+            exchange: Nombre del exchange ('BINANCE', 'BYBIT', 'ALPACA')
+
+        Returns:
+            list: Lista de símbolos disponibles en formato normalizado
+        """
+        try:
+            if not self.bridge:
+                return []
+
+            # Para crypto exchanges, obtener de ASSET_GROUPS
+            if exchange.upper() in ['BINANCE', 'BYBIT']:
+                from system_directive import ASSET_GROUPS
+                return ASSET_GROUPS.get('CRYPTO', [])
+            elif exchange.upper() == 'ALPACA':
+                from system_directive import ASSET_GROUPS
+                # Combinar stocks y ETFs para Alpaca
+                stocks = ASSET_GROUPS.get('STOCKS', [])
+                etfs = ASSET_GROUPS.get('ETFS', [])
+                return stocks + etfs
+
+            return []
+
+        except Exception as e:
+            print(f"⚠️ Error getting available assets for {exchange}: {e}")
+            return []
+
     def get_exchange_preferences(self) -> Dict[str, bool]:
         """
         Get user's exchange enable/disable preferences considering configuration.
