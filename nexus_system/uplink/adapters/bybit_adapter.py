@@ -200,8 +200,10 @@ class BybitAdapter(IExchangeAdapter):
             
             # 1. Try CCXT standard mapping
             usdt = balance.get('USDT', {})
+            print(f"🔍 BybitAdapter: Processing USDT dict: {usdt}")
             total = float(usdt.get('total', 0))
             available = float(usdt.get('free', 0))
+            print(f"🔍 BybitAdapter: Parsed total={total}, available={available}")
             
             # 2. UTA Fallback: If standard mapping is empty, check 'info' for UTA fields
             # In Unified Trading Accounts, Bybit reports net worth in USD/USDT via totalEquity
@@ -222,11 +224,13 @@ class BybitAdapter(IExchangeAdapter):
                 total = float(balance.get('total', {}).get('USDT', 0))
                 available = float(balance.get('free', {}).get('USDT', 0))
 
-            return {
+            result = {
                 'total': total,
                 'available': available,
                 'currency': 'USDT'
             }
+            print(f"🔍 BybitAdapter: Returning balance: {result}")
+            return result
         except Exception as e:
             # Parse error (debounced to avoid log spam)
             err_msg = str(e)
