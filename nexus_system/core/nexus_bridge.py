@@ -464,8 +464,14 @@ class NexusBridge:
 
         # 3. Stocks and ETFs - Alpaca only
         if normalized_symbol in ASSET_GROUPS.get('STOCKS', []) or normalized_symbol in ASSET_GROUPS.get('ETFS', []):
+            print(f"🎯 NexusBridge: {normalized_symbol} found in STOCKS/ETFS groups, routing to ALPACA")
             if is_exchange_available('ALPACA', check_symbol=False):
+                print(f"✅ NexusBridge: ALPACA available for {normalized_symbol}")
                 return 'ALPACA'
+            else:
+                print(f"❌ NexusBridge: ALPACA not available for {normalized_symbol}")
+        else:
+            print(f"ℹ️ NexusBridge: {normalized_symbol} not in STOCKS/ETFS groups")
 
         # 4. Fallback: Rough check for stocks (symbols without USDT/USD)
         if 'USDT' not in normalized_symbol and 'USD' not in normalized_symbol:
