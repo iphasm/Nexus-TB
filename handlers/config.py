@@ -517,8 +517,8 @@ async def cmd_assets(message: Message, **kwargs):
                 "Cada tipo tiene sus propias categorías y activos individuales."
             )
 
-        # Crypto Categories Menu
-        elif nav_level == 'crypto':
+        # Crypto Categories Menu (ONLY if no specific category selected)
+        elif nav_level == 'crypto' and not category:
             # Define category display names and emojis
             category_info = {
                 'MAJOR_CAPS': ('🏆 Major Caps', 'BTC, ETH, SOL, ADA...'),
