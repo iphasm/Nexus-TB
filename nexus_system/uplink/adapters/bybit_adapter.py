@@ -84,23 +84,23 @@ class BybitAdapter(IExchangeAdapter):
 
             # DIRECT TIMESTAMP PATCHING FOR BYBIT
             # Bybit has extremely strict timestamp validation that can't be fixed with standard CCXT methods
-            # We patch the milliseconds() method to always return timestamps 3 seconds in the past
+            # We patch the milliseconds() method to always return timestamps 2 seconds in the past
             import time
 
             if not self._testnet:  # Only apply to live trading
                 # Store original method
                 original_milliseconds = self._exchange.milliseconds
 
-                # Create patched method that returns time - 3 seconds
+                # Create patched method that returns time - 2 seconds
                 def patched_milliseconds():
-                    return int(time.time() * 1000) - 3000  # 3 seconds ago
+                    return int(time.time() * 1000) - 2000  # 2 seconds ago (tested and working)
 
                 # Apply the patch
                 self._exchange.milliseconds = patched_milliseconds
 
                 if verbose:
                     print(f"✅ BybitAdapter: Direct timestamp patching applied")
-                    print(f"   ⏰ All timestamps will be generated 3 seconds in the past")
+                    print(f"   ⏰ All timestamps will be generated 2 seconds in the past")
                     print(f"   🛡️ This ensures compatibility with Bybit's recv_window")
 
                 # Also disable automatic time adjustment to avoid conflicts
