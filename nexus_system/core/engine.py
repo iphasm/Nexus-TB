@@ -48,16 +48,18 @@ class NexusCore:
         ak = self.alpaca_keys.get('key')
         asec = self.alpaca_keys.get('secret')
         
-        # Bybit Adapter Registration
+        # Bybit Adapter Registration (candles are public; keys are optional)
         bk = self.bybit_keys.get('key')
         bs = self.bybit_keys.get('secret')
-        if bk and bs:
-            from ..uplink.adapters.bybit_adapter import BybitAdapter
-            bybit_adapter = BybitAdapter(api_key=bk, api_secret=bs)
-            await bybit_adapter.initialize()
-            self.market_stream.register_adapter('bybit', bybit_adapter)
-            self.logger.info("🔌 Bybit Adapter registered for Data Engine")
+        from ..uplink.adapters.bybit_adapter import BybitAdapter
 
+        # If keys exist, use them; otherwise still register a public Bybit client for candles.
+        bybit_adapter = BybitAdapter(api_key=bk, api_secret=bs) if (bk and bs) else BybitAdapter()
+        if await bybit_adapter.initialize():
+            self.market_stream.register_adapter('bybit', bybit_adapter)
+            self.logger.info("🔌 Bybit Adapter registered for Data Engine (public candles)")
+        else:
+            self.logger.warning("⚠️ Bybit Adapter init failed for Data Engine")
         # Filter crypto symbols for WebSocket subscription
         crypto_symbols = [a for a in self.assets if 'USDT' in a]
         

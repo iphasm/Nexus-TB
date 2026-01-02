@@ -104,8 +104,31 @@ class BybitAdapter(IExchangeAdapter):
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
             
         try:
-            # CCXT's fetch_balance for Bybit V5 usually handles both Classic and Unified
-            balance = await self._exchange.fetch_balance({'accountType': 'UNIFIED'})
+            # CCXT's fetch_balance for Bybit V5 can vary by account type / permissions.
+            # Try UNIFIED first, then fall back to default / other types.
+            balance = None
+            last_err = None
+
+            candidates = [
+                {'accountType': 'UNIFIED'},
+                None,  # default
+                {'accountType': 'CONTRACT'},
+                {'accountType': 'SPOT'},
+            ]
+
+            for params in candidates:
+                try:
+                    if params is None:
+                        balance = await self._exchange.fetch_balance()
+                    else:
+                        balance = await self._exchange.fetch_balance(params)
+                    break
+                except Exception as e:
+                    last_err = e
+                    continue
+
+            if balance is None:
+                raise last_err or RuntimeError("Bybit fetch_balance failed (unknown error)")
             
             # 1. Try CCXT standard mapping
             usdt = balance.get('USDT', {})
@@ -137,17 +160,23 @@ class BybitAdapter(IExchangeAdapter):
                 'currency': 'USDT'
             }
         except Exception as e:
-            # Parse error
+            # Parse error (debounced to avoid log spam)
             err_msg = str(e)
-            import re, json
+            import re, json, time
             match = re.search(r'\{.*"code":.*\}', err_msg)
             if match:
                  try:
                      data = json.loads(match.group(0))
                      err_msg = f"Bybit Error {data.get('code')}: {data.get('msg')}"
-                 except: pass
-                 
-            print(f"⚠️ BybitAdapter: get_balance error: {err_msg}")
+                 except Exception:
+                     pass
+
+            now = time.time()
+            last_ts = getattr(self, '_last_balance_error_ts', 0)
+            if now - last_ts > 300:  # 5 min debounce
+                print(f"⚠️ BybitAdapter: get_balance error: {err_msg}")
+                self._last_balance_error_ts = now
+
             return {'total': 0, 'available': 0, 'currency': 'USDT'}
 
     async def get_market_price(self, symbol: str) -> float:
