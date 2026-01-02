@@ -393,7 +393,9 @@ class AsyncTradingSession:
         # 1. Binance Futures
         # Use Railway env vars if available, otherwise use session config
         binance_key = os.getenv('BINANCE_API_KEY') or self.config_api_key
-        binance_secret = os.getenv('BINANCE_API_SECRET') or self.config_api_secret
+        binance_secret = (os.getenv('BINANCE_API_SECRET') or
+                         os.getenv('BINANCE_SECRET') or
+                         self.config_api_secret)
         if binance_key and binance_secret:
             await self.bridge.connect_exchange(
                 'BINANCE',
@@ -406,7 +408,9 @@ class AsyncTradingSession:
         # 2. Bybit
         # Railway env vars take priority
         bybit_key = os.getenv('BYBIT_API_KEY') or self.config.get('bybit_api_key')
-        bybit_secret = os.getenv('BYBIT_API_SECRET') or self.config.get('bybit_api_secret')
+        bybit_secret = (os.getenv('BYBIT_API_SECRET') or
+                       os.getenv('BYBIT_SECRET') or
+                       self.config.get('bybit_api_secret'))
         if bybit_key and bybit_secret:
             await self.bridge.connect_exchange(
                 'BYBIT',
