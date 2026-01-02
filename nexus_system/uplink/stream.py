@@ -64,6 +64,16 @@ class MarketStream:
         # Unified Callbacks
         self._callbacks = []
 
+        # Rate Limiting for REST fallback
+        self._rest_rate_limiter = {}
+        self._rest_call_count = 0
+        self._last_rest_call_time = 0
+
+        # WebSocket reconnection
+        self._ws_retry_count = 0
+        self._ws_last_retry = 0
+        self._ws_max_retries = 5
+
     def add_callback(self, callback):
         """Register callback for price updates (async def callback(symbol, candle))."""
         self._callbacks.append(callback)
