@@ -138,6 +138,7 @@ STRATEGY_CONFIG_MAP = {
     'Mean Reversion': 'MEAN_REVERSION',
     'MEAN_REVERSION': 'MEAN_REVERSION',
     'Grid': 'GRID',
+    'Grid Trading': 'GRID',  # Legacy name with space
     'GridTrading': 'GRID',
     'GRID': 'GRID',
     'BlackSwan': 'SENTINEL',

@@ -52,15 +52,23 @@ class CorrelationManager:
                 # Ideally, RiskManager calls update_price_history for all active positions regularly.
                 continue
                 
-            # Align indices? 
+            # Align indices and compute returns (log-returns for better correlation)
             # In a live stream, sizes might differ slightly.
             # We align by taking the common length from the end.
             min_len = min(len(candidate_series), len(existing_series))
-            s1 = candidate_series.iloc[-min_len:]
-            s2 = existing_series.iloc[-min_len:]
-            
-            # Compute Correlation
-            corr = s1.corr(s2)
+            s1_prices = candidate_series.iloc[-min_len:]
+            s2_prices = existing_series.iloc[-min_len:]
+
+            # Compute log-returns for better correlation analysis
+            s1_returns = np.log(s1_prices / s1_prices.shift(1)).dropna()
+            s2_returns = np.log(s2_prices / s2_prices.shift(1)).dropna()
+
+            # Ensure we have enough data points
+            if len(s1_returns) < 10 or len(s2_returns) < 10:
+                continue  # Skip if insufficient return data
+
+            # Compute Correlation on returns
+            corr = s1_returns.corr(s2_returns)
             
             if corr > self.max_correlation:
                 print(f"🚫 Shield Alert: {candidate_symbol} is {corr:.2f} correlated with active position {position_symbol}.")

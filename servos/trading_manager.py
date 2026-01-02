@@ -470,7 +470,7 @@ class AsyncTradingSession:
     
 
 
-    def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float) -> float:
+    def calculate_dynamic_size(self, equity: float, price: float, sl_price: float, leverage: int, min_notional: float, exchange: str = 'BINANCE') -> float:
         """
         Calculates position size based on Risk Per Trade (e.g. 1% of Equity).
         Formula: Risk Amount / Distance to SL
@@ -526,9 +526,9 @@ class AsyncTradingSession:
              # We should make calculate_dynamic_size async or use synchronous shadow wallet access.
              # ShadowWallet access is synchronous (dict lookup).
              
-             # Direct ShadowWallet Access for speed
-             bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-             available = bin_bal.get('available', 0.0)
+            # Direct ShadowWallet Access for speed (exchange-specific)
+            exchange_bal = self.shadow_wallet.balances.get(exchange, {})
+            available = exchange_bal.get('available', 0.0)
              
              # Buffer: Leave 5% margin free
              usable_margin = available * 0.95
@@ -1574,6 +1574,12 @@ class AsyncTradingSession:
                  print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
                  return await self.execute_flip_position(symbol, 'LONG', atr)
 
+        # Correlation Guard Check (Shield 2.0)
+        if self.config.get('correlation_guard_enabled', True):
+            is_safe, corr_msg = await self._check_correlation_safeguard(symbol)
+            if not is_safe:
+                return False, corr_msg
+
         # Low Budget Check
         has_liquidity, bal, msg = await self.check_liquidity(symbol)
         if not has_liquidity:
@@ -1676,11 +1682,12 @@ class AsyncTradingSession:
             # --- USE RISK-BASED SIZING WHEN ATR IS AVAILABLE ---
             if atr and sl_price > 0:
                 risk_based_qty = self.calculate_dynamic_size(
-                    equity=total_equity, 
-                    price=current_price, 
-                    sl_price=sl_price, 
-                    leverage=leverage, 
-                    min_notional=min_notional
+                    equity=total_equity,
+                    price=current_price,
+                    sl_price=sl_price,
+                    leverage=leverage,
+                    min_notional=min_notional,
+                    exchange=target_exchange
                 )
                 if risk_based_qty > 0:
                     # Use the more conservative of the two approaches
@@ -1880,6 +1887,12 @@ class AsyncTradingSession:
                  print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
                  return await self.execute_flip_position(symbol, 'SHORT', atr)
 
+        # Correlation Guard Check (Shield 2.0)
+        if self.config.get('correlation_guard_enabled', True):
+            is_safe, corr_msg = await self._check_correlation_safeguard(symbol)
+            if not is_safe:
+                return False, corr_msg
+
         # Low Budget Check
         has_liquidity, bal, msg = await self.check_liquidity(symbol)
         if not has_liquidity:
@@ -1918,8 +1931,15 @@ class AsyncTradingSession:
                     )
                     try:
                         params = strat_instance.calculate_entry_params(stub_signal, total_equity, self.config)
-                        leverage = params.get('leverage', leverage)
-                        size_pct = params.get('size_pct', size_pct)
+                        # Override defaults BUT RESPETAR LÍMITES DE PERFIL
+                        strategy_leverage = params.get('leverage', leverage)
+                        max_allowed_leverage = self.config.get('max_leverage_allowed', strategy_leverage)
+                        leverage = min(strategy_leverage, max_allowed_leverage)  # RESPETAR TOPE DE PERFIL
+
+                        strategy_size_pct = params.get('size_pct', size_pct)
+                        max_allowed_capital = self.config.get('max_capital_pct_allowed', strategy_size_pct)
+                        size_pct = min(strategy_size_pct, max_allowed_capital)  # RESPETAR TOPE DE PERFIL
+
                         sl_price = params.get('stop_loss_price')
                         tp_price = params.get('take_profit_price')
                     except Exception as e:
@@ -1966,11 +1986,12 @@ class AsyncTradingSession:
             # --- USE RISK-BASED SIZING WHEN ATR IS AVAILABLE ---
             if atr and sl_price > 0:
                 risk_based_qty = self.calculate_dynamic_size(
-                    equity=total_equity, 
-                    price=current_price, 
-                    sl_price=sl_price, 
-                    leverage=leverage, 
-                    min_notional=min_notional
+                    equity=total_equity,
+                    price=current_price,
+                    sl_price=sl_price,
+                    leverage=leverage,
+                    min_notional=min_notional,
+                    exchange=target_exchange
                 )
                 if risk_based_qty > 0:
                     # Use the more conservative of the two approaches
