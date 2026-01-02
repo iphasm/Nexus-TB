@@ -293,9 +293,18 @@ async def cmd_config(message: Message, **kwargs):
         "• Nunca superan los topes del perfil\n\n"
         "**Selecciona un módulo:**"
     )
-    
+
     if edit_message:
-        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        try:
+            await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception as e:
+            # Handle case where message content/markup is identical (TelegramBadRequest)
+            if "message is not modified" in str(e):
+                # Message is already up to date, no need to edit
+                pass
+            else:
+                # Re-raise other exceptions
+                raise e
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -373,7 +382,16 @@ async def cmd_exchanges(message: Message, **kwargs):
     ])
     
     if edit_message:
-        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        try:
+            await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception as e:
+            # Handle case where message content/markup is identical (TelegramBadRequest)
+            if "message is not modified" in str(e):
+                # Message is already up to date, no need to edit
+                pass
+            else:
+                # Re-raise other exceptions
+                raise e
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -436,7 +454,16 @@ async def cmd_strategies(message: Message, **kwargs):
     )
     
     if edit_message:
-        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        try:
+            await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception as e:
+            # Handle case where message content/markup is identical (TelegramBadRequest)
+            if "message is not modified" in str(e):
+                # Message is already up to date, no need to edit
+                pass
+            else:
+                # Re-raise other exceptions
+                raise e
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -504,7 +531,16 @@ async def cmd_assets(message: Message, **kwargs):
     )
     
     if edit_message:
-        await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        try:
+            await message.edit_text(msg_text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception as e:
+            # Handle case where message content/markup is identical (TelegramBadRequest)
+            if "message is not modified" in str(e):
+                # Message is already up to date, no need to edit
+                pass
+            else:
+                # Re-raise other exceptions
+                raise e
     else:
         await message.answer(msg_text, reply_markup=keyboard, parse_mode="Markdown")
 
