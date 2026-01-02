@@ -881,22 +881,40 @@ async def main():
             alpaca_keys = {}
             bybit_keys = {}
             
+            # Always check for Railway environment variables first
+            # Alpaca - Railway env vars
+            ak_key = os.getenv('ALPACA_API_KEY') or os.getenv('APCA_API_KEY_ID')
+            ak_sec = os.getenv('ALPACA_API_SECRET') or os.getenv('APCA_API_SECRET_KEY')
+            if ak_key and ak_sec:
+                alpaca_keys = {'key': ak_key, 'secret': ak_sec}
+                logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Railway env", group=False)
+
+            # Bybit - Railway env vars
+            bk_key = os.getenv('BYBIT_API_KEY')
+            bk_sec = os.getenv('BYBIT_API_SECRET')
+            if bk_key and bk_sec:
+                bybit_keys = {'key': bk_key, 'secret': bk_sec}
+                logger.info(f"🔑 NexusCore: Keys Bybit inyectadas desde Railway env", group=False)
+
+            # Fallback to admin session if available (for user-configured keys)
             if admin_id and session_manager:
                 admin_session = session_manager.get_session(str(admin_id))
                 if admin_session:
-                    # Alpaca
-                    ak_key = admin_session.config.get('alpaca_key')
-                    ak_sec = admin_session.config.get('alpaca_secret')
-                    if ak_key and ak_sec:
-                        alpaca_keys = {'key': ak_key, 'secret': ak_sec}
-                        logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Admin", group=False)
-                    
-                    # Bybit
-                    bk_key = admin_session.config.get('bybit_api_key') or os.getenv('BYBIT_API_KEY')
-                    bk_sec = admin_session.config.get('bybit_api_secret') or os.getenv('BYBIT_API_SECRET')
-                    if bk_key and bk_sec:
-                        bybit_keys = {'key': bk_key, 'secret': bk_sec}
-                        logger.info(f"🔑 NexusCore: Keys Bybit inyectadas", group=False)
+                    # Alpaca from session (only if not already set from env)
+                    if not alpaca_keys:
+                        ak_key = admin_session.config.get('alpaca_key')
+                        ak_sec = admin_session.config.get('alpaca_secret')
+                        if ak_key and ak_sec:
+                            alpaca_keys = {'key': ak_key, 'secret': ak_sec}
+                            logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Admin session", group=False)
+
+                    # Bybit from session (only if not already set from env)
+                    if not bybit_keys:
+                        bk_key = admin_session.config.get('bybit_api_key')
+                        bk_sec = admin_session.config.get('bybit_api_secret')
+                        if bk_key and bk_sec:
+                            bybit_keys = {'key': bk_key, 'secret': bk_sec}
+                            logger.info(f"🔑 NexusCore: Keys Bybit inyectadas desde Admin session", group=False)
             
             engine = NexusCore(
                 assets=get_all_assets(), 

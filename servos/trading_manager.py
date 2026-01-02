@@ -230,9 +230,9 @@ def format_position_message(
         sl_pct = 0
         tp_pct = 0
     else:
-        risk_amount = abs(entry_price - sl_price) * quantity
-        risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
-        rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
+    risk_amount = abs(entry_price - sl_price) * quantity
+    risk_pct = (risk_amount / total_equity) * 100 if total_equity > 0 else 0
+    rr_ratio = abs(tp_price - entry_price) / abs(sl_price - entry_price) if sl_price != entry_price else 1.0
         sl_pct = ((sl_price - entry_price) / entry_price * 100)
         tp_pct = ((tp_price - entry_price) / entry_price * 100)
 
@@ -391,18 +391,22 @@ class AsyncTradingSession:
                  exchange_kwargs['https_proxy'] = https_proxy
 
         # 1. Binance Futures
-        if self.config_api_key and self.config_api_secret:
+        # Use Railway env vars if available, otherwise use session config
+        binance_key = os.getenv('BINANCE_API_KEY') or self.config_api_key
+        binance_secret = os.getenv('BINANCE_API_SECRET') or self.config_api_secret
+        if binance_key and binance_secret:
             await self.bridge.connect_exchange(
-                'BINANCE', 
-                api_key=self.config_api_key, 
-                api_secret=self.config_api_secret,
+                'BINANCE',
+                api_key=binance_key,
+                api_secret=binance_secret,
                 **exchange_kwargs
             )
             if verbose: print(f"✅ Bridge: Connected to Binance")
 
         # 2. Bybit
-        bybit_key = self.config.get('bybit_api_key') or os.getenv('BYBIT_API_KEY')
-        bybit_secret = self.config.get('bybit_api_secret') or os.getenv('BYBIT_API_SECRET')
+        # Railway env vars take priority
+        bybit_key = os.getenv('BYBIT_API_KEY') or self.config.get('bybit_api_key')
+        bybit_secret = os.getenv('BYBIT_API_SECRET') or self.config.get('bybit_api_secret')
         if bybit_key and bybit_secret:
             await self.bridge.connect_exchange(
                 'BYBIT',
@@ -413,13 +417,14 @@ class AsyncTradingSession:
             if verbose: print(f"✅ Bridge: Connected to Bybit")
             
         # 3. Alpaca
-        alp_key = (self.config.get('alpaca_key') or 
-                   os.getenv('ALPACA_API_KEY') or 
-                   os.getenv('APCA_API_KEY_ID'))
-        alp_sec = (self.config.get('alpaca_secret') or 
-                   os.getenv('ALPACA_API_SECRET') or 
-                   os.getenv('ALPACA_SECRET_KEY') or 
-                   os.getenv('APCA_API_SECRET_KEY'))
+        # Railway env vars take priority
+        alp_key = (os.getenv('ALPACA_API_KEY') or
+                   os.getenv('APCA_API_KEY_ID') or
+                   self.config.get('alpaca_key'))
+        alp_sec = (os.getenv('ALPACA_API_SECRET') or
+                   os.getenv('APCA_API_SECRET_KEY') or
+                   os.getenv('ALPACA_SECRET_KEY') or
+                   self.config.get('alpaca_secret'))
         
         if alp_key and alp_sec:
              # Smart Mode Detection:
@@ -653,28 +658,36 @@ class AsyncTradingSession:
         Detect which exchanges are actually configured with valid API keys.
 
         Checks for:
-        - Binance: binance_api_key and binance_api_secret in config
-        - Bybit: bybit_api_key and bybit_api_secret in config
-        - Alpaca: alpaca_key and alpaca_secret in config
+        - Binance: binance_api_key and binance_api_secret in config OR environment variables
+        - Bybit: bybit_api_key and bybit_api_secret in config OR environment variables
+        - Alpaca: alpaca_key and alpaca_secret in config OR environment variables
 
         Returns:
             Dict with exchange configuration status: {'BINANCE': True, 'BYBIT': False, 'ALPACA': True}
         """
         configured = {}
 
-        # Check Binance configuration
-        binance_key = self.config.get('binance_api_key') or self.config.get('api_key')
-        binance_secret = self.config.get('binance_api_secret') or self.config.get('api_secret')
+        # Check Binance configuration (config OR environment variables)
+        binance_key = (self.config.get('binance_api_key') or
+                      self.config.get('api_key') or
+                      os.getenv('BINANCE_API_KEY'))
+        binance_secret = (self.config.get('binance_api_secret') or
+                         self.config.get('api_secret') or
+                         os.getenv('BINANCE_API_SECRET'))
         configured['BINANCE'] = bool(binance_key and binance_secret)
 
-        # Check Bybit configuration
-        bybit_key = self.config.get('bybit_api_key')
-        bybit_secret = self.config.get('bybit_api_secret')
+        # Check Bybit configuration (config OR environment variables)
+        bybit_key = (self.config.get('bybit_api_key') or
+                    os.getenv('BYBIT_API_KEY'))
+        bybit_secret = (self.config.get('bybit_api_secret') or
+                       os.getenv('BYBIT_API_SECRET'))
         configured['BYBIT'] = bool(bybit_key and bybit_secret)
 
-        # Check Alpaca configuration
-        alpaca_key = self.config.get('alpaca_key')
-        alpaca_secret = self.config.get('alpaca_secret')
+        # Check Alpaca configuration (config OR environment variables)
+        alpaca_key = (self.config.get('alpaca_key') or
+                     os.getenv('ALPACA_API_KEY'))
+        alpaca_secret = (self.config.get('alpaca_secret') or
+                        os.getenv('ALPACA_API_SECRET'))
         configured['ALPACA'] = bool(alpaca_key and alpaca_secret)
 
         return configured
@@ -2764,29 +2777,29 @@ class AsyncTradingSession:
             futures_balance = 0.0
             futures_available = 0.0
             if configured_exchanges.get('BINANCE', False):
-                bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
-                futures_balance = bin_bal.get('total', 0.0)
-                futures_available = bin_bal.get('available', 0.0)
+            bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+            futures_balance = bin_bal.get('total', 0.0)
+            futures_available = bin_bal.get('available', 0.0)
             futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
-
+            
             # 2. Bybit (only if configured)
             bybit_total = 0.0
             if configured_exchanges.get('BYBIT', False):
-                bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
-                bybit_total = bybit_bal.get('total', 0.0)
-
+            bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
+            bybit_total = bybit_bal.get('total', 0.0)
+            
             # 3. Alpaca (only if configured)
             alpaca_equity = 0.0
             if configured_exchanges.get('ALPACA', False):
                 alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
                 alpaca_equity = alp_bal.get('total', 0.0)
-
+            
             # Legacy Spot support (Mocked for now as we focus on Futures)
-            spot_usdt = 0.0
-
+            spot_usdt = 0.0 
+            
             # Calculate total only from configured exchanges
             total = futures_balance + bybit_total + alpaca_equity + spot_usdt
-
+            
             return {
                 "spot_usdt": spot_usdt,
                 "earn_usdt": 0.0,
