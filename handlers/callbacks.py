@@ -298,9 +298,9 @@ async def handle_primary_exchange(callback: CallbackQuery, **kwargs):
     
     # Handle exchanges panel actions
     if action == "REFRESH":
-    # Refresh the exchanges panel
-    from handlers.config import cmd_exchanges
-    await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
+        # Refresh the exchanges panel
+        from handlers.config import cmd_exchanges
+        await cmd_exchanges(callback.message, session_manager=session_manager, edit_message=True)
     else:
         await callback.answer("❌ Acción no reconocida")
 
