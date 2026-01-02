@@ -184,6 +184,24 @@ async def cmd_config(message: Message, **kwargs):
     # Determine current risk profile based on max allowed leverage
     max_allowed_lev = session.config.get('max_leverage_allowed', 5) if session else 5
 
+    # AUTO-APPLY SAVED RISK PROFILE: If current leverage exceeds profile limits, reapply the profile
+    if session and lev > max_allowed_lev:
+        print(f"⚠️ Leverage {lev}x exceeds profile limit {max_allowed_lev}x - Reapplying risk profile")
+        # Get saved risk profile and reapply it
+        saved_profile = session.config.get('risk_profile')
+        if saved_profile:
+            try:
+                from handlers.callbacks import apply_risk_profile_to_session
+                await apply_risk_profile_to_session(session, saved_profile)
+                await session_manager.save_sessions()
+                # Update values after reapplying profile
+                lev = session.config.get('leverage', 5)
+                margin = (session.config.get('max_capital_pct', 0.1) * 100)
+                max_allowed_lev = session.config.get('max_leverage_allowed', 5)
+                print(f"✅ Risk profile '{saved_profile}' reapplied - Leverage: {lev}x, Max: {max_allowed_lev}x")
+            except Exception as e:
+                print(f"❌ Error reapplying risk profile: {e}")
+
     if max_allowed_lev <= 3:
         current_profile = "CONSERVADOR"
         profile_icon = "🛡️"
