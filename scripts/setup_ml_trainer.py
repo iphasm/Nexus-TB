@@ -233,7 +233,8 @@ def build_executable(spec_file):
 
             if os.path.exists(exe_file):
                 exe_size = os.path.getsize(exe_file) / (1024 * 1024)
-                print(".2f"                print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
+                print(f"   Tamaño: {exe_size:.2f} MB")
+                print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
 
                 # Crear atajo en el escritorio (opcional)
                 create_desktop_shortcut(exe_file)
@@ -318,10 +319,10 @@ def create_portable_package():
         # Calcular tamaño
         zip_size = os.path.getsize(zip_name) / (1024 * 1024)
 
-        print("
-✅ Paquete portable creado:"        print(f"   📁 Directorio: {package_dir}/")
+        print(f"\n✅ Paquete portable creado:")
+        print(f"   📁 Directorio: {package_dir}/")
         print(f"   📦 Archivo ZIP: {zip_name}")
-        print(".2f"
+        print(f"   📊 Tamaño: {zip_size:.2f} MB")
         return True
 
     except Exception as e:

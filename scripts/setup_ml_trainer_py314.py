@@ -209,7 +209,8 @@ def build_executable_py314(spec_file):
 
             if os.path.exists(exe_file):
                 exe_size = os.path.getsize(exe_file) / (1024 * 1024)
-                print(".2f"                print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
+                print(f"   Tamaño: {exe_size:.2f} MB")
+                print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
                 return True
             else:
                 print("❌ Ejecutable no encontrado")
