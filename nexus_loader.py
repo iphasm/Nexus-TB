@@ -8,6 +8,7 @@ import os
 import sys
 import logging
 import random
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import Bot, Dispatcher, BaseMiddleware
@@ -603,7 +604,6 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     logger.info(f"✅ Position executed successfully: {symbol} {side} on {target_exchange}")
                     logger.info(f"✅ Position executed successfully: {symbol} {side} on {target_exchange}")
                     # Build enhanced AUTOPILOT message
-                    from datetime import datetime, timezone
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     
                     # Determine exchange based on Bridge routing
@@ -767,6 +767,8 @@ async def main():
     nexus_logger.phase_success("Configuration parsed")
 
     # Sentinel will be initialized after session_manager is created
+    # Placeholder message for Phase 1
+    nexus_logger.phase_success("System core initialized", "Sentinel pending")
 
     # Phase 2: Security & Encryption
     nexus_logger.phase_start(2, "SECURITY & ENCRYPTION", "🔐")
@@ -863,7 +865,8 @@ async def main():
             enabled_check_callback=is_shark_enabled
         )
         await sentinel.start()  # Async start
-        nexus_logger.phase_success("Sentinel initialized", "Black Swan & Shark Mode active")
+        # Update Phase 1 status with Sentinel confirmation
+        print("└── ✅ Sentinel initialized - Black Swan & Shark Mode active (0.0ms)")
 
     except Exception as e:
         nexus_logger.phase_error("Sentinel initialization failed", str(e))

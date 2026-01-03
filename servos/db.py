@@ -6,6 +6,7 @@ import os
 import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
@@ -695,7 +696,6 @@ def get_user_role(chat_id: str) -> tuple[bool, str]:
             
             # Check expiration for regular users
             if row['expires_at']:
-                from datetime import datetime
                 if row['expires_at'] < datetime.now():
                     return False, 'expired'
             

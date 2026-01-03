@@ -282,8 +282,12 @@ class VoightKampff:
 
         # Force immediate output without buffering to prevent interruptions
         import sys
-        sys.stdout.write(banner + '\n')
+        sys.stdout.write(banner + '\n\n')  # Extra newline for separation
         sys.stdout.flush()
+
+        # Small delay to ensure banner is displayed before other output
+        import time
+        time.sleep(0.01)
 
         self._global_banner_shown = True
 

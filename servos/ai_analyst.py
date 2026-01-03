@@ -1,6 +1,7 @@
 
 import os
 import openai
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -184,8 +185,7 @@ class NexusAnalyst:
             macro_headlines = [get_title(n) for n in macro_news[:3]]
             
             # Combine Context
-            import datetime
-            now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            now_str = datetime.now().strftime("%Y-%m-%d")
             # 4. Analyze with GPT-4o Class Logic
             prompt = f"""
             You are a Senior Financial Analyst with 20 years of experience in quantitative trading. 
@@ -273,9 +273,8 @@ class NexusAnalyst:
                 news_context.extend(headlines)
                 
             full_text = "\n".join(news_context)
-            
-            import datetime
-            now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+            now_str = datetime.now().strftime("%Y-%m-%d")
 
             prompt = f"""
             Act as a {personality} Persona (Crypto/Finance Expert).
