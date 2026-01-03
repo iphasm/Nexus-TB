@@ -3,8 +3,9 @@
 INSTALADOR ESPECÍFICO PARA PYTHON 3.14
 =====================================
 
-Instalador optimizado para Python 3.14 que evita dependencias
-problemáticas como pandas-ta (que requiere numba).
+Instalador optimizado para Python 3.14 que utiliza pandas-ta-openbb
+como reemplazo compatible de pandas-ta (evita dependencias problemáticas
+como numba que no son compatibles con Python 3.14).
 """
 
 import os
@@ -43,10 +44,7 @@ def install_dependencies_py314():
         # PyInstaller
         'pyinstaller>=6.0.0',
 
-            # PyInstaller
-        'pyinstaller>=6.0.0',
-
-        # pandas-ta parchado compatible con Python 3.14
+        # pandas-ta compatible con Python 3.14
         'pandas-ta-openbb>=0.4.22'
     ]
 
@@ -131,7 +129,7 @@ def install_dependencies_py314():
     return True
 
 def create_simplified_spec():
-    """Crea especificaciones simplificadas con pandas-ta-openbb (PyPI)."""
+    """Crea especificaciones simplificadas con pandas-ta-openbb compatible con Python 3.14."""
     print("📝 Creando especificaciones simplificadas para Python 3.14...")
 
     spec_content = '''# -*- mode: python ; coding: utf-8 -*-

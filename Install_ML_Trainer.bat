@@ -69,7 +69,7 @@ REM Verificar si es Python 3.14 (versión especial)
 echo %PYTHON_VERSION% | findstr "3.14" >nul
 if %errorlevel% == 0 (
     echo 🎯 Python 3.14 detectado - Usando instalador especial
-    echo ℹ️  Limitaciones: pandas-ta excluido (no compatible)
+    echo ✅ pandas-ta-openbb incluido para indicadores técnicos avanzados
     echo.
     echo 📦 Instalando dependencias compatibles con Python 3.14...
     echo.
@@ -83,7 +83,7 @@ echo ❌ ERROR: Versión de Python no compatible
 echo.
 echo Versiones soportadas:
 echo ✅ Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 - Features completas
-echo ⚠️  Python 3.14 - Funcionalidad limitada (sin pandas-ta)
+echo ✅ Python 3.14 - Features completas (pandas-ta-openbb)
 echo ❌ Python < 3.8 - No soportado
 echo.
 echo Instale Python 3.8-3.13 desde: https://python.org

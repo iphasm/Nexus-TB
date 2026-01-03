@@ -32,7 +32,7 @@ def check_python_compatibility():
         "3.11": {"status": "✅ COMPATIBLE", "pandas_ta": True, "recommended": False},
         "3.12": {"status": "✅ COMPATIBLE", "pandas_ta": True, "recommended": False},
         "3.13": {"status": "🏆 RECOMENDADO", "pandas_ta": True, "recommended": True},
-        "3.14": {"status": "⚠️ LIMITADO", "pandas_ta": False, "recommended": False}
+        "3.14": {"status": "✅ COMPATIBLE", "pandas_ta": True, "recommended": False}
     }
 
     if python_short in compatibility_matrix:
@@ -44,28 +44,22 @@ def check_python_compatibility():
         print()
 
         if info['pandas_ta']:
-            print("🎯 FEATURES DISPONIBLES:")
+            print("🎯 FEATURES COMPLETAS DISPONIBLES:")
             print("   ✅ XGBoost - Entrenamiento ML completo")
             print("   ✅ Scikit-learn - Preprocesamiento")
-            print("   ✅ pandas-ta - Indicadores técnicos avanzados")
+            if python_short == "3.14":
+                print("   ✅ pandas-ta-openbb - Indicadores técnicos avanzados (Python 3.14)")
+            else:
+                print("   ✅ pandas-ta - Indicadores técnicos avanzados")
             print("   ✅ YFinance - Descarga de datos de mercado")
             print("   ✅ Interfaz gráfica completa")
             print("   ✅ Backup automático")
             print()
             print("🚀 Comando recomendado:")
-            print("   Install_ML_Trainer.bat")
-        else:
-            print("⚠️  FEATURES LIMITADAS:")
-            print("   ✅ XGBoost - Entrenamiento ML completo")
-            print("   ✅ Scikit-learn - Preprocesamiento")
-            print("   ❌ pandas-ta - Indicadores técnicos avanzados")
-            print("   ⚠️  Solo indicadores técnicos básicos")
-            print("   ✅ YFinance - Descarga de datos de mercado")
-            print("   ✅ Interfaz gráfica completa")
-            print("   ✅ Backup automático")
-            print()
-            print("🚀 Comando recomendado:")
-            print("   python scripts/setup_ml_trainer_py314.py")
+            if python_short == "3.14":
+                print("   python scripts/setup_ml_trainer_py314.py")
+            else:
+                print("   Install_ML_Trainer.bat")
 
         if info['recommended']:
             print("⭐ ESTA ES LA VERSIÓN RECOMENDADA PARA NEXUS ML TRAINER ⭐")
