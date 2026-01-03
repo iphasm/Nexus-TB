@@ -25,20 +25,42 @@ def check_python_version():
     return True
 
 def install_dependencies():
-    """Instala las dependencias necesarias."""
+    """Instala las dependencias necesarias con versiones compatibles."""
     print("📦 Instalando dependencias...")
 
-    dependencies = [
-        'pyinstaller',
-        'tkinter',  # Viene con Python
-        'xgboost',
-        'scikit-learn',
-        'pandas',
-        'joblib',
-        'yfinance',
-        'pandas-ta',
-        'requests'
-    ]
+    # Verificar versión de Python para compatibilidad
+    import sys
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    print(f"🐍 Python {python_version} detectado")
+
+    if python_version == "3.14":
+        # Versiones específicas compatibles con Python 3.14 (evitando numba)
+        print("🎯 Usando versiones compatibles con Python 3.14")
+        dependencies = [
+            'pyinstaller>=6.0.0',
+            'xgboost>=2.0.0',  # Compatible con Python 3.14
+            'scikit-learn>=1.4.0',
+            'pandas>=2.1.0',
+            'numpy>=1.24.0',  # Especificar numpy antes de pandas
+            'joblib>=1.3.0',
+            'yfinance>=0.2.40',
+            'requests>=2.31.0',
+            # Evitar pandas-ta que requiere numba (no compatible con 3.14)
+            # Usar versión alternativa o funcionalidad básica
+        ]
+    else:
+        # Versiones estándar para otras versiones de Python
+        dependencies = [
+            'pyinstaller',
+            'tkinter',  # Viene con Python
+            'xgboost',
+            'scikit-learn',
+            'pandas',
+            'joblib',
+            'yfinance',
+            'pandas-ta',
+            'requests'
+        ]
 
     # Verificar qué está instalado
     to_install = []
@@ -52,6 +74,10 @@ def install_dependencies():
                 importlib.import_module(dep.replace('-', '_'))
             print(f"✅ {dep} - instalado")
         except ImportError:
+            # Manejo especial para pandas-ta en Python 3.14
+            if dep == 'pandas-ta' and python_version == "3.14":
+                print(f"⚠️  {dep} - omitiendo (no compatible con Python 3.14)")
+                continue
             to_install.append(dep)
             print(f"❌ {dep} - faltante")
 

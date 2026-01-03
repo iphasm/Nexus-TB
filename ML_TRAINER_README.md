@@ -137,6 +137,26 @@ Verificar: python --version
 pip install xgboost scikit-learn pandas joblib yfinance pandas-ta pyinstaller
 ```
 
+### Error: "numba no compatible con Python 3.14"
+```
+Problema: pandas-ta requiere numba, que no soporta Python 3.14
+Solución: Usar instalador especial para Python 3.14
+
+# Ejecutar instalador específico para Python 3.14
+python scripts/setup_ml_trainer_py314.py
+
+Nota: pandas-ta será excluido, limitando indicadores técnicos avanzados
+```
+
+### Error: "No se puede crear ejecutable"
+```
+Posibles causas:
+1. Versión de Python incompatible → Usar Python 3.8-3.13 para features completas
+2. Dependencias faltantes → Verificar instalación completa
+3. Espacio insuficiente → Liberar al menos 1GB
+4. Antivirus bloqueando → Desactivar temporalmente
+```
+
 ### Error: "No se puede crear ejecutable"
 ```
 Solución:

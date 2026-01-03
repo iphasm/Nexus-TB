@@ -33,28 +33,46 @@ if errorlevel 1 (
 echo ✅ Python encontrado
 echo.
 
-echo 📦 Instalando dependencias (esto puede tomar varios minutos)...
-echo.
+REM Detectar versión de Python
+for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
+echo 📋 Versión de Python detectada: %PYTHON_VERSION%
 
-pip install pyinstaller xgboost scikit-learn pandas joblib yfinance pandas-ta requests --quiet
+REM Verificar si es Python 3.14
+echo %PYTHON_VERSION% | findstr "3.14" >nul
+if %errorlevel% == 0 (
+    echo 🎯 Python 3.14 detectado - Usando instalador especial
+    echo.
+    echo 📦 Instalando dependencias compatibles con Python 3.14...
+    echo Nota: pandas-ta sera excluido por compatibilidad
+    echo.
 
-if errorlevel 1 (
-    echo ❌ ERROR: Fallo instalando dependencias
+    python scripts/setup_ml_trainer_py314.py
+) else (
+    echo ✅ Versión estándar de Python - Usando instalador normal
     echo.
-    echo Intente manualmente: pip install pyinstaller xgboost scikit-learn pandas joblib yfinance pandas-ta requests
+    echo 📦 Instalando dependencias (esto puede tomar varios minutos)...
     echo.
-    pause
-    exit /b 1
+
+    pip install pyinstaller xgboost scikit-learn pandas joblib yfinance pandas-ta requests --quiet
+
+    if errorlevel 1 (
+        echo ❌ ERROR: Fallo instalando dependencias
+        echo.
+        echo Intente manualmente: pip install pyinstaller xgboost scikit-learn pandas joblib yfinance pandas-ta requests
+        echo.
+        pause
+        exit /b 1
+    )
+
+    echo ✅ Dependencias instaladas
+    echo.
+
+    echo 🏗️ Creando ejecutable...
+    echo Esto puede tomar 10-20 minutos...
+    echo.
+
+    python scripts/setup_ml_trainer.py
 )
-
-echo ✅ Dependencias instaladas
-echo.
-
-echo 🏗️ Creando ejecutable...
-echo Esto puede tomar 10-20 minutos...
-echo.
-
-python scripts/setup_ml_trainer.py
 
 if errorlevel 1 (
     echo ❌ ERROR: Fallo creando ejecutable
