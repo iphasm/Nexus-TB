@@ -262,8 +262,6 @@ def build_executable_py314(spec_file):
 
         if process.returncode == 0:
             print("\n✅ Ejecutable construido exitosamente para Python 3.14!")
-
-            # Verificar archivos generados
             exe_dir = "dist/Nexus_ML_Trainer_PY314"
             exe_file = os.path.join(exe_dir, "Nexus_ML_Trainer_PY314.exe")
         else:
@@ -297,16 +295,14 @@ def build_executable_py314(spec_file):
                 print(f"❌ Error en método alternativo: {e}")
                 return False
 
-            if os.path.exists(exe_file):
-                exe_size = os.path.getsize(exe_file) / (1024 * 1024)
-                print(f"   Tamaño: {exe_size:.2f} MB")
-                print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
-                return True
-            else:
-                print("❌ Ejecutable no encontrado")
-                return False
+        # Verificar archivos generados (común para ambos métodos)
+        if os.path.exists(exe_file):
+            exe_size = os.path.getsize(exe_file) / (1024 * 1024)
+            print(f"   Tamaño: {exe_size:.2f} MB")
+            print(f"📁 Ubicación: {os.path.abspath(exe_dir)}")
+            return True
         else:
-            print(f"\n❌ Construcción falló (código: {process.returncode})")
+            print("❌ Ejecutable no encontrado")
             return False
 
     except Exception as e:
