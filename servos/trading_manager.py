@@ -2781,25 +2781,78 @@ class AsyncTradingSession:
             
             # 2. Get symbol info
             qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
-            current_price = await self.bridge.get_last_price(symbol)
-            
-            # 3. Calculate Breakeven SL
-            # Buffer: 0.1% to cover trading fees
-            buffer = 0.001 
+            current_price = await self.bridge.get_last_price(symbol, exchange=position_exchange)
+
+            # 3. Get existing TP to preserve it
+            existing_tp = None
+            try:
+                orders = await self.bridge.get_open_orders(symbol, exchange=position_exchange)
+                for order in orders:
+                    if order.get('type') in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT']:
+                        existing_tp = float(order.get('stopPrice', 0) or order.get('triggerPrice', 0))
+                        break
+            except Exception:
+                pass
+
+            # Calculate Breakeven SL with improved logic
+            # Get ATR for dynamic buffer
+            atr_value = 0.0
+            try:
+                candles = await self.bridge.get_market_data(symbol, timeframe='15m', limit=50)
+                if candles and not candles.empty:
+                    high_low = candles['high'] - candles['low']
+                    high_close = (candles['high'] - candles['close'].shift(1)).abs()
+                    low_close = (candles['low'] - candles['close'].shift(1)).abs()
+                    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                    atr_value = true_range.rolling(14).mean().iloc[-1] if len(true_range) >= 14 else true_range.mean()
+            except Exception:
+                pass
+
+            # Dynamic buffer: max(0.4%, 0.5 * ATR/entry_price)
+            buffer = max(0.004, 0.5 * (atr_value / entry_price)) if atr_value > 0 else 0.004
+
+            # Calculate profit capture for breakeven (30% of realized profit)
+            profit_distance = abs(current_price - entry_price)
+            capture_level = 0.30  # 30% profit capture for SPS
+            captured_profit = profit_distance * capture_level
+
             if side == 'LONG':
-                new_sl = round_to_tick_size(entry_price * (1 + buffer), tick_size)
-                # Keep TP where it was or adjust if too close
-                tp_pct = self.config.get('take_profit_pct', 0.05)
-                new_tp = round_to_tick_size(entry_price * (1 + tp_pct), tick_size)
-            else:
-                new_sl = round_to_tick_size(entry_price * (1 - buffer), tick_size)
-                tp_pct = self.config.get('take_profit_pct', 0.05)
-                new_tp = round_to_tick_size(entry_price * (1 - tp_pct), tick_size)
+                # SL at entry + captured profit + buffer
+                breakeven_level = entry_price + captured_profit
+                new_sl = round_to_tick_size(breakeven_level * (1 + buffer), tick_size)
+                # Ensure SL doesn't exceed current price
+                new_sl = min(new_sl, current_price * (1 - buffer))
+
+                # Keep existing TP or fallback to original calculation
+                if existing_tp and existing_tp > current_price:
+                    new_tp = existing_tp
+                else:
+                    # Fallback: maintain original TP distance
+                    original_tp_distance = entry_price * self.config.get('stop_loss_pct', 0.02) * self.config.get('tp_ratio', 1.5)
+                    new_tp = round_to_tick_size(entry_price + original_tp_distance, tick_size)
+            else:  # SHORT
+                # SL at entry - captured profit - buffer
+                breakeven_level = entry_price - captured_profit
+                new_sl = round_to_tick_size(breakeven_level * (1 - buffer), tick_size)
+                # Ensure SL doesn't go below current price
+                new_sl = max(new_sl, current_price * (1 + buffer))
+
+                # Keep existing TP or fallback to original calculation
+                if existing_tp and existing_tp < current_price:
+                    new_tp = existing_tp
+                else:
+                    # Fallback: maintain original TP distance
+                    original_tp_distance = entry_price * self.config.get('stop_loss_pct', 0.02) * self.config.get('tp_ratio', 1.5)
+                    new_tp = round_to_tick_size(entry_price - original_tp_distance, tick_size)
                 
-            # 4. Apply via Bridge - CRITICAL: Use the exchange from position data
+            # 4. Apply price separation to ensure SL/TP validity
+            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True)
+            new_tp = ensure_price_separation(new_tp, entry_price, tick_size, side, is_sl=False)
+
+            # 5. Apply via Bridge - CRITICAL: Use the exchange from position data
             position_exchange = pos.get('exchange', self.bridge._route_symbol(symbol) if self.bridge else None)
             success, msg = await self.synchronize_sl_tp_safe(
-                symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
+                symbol, qty, new_sl, new_tp, side, min_notional, qty_prec,
                 entry_price=entry_price, current_price=current_price, exchange=position_exchange
             )
             
@@ -2822,6 +2875,65 @@ class AsyncTradingSession:
         except Exception as e:
             return False, f"Breakeven Error: {e}"
 
+    async def _execute_partial_exit(self, symbol: str, rule, quantity_to_close: float, exit_plan) -> Tuple[bool, str]:
+        """
+        Execute a partial exit based on ExitManager rule.
+        Called by NexusCore when exit conditions are triggered.
+        """
+        try:
+            # Get position details
+            position = await self.bridge.get_position(symbol)
+            if not position or position.get('quantity', 0) == 0:
+                return False, "No active position"
+
+            side = position.get('side', 'LONG')
+            entry_price = position.get('entry_price', 0)
+            current_price = await self.bridge.get_last_price(symbol)
+
+            # Determine order side for closing (opposite of position side)
+            if side == 'LONG':
+                order_side = 'SELL'
+                pnl_calc = (current_price - entry_price) / entry_price * 100
+            else:
+                order_side = 'BUY'
+                pnl_calc = (entry_price - current_price) / entry_price * 100
+
+            # Execute partial close
+            qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+
+            # Ensure quantity doesn't exceed position size
+            max_close_qty = abs(position.get('quantity', 0))
+            quantity_to_close = min(quantity_to_close, max_close_qty)
+
+            if quantity_to_close < min_notional / current_price:
+                return False, f"Quantity too small ({quantity_to_close:.6f} < min {min_notional/current_price:.6f})"
+
+            # Place market order for partial close
+            result = await self.bridge.place_order(
+                symbol=symbol,
+                side=order_side,
+                order_type='MARKET',
+                quantity=quantity_to_close,
+                exchange=position.get('exchange')
+            )
+
+            if result.get('error'):
+                return False, f"Order failed: {result['error']}"
+
+            # Update exit plan
+            self.exit_manager.execute_partial_exit(symbol, rule, quantity_to_close)
+
+            # Calculate P&L for this partial exit
+            fill_price = float(result.get('price', current_price))
+            if side == 'LONG':
+                partial_pnl = (fill_price - entry_price) * quantity_to_close
+            else:
+                partial_pnl = (entry_price - fill_price) * quantity_to_close
+
+            return True, f"P&L: ${partial_pnl:.2f} ({pnl_calc:+.1f}%)"
+
+        except Exception as e:
+            return False, f"Partial exit error: {e}"
 
     async def cleanup_orphaned_orders(self) -> Tuple[bool, str]:
         """
@@ -2925,8 +3037,9 @@ class AsyncTradingSession:
                 
                 side = 'LONG' if qty > 0 else 'SHORT'
                 
-                # Get current price via bridge
-                current_price = await self.bridge.get_last_price(symbol)
+                # Get current price via bridge (using correct exchange)
+                position_exchange = p.get('source', 'BINANCE')
+                current_price = await self.bridge.get_last_price(symbol, exchange=position_exchange)
                 
                 # Use unrealized PnL from API (confirmed correct by user)
                 pnl = unrealized_pnl
@@ -2947,34 +3060,101 @@ class AsyncTradingSession:
                 
                 # Check if ROI >= threshold (10%)
                 if roi >= breakeven_roi_threshold:
-                    # Time to move SL to breakeven!
+                    # Time to move SL to breakeven with improved logic!
                     qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
-                    
-                    # Breakeven SL with small buffer (0.1% above entry for LONG, below for SHORT)
-                    buffer = 0.001  # 0.1% buffer to cover fees
-                    if side == 'LONG':
-                        new_sl = round_to_tick_size(entry_price * (1 + buffer), tick_size)
-                        new_tp = round_to_tick_size(current_price * 1.15, tick_size)  # Keep TP at +15% from current
-                    else:
-                        new_sl = round_to_tick_size(entry_price * (1 - buffer), tick_size)
-                        new_tp = round_to_tick_size(current_price * 0.85, tick_size)  # Keep TP at -15% from current
-                    
-                    # Apply the new SL - CRITICAL: Use the exchange from position data
-                    position_exchange = p.get('source')  # BINANCE or BYBIT
-                    try:
-                        success, msg = await self.synchronize_sl_tp_safe(
-                            symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
-                            entry_price=entry_price, current_price=current_price, exchange=position_exchange
-                        )
-                        if success:
-                            modified += 1
-                            report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}) → SL moved to breakeven ({new_sl})")
-                        else:
-                            report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
-                    except Exception as e:
-                        report.append(f"❌ **{symbol}** - Error: {e}")
+
+            # Get current ATR for dynamic buffer calculation
+            atr_value = 0.0
+            try:
+                # Try to get ATR from market data (last 50 candles)
+                candles = await self.bridge.get_market_data(symbol, timeframe='15m', limit=50)
+                if candles and not candles.empty and 'dataframe' in candles:
+                    df = candles['dataframe']
+                    if not df.empty and len(df) >= 14:
+                        # Calculate ATR from recent candles
+                        high_low = df['high'] - df['low']
+                        high_close = (df['high'] - df['close'].shift(1)).abs()
+                        low_close = (df['low'] - df['close'].shift(1)).abs()
+                        true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                        atr_value = true_range.rolling(14).mean().iloc[-1]
+            except Exception:
+                pass  # Use fallback if ATR calculation fails
+
+            # Dynamic buffer: max(0.4%, 0.5 * ATR/entry_price) to ensure separation
+            base_buffer = max(0.004, 0.5 * (atr_value / entry_price)) if atr_value > 0 else 0.004
+
+            # Calculate profit capture level: 30-40% of the realized gain
+            profit_distance = abs(current_price - entry_price)
+            capture_level = 0.35  # 35% of profit captured as breakeven level
+            captured_profit = profit_distance * capture_level
+
+            if side == 'LONG':
+                # SL at entry + captured profit + buffer (guarantee 35% profit capture)
+                breakeven_level = entry_price + captured_profit
+                new_sl = round_to_tick_size(breakeven_level * (1 + base_buffer), tick_size)
+                # Ensure SL doesn't exceed current price - buffer
+                new_sl = min(new_sl, current_price * (1 - base_buffer))
+
+                # Keep existing TP - get it from current orders
+                new_tp = None
+                try:
+                    orders = await self.bridge.get_open_orders(symbol, exchange=p.get('source'))
+                    for order in orders:
+                        if order.get('type') in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT']:
+                            new_tp = float(order.get('stopPrice', 0) or order.get('triggerPrice', 0))
+                            break
+                except Exception:
+                    pass
+
+                # Fallback: maintain original TP distance if no existing TP found
+                if not new_tp or new_tp <= 0:
+                    original_tp_distance = entry_price * self.config.get('stop_loss_pct', 0.02) * self.config.get('tp_ratio', 1.5)
+                    new_tp = round_to_tick_size(entry_price + original_tp_distance, tick_size)
+
+            else:  # SHORT
+                # SL at entry - captured profit - buffer
+                breakeven_level = entry_price - captured_profit
+                new_sl = round_to_tick_size(breakeven_level * (1 - base_buffer), tick_size)
+                # Ensure SL doesn't go below current price + buffer
+                new_sl = max(new_sl, current_price * (1 + base_buffer))
+
+                # Keep existing TP - get it from current orders
+                new_tp = None
+                try:
+                    orders = await self.bridge.get_open_orders(symbol, exchange=p.get('source'))
+                    for order in orders:
+                        if order.get('type') in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT']:
+                            new_tp = float(order.get('stopPrice', 0) or order.get('triggerPrice', 0))
+                            break
+                except Exception:
+                    pass
+
+                # Fallback: maintain original TP distance if no existing TP found
+                if not new_tp or new_tp <= 0:
+                    original_tp_distance = entry_price * self.config.get('stop_loss_pct', 0.02) * self.config.get('tp_ratio', 1.5)
+                    new_tp = round_to_tick_size(entry_price - original_tp_distance, tick_size)
+
+            # Apply price separation to ensure SL/TP validity
+            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True)
+            new_tp = ensure_price_separation(new_tp, entry_price, tick_size, side, is_sl=False)
+
+            # Apply the new SL/TP - CRITICAL: Use the exchange from position data
+            position_exchange = p.get('source')  # BINANCE or BYBIT
+            try:
+                success, msg = await self.synchronize_sl_tp_safe(
+                    symbol, qty, new_sl, new_tp, side, min_notional, qty_prec,
+                    entry_price=entry_price, current_price=current_price, exchange=position_exchange
+                )
+                if success:
+                    modified += 1
+                    captured_pct = captured_profit / entry_price * 100
+                    report.append(f"✅ **{symbol}** - ROI: {roi_pct:.1f}% → SL @ {captured_pct:.1f}% profit capture (${new_sl:.4f})")
                 else:
-                    report.append(f"⏳ **{symbol}** ({leverage}x) - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}, Margin: ${initial_margin:.2f}) < {breakeven_roi_threshold*100:.0f}%")
+                    report.append(f"⚠️ **{symbol}** - ROI: {roi_pct:.1f}% → Failed: {msg}")
+            except Exception as e:
+                report.append(f"❌ **{symbol}** - Error: {e}")
+            else:
+                report.append(f"⏳ **{symbol}** ({leverage}x) - ROI: {roi_pct:.1f}% (PnL: ${pnl:.2f}, Margin: ${initial_margin:.2f}) < {breakeven_roi_threshold*100:.0f}%")
             
             if modified > 0:
                 report.append("")

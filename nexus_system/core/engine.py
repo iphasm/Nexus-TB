@@ -2,6 +2,7 @@ import asyncio
 from ..cortex.factory import StrategyFactory
 from ..shield.manager import RiskManager
 from ..uplink.stream import MarketStream
+from ..core.exit_manager import ExitManager
 from system_directive import DISABLED_ASSETS
 
 
@@ -16,10 +17,11 @@ class NexusCore:
         self.session_manager = session_manager
         self.risk_guardian = RiskManager()
         self.market_stream = MarketStream()  # Use default (binanceusdm for futures)
+        self.exit_manager = ExitManager({})  # Initialize ExitManager with empty config (will be updated)
         self.running = False
         self.alpaca_keys = alpaca_keys or {}
         self.bybit_keys = bybit_keys or {}
-        
+
         # Determine Assets
         if assets:
             self.assets = list(set(assets)) # Remove duplicates
@@ -30,7 +32,7 @@ class NexusCore:
             self.logger.warning("Using Default Fallback Assets.")
 
         self.signal_callback = None
-        
+
         # Concurrency Control (Max 10 parallel analysis tasks)
         self._semaphore = asyncio.Semaphore(10)
         
@@ -104,9 +106,59 @@ class NexusCore:
         if symbol in DISABLED_ASSETS:
             return
 
+        # Check Exit Conditions for Active Positions (ExitManager)
+        asyncio.create_task(self._check_exit_conditions(symbol, current_price))
+
         # Run Analysis Task (Fire and Forget)
         asyncio.create_task(self._process_symbol_event(symbol))
 
+    async def _check_exit_conditions(self, symbol: str, current_price: float):
+        """
+        Check exit conditions for all active positions on this symbol across all sessions.
+        Execute partial exits, trailing stops, and time stops when triggered.
+        """
+        if not self.session_manager:
+            return
+
+        try:
+            # Get all active sessions
+            for chat_id, session in self.session_manager.sessions.items():
+                if not hasattr(session, 'exit_manager') or not session.exit_manager:
+                    continue
+
+                # Check if this session has an active exit plan for this symbol
+                if symbol in session.exit_manager.active_exit_plans:
+                    exit_plan = session.exit_manager.active_exit_plans[symbol]
+
+                    # Check exit conditions
+                    triggered_exits = session.exit_manager.check_exit_conditions(symbol, current_price)
+
+                    # Execute triggered exits
+                    for rule, quantity_to_close in triggered_exits:
+                        try:
+                            # Execute the partial exit via trading session
+                            success, msg = await session._execute_partial_exit(symbol, rule, quantity_to_close, exit_plan)
+
+                            if success:
+                                self.logger.info(f"🎯 Exit Executed: {symbol} - {rule.description} ({quantity_to_close:.4f} qty)")
+                                # Send notification to user
+                                if session.manager and hasattr(session.manager, 'bot'):
+                                    try:
+                                        await session.manager.bot.send_message(
+                                            session.chat_id,
+                                            f"🎯 **EXIT TRIGGERED**\n{symbol}: {rule.description}\nClosed: {quantity_to_close:.4f} units\n💰 {msg}",
+                                            parse_mode="Markdown"
+                                        )
+                                    except Exception as notify_error:
+                                        self.logger.debug(f"Exit notification failed: {notify_error}")
+                            else:
+                                self.logger.warning(f"Exit Failed: {symbol} - {rule.description} - {msg}")
+
+                        except Exception as exit_error:
+                            self.logger.error(f"Exit execution error for {symbol}: {exit_error}")
+
+        except Exception as e:
+            self.logger.error(f"Exit condition check error for {symbol}: {e}")
 
     async def _process_symbol_event(self, asset: str):
 
