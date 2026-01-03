@@ -83,9 +83,13 @@ for group_name, assets in ASSET_GROUPS.items():
 SYMBOLS = list(set(SYMBOLS))  # Remove duplicates
 
 INTERVAL = '15m'
-# Local output (same directory as script)
-MODEL_OUTPUT = 'ml_model.pkl'
-SCALER_OUTPUT = 'scaler.pkl'
+# Output paths compatible with ML classifier expectations
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+MEMORY_ARCHIVES = os.path.join(PROJECT_ROOT, 'nexus_system', 'memory_archives')
+
+MODEL_OUTPUT = os.path.join(MEMORY_ARCHIVES, 'ml_model.pkl')
+SCALER_OUTPUT = os.path.join(MEMORY_ARCHIVES, 'scaler.pkl')
 
 # Strategy SL/TP configurations (matching real trading logic)
 STRATEGY_PARAMS = {

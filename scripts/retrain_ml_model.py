@@ -40,13 +40,11 @@ def retrain_ml_model():
     candles = 5000  # Reducido para entrenamiento más rápido
     symbols_limit = None  # Usar todos los habilitados
 
-    print("
-🔧 Parámetros de entrenamiento:"    print(f"   Candles: {candles}")
+    print("\n🔧 Parámetros de entrenamiento:")    print(f"   Candles: {candles}")
     print(f"   Symbols: {'Todos habilitados' if symbols_limit is None else symbols_limit}")
 
     # Ejecutar entrenamiento
-    print("
-🏃 Ejecutando entrenamiento..."    print("=" * 60)
+    print("\n🏃 Ejecutando entrenamiento...")    print("=" * 60)
 
     cmd = [
         sys.executable,
@@ -68,21 +66,20 @@ def retrain_ml_model():
             print(result.stderr)
 
         if result.returncode == 0:
-            print("
-✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE"            print("🎯 Modelo reentrenado con activos actuales")
+            print("\n✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")            print("🎯 Modelo reentrenado con activos actuales")
 
             # Verificar que los archivos se crearon
-            model_path = "nexus_system/memory_archives/ml_model.pkl"
-            scaler_path = "nexus_system/memory_archives/scaler.pkl"
+            model_path = os.path.join("nexus_system", "memory_archives", "ml_model.pkl")
+            scaler_path = os.path.join("nexus_system", "memory_archives", "scaler.pkl")
 
             if os.path.exists(model_path):
                 model_size = os.path.getsize(model_path) / 1024 / 1024  # MB
-                print(".2f"            else:
+                print(f"   📊 Modelo creado: {model_size:.2f} MB")            else:
                 print("⚠️  Modelo no encontrado después del entrenamiento")
 
             if os.path.exists(scaler_path):
                 scaler_size = os.path.getsize(scaler_path) / 1024 / 1024  # MB
-                print(".2f"            else:
+                print(f"   📊 Scaler creado: {scaler_size:.2f} MB")            else:
                 print("⚠️  Scaler no encontrado después del entrenamiento")
 
             return True
@@ -103,17 +100,18 @@ def backup_existing_model():
     import shutil
     from datetime import datetime
 
-    model_path = "nexus_system/memory_archives/ml_model.pkl"
-    scaler_path = "nexus_system/memory_archives/scaler.pkl"
+    model_path = os.path.join("nexus_system", "memory_archives", "ml_model.pkl")
+    scaler_path = os.path.join("nexus_system", "memory_archives", "scaler.pkl")
 
     if os.path.exists(model_path):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_model = f"nexus_system/memory_archives/ml_model_backup_{timestamp}.pkl"
+        backup_dir = os.path.join("nexus_system", "memory_archives")
+        backup_model = os.path.join(backup_dir, f"ml_model_backup_{timestamp}.pkl")
         shutil.copy2(model_path, backup_model)
         print(f"📦 Backup modelo: {backup_model}")
 
     if os.path.exists(scaler_path):
-        backup_scaler = f"nexus_system/memory_archives/scaler_backup_{timestamp}.pkl"
+        backup_scaler = os.path.join(backup_dir, f"scaler_backup_{timestamp}.pkl")
         shutil.copy2(scaler_path, backup_scaler)
         print(f"📦 Backup scaler: {backup_scaler}")
 
