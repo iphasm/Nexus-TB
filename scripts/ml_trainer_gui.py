@@ -285,7 +285,14 @@ class MLTrainerGUI:
                 cmd.extend(["--symbols", str(symbols_limit)])
 
             env = os.environ.copy()
-            env["PYTHONPATH"] = os.getcwd()
+            current_dir = os.getcwd()
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+
+            # Configurar PYTHONPATH para incluir el directorio del proyecto
+            env["PYTHONPATH"] = project_root
+            if current_dir != project_root:
+                env["PYTHONPATH"] += os.pathsep + current_dir
 
             # Ejecutar proceso
             self.training_process = subprocess.Popen(
@@ -296,7 +303,7 @@ class MLTrainerGUI:
                 bufsize=1,
                 universal_newlines=True,
                 env=env,
-                cwd=os.getcwd()
+                cwd=project_root
             )
 
             # Leer output en tiempo real
