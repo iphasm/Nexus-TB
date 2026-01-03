@@ -43,8 +43,11 @@ def install_dependencies_py314():
         # PyInstaller
         'pyinstaller>=6.0.0',
 
-        # Opcionales que pueden causar problemas
-        # 'pandas-ta' - EXCLUIDO por requerir numba (no compatible con 3.14)
+            # PyInstaller
+        'pyinstaller>=6.0.0',
+
+        # pandas-ta parchado compatible con Python 3.14
+        'pandas-ta-openbb>=0.4.22'  # Desde carpeta local del proyecto
     ]
 
     print("🔧 Instalando dependencias una por una (más seguro)...")
@@ -79,11 +82,31 @@ def install_dependencies_py314():
             print(f"   pip install {dep}")
         return False
 
+    # Instalar pandas-ta parchado compatible con Python 3.14
+    print("\n🔧 Instalando pandas-ta parchado (compatible con Python 3.14)...")
+    try:
+        result = subprocess.run([
+            sys.executable, '-m', 'pip', 'install', 'pandas-ta-openbb>=0.4.22', '--quiet'
+        ], capture_output=True, text=True, timeout=300)
+
+        if result.returncode == 0:
+            print("✅ pandas-ta-openbb instalado correctamente desde PyPI")
+            print("   📦 Versión: 0.4.22 (compatible con Python 3.14)")
+            print("   🎯 API: Compatible con pandas-ta original")
+        else:
+            print("❌ Error instalando pandas-ta-openbb")
+            print(f"   STDOUT: {result.stdout}")
+            print(f"   STDERR: {result.stderr}")
+            return False
+    except Exception as e:
+        print(f"💥 Error instalando pandas-ta-openbb: {e}")
+        return False
+
     print("✅ Todas las dependencias críticas instaladas")
     return True
 
 def create_simplified_spec():
-    """Crea especificaciones simplificadas sin pandas-ta."""
+    """Crea especificaciones simplificadas con pandas-ta-openbb (PyPI)."""
     print("📝 Creando especificaciones simplificadas para Python 3.14...")
 
     spec_content = '''# -*- mode: python ; coding: utf-8 -*-
@@ -113,7 +136,9 @@ a = Analysis(
         'xgboost.core', 'xgboost.sklearn',
         'joblib.numpy_pickle_utils', 'joblib.compression',
         'yfinance.utils', 'yfinance.ticker',
-        # pandas-ta EXCLUIDO por compatibilidad con Python 3.14
+        # pandas-ta-openbb compatible con Python 3.14 (instalado desde PyPI)
+        'pandas_ta', 'pandas_ta.momentum', 'pandas_ta.trend', 'pandas_ta.volatility',
+        'pandas_ta.overlap', 'pandas_ta.volume', 'pandas_ta.statistics',
     ],
     hookspath=[],
     hooksconfig={},
@@ -121,8 +146,8 @@ a = Analysis(
     excludes=[
         'tkinter.test', 'test', 'unittest', 'pdb', 'pydoc',
         'doctest', 'sqlite3', 'dbm', 'gdbm', 'readline', 'rlcompleter',
-        # Excluir pandas-ta y dependencias problemáticas
-        'pandas_ta', 'numba', 'llvmlite',
+        # Excluir dependencias problemáticas (pandas-ta-openbb ya incluido)
+        'numba', 'llvmlite',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
