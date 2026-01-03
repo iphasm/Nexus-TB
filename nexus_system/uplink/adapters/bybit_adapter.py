@@ -425,9 +425,11 @@ class BybitAdapter(IExchangeAdapter):
                     bybit_order_type = 'StopLoss'
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
 
+                print(f"🔧 BybitAdapter: Placing {bybit_order_type} order for {symbol} - Side: {side}, Qty: {quantity}, Trigger: {stop_price}")
                 result = await self._exchange.create_order(
                     formatted, bybit_order_type, side.lower(), quantity, None, params
                 )
+                print(f"✅ BybitAdapter: Order placed successfully - ID: {result.get('id')}")
             
             return {
                 'orderId': result.get('id'),
@@ -440,6 +442,7 @@ class BybitAdapter(IExchangeAdapter):
             }
             
         except Exception as e:
+            print(f"❌ BybitAdapter: place_order error for {symbol}: {e}")
             return {'error': str(e)}
 
 

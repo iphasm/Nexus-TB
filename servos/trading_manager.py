@@ -1443,6 +1443,7 @@ class AsyncTradingSession:
                     valid_sl = False
             
             if sl_price > 0 and valid_sl:
+                print(f"📤 SyncSLTP: Placing SL for {symbol} on {exchange} - Side: {sl_side}, Price: {sl_price}, Qty: {abs_qty}")
                 result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='STOP_MARKET',
                     quantity=abs_qty, price=sl_price,
@@ -1455,8 +1456,10 @@ class AsyncTradingSession:
                         sl_msg = f"⚠️ SL Error: Precio de activación ya alcanzado. Ajusta el stopPrice."
                     else:
                         sl_msg = f"⚠️ SL Error: {result['error']}"
+                    print(f"❌ SyncSLTP: SL placement failed for {symbol} on {exchange}: {sl_msg}")
                 else:
                     sl_msg = f"SL: {sl_price}"
+                    print(f"✅ SyncSLTP: SL placed successfully for {symbol} on {exchange}")
                 
             # 6. Place TP (split or single trailing) with -2021 check
             tp_msg = ""
