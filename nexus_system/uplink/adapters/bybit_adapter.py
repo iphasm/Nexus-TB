@@ -392,44 +392,55 @@ class BybitAdapter(IExchangeAdapter):
                     formatted, 'limit', side.lower(), quantity, price, params
                 )
             else:
-                # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
-                # Bybit requires specific order types: 'Stop' and 'TakeProfit'
-                # Bybit requires 'triggerDirection' for stop/trigger orders
-                # 1 = ascending (triggers when price rises above triggerPrice) - used for TP on LONG, SL on SHORT
-                # 2 = descending (triggers when price falls below triggerPrice) - used for SL on LONG, TP on SHORT
+                # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET)
+                # Bybit V5 CCXT: Use 'market' type with triggerPrice in params
+                # triggerDirection: 1 = triggers when price rises ABOVE triggerPrice
+                #                   2 = triggers when price falls BELOW triggerPrice
 
                 stop_price = kwargs.get('stopPrice') or price
-                params['triggerPrice'] = stop_price
-
-                # Determine trigger direction based on order type and side
-                # For SL: triggers when price moves AGAINST your position
-                # For TP: triggers when price moves IN FAVOR of your position
                 order_type_upper = order_type.upper()
+                
+                # Determine trigger direction based on order type and side
+                # For LONG position closing (SELL side):
+                #   - SL triggers when price FALLS below stop price -> direction 2
+                #   - TP triggers when price RISES above take profit -> direction 1
+                # For SHORT position closing (BUY side):
+                #   - SL triggers when price RISES above stop price -> direction 1
+                #   - TP triggers when price FALLS below take profit -> direction 2
 
                 if 'STOP' in order_type_upper and 'TAKE_PROFIT' not in order_type_upper:
-                    # STOP_MARKET - This is a Stop Loss
-                    # Bybit V5 uses 'StopLoss' for stop loss orders
-                    # SELL side (closing LONG) = price falling -> descending (2)
-                    # BUY side (closing SHORT) = price rising -> ascending (1)
-                    bybit_order_type = 'StopLoss'
+                    # STOP_MARKET - Stop Loss
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
+                    order_label = 'StopLoss'
                 elif 'TAKE_PROFIT' in order_type_upper:
-                    # TAKE_PROFIT_MARKET - This is a Take Profit
-                    # Bybit V5 uses 'TakeProfit' for take profit orders
-                    # SELL side (closing LONG) = price rising -> ascending (1)
-                    # BUY side (closing SHORT) = price falling -> descending (2)
-                    bybit_order_type = 'TakeProfit'
+                    # TAKE_PROFIT_MARKET - Take Profit
                     params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
-                else:
-                    # Fallback for unknown order types
-                    bybit_order_type = 'StopLoss'
+                    order_label = 'TakeProfit'
+                elif 'TRAILING' in order_type_upper:
+                    # TRAILING_STOP_MARKET - Trailing Stop
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
+                    # Bybit trailing uses 'trailingStop' parameter
+                    callback_rate = kwargs.get('callbackRate', 1.0)
+                    params['trailingStop'] = str(callback_rate)
+                    order_label = 'TrailingStop'
+                else:
+                    params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
+                    order_label = 'Conditional'
 
-                print(f"🔧 BybitAdapter: Placing {bybit_order_type} order for {symbol} - Side: {side}, Qty: {quantity}, Trigger: {stop_price}")
+                # Set trigger price and ensure reduceOnly for closing orders
+                params['triggerPrice'] = str(stop_price)
+                params['reduceOnly'] = True
+                
+                # Remove stopPrice from params if present (we use triggerPrice)
+                params.pop('stopPrice', None)
+
+                print(f"🔧 BybitAdapter: Placing {order_label} order for {symbol} - Side: {side}, Qty: {quantity}, Trigger: {stop_price}")
+                
+                # CCXT Bybit V5: Use 'market' type with trigger params for conditional orders
                 result = await self._exchange.create_order(
-                    formatted, bybit_order_type, side.lower(), quantity, None, params
+                    formatted, 'market', side.lower(), quantity, None, params
                 )
-                print(f"✅ BybitAdapter: Order placed successfully - ID: {result.get('id')}")
+                print(f"✅ BybitAdapter: {order_label} order placed successfully - ID: {result.get('id')}")
             
             return {
                 'orderId': result.get('id'),
