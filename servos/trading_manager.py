@@ -1835,8 +1835,19 @@ class AsyncTradingSession:
                 if atr and atr > 0 and current_price > 0:
                     mult = self.config.get('atr_multiplier', 2.0)
                     sl_dist = mult * atr
+
+                    # ATR SAFETY CHECK: Prevent SL from going negative or too close to zero
+                    max_sl_distance = current_price * 0.5  # Max 50% drop for safety
+                    sl_dist = min(sl_dist, max_sl_distance)
+
                     sl_price = round_to_tick_size(current_price - sl_dist, tick_size)
                     tp_price = round_to_tick_size(current_price + (tp_ratio * sl_dist), tick_size)
+
+                    # Additional safety: Ensure SL is at least 0.1% from entry (minimum stop)
+                    min_sl_price = round_to_tick_size(current_price * 0.999, tick_size)
+                    if sl_price >= min_sl_price:
+                        sl_price = min_sl_price
+
                 elif current_price > 0:
                     sl_price = round_to_tick_size(current_price * (1 - stop_loss_pct), tick_size)
                     tp_price = round_to_tick_size(current_price * (1 + (stop_loss_pct * tp_ratio)), tick_size)
