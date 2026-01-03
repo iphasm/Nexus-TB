@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 from servos.db import get_user_name
 from servos.media_manager import MediaManager
-from servos.nexus_logger import nexus_logger
+from servos.voight_kampff import voight_kampff as nexus_logger
 
 # Configure logging to suppress noisy messages during initialization
 logging.getLogger('aiogram').setLevel(logging.WARNING)

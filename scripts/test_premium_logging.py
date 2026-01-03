@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from servos.nexus_logger import nexus_logger
+from servos.voight_kampff import voight_kampff as nexus_logger
 
 async def test_premium_logging():
     """Test the premium logging system."""
