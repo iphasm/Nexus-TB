@@ -10,10 +10,11 @@ Usa la configuración actual de system_directive.py para determinar qué activos
 import os
 import sys
 import subprocess
+import argparse
 from datetime import datetime
 
-def retrain_ml_model():
-    """Reentrena el modelo ML con activos actuales."""
+def retrain_ml_model(candles=5000, assets=None, features=None, symbols_limit=None):
+    """Reentrena el modelo ML con activos y features seleccionados."""
 
     print("🚀 REENTRENAMIENTO ML MODEL")
     print("=" * 60)
@@ -35,14 +36,24 @@ def retrain_ml_model():
     print("✅ Archivos verificados")
     print(f"   Script: {train_script}")
 
-    # Configurar parámetros de entrenamiento
-    # Usar menos datos para entrenamiento más rápido pero representativo
-    candles = 5000  # Reducido para entrenamiento más rápido
-    symbols_limit = None  # Usar todos los habilitados
-
     print("\n🔧 Parámetros de entrenamiento:")
     print(f"   Candles: {candles}")
+    print(f"   Assets: {len(assets) if assets else 'Todos'} seleccionados")
+    print(f"   Features: {len(features) if features else 'Todos'} activas")
     print(f"   Symbols: {'Todos habilitados' if symbols_limit is None else symbols_limit}")
+
+    # Crear archivo de configuración temporal para features y assets
+    config_file = None
+    if features or assets:
+        config_file = "temp_ml_config.json"
+        config_data = {
+            "enabled_features": features or [],
+            "selected_assets": assets or []
+        }
+        import json
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f)
+        print(f"   Config: {config_file}")
 
     # Ejecutar entrenamiento
     print("\n🏃 Ejecutando entrenamiento...")
@@ -58,6 +69,9 @@ def retrain_ml_model():
         train_script,
         "--candles", str(candles)
     ]
+
+    if config_file:
+        cmd.extend(["--config", config_file])
 
     if symbols_limit:
         cmd.extend(["--symbols", str(symbols_limit)])
@@ -126,9 +140,60 @@ def backup_existing_model():
         shutil.copy2(scaler_path, backup_scaler)
         print(f"📦 Backup scaler: {backup_scaler}")
 
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Reentrenar modelo ML de Nexus')
+    parser.add_argument('--candles', type=int, default=5000,
+                       help='Número de velas para entrenamiento')
+    parser.add_argument('--symbols', type=int, default=None,
+                       help='Límite de símbolos para entrenar')
+    parser.add_argument('--assets', nargs='*', default=None,
+                       help='Lista específica de activos para entrenar')
+    parser.add_argument('--rsi', action='store_true', default=True,
+                       help='Incluir indicador RSI')
+    parser.add_argument('--macd', action='store_true', default=True,
+                       help='Incluir indicador MACD')
+    parser.add_argument('--bbands', action='store_true', default=True,
+                       help='Incluir Bollinger Bands')
+    parser.add_argument('--stoch', action='store_true', default=True,
+                       help='Incluir Stochastic Oscillator')
+    parser.add_argument('--adx', action='store_true', default=True,
+                       help='Incluir ADX')
+    parser.add_argument('--mfi', action='store_true', default=True,
+                       help='Incluir MFI')
+    parser.add_argument('--cci', action='store_true', default=True,
+                       help='Incluir CCI')
+    parser.add_argument('--willr', action='store_true', default=True,
+                       help='Incluir Williams %R')
+    parser.add_argument('--obv', action='store_true', default=True,
+                       help='Incluir OBV')
+    parser.add_argument('--ema', action='store_true', default=True,
+                       help='Incluir EMA')
+    parser.add_argument('--sma', action='store_true', default=True,
+                       help='Incluir SMA')
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
     print("🤖 Nexus ML Model Retraining")
     print("=" * 80)
+
+    # Parsear argumentos
+    args = parse_arguments()
+
+    # Recopilar features activas
+    features = []
+    if args.rsi: features.append('rsi')
+    if args.macd: features.append('macd')
+    if args.bbands: features.append('bbands')
+    if args.stoch: features.append('stoch')
+    if args.adx: features.append('adx')
+    if args.mfi: features.append('mfi')
+    if args.cci: features.append('cci')
+    if args.willr: features.append('willr')
+    if args.obv: features.append('obv')
+    if args.ema: features.append('ema')
+    if args.sma: features.append('sma')
 
     # Crear backup del modelo actual
     print("📦 Creando backup del modelo actual...")
@@ -136,13 +201,22 @@ if __name__ == "__main__":
 
     print()
 
-    # Ejecutar reentrenamiento
-    success = retrain_ml_model()
+    # Ejecutar reentrenamiento con parámetros
+    success = retrain_ml_model(
+        candles=args.candles,
+        assets=args.assets,
+        features=features,
+        symbols_limit=args.symbols
+    )
+
+    # Limpiar archivo de configuración temporal
+    if os.path.exists("temp_ml_config.json"):
+        os.remove("temp_ml_config.json")
 
     # Resultado final
     print("\n" + "=" * 80)
     if success:
-        print("🎉 REENTRENAMIENTO COMPLETADO - Modelo actualizado con activos actuales")
+        print("🎉 REENTRENAMIENTO COMPLETADO - Modelo actualizado con configuración personalizada")
         print("\n📋 RECOMENDACIONES:")
         print("✅ Reinicia el bot para cargar el nuevo modelo")
         print("✅ Monitorea el rendimiento del clasificador ML")

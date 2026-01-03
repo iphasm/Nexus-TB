@@ -45,6 +45,24 @@ BATCH_SIZE = 5  # Process symbols in small batches to avoid overwhelming APIs
 # Global flag for interruption handling
 interrupted = False
 
+# Configuración personalizada (se carga desde archivo temporal si existe)
+custom_config = None
+
+def load_custom_config():
+    """Load custom configuration from temporary file if it exists."""
+    global custom_config
+    config_file = "temp_ml_config.json"
+    if os.path.exists(config_file):
+        try:
+            import json
+            with open(config_file, 'r') as f:
+                custom_config = json.load(f)
+            logger.info(f"✅ Configuración personalizada cargada: {len(custom_config.get('selected_assets', []))} activos, {len(custom_config.get('enabled_features', []))} features")
+            return True
+        except Exception as e:
+            logger.warning(f"⚠️ Error cargando configuración personalizada: {e}")
+    return False
+
 def signal_handler(signum, frame):
     """Handle Ctrl+C interruption gracefully"""
     global interrupted
@@ -76,11 +94,21 @@ def log_progress(message, start_time=None, phase="", force_flush=True):
 
 
 # Configuration - Use only ENABLED assets for training
+# Load custom configuration if available
+load_custom_config()
+
 SYMBOLS = []
-for group_name, assets in ASSET_GROUPS.items():
-    if GROUP_CONFIG.get(group_name, True):  # Only include enabled groups
-        SYMBOLS.extend(assets)
-SYMBOLS = list(set(SYMBOLS))  # Remove duplicates
+if custom_config and custom_config.get('selected_assets'):
+    # Use custom selected assets
+    SYMBOLS = custom_config['selected_assets']
+    print(f"🎯 Usando configuración personalizada: {len(SYMBOLS)} activos seleccionados")
+else:
+    # Use default configuration from system_directive
+    for group_name, assets in ASSET_GROUPS.items():
+        if GROUP_CONFIG.get(group_name, True):  # Only include enabled groups
+            SYMBOLS.extend(assets)
+    SYMBOLS = list(set(SYMBOLS))  # Remove duplicates
+    print(f"📊 Usando configuración por defecto: {len(SYMBOLS)} activos habilitados")
 
 INTERVAL = '15m'
 # Output paths compatible with ML classifier expectations
@@ -548,9 +576,18 @@ def train():
                        help='Extra verbose output with additional debugging info')
     parser.add_argument('--symbols', type=int, default=None,
                        help='Limit number of symbols to process (for testing)')
+    parser.add_argument('--config', type=str, default=None,
+                       help='Path to custom configuration file (JSON)')
     args = parser.parse_args()
 
     print(f"📋 Argumentos parseados: candles={args.candles}, interactive={args.interactive}, symbols={args.symbols}", flush=True)
+
+    # Load custom configuration if provided
+    if args.config and os.path.exists(args.config):
+        load_custom_config()
+    elif os.path.exists("temp_ml_config.json"):
+        # Try to load temporary config
+        load_custom_config()
 
     # Force flush output to ensure real-time display on Windows
     sys.stdout.flush()
@@ -623,14 +660,14 @@ def train():
                 symbol_start_time = time.time()
                 log_progress(f"Descargando {symbol}...", symbol_start_time, f"📊 [{symbols_processed+1}/{total_symbols}]")
             try:
-                log_progress(f"Descargando {symbol}...", symbol_start_time, f"📊 [{symbols_processed+1}/{total_symbols}]")
+                print(f"🔄 Descargando {symbol}... [{symbols_processed+1}/{total_symbols}]", flush=True)
 
                 # Use interactive max_candles with verbose output
                 verbose_fetch = args.verbose or args.interactive
                 df = fetch_data(symbol, max_candles=max_candles, verbose=verbose_fetch)
 
                 if df is not None and not df.empty:
-                    log_progress(f"Calculando indicadores técnicos para {symbol}...", symbol_start_time)
+                    print(f"🧮 Calculando indicadores técnicos para {symbol}...", flush=True)
                     df = add_indicators(df)
 
                     log_progress(f"Simulando trades y etiquetando datos para {symbol}...", symbol_start_time)
@@ -793,13 +830,13 @@ def train():
 
         for fold, (train_idx, val_idx) in enumerate(tscv.split(X_scaled)):
             fold_start = time.time()
-            log_progress(f"Entrenando fold {fold+1}/5...", fold_start, f"📊 Fold {fold+1}")
+            print(f"🔄 Iniciando fold {fold+1}/5...", flush=True)
 
             X_cv_train, X_cv_val = X_scaled[train_idx], X_scaled[val_idx]
             y_cv_train, y_cv_val = y_encoded[train_idx], y_encoded[val_idx]
             weights_cv = sample_weights[train_idx]
 
-            log_progress(f"Preparando datos: {len(X_cv_train):,} train, {len(X_cv_val):,} val", fold_start)
+            print(f"📊 Fold {fold+1}: {len(X_cv_train):,} train, {len(X_cv_val):,} val muestras", flush=True)
 
             cv_model = XGBClassifier(
                 objective='multi:softprob',
@@ -839,10 +876,13 @@ def train():
     final_training_start = time.time()
     log_progress("🏋️ FASE 5: Entrenamiento final en dataset completo", final_training_start, "🏋️")
 
-    log_progress("Entrenando modelo final con todos los datos...", final_training_start)
+    print("🔄 Preparando datos para entrenamiento final...", flush=True)
+    print("🎯 Iniciando entrenamiento del modelo XGBoost...", flush=True)
+
     model.fit(X_scaled, y_encoded, sample_weight=sample_weights)
+
     training_time = time.time() - final_training_start
-    log_progress(f"✅ Entrenamiento completado en {training_time:.1f}s", final_training_start)
+    print(f"✅ Entrenamiento completado en {training_time:.1f}s", flush=True)
 
     # Evaluate on last 20% (time-respecting split)
     log_progress("Evaluando modelo en conjunto de test (últimas 20% muestras chronológicas)...", final_training_start)
