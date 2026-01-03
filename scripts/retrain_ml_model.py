@@ -40,11 +40,13 @@ def retrain_ml_model():
     candles = 5000  # Reducido para entrenamiento más rápido
     symbols_limit = None  # Usar todos los habilitados
 
-    print("\n🔧 Parámetros de entrenamiento:")    print(f"   Candles: {candles}")
+    print("\n🔧 Parámetros de entrenamiento:")
+    print(f"   Candles: {candles}")
     print(f"   Symbols: {'Todos habilitados' if symbols_limit is None else symbols_limit}")
 
     # Ejecutar entrenamiento
-    print("\n🏃 Ejecutando entrenamiento...")    print("=" * 60)
+    print("\n🏃 Ejecutando entrenamiento...")
+    print("=" * 60)
 
     cmd = [
         sys.executable,
@@ -66,7 +68,8 @@ def retrain_ml_model():
             print(result.stderr)
 
         if result.returncode == 0:
-            print("\n✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")            print("🎯 Modelo reentrenado con activos actuales")
+            print("\n✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
+            print("🎯 Modelo reentrenado con activos actuales")
 
             # Verificar que los archivos se crearon
             model_path = os.path.join("nexus_system", "memory_archives", "ml_model.pkl")
@@ -74,12 +77,14 @@ def retrain_ml_model():
 
             if os.path.exists(model_path):
                 model_size = os.path.getsize(model_path) / 1024 / 1024  # MB
-                print(f"   📊 Modelo creado: {model_size:.2f} MB")            else:
+                print(f"   📊 Modelo creado: {model_size:.2f} MB")
+            else:
                 print("⚠️  Modelo no encontrado después del entrenamiento")
 
             if os.path.exists(scaler_path):
                 scaler_size = os.path.getsize(scaler_path) / 1024 / 1024  # MB
-                print(f"   📊 Scaler creado: {scaler_size:.2f} MB")            else:
+                print(f"   📊 Scaler creado: {scaler_size:.2f} MB")
+            else:
                 print("⚠️  Scaler no encontrado después del entrenamiento")
 
             return True
