@@ -664,13 +664,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         # 1. Trigger Long Cooldown (1 hour) to stop spam (scoped to exchange + strategy)
                         cooldown_manager.set_cooldown(symbol, seconds=3600, exchange=target_exchange, strategy=strategy)
 
-                        # 2. Notify User only once
-                        await safe_send_message(bot, session.chat_id,
-                            f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
-                            f"Tamaño de posición por debajo del mínimo del exchange.\n"
-                            f"❄️ **Acción:** {symbol} congelado por 1 hora.",
-                            parse_mode="Markdown"
-                        )
+                        # 2. Silenced: No notification sent to chat (user requested silence)
+                        logger.debug(f"💰 Min notional cooldown applied: {symbol} on {target_exchange} (1 hour)")
                     
                     else:
                         # Filter out balance/insufficient funds errors to avoid spam
