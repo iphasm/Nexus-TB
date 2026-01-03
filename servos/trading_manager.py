@@ -4016,14 +4016,32 @@ class AsyncSessionManager:
             if 'ALPACA' in s.bridge.adapters:
                 alpaca_users.append(s.chat_id)
         
-        if proxied_users:
-            print(f"🔄 Proxy configured: [{len(proxied_users):02d} Users]")
-        
-        if binance_users:
-            print(f"✅ Binance Client Init (✅ Proxy): [{len(binance_users):02d} Users]")
-            
-        if alpaca_users:
-            print(f"✅ Alpaca Client Initialized (Paper: Mixed): [{len(alpaca_users):02d} Users]")
+        # Store exchange status for Phase 5 display (moved from here)
+        self._exchange_status = {
+            'proxied_users': len(proxied_users),
+            'binance_users': len(binance_users),
+            'alpaca_users': len(alpaca_users),
+            'bybit_users': len([s.chat_id for s in self.sessions.values() if 'BYBIT' in s.bridge.adapters]) if self.sessions else 0
+        }
+
+    def display_exchange_status(self):
+        """Display exchange connectivity status for Phase 5."""
+        if not hasattr(self, '_exchange_status'):
+            return
+
+        status = self._exchange_status
+
+        if status['proxied_users'] > 0:
+            print(f"🔄 Proxy configured: [{status['proxied_users']:02d} Users]")
+
+        if status['binance_users'] > 0:
+            print(f"✅ Binance Client Init (✅ Proxy): [{status['binance_users']:02d} Users]")
+
+        if status['bybit_users'] > 0:
+            print(f"✅ Bybit Client Init: [{status['bybit_users']:02d} Users]")
+
+        if status['alpaca_users'] > 0:
+            print(f"✅ Alpaca Client Initialized (Paper: Mixed): [{status['alpaca_users']:02d} Users]")
     
 
     async def _ensure_admin_session(self, verbose: bool = True):

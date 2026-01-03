@@ -765,6 +765,36 @@ async def main():
     nexus_logger.phase_success("Core modules loaded")
     nexus_logger.phase_success("Configuration parsed")
 
+    # Initialize Shark Sentinel (Black Swan & Shark Mode Defense)
+    try:
+        from strategies.shark_mode import SharkSentinel
+
+        async def notify_send(msg):
+             # Broadcast alert to all active sessions (async)
+             chat_ids = session_manager.get_active_chat_ids()
+             tasks = [
+                 bot.send_message(chat_id, msg, parse_mode='Markdown')
+                 for chat_id in chat_ids
+             ]
+             if tasks:
+                 await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Check function for Sentinel
+        def is_shark_enabled():
+             from system_directive import ENABLED_STRATEGIES
+             return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
+
+        sentinel = SharkSentinel(
+            session_manager=session_manager,
+            notify_callback=notify_send,
+            enabled_check_callback=is_shark_enabled
+        )
+        await sentinel.start()  # Async start
+        nexus_logger.phase_success("Sentinel initialized", "Black Swan & Shark Mode active")
+
+    except Exception as e:
+        nexus_logger.phase_error("Sentinel initialization failed", str(e))
+
     # Phase 2: Security & Encryption
     nexus_logger.phase_start(2, "SECURITY & ENCRYPTION", "🔐")
     nexus_logger.phase_success("AES-256 encryption enabled")
@@ -889,6 +919,17 @@ async def main():
             await initialize_ai_filter()
             nexus_logger.phase_success("AI Filter engine initialized", "Sentiment analysis active")
 
+            # Check Nexus Analyst connection
+            try:
+                from servos.ai_analyst import NexusAnalyst
+                analyst = NexusAnalyst()
+                if analyst.client:
+                    nexus_logger.phase_success("Nexus Analyst connected", f"Model: {analyst.model}")
+                else:
+                    nexus_logger.phase_warning("Nexus Analyst not configured", "OpenAI API key missing")
+            except Exception as e:
+                nexus_logger.phase_error("Nexus Analyst initialization failed", str(e))
+
             # --- KEY INJECTION FIX ---
             # Try to get admin keys for Alpaca & Bybit (background engine needs them)
             admin_id = os.getenv('TELEGRAM_ADMIN_ID')
@@ -960,38 +1001,13 @@ async def main():
         except Exception as e:
             logger.warning(f"⚠️ Nexus Core init failed: {e}", exc_info=True)
 
-    # 7. Start Shark Sentinel (Black Swan Defense) - Async Version
-    try:
-        from strategies.shark_mode import SharkSentinel
-        
-        async def notify_send(msg):
-             # Broadcast alert to all active sessions (async)
-             chat_ids = session_manager.get_active_chat_ids()
-             tasks = [
-                 bot.send_message(chat_id, msg, parse_mode='Markdown')
-                 for chat_id in chat_ids
-             ]
-             if tasks:
-                 await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Check function for Sentinel
-        def is_shark_enabled():
-             from system_directive import ENABLED_STRATEGIES
-             return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
-
-        sentinel = SharkSentinel(
-            session_manager=session_manager,
-            notify_callback=notify_send,
-            enabled_check_callback=is_shark_enabled
-        )
-        await sentinel.start()  # Async start
-        nexus_logger.phase_success("Shark Sentinel activated", "Crash protection active")
-
-    except Exception as e:
-        nexus_logger.phase_error("Shark Sentinel failed", str(e))
-
     # Phase 5: Exchanges & Connectivity
     nexus_logger.phase_start(5, "EXCHANGES & CONNECTIVITY", "🌐")
+
+    # Display Nexus Bridge connectivity status
+    if session_manager:
+        session_manager.display_exchange_status()
+        nexus_logger.phase_success("Exchange clients initialized", f"{len(session_manager.sessions)} sessions active")
 
     # 8. Startup Message (Web Server removed - feature deprecated)
 
