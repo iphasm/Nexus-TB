@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class NexusAnalyst:
+    # Class variable to track if connection message has been shown
+    _connection_message_shown = False
+
     def __init__(self):
         """Initializes the Nexus Analyst with OpenAI API."""
         self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")
@@ -21,11 +24,15 @@ class NexusAnalyst:
         if self.api_key:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                print(f"🧠 Nexus Analyst: CONNECTED (Model: {self.model})")
+                # Only show connection message once per session
+                if not NexusAnalyst._connection_message_shown:
+                    print(f"🧠 Nexus Analyst: CONNECTED (Model: {self.model})")
+                    NexusAnalyst._connection_message_shown = True
             except Exception as e:
                 print(f"❌ Nexus Analyst Error: {e}")
-        else:
+        elif not NexusAnalyst._connection_message_shown:
             print("⚠️ Nexus Analyst: No OPENAI_API_KEY found.")
+            NexusAnalyst._connection_message_shown = True
 
     # Character descriptions for personality-aware analysis
     PERSONALITY_PROMPTS = {
