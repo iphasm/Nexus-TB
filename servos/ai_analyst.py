@@ -9,12 +9,19 @@ class NexusAnalyst:
     def __init__(self):
         """Initializes the Nexus Analyst with OpenAI API."""
         self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")
+        # Load model configuration from system_directive
+        try:
+            from system_directive import OPENAI_MODEL
+            self.model = OPENAI_MODEL
+        except ImportError:
+            self.model = os.getenv("OPENAI_MODEL", "gpt-4o")  # Fallback to gpt-4o
+
         self.client = None
-        
+
         if self.api_key:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                # logger.debug("🧠 Nexus Analyst: CONNECTED.") 
+                print(f"🧠 Nexus Analyst: CONNECTED (Model: {self.model})")
             except Exception as e:
                 print(f"❌ Nexus Analyst Error: {e}")
         else:
@@ -115,7 +122,7 @@ class NexusAnalyst:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": f"Eres el personaje: {char_desc}. Mantén su personalidad al 100% durante toda la respuesta. Responde SOLO en español con texto plano."},
                     {"role": "user", "content": prompt}
@@ -214,12 +221,12 @@ class NexusAnalyst:
             """
 
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a Senior Financial Analyst. Use Chain-of-Thought reasoning. Output valid JSON only."},
                     {"role": "user", "content": prompt}
                 ],
-                response_format={"type": "json_object"}, 
+                response_format={"type": "json_object"},
                 max_tokens=200
             )
             
@@ -284,7 +291,7 @@ class NexusAnalyst:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                      {"role": "system", "content": "You are an expert financial analyst AI."},
                      {"role": "user", "content": prompt}
@@ -347,7 +354,7 @@ class NexusAnalyst:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=250
             )

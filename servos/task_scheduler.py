@@ -27,6 +27,12 @@ class TaskScheduler:
     
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY", "").strip("'\" ")
+        # Load model configuration from system_directive
+        try:
+            from system_directive import OPENAI_MODEL
+            self.model = OPENAI_MODEL
+        except ImportError:
+            self.model = os.getenv("OPENAI_MODEL", "gpt-4o")  # Fallback to gpt-4o
         self.client = None
         self.scheduler = None
         self.action_handlers: Dict[str, Callable] = {}
@@ -35,7 +41,7 @@ class TaskScheduler:
         if self.api_key:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                print("✅ TaskScheduler: OpenAI client initialized")
+                print(f"✅ TaskScheduler: OpenAI client initialized (Model: {self.model})")
             except Exception as e:
                 print(f"⚠️ TaskScheduler: OpenAI init failed: {e}")
         else:
@@ -147,7 +153,7 @@ Respond with JSON:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

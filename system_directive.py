@@ -222,6 +222,9 @@ SHARK_TARGETS = [
 # Defaults - DB persisted values will override on startup
 AI_FILTER_ENABLED = True
 ML_CLASSIFIER_ENABLED = True
+
+# OpenAI Configuration
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # Default to gpt-4o
 # --- RISK & MANAGEMENT ---
 RISK_PER_TRADE_PCT = 0.01
 ALLOW_SLTP_UPDATE = True
