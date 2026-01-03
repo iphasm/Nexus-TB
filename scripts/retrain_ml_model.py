@@ -48,6 +48,11 @@ def retrain_ml_model():
     print("\n🏃 Ejecutando entrenamiento...")
     print("=" * 60)
 
+    # Configurar entorno para ejecución correcta
+    env = os.environ.copy()
+    current_dir = os.getcwd()
+    env["PYTHONPATH"] = current_dir
+
     cmd = [
         sys.executable,
         train_script,
@@ -58,7 +63,8 @@ def retrain_ml_model():
         cmd.extend(["--symbols", str(symbols_limit)])
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800,  # 30 min timeout
+                              env=env, cwd=current_dir)
 
         print("STDOUT:")
         print(result.stdout)
