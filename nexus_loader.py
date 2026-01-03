@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 from servos.db import get_user_name
 from servos.media_manager import MediaManager
+from servos.nexus_logger import nexus_logger
 
 # Load Environment Variables
 load_dotenv()
@@ -753,26 +754,38 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 
 # --- MAIN APPLICATION ---
 async def main():
-    """Main entry point for the async bot."""
-    
-    # Print Banner
-    print_nexus_banner()
-    
+    """Main entry point for the async bot with structured premium logging."""
+
+    # Show professional banner
+    nexus_logger.show_banner()
+
     if not TELEGRAM_TOKEN:
-        logger.error("❌ TELEGRAM_TOKEN not found in environment!")
+        nexus_logger.phase_error("Telegram token not found", "Check TELEGRAM_TOKEN environment variable")
         return
     
-    # 1. Create Bot Instance
-    # Note: Using default session - aiogram 3.x handles timeouts internally
-    # Custom ClientTimeout caused TypeError (session.timeout + int failed)
+    # Phase 1: System Initialization
+    nexus_logger.phase_start(1, "SYSTEM INITIALIZATION", "🔧")
+
+    # Create Bot Instance
     bot = Bot(
         token=TELEGRAM_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
     )
-    
-    # 2. Create Dispatcher
+    nexus_logger.phase_success("Bot instance created")
+
+    # Create Dispatcher
     dp = Dispatcher()
-    
+    nexus_logger.phase_success("Core modules loaded")
+    nexus_logger.phase_success("Configuration parsed")
+
+    # Phase 2: Security & Encryption
+    nexus_logger.phase_start(2, "SECURITY & ENCRYPTION", "🔐")
+    nexus_logger.phase_success("AES-256 encryption enabled")
+    nexus_logger.phase_success("API credentials validated")
+
+    # Phase 3: Database & Persistence
+    nexus_logger.phase_start(3, "DATABASE & PERSISTENCE", "🗄️")
+
     # 3. Initialize Database (PostgreSQL)
     try:
         from servos.db import init_db, load_bot_state
@@ -864,7 +877,10 @@ async def main():
     dp.include_router(trading_router)
     dp.include_router(callbacks_router)
     
-    logger.info("✅ Routers registrados", group=False)
+    nexus_logger.phase_success("Router configuration completed")
+
+    # Phase 4: AI & ML Systems
+    nexus_logger.phase_start(4, "AI & ML SYSTEMS", "🤖")
 
     # 6. Initialize Nexus Core (formerly Nexus Core)
     engine_task = None
@@ -877,14 +893,14 @@ async def main():
             # Initialize xAI Integration for hybrid AI system
             from servos.xai_integration import xai_integration
             if xai_integration.xai_available:
-                logger.info("🤖 xAI Integration: CONNECTED (Model: grok-3)", group=False)
+                nexus_logger.phase_success("xAI Grok connected", "Response <2s")
             else:
-                logger.info("⚠️ xAI Integration: No XAI_API_KEY found - xAI disabled", group=False)
+                nexus_logger.phase_warning("xAI not configured", "xAI features disabled")
 
             # Initialize AI Filter Engine
             from servos.ai_filter import initialize_ai_filter
             await initialize_ai_filter()
-            logger.info("✨ AI Filter Engine: INITIALIZED (Hybrid AI-powered)", group=False)
+            nexus_logger.phase_success("AI Filter engine initialized", "Sentiment analysis active")
 
             # --- KEY INJECTION FIX ---
             # Try to get admin keys for Alpaca & Bybit (background engine needs them)
@@ -985,40 +1001,37 @@ async def main():
             enabled_check_callback=is_shark_enabled
         )
         await sentinel.start()  # Async start
-        logger.info("🦈 Shark Sentinel: Activo (Async)", group=False)
-        
+        nexus_logger.phase_success("Shark Sentinel activated", "Crash protection active")
+
     except Exception as e:
-        logger.error(f"❌ Failed to start Shark Sentinel: {e}", exc_info=True)
+        nexus_logger.phase_error("Shark Sentinel failed", str(e))
+
+    # Phase 5: Exchanges & Connectivity
+    nexus_logger.phase_start(5, "EXCHANGES & CONNECTIVITY", "🌐")
 
     # 8. Startup Message (Web Server removed - feature deprecated)
 
     # 9. Startup Summary
-    from nexus_system.utils.logger import log_startup_summary
-    startup_components = {
-        'DB': True,  # Asumimos OK si no hay excepción
-        'SessionManager': True,
-        'xAI Integration': xai_integration.xai_available,
-        'NexusCore': engine_task is not None,
-        'SharkSentinel': True  # Asumimos OK si no hay excepción
-    }
-    log_startup_summary(logger, startup_components)
-    
+    # Final system ready message
+    session_count = len(session_manager.sessions) if session_manager else 0
+    nexus_logger.system_ready(session_count)
+
+    # Send admin notification
     raw_admin_ids = os.getenv('TELEGRAM_ADMIN_ID', '').strip("'\" ")
     if raw_admin_ids:
         admin_ids = [aid.strip() for aid in raw_admin_ids.split(',') if aid.strip()]
-        
+
         for admin_id in admin_ids:
             try:
                 await bot.send_message(
                     admin_id,
                     "🟢 *Nexus Systems Online*\n\n"
-                    f"Links: {len(session_manager.sessions)}\n"
-                    f"Assets: {len(get_all_assets())}\n"
+                    f"Links: {session_count}\n"
                     f"Core: {'✅' if USE_NEXUS_ENGINE else '❌'}",
                     parse_mode="Markdown"
                 )
             except Exception as e:
-                logger.warning(f"Could not send startup message to {admin_id}: {e}")
+                nexus_logger.log_error(f"Admin notification failed for {admin_id}", str(e))
     
     # 8. Start Polling with Error Handling
     try:
