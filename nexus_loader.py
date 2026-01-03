@@ -384,10 +384,35 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             # Check liquidity on the SAME exchange we already routed to (critical in multi-exchange mode)
             has_liquidity, available_balance, liquidity_msg = await session.check_liquidity(symbol, exchange=target_exchange)
 
-            # If insufficient balance, force WATCHER mode behavior regardless of actual mode
+            # EXCHANGE FALLBACK LOGIC: If target exchange has insufficient balance,
+            # try to fallback to another available exchange with sufficient balance
+            if not has_liquidity and session.bridge:
+                original_exchange = target_exchange
+                user_prefs = session.get_exchange_preferences()
+
+                # For crypto symbols, try fallback between BINANCE ↔ BYBIT
+                if 'USDT' in symbol and target_exchange in ['BINANCE', 'BYBIT']:
+                    fallback_exchange = 'BYBIT' if target_exchange == 'BINANCE' else 'BINANCE'
+
+                    # Check if fallback exchange is available and has balance
+                    if (fallback_exchange in user_prefs and user_prefs[fallback_exchange] and
+                        fallback_exchange in session.bridge.adapters):
+
+                        # Check liquidity on fallback exchange
+                        fallback_liquidity, fallback_balance, _ = await session.check_liquidity(symbol, exchange=fallback_exchange)
+
+                        if fallback_liquidity:
+                            logger.info(f"🔄 {session.chat_id}: Fallback {symbol} de {original_exchange} → {fallback_exchange} (saldo insuficiente)", group=True)
+                            target_exchange = fallback_exchange
+                            has_liquidity, available_balance, liquidity_msg = fallback_liquidity, fallback_balance, f"Balance OK en {fallback_exchange}"
+                        else:
+                            logger.info(f"⚠️ {session.chat_id}: Fallback rechazado - {fallback_exchange} tampoco tiene saldo suficiente", group=True)
+
+            # Check balance per exchange - force WATCHER only for the exchange without balance
+            # Other exchanges with sufficient balance can still execute in PILOT/COPILOT mode
             force_watcher_mode = not has_liquidity
             if force_watcher_mode:
-                logger.info(f"⏭️ {session.chat_id}: Balance insuficiente para {symbol} - Forzando modo WATCHER", group=True)
+                logger.info(f"⏭️ {session.chat_id}: Balance insuficiente para {symbol} en {target_exchange} - Forzando modo WATCHER solo para este exchange", group=True)
 
             # Calculate SL/TP/TS preview
             sl_prev, tp_prev, ts_prev = session.get_trade_preview(symbol, side, price) if price else (0, 0, 0)
@@ -399,8 +424,8 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
             profile = personality_manager.PROFILES.get(p_key, personality_manager.PROFILES.get('STANDARD_ES'))
             title = profile.get('NAME', 'Nexus Bot')
             quote = random.choice(profile.get('GREETING', ["Online."]))
-            
-            # Determine effective mode (force WATCHER if insufficient balance)
+
+            # Determine effective mode (force WATCHER only if THIS exchange has insufficient balance)
             effective_mode = 'WATCHER' if force_watcher_mode else mode
 
             if effective_mode == 'WATCHER':
