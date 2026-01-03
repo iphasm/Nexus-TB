@@ -27,7 +27,8 @@ colorama==0.4.6
 
 # Railway specific - may not need all of these
 gunicorn==21.2.0
-psycopg2-binary==2.9.7
+psycopg2-binary==2.9.7  # Legacy synchronous support
+asyncpg==0.29.0  # New asynchronous PostgreSQL driver
 
 # Additional dependencies that might be needed
 ta==0.10.2
