@@ -3,15 +3,9 @@
 import os
 import sys
 
-# Calcular project_root de manera confiable
-import inspect
-current_frame = inspect.currentframe()
-if current_frame and '__file__' in current_frame.f_globals:
-    # Si estamos ejecutando como script
-    project_root = os.path.dirname(os.path.abspath(current_frame.f_globals['__file__']))
-else:
-    # Si estamos ejecutando como spec, usar SPEC
-    project_root = os.path.dirname(os.path.abspath(SPEC))
+# Calcular rutas de manera genérica
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
 
 a = Analysis(
     ['scripts/ml_trainer_gui.py'],

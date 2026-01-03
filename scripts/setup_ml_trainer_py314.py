@@ -134,22 +134,23 @@ def create_simplified_spec():
 
     # Calcular rutas absolutas correctamente
     current_dir = os.getcwd()
-    spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
+
+    spec_content = '''# -*- mode: python ; coding: utf-8 -*-
 
 import os
 import sys
 
-project_root = r"{current_dir}"
+project_root = r"''' + current_dir + '''"
 
 a = Analysis(
     ['scripts/ml_trainer_gui.py'],
-    pathex=[r"{current_dir}"],
+    pathex=[r"''' + current_dir + '''"],
     binaries=[],
     datas=[
-        (r"{os.path.join(current_dir, 'system_directive.py')}", '.'),
-        (r"{os.path.join(current_dir, 'nexus_system')}", 'nexus_system'),
-        (r"{os.path.join(current_dir, 'src')}", 'src'),
-        (r"{os.path.join(current_dir, 'servos')}", 'servos'),
+        (r"''' + os.path.join(current_dir, 'system_directive.py') + '''", '.'),
+        (r"''' + os.path.join(current_dir, 'nexus_system') + '''", 'nexus_system'),
+        (r"''' + os.path.join(current_dir, 'src') + '''", 'src'),
+        (r"''' + os.path.join(current_dir, 'servos') + '''", 'servos'),
     ],
     hiddenimports=[
         'tkinter', 'tkinter.ttk', 'tkinter.scrolledtext',
@@ -223,9 +224,39 @@ coll = COLLECT(
     print(f"✅ Especificaciones creadas: {spec_file}")
     return spec_file
 
+def pre_build_validation():
+    """Validaciones previas a la construcción."""
+    print("🔍 Ejecutando validaciones pre-compilación...")
+
+    # Verificar archivos críticos
+    critical_files = [
+        'scripts/ml_trainer_gui.py',
+        'system_directive.py',
+        'src/ml/train_cortex.py',
+        os.path.join('nexus_system', 'memory_archives'),
+        'servos'
+    ]
+
+    missing_files = []
+    for file_path in critical_files:
+        if not os.path.exists(file_path):
+            missing_files.append(file_path)
+
+    if missing_files:
+        print(f"❌ Archivos críticos faltantes: {missing_files}")
+        return False
+
+    print(f"✅ {len(critical_files)} archivos críticos verificados")
+    return True
+
 def build_executable_py314(spec_file):
     """Construye ejecutable optimizado para Python 3.14."""
     print("🏗️ Construyendo ejecutable para Python 3.14...")
+
+    # Validaciones previas
+    if not pre_build_validation():
+        print("❌ Validaciones fallidas - abortando compilación")
+        return False
 
     # Limpiar directorios problemáticos antes de empezar
     build_dir = "build"
@@ -553,6 +584,102 @@ def main():
 
     else:
         print("❌ Error en construcción del ejecutable")
+
+def create_distribution_package():
+    """Crea paquete de distribución listo para compartir."""
+    print("📦 Creando paquete de distribución...")
+
+    exe_dir = "dist/Nexus_ML_Trainer_PY314"
+    if not os.path.exists(exe_dir):
+        print("❌ Directorio de ejecutable no encontrado")
+        return False
+
+    # Crear directorio de distribución
+    dist_dir = "Nexus_ML_Trainer_PY314_Distribution"
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir, ignore_errors=True)
+
+    os.makedirs(dist_dir, exist_ok=True)
+
+    # Copiar ejecutable
+    shutil.copytree(exe_dir, os.path.join(dist_dir, "Nexus_ML_Trainer_PY314"))
+
+    # Crear README
+    readme_content = f"""# Nexus ML Trainer v2.0 - Python 3.14 Edition
+
+## 🚀 Descripción
+Entrenador de Machine Learning para criptomonedas con interfaz gráfica completa.
+Optimizado para Python 3.14 con selección de activos por categorías.
+
+## 🎯 Características
+- Selección de activos por categorías (Major Caps, Meme Coins, DeFi, etc.)
+- Configuración granular de indicadores técnicos
+- Entrenamiento XGBoost con validación cruzada
+- Interfaz gráfica intuitiva con progreso en tiempo real
+- Backup automático de modelos anteriores
+
+## 📋 Requisitos del Sistema
+- Windows 10/11 (64-bit)
+- Mínimo 4GB RAM
+- 500MB espacio libre
+
+## 🏃‍♂️ Cómo Usar
+1. Extraiga todos los archivos
+2. Ejecute `Nexus_ML_Trainer_PY314.exe`
+3. Seleccione activos y configure features
+4. Inicie el entrenamiento
+
+## 📊 Información Técnica
+- Python 3.14 optimizado
+- pandas-ta-openbb para indicadores técnicos
+- XGBoost para clasificación
+- Interfaz Tkinter moderna
+
+## 📞 Soporte
+Para soporte técnico o reportes de bugs, contacte al equipo de desarrollo.
+
+---
+Generado automáticamente - {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+
+    with open(os.path.join(dist_dir, "README.md"), 'w', encoding='utf-8') as f:
+        f.write(readme_content)
+
+    # Crear archivo ZIP
+    zip_name = f"Nexus_ML_Trainer_PY314_{__import__('datetime').datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+
+    try:
+        shutil.make_archive(zip_name.replace('.zip', ''), 'zip', dist_dir)
+        print(f"✅ Paquete creado: {zip_name}")
+        print(f"📁 Ubicación: {os.path.abspath(zip_name)}")
+
+        # Calcular tamaño
+        zip_size = os.path.getsize(zip_name) / (1024 * 1024)  # MB
+        print(f"📏 Tamaño: {zip_size:.1f} MB")
+
+        return True
+    except Exception as e:
+        print(f"❌ Error creando ZIP: {e}")
+        return False
+
+def main():
+    """Función principal con opción de crear distribución."""
+    print("🐍 INSTALADOR PYTHON 3.14: Nexus ML Trainer")
+    print("=" * 60)
+    print("Versión optimizada para Python 3.14")
+    print("Excluye pandas-ta por compatibilidad")
+    print()
+
+    # Ejecutar instalación completa
+    success = install_dependencies_py314()
+
+    if success:
+        spec_file = create_simplified_spec()
+        if spec_file and build_executable_py314(spec_file):
+            # Crear paquete de distribución
+            create_distribution_package()
+        else:
+            print("❌ Falló la construcción del ejecutable")
 
 if __name__ == "__main__":
     main()
