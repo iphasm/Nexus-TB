@@ -658,19 +658,42 @@ class BybitAdapter(IExchangeAdapter):
             positions = await self._exchange.fetch_positions(params={'settle': 'USDT'})
             active = []
             for p in positions:
-                amt = float(p.get('contracts', 0))
-                if amt != 0:
-                    active.append({
-                        'symbol': self._unformat_symbol(p.get('symbol', '')),
-                        'side': 'LONG' if p.get('side') == 'long' else 'SHORT',
-                        'quantity': abs(amt),
-                        'entryPrice': float(p.get('entryPrice', 0)),
-                        'unrealizedPnl': float(p.get('unrealizedPnl', 0)),
-                        'leverage': int(p.get('leverage', 1)),
-                        'takeProfit': float(p.get('takeProfitPrice', 0) or 0),
-                        'stopLoss': float(p.get('stopLossPrice', 0) or 0),
-                        'exchange': 'BYBIT'
-                    })
+                try:
+                    # Safe extraction with None handling
+                    contracts = p.get('contracts')
+                    amt = float(contracts) if contracts is not None else 0.0
+
+                    if amt != 0:
+                        # Safe field extraction
+                        symbol = self._unformat_symbol(p.get('symbol') or '')
+                        side = p.get('side', '').lower()
+                        position_side = 'LONG' if side == 'long' else 'SHORT'
+
+                        # Safe numeric conversions
+                        entry_price = float(p.get('entryPrice') or 0)
+                        unrealized_pnl = float(p.get('unrealizedPnl') or 0)
+                        leverage = int(p.get('leverage') or 1)
+                        take_profit = float(p.get('takeProfitPrice') or 0)
+                        stop_loss = float(p.get('stopLossPrice') or 0)
+
+                        active.append({
+                            'symbol': symbol,
+                            'side': position_side,
+                            'quantity': abs(amt),
+                            'entryPrice': entry_price,
+                            'unrealizedPnl': unrealized_pnl,
+                            'leverage': leverage,
+                            'takeProfit': take_profit,
+                            'stopLoss': stop_loss,
+                            'exchange': 'BYBIT'
+                        })
+                except (ValueError, TypeError) as field_error:
+                    # Log individual position parsing errors but continue
+                    symbol = p.get('symbol', 'UNKNOWN')
+                    print(f"⚠️ BybitAdapter: Error parsing position {symbol}: {field_error}")
+                    print(f"   Position data: {p}")
+                    continue
+
             return active
         except Exception as e:
             # Parse error
