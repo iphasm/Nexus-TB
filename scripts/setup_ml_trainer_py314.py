@@ -359,10 +359,15 @@ except ImportError as e:
             print("🔄 Intentando método alternativo más simple...")
 
             # Método alternativo: construir directamente sin .spec
+            alt_temp_dir = os.path.join(os.getcwd(), 'pyinstaller_temp_alt')
+            if not os.path.exists(alt_temp_dir):
+                os.makedirs(alt_temp_dir, exist_ok=True)
+
             alt_cmd = [
                 sys.executable, '-m', 'PyInstaller',
                 '--clean',
                 '--noconfirm',
+                '--workpath', alt_temp_dir,  # Directorio de trabajo separado
                 '--onedir',
                 '--name', 'Nexus_ML_Trainer_PY314_Simple',
                 'scripts/ml_trainer_gui.py'
@@ -371,18 +376,37 @@ except ImportError as e:
             print(f"🔧 Comando alternativo: {' '.join(alt_cmd)}")
 
             try:
-                alt_result = subprocess.run(alt_cmd, capture_output=True, text=True, timeout=600)
+                alt_result = subprocess.run(alt_cmd, capture_output=True, text=True, timeout=600, env=env)
                 if alt_result.returncode == 0:
                     print("✅ Ejecutable construido exitosamente con método alternativo!")
                     exe_dir = "dist/Nexus_ML_Trainer_PY314_Simple"
                     exe_file = os.path.join(exe_dir, "Nexus_ML_Trainer_PY314_Simple.exe")
+
+                    # Limpiar directorio temporal alternativo
+                    try:
+                        if os.path.exists(alt_temp_dir):
+                            shutil.rmtree(alt_temp_dir, ignore_errors=True)
+                    except Exception:
+                        pass
                 else:
                     print("❌ Método alternativo también falló")
                     print(f"   STDOUT: {alt_result.stdout[-500:]}")
                     print(f"   STDERR: {alt_result.stderr[-500:]}")
+                    # Limpiar directorio temporal alternativo en caso de error
+                    try:
+                        if os.path.exists(alt_temp_dir):
+                            shutil.rmtree(alt_temp_dir, ignore_errors=True)
+                    except Exception:
+                        pass
                     return False
             except Exception as e:
                 print(f"❌ Error en método alternativo: {e}")
+                # Limpiar directorio temporal alternativo en caso de error
+                try:
+                    if os.path.exists(alt_temp_dir):
+                        shutil.rmtree(alt_temp_dir, ignore_errors=True)
+                except Exception:
+                    pass
                 return False
 
         # Verificar archivos generados (común para ambos métodos)

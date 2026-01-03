@@ -3,7 +3,7 @@
 import os
 import sys
 
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(SPEC)))
+project_root = os.path.dirname(os.path.abspath(SPEC))
 
 a = Analysis(
     ['scripts/ml_trainer_gui.py'],
@@ -25,7 +25,9 @@ a = Analysis(
         'xgboost.core', 'xgboost.sklearn',
         'joblib.numpy_pickle_utils', 'joblib.compression',
         'yfinance.utils', 'yfinance.ticker',
-        # pandas-ta EXCLUIDO por compatibilidad con Python 3.14
+        # pandas-ta-openbb compatible con Python 3.14 (instalado desde PyPI)
+        'pandas_ta', 'pandas_ta.momentum', 'pandas_ta.trend', 'pandas_ta.volatility',
+        'pandas_ta.overlap', 'pandas_ta.volume', 'pandas_ta.statistics',
     ],
     hookspath=[],
     hooksconfig={},
@@ -33,8 +35,8 @@ a = Analysis(
     excludes=[
         'tkinter.test', 'test', 'unittest', 'pdb', 'pydoc',
         'doctest', 'sqlite3', 'dbm', 'gdbm', 'readline', 'rlcompleter',
-        # Excluir pandas-ta y dependencias problemáticas
-        'pandas_ta', 'numba', 'llvmlite',
+        # Excluir dependencias problemáticas (pandas-ta-openbb ya incluido)
+        'numba', 'llvmlite',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
