@@ -300,19 +300,42 @@ async def cmd_startup(message: Message):
 async def cmd_help(message: Message):
     """
     Guía de Comandos - Referencia Completa
-    
+
     Proporciona una referencia organizada de todos los comandos disponibles,
     agrupados por categorías lógicas para facilitar la navegación.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Log usage for analytics
+    user_id = message.from_user.id if message.from_user else "unknown"
+    logger.info(f"📖 Help command requested by user {user_id}")
+
     is_admin = is_authorized_admin(str(message.chat.id))
+
+    # Contador de comandos disponibles
+    command_count = {
+        'dashboard': 7,  # start, dashboard, scanner, price, pnl, sync, net
+        'trading': 9,    # long, short, long_*, short_*, buy, close, closeall
+        'modos': 5,      # pilot, copilot, watcher, mode, resetpilot
+        'ia': 4,         # analyze, news, fomc, aistatus
+        'config': 8,     # config, strategies, assets, icons, togglegroup, personality, leverage, margin
+        'seguridad': 3,  # exchanges, set_binance, delete_keys
+        'utilidades': 5, # timezone, cooldowns, help, about, strategy
+        'admin': 7 if is_admin else 0,  # subs, addsub, addadmin, remsub, wsstatus, debug, reset_assets
+        'info': 3        # about, strategy, startup
+    }
+
+    total_commands = sum(command_count.values())
     
     # Parte 1: Comandos Principales
     help_part1 = (
-        "🤖 **NEXUS TRADING BOT v7**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🤖 **NEXUS TRADING BOT v7**\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📋 **{total_commands} comandos disponibles**\n\n"
 
         "📊 **DASHBOARD & MERCADO**\n"
-        "/start - Centro de comando principal\n"
+        "/start - Centro de comando principal ⭐\n"
         "/dashboard - Balance, posiciones, PnL\n"
         "/scanner - Diagnóstico de mercado\n"
         "/price SYMBOL - Cotización rápida\n"
@@ -321,41 +344,41 @@ async def cmd_help(message: Message):
         "/net - Red y latencia\n\n"
 
         "🎯 **TRADING MANUAL**\n"
-        "/long SYMBOL - Abrir posición LONG (auto-routing)\n"
-        "/short SYMBOL - Abrir posición SHORT (auto-routing)\n"
-        "/long_binance SYMBOL - LONG en Binance\n"
-        "/short_binance SYMBOL - SHORT en Binance\n"
-        "/long_bybit SYMBOL - LONG en Bybit\n"
-        "/short_bybit SYMBOL - SHORT en Bybit\n"
-        "/buy SYMBOL - Compra SPOT\n"
-        "/close SYMBOL - Cerrar posición\n"
-        "/closeall - Cierre de emergencia\n\n"
+        "/long SYMBOL - Abrir LONG (auto-routing inteligente)\n"
+        "/short SYMBOL - Abrir SHORT (auto-routing inteligente)\n"
+        "/long_binance SYMBOL - LONG específico en Binance\n"
+        "/short_binance SYMBOL - SHORT específico en Binance\n"
+        "/long_bybit SYMBOL - LONG específico en Bybit\n"
+        "/short_bybit SYMBOL - SHORT específico en Bybit\n"
+        "/buy SYMBOL - Compra SPOT (Binance)\n"
+        "/close SYMBOL - Cerrar posición específica\n"
+        "/closeall - Cierre de emergencia total\n\n"
 
         "🕹️ **MODOS OPERATIVOS**\n"
-        "/pilot - Trading 100% autónomo\n"
-        "/copilot - Confirmación manual\n"
-        "/watcher - Solo alertas\n"
-        "/mode PRESET - Ronin/Guardian/Nexus\n"
-        "/resetpilot - Reset Circuit Breaker\n"
+        "/pilot - Trading 100% autónomo 🤖\n"
+        "/copilot - Confirmación manual requerida\n"
+        "/watcher - Solo alertas, sin trading\n"
+        "/mode PRESET - Cambiar preset: Ronin/Guardian/Nexus\n"
+        "/resetpilot - Reset Circuit Breaker de seguridad\n"
     )
     
     # Parte 2: IA y Configuración
     help_part2 = (
-        "✨ **INTELIGENCIA ARTIFICIAL**\n"
-        "/analyze SYMBOL - Análisis IA profundo\n"
-        "/news - Boletín de mercado\n"
-        "/fomc - Análisis de la FED\n"
-        "/aistatus - Estado del sistema de IA\n\n"
+        "🤖 **INTELIGENCIA ARTIFICIAL (Sistema Híbrido)**\n"
+        "/analyze SYMBOL - Análisis IA profundo (GPT-4o)\n"
+        "/news - Boletín de mercado con IA\n"
+        "/fomc - Análisis de la FED (FOMC)\n"
+        "/aistatus - Estado completo sistemas IA ⭐\n\n"
 
         "⚙️ **CONFIGURACIÓN**\n"
-        "/config - Panel interactivo ⭐\n"
-        "/strategies - Motores de señales\n"
-        "/assets - Gestión de activos\n"
-        "/icons - Gestión de logos\n"
-        "/togglegroup - Filtrar grupos\n"
-        "/personality - Cambiar voz del bot\n"
-        "/set_leverage - Apalancamiento\n"
-        "/set_margin - Margen por trade\n\n"
+        "/config - Panel interactivo completo ⭐\n"
+        "/strategies - Gestionar motores de señales\n"
+        "/assets - Gestión de activos permitidos\n"
+        "/icons - Personalizar logos de activos\n"
+        "/togglegroup - Filtrar grupos de activos\n"
+        "/personality - Cambiar personalidad del bot\n"
+        "/set_leverage - Configurar apalancamiento\n"
+        "/set_margin - Margen máximo por trade\n\n"
 
         "🔐 **SEGURIDAD & EXCHANGES**\n"
         "/exchanges - Panel de conexiones ⭐\n"
@@ -363,11 +386,11 @@ async def cmd_help(message: Message):
         "/delete_keys - Borrar sesión\n\n"
 
         "📅 **UTILIDADES**\n"
-        "/schedule - Programar alertas\n"
-        "/tasks - Ver tareas activas\n"
-        "/cancel ID - Cancelar tarea\n"
-        "/timezone - Zona horaria\n"
-        "/cooldowns - Ver cooldowns\n"
+        "/timezone - Configurar zona horaria\n"
+        "/cooldowns - Ver tiempos de espera activos\n"
+        "/help - Esta guía completa\n"
+        "/about - Información sobre Nexus\n"
+        "/strategy - Lógica de señales\n"
     )
     
     # Parte 3: Admin e Información
@@ -376,36 +399,47 @@ async def cmd_help(message: Message):
     if is_admin:
         help_part3 += (
             "\n👑 **ADMINISTRACIÓN**\n"
-            "/subs - Listar usuarios\n"
-            "/addsub - Agregar suscriptor\n"
-            "/addadmin - Agregar admin\n"
+            "/subs - Gestionar suscriptores\n"
+            "/addsub - Agregar nuevo usuario\n"
+            "/addadmin - Promover a administrador\n"
             "/remsub - Eliminar usuario\n"
-            "/wsstatus - Estado WebSocket\n"
-            "/ml_mode - Toggle ML Classifier\n"
-            "/retrain - Reentrenar modelo\n"
-            "/reset_assets - Limpiar assets\n"
-            "/debug - Diagnóstico sistema\n"
+            "/wsstatus - Estado conexiones WebSocket\n"
+            "/debug - Diagnóstico completo del sistema\n"
+            "/reset_assets - Limpiar lista de activos\n"
         )
 
     help_part3 += (
         "\n📖 **INFORMACIÓN**\n"
-        "/about - Sobre Nexus\n"
-        "/strategy - Lógica de señales\n"
-        "/startup - Guía de inicio\n\n"
+        "/about - Sobre Nexus Trading Bot\n"
+        "/strategy - Lógica de señales y algoritmos\n"
+        "/startup - Guía completa de inicio\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🤖 **Sistema IA Híbrido Activo**\n"
+        "• GPT-4o + Grok trabajando juntos\n"
+        "• Filtrado inteligente de señales\n"
+        "• Análisis contextual avanzado\n\n"
         "💡 _Tip: Usa /start para navegación rápida_"
     )
     
+    # Combinar todas las partes
+    full_help = help_part1 + help_part2 + help_part3
+
     try:
-        await message.answer(help_part1, parse_mode="Markdown")
-        await message.answer(help_part2 + help_part3, parse_mode="Markdown")
+        # Intentar enviar en un solo mensaje con markdown
+        await message.answer(full_help, parse_mode="Markdown")
     except Exception as e:
-        # Fallback sin markdown
-        clean = (help_part1 + help_part2 + help_part3).replace('*', '').replace('`', '').replace('\\_', '_')
         try:
-            await message.answer(clean)
-        except:
-            await message.answer("❌ Error mostrando ayuda. Usa /start para navegar.")
+            # Fallback: enviar en dos partes si es muy largo
+            if len(full_help) > 4000:  # Límite aproximado de Telegram
+                await message.answer(help_part1, parse_mode="Markdown")
+                await message.answer(help_part2 + help_part3, parse_mode="Markdown")
+            else:
+                # Limpiar markdown y enviar completo
+                clean = full_help.replace('*', '').replace('`', '').replace('\\_', '_')
+                await message.answer(clean)
+        except Exception as e2:
+            # Último fallback: mensaje simple
+            await message.answer("❌ Error mostrando ayuda completa. Usa /start para navegación básica.", parse_mode="Markdown")
         
 
 
