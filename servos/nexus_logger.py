@@ -14,6 +14,8 @@ class NexusLogger:
     Maintains clean banner display and logical initialization sequence.
     """
 
+    _global_banner_shown = False  # Class-level flag to prevent duplicate banners
+
     def __init__(self):
         self.phase = 1
         self.total_phases = 5
@@ -34,7 +36,7 @@ class NexusLogger:
 
     def show_banner(self):
         """Display professional Nexus banner without interruptions."""
-        if self.banner_shown:
+        if NexusLogger._global_banner_shown:
             return
 
         banner = """
@@ -59,6 +61,7 @@ class NexusLogger:
         """.strip()
 
         print(banner)
+        NexusLogger._global_banner_shown = True
         self.banner_shown = True
 
     def phase_start(self, phase_num: int, title: str, emoji: str):

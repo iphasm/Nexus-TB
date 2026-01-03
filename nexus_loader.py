@@ -28,6 +28,11 @@ from servos.db import get_user_name
 from servos.media_manager import MediaManager
 from servos.nexus_logger import nexus_logger
 
+# Configure logging to suppress noisy messages during initialization
+logging.getLogger('aiogram').setLevel(logging.WARNING)
+logging.getLogger('aiohttp').setLevel(logging.WARNING)
+logging.getLogger('ccxt').setLevel(logging.WARNING)
+
 # Load Environment Variables
 load_dotenv()
 
@@ -42,22 +47,8 @@ async def safe_send_message(bot: Bot, chat_id: int, text: str, **kwargs):
 
 # --- NEXUS BANNER ---
 def print_nexus_banner():
-    # ANSI Color Codes
-    CYAN = "\033[36m"
-    BLUE = "\033[94m"
-    RESET = "\033[0m"
-    
-    print(f"{CYAN}")
-    print(r"""
-    _   _    _______   __  __   _    _    _____
-   | \ | |  |  _____|  \ \/ /  | |  | |  / ____|
-   |  \| |  | |__       \  /   | |  | | | (___  
-   | . ` |  |  __|      /  \   | |  | |  \___ \ 
-   | |\  |  | |____    / /\ \  | |__| |  ____) |
-   |_| \_|  |______|  /_/  \_\  \____/  |_____/ 
-     N E X U S   C O R E
-    """)
-    print(f"{BLUE}> SYSTEM INITIALIZED. LINK ESTABLISHED. AWAITING DIRECTIVES.{RESET}")
+    """Legacy function - replaced by NexusLogger."""
+    pass
 
 # --- AUTO-TRAIN CORTEX (ML) IF MISSING ---
 # This ensures the ML model exists on Railway's persistent volume
@@ -73,14 +64,10 @@ if not os.path.exists(ML_MODEL_PATH):
             text=True,
             timeout=600  # 10 min max
         )
-        if result.returncode == 0:
-            print("✅ Cortex trained and synaptic weights saved successfully!")
-        else:
-            print(f"⚠️ Cortex Training failed: {result.stderr[-500:]}")
+        if result.returncode != 0:
+            nexus_logger.log_warning(f"ML model training failed: {result.stderr[-100:]}")
     except Exception as e:
-        print(f"⚠️ Cortex Auto-training error: {e}")
-else:
-    print(f"✅ Cortex Model found: {ML_MODEL_PATH}")
+        nexus_logger.log_warning(f"ML model auto-training error: {e}")
 
 # --- SUPPRESS NOISY WARNINGS ---
 import warnings
@@ -115,7 +102,7 @@ for v in _vars_to_log:
     short_name = v.replace('TELEGRAM_', '').replace('BINANCE_', 'BIN_').replace('BYBIT_', 'BYB_').replace('OPENAI_', 'AI_').replace('APCA_API_', 'ALP_').replace('_KEY', '').replace('_SECRET', '').replace('_ID', '').replace('_URL', '')
     if v == 'PROXY_URL': short_name = "PROXY"
     status_parts.append(f"{short_name}:{found}")
-logger.info(f"🔧 Env Vars: {' | '.join(status_parts)}", group=False)  # No agrupar, es un resumen único
+    # Environment validation completed - metrics shown in phase success  # No agrupar, es un resumen único
 
 # ------------------------------------------
 
@@ -756,7 +743,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 async def main():
     """Main entry point for the async bot with structured premium logging."""
 
-    # Show professional banner
+    # IMMEDIATE: Show professional banner FIRST (before any other operations)
     nexus_logger.show_banner()
 
     if not TELEGRAM_TOKEN:
@@ -837,7 +824,7 @@ async def main():
                     for asset in assets:
                          DISABLED_ASSETS.add(asset)
             
-            logger.info(f"✅ Estado cargado: {len(DISABLED_ASSETS)} assets deshabilitados, AI: {system_directive.AI_FILTER_ENABLED}, ML: {system_directive.ML_CLASSIFIER_ENABLED}", group=False)
+            # DB state loaded silently
             # REMOVED: Premium Signals from logging - feature eliminated
             
     except Exception as e:
@@ -852,7 +839,7 @@ async def main():
     # Se mantiene el código comentado por si se necesita en el futuro
     """
     # 5. Initialize Task Scheduler (ELIMINADO - No utilizado)
-    logger.info("🗑️ Task Scheduler: ELIMINADO por solicitud del usuario", group=False)
+    # Task scheduler eliminated by user request
     """
             
     # 6. Register Middleware (BEFORE ROUTERS!)
@@ -914,14 +901,12 @@ async def main():
             ak_sec = os.getenv('ALPACA_API_SECRET') or os.getenv('APCA_API_SECRET_KEY')
             if ak_key and ak_sec:
                 alpaca_keys = {'key': ak_key, 'secret': ak_sec}
-                logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Railway env", group=False)
 
             # Bybit - Railway env vars
             bk_key = os.getenv('BYBIT_API_KEY')
             bk_sec = os.getenv('BYBIT_API_SECRET')
             if bk_key and bk_sec:
                 bybit_keys = {'key': bk_key, 'secret': bk_sec}
-                logger.info(f"🔑 NexusCore: Keys Bybit inyectadas desde Railway env", group=False)
 
             # Fallback to admin session if available (for user-configured keys)
             if admin_id and session_manager:
@@ -933,7 +918,6 @@ async def main():
                         ak_sec = admin_session.config.get('alpaca_secret')
                         if ak_key and ak_sec:
                             alpaca_keys = {'key': ak_key, 'secret': ak_sec}
-                            logger.info(f"🔑 NexusCore: Keys Alpaca inyectadas desde Admin session", group=False)
 
                     # Bybit from session (only if not already set from env)
                     if not bybit_keys:
@@ -941,7 +925,7 @@ async def main():
                         bk_sec = admin_session.config.get('bybit_api_secret')
                         if bk_key and bk_sec:
                             bybit_keys = {'key': bk_key, 'secret': bk_sec}
-                            logger.info(f"🔑 NexusCore: Keys Bybit inyectadas desde Admin session", group=False)
+                            # Keys loaded from admin session
             
             engine = NexusCore(
                 assets=get_all_assets(), 
@@ -960,12 +944,12 @@ async def main():
             
             engine.set_callback(on_signal)
             
-            logger.info("🌌 Nexus Core inicializado", group=False)
+            # Nexus Core initialized
             
             # Wrapper to catch and log exceptions from engine task
             async def run_engine_with_logging():
                 try:
-                    logger.info("🚀 Nexus Core: Loop iniciado", group=False)
+                    # Nexus Core loop started
                     await engine.run()
                 except Exception as e:
                     logger.error(f"❌ Nexus Core: Error crítico - {e}", exc_info=True)
