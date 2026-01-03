@@ -126,34 +126,36 @@ class SharkSentinel:
         
         return None
 
-    async def execute_defense_sequence(self):
+    async def execute_defense_sequence(self, mode: str = "BLACK_SWAN"):
         """
-        Async parallel execution:
-        1. Panic Close ALL Longs (All Sessions)
-        2. Sniper Short Targets (All Sessions)
+        Async parallel execution based on activation mode:
+        - BLACK_SWAN: Panic Close Longs + Sniper Shorts
+        - SHARK_INDEPENDENT: Only Sniper Shorts (no panic close)
         """
-        logger.warning("⚔️ EXECUTING DEFENSE SEQUENCE ⚔️")
-        
+        logger.warning(f"⚔️ EXECUTING DEFENSE SEQUENCE ({mode}) ⚔️")
+
         sessions = self.session_manager.get_all_sessions()
         if not sessions:
             return
 
         tasks = []
 
-        # 1. PANIC CLOSE LONGS (BLACK SWAN - The Shield)
-        # Import here to avoid circular dependency
+        # Get strategy configuration
         try:
             from system_directive import ENABLED_STRATEGIES
             enabled_strategies = ENABLED_STRATEGIES
         except ImportError:
             enabled_strategies = ENABLED_STRATEGIES  # Use fallback
-        
-        if enabled_strategies.get('BLACK_SWAN', True):
+
+        # 1. PANIC CLOSE LONGS (Only for BLACK_SWAN mode)
+        if mode == "BLACK_SWAN" and enabled_strategies.get('BLACK_SWAN', True):
+            logger.warning("🛡️ ACTIVATING BLACK SWAN SHIELD - Closing all longs")
             for session_id, session in sessions.items():
                 tasks.append(self._panic_close_session(session))
 
-        # 2. SNIPER SHORTS (SHARK MODE - The Sword)
+        # 2. SNIPER SHORTS (For both BLACK_SWAN and SHARK_INDEPENDENT)
         if enabled_strategies.get('SHARK', False):
+            logger.warning("🦈 ACTIVATING SHARK MODE - Opening sniper shorts")
             for session_id, session in sessions.items():
                 for target in self.sniper_targets:
                     tasks.append(self._sniper_short_session(session, target))
@@ -161,6 +163,10 @@ class SharkSentinel:
         # Wait for all tasks concurrently
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
+            success_count = sum(1 for result in results if not isinstance(result, Exception))
+            error_count = sum(1 for result in results if isinstance(result, Exception))
+
+            logger.info(f"Defense sequence completed: {success_count} successful, {error_count} errors")
             for result in results:
                 if isinstance(result, Exception):
                     logger.error(f"Defense task failed: {result}")
@@ -184,18 +190,82 @@ class SharkSentinel:
             logger.error(f"Panic Close Error (Session {session.chat_id}): {e}")
 
     async def _sniper_short_session(self, session, symbol: str):
-        """Async task: Open Short for a target."""
+        """Async task: Open Short for a target with duplicate prevention."""
         try:
-            # Check if already short to avoid double entry
-            # execute_short_position has internal check
-            await session.execute_short_position(symbol, atr=0)  # ATR=0 implies market/default params
+            # VALIDATION 1: Check for existing short positions to avoid duplicates
+            positions = await session.get_active_positions()
+            existing_short = any(
+                p.get('symbol') == symbol and
+                float(p.get('quantity', 0) or p.get('positionAmt', 0) or p.get('amt', 0)) < 0
+                for p in positions
+            )
+
+            if existing_short:
+                logger.info(f"Skipping {symbol} - Short position already exists")
+                return
+
+            # VALIDATION 2: Check available balance (rough estimate)
+            try:
+                balance = await session.get_balance()
+                if balance < 50:  # Minimum $50 for shorts
+                    logger.warning(f"Skipping {symbol} - Insufficient balance (${balance:.2f})")
+                    return
+            except Exception:
+                # Continue if balance check fails
+                pass
+
+            # Execute short position with ATR=0 (market/default params)
+            await session.execute_short_position(symbol, atr=0)
+            logger.info(f"🦈 SHARK SHORT executed: {symbol} for session {session.chat_id}")
+
         except Exception as e:
             logger.error(f"Sniper Short Error ({symbol}): {e}")
 
+    async def _calculate_dynamic_threshold(self, current_price: float) -> float:
+        """
+        Calculate dynamic crash threshold based on current market volatility.
+        Higher volatility = higher threshold to avoid false positives.
+        """
+        try:
+            # Get recent volatility from Binance API
+            volatility_pct = await self._get_btc_volatility()
+
+            # Base threshold adjustment based on volatility
+            # High volatility (+3% ATR) = +1% to threshold (less sensitive)
+            # Low volatility (-1% ATR) = -0.5% to threshold (more sensitive)
+            volatility_adjustment = (volatility_pct - 2.0) * 0.5  # ±0.5% per 1% volatility deviation
+
+            dynamic_threshold = self.threshold + volatility_adjustment
+
+            # Ensure reasonable bounds
+            dynamic_threshold = max(1.5, min(dynamic_threshold, 6.0))  # Between 1.5% and 6.0%
+
+            return dynamic_threshold
+
+        except Exception as e:
+            logger.warning(f"Error calculating dynamic threshold: {e}")
+            return self.threshold  # Fallback to static threshold
+
+    async def _get_btc_volatility(self) -> float:
+        """Get current BTC volatility (ATR approximation)."""
+        try:
+            # Fetch 24h stats from Binance
+            url = f"{BINANCE_PUBLIC_API}/ticker/24hr?symbol=BTCUSDT"
+            async with self._http_session.get(url, timeout=HTTP_TIMEOUT_SHORT) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    price_change_pct = abs(float(data['priceChangePercent']))
+                    return price_change_pct  # Use 24h change as volatility proxy
+
+        except Exception:
+            pass
+
+        return 2.0  # Default volatility fallback
+
     async def _monitor_loop(self):
-        """Main async monitoring loop."""
+        """Main async monitoring loop with dynamic thresholds."""
         logger.info("🦈 SHARK MODE SENTINEL ACTIVE (Async Task)")
-        
+
         while self.running:
             try:
                 # 0. Check Toggle
@@ -205,40 +275,63 @@ class SharkSentinel:
 
                 now = asyncio.get_event_loop().time()
                 price = await self.fetch_btc_price_raw()
-                
+
                 if price:
                     self.price_window.append((now, price))
-                    
+
                     # Sliding Window Logic
                     # 1. Pop old entries
                     while self.price_window and self.price_window[0][0] < now - self.window_seconds:
                         self.price_window.popleft()
-                    
+
                     if len(self.price_window) > 1:
                         start_price = self.price_window[0][1]
                         # Calculate drop percentage
                         drop_pct = ((price - start_price) / start_price) * 100
-                        
-                        # LOGIC CHECK
-                        if drop_pct <= -self.threshold and not self.triggered:
-                            self.triggered = True
-                            
+
+                        # Get dynamic threshold based on current volatility
+                        current_threshold = await self._calculate_dynamic_threshold(price)
+
+                        # LOGIC CHECK - Multiple activation modes with dynamic thresholds
+                        activated_mode = None
+
+                        # 1. BLACK SWAN: Major crash detection (dynamic threshold)
+                        if drop_pct <= -current_threshold and not self.triggered:
+                            activated_mode = "BLACK_SWAN"
                             msg = (
                                 f"⚠️⚠️ **BLACK SWAN DETECTED** ⚠️⚠️\n"
-                                f"BTC Crash: {drop_pct:.2f}% en {self.window_seconds}s."
+                                f"BTC Crash: {drop_pct:.2f}% (Threshold: {current_threshold:.1f}%)\n"
+                                f"en {self.window_seconds}s.\n"
+                                f"🚨 ACTIVANDO PROTOCOLO DE DEFENSA COMPLETO"
                             )
-                            logger.critical(msg)
-                            
+
+                        # 2. SHARK INDEPENDENT: Moderate momentum detection (if enabled)
+                        elif (SHARK_INDEPENDENT_MODE and
+                              drop_pct <= -SHARK_MOMENTUM_THRESHOLD and
+                              drop_pct > -current_threshold and  # Not extreme enough for Black Swan
+                              not self.triggered):
+                            activated_mode = "SHARK_INDEPENDENT"
+                            msg = (
+                                f"🦈 **SHARK MOMENTUM DETECTED** 🦈\n"
+                                f"BTC Drop: {drop_pct:.2f}% en {self.window_seconds}s.\n"
+                                f"🎯 ACTIVANDO MODO SHARK INDEPENDIENTE"
+                            )
+
+                        # Execute if any mode activated
+                        if activated_mode:
+                            self.triggered = True
+                            logger.critical(f"{activated_mode}: {msg}")
+
                             # Notify (async callback)
                             if asyncio.iscoroutinefunction(self.notify_callback):
                                 await self.notify_callback(msg)
                             else:
-                                # Fallback for sync callback (shouldn't happen but safe)
+                                # Fallback for sync callback
                                 self.notify_callback(msg)
-                            
-                            # Execute defense sequence
-                            await self.execute_defense_sequence()
-                            
+
+                            # Execute defense sequence with specific mode
+                            await self.execute_defense_sequence(activated_mode)
+
                             # Cooldown to avoid spam loop
                             await asyncio.sleep(SHARK_COOLDOWN_SECONDS)
                             self.triggered = False

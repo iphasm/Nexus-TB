@@ -170,7 +170,7 @@ ENABLED_STRATEGIES = {
     'GRID': True,
     'MEAN_REVERSION': True,
     'BLACK_SWAN': True,
-    'SHARK': False,
+    'SHARK': True,  # ACTIVADO: Capitaliza oportunidades bajistas
     'TREND': True
 }
 
@@ -251,11 +251,16 @@ TELEGRAM_API_BASE = "https://api.telegram.org/bot{token}/sendMessage"
 BINANCE_PUBLIC_API = "https://api.binance.com/api/v3"
 
 # --- SHARK MODE CONFIG ---
-SHARK_CRASH_THRESHOLD_PCT = 3.0  # Percentage drop to trigger
+SHARK_CRASH_THRESHOLD_PCT = 3.0  # Percentage drop to trigger Black Swan
 SHARK_WINDOW_SECONDS = 60  # Rolling window size
 SHARK_MAX_WORKERS = 10  # Thread pool workers (legacy, will be removed)
 SHARK_HEARTBEAT_SECONDS = 1  # Price check interval
 SHARK_COOLDOWN_SECONDS = 300  # Cooldown after trigger (5 minutes)
+
+# --- SHARK INDEPENDENT MODE CONFIG ---
+SHARK_INDEPENDENT_MODE = True  # Allow Shark to activate without Black Swan
+SHARK_MOMENTUM_THRESHOLD = 2.0  # 2% drop for independent Shark activation
+SHARK_MIN_VOLUME_MULTIPLIER = 1.2  # Minimum volume spike for activation
 
 # --- DIAGNOSTICS CONFIG ---
 DIAG_SYMBOL_CRYPTO = "BTCUSDT"

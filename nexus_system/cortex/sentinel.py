@@ -78,20 +78,57 @@ class SentinelStrategy(IStrategy):
 
     def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Sentinel Parameters:
+        Sentinel Parameters with Dynamic Risk Management:
         - Black Swan: N/A (Exits don't use this).
-        - Shark: Aggressive Shorting.
+        - Shark: Aggressive Shorting with adaptive TP/SL.
         """
         cfg = config or {}
         lev = cfg.get('leverage', 7)
         size_pct = cfg.get('max_capital_pct', 0.08)
-        
+
         price = signal.price
         atr = signal.metadata.get('atr', price * 0.02)
-        
+        adx = signal.metadata.get('adx', 25)
+        rsi = signal.metadata.get('rsi', 50)
+
+        # Dynamic position sizing based on signal strength
+        # Higher ADX = stronger trend = larger position
+        adx_multiplier = min(max(adx / 25, 0.5), 2.0)  # 0.5x to 2.0x
+        dynamic_size_pct = size_pct * adx_multiplier
+
+        # Dynamic leverage based on volatility (ATR)
+        # Higher ATR = higher volatility = lower leverage
+        volatility_factor = min(max(atr / price, 0.005), 0.05)  # 0.5% to 5%
+        volatility_multiplier = 1 / (1 + volatility_factor * 10)  # Reduce leverage with volatility
+        dynamic_leverage = max(int(lev * volatility_multiplier), 1)
+
+        # Dynamic Take Profit based on signal strength and market conditions
+        base_tp_distance = atr * 3.0  # Base: 3 ATR
+
+        # Adjust TP based on ADX (stronger signal = larger target)
+        adx_tp_multiplier = 1 + (adx - 25) / 100  # +1% per ADX point above 25
+        tp_distance = base_tp_distance * adx_tp_multiplier
+
+        # Adjust TP based on RSI (oversold = larger potential bounce)
+        rsi_tp_multiplier = 1 + (30 - rsi) / 100 if rsi < 30 else 1.0
+        final_tp_distance = tp_distance * rsi_tp_multiplier
+
+        # Dynamic Stop Loss (tighter for stronger signals)
+        sl_distance = atr * 1.5  # Base: 1.5 ATR
+        sl_multiplier = 1 / adx_tp_multiplier  # Tighter SL for stronger signals
+        final_sl_distance = sl_distance * sl_multiplier
+
         return {
-            "leverage": lev, 
-            "size_pct": size_pct,
-            "stop_loss_price": price + (atr * 2.0), # Trailing style room
-            "take_profit_price": price - (atr * 4.0) # Target deeper flush
+            "leverage": dynamic_leverage,
+            "size_pct": min(dynamic_size_pct, 0.15),  # Cap at 15%
+            "stop_loss_price": price + final_sl_distance,
+            "take_profit_price": price - final_tp_distance,
+            "metadata": {
+                "dynamic_leverage": f"{lev} → {dynamic_leverage}",
+                "dynamic_size": f"{size_pct:.1%} → {dynamic_size_pct:.1%}",
+                "adx_multiplier": f"{adx_tp_multiplier:.2f}",
+                "volatility_factor": f"{volatility_factor:.1%}",
+                "tp_distance": f"${final_tp_distance:.2f}",
+                "sl_distance": f"${final_sl_distance:.2f}"
+            }
         }
