@@ -17,7 +17,8 @@ import json
 from datetime import datetime
 import signal
 import requests
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
+import system_directive
 
 class MLTrainerGUI:
     """Interfaz gráfica para el entrenador ML de Nexus."""
@@ -57,6 +58,7 @@ class MLTrainerGUI:
 
         # Variables para selección de activos
         self.all_futures_assets = []
+        self.categorized_assets = {}
         self.selected_assets = set()
         self.asset_checkboxes = {}
 
@@ -502,8 +504,42 @@ class MLTrainerGUI:
             self.log_message(f"⚠️ Error obteniendo activos Bybit: {e}", "WARNING")
             return []
 
+    def classify_assets_by_category(self, assets: List[str]) -> Dict[str, List[str]]:
+        """Clasifica activos por categorías usando system_directive."""
+        try:
+            # Obtener categorías de system_directive
+            crypto_subgroups = getattr(system_directive, 'CRYPTO_SUBGROUPS', {})
+            classified = {}
+
+            # Inicializar todas las categorías disponibles
+            for category in crypto_subgroups.keys():
+                classified[category] = []
+
+            # Clasificar activos conocidos
+            known_assets = set()
+            for category, category_assets in crypto_subgroups.items():
+                for asset in category_assets:
+                    if asset in assets:
+                        classified[category].append(asset)
+                        known_assets.add(asset)
+
+            # Activos no clasificados van a "OTHER"
+            unclassified = [asset for asset in assets if asset not in known_assets]
+            if unclassified:
+                classified['OTHER'] = unclassified
+
+            # Remover categorías vacías
+            classified = {k: v for k, v in classified.items() if v}
+
+            return classified
+
+        except Exception as e:
+            self.log_message(f"⚠️ Error clasificando activos: {e}", "WARNING")
+            # Fallback: todos en OTHER
+            return {'OTHER': assets}
+
     def load_futures_assets(self):
-        """Carga lista de activos de futuros de ambos exchanges."""
+        """Carga lista de activos de futuros de ambos exchanges y los clasifica por categorías."""
         try:
             self.log_message("🔄 Cargando lista de activos de futuros...", "INFO")
 
@@ -514,19 +550,30 @@ class MLTrainerGUI:
             all_assets = list(set(binance_assets + bybit_assets))
             self.all_futures_assets = sorted(all_assets)
 
+            # Clasificar por categorías
+            self.categorized_assets = self.classify_assets_by_category(self.all_futures_assets)
+
+            # Log de categorías encontradas
+            total_classified = sum(len(assets) for assets in self.categorized_assets.values())
             self.log_message(f"✅ Cargados {len(self.all_futures_assets)} activos de futuros", "SUCCESS")
+            self.log_message(f"📊 Clasificados en {len(self.categorized_assets)} categorías: {', '.join(self.categorized_assets.keys())}", "INFO")
+
+            # Mostrar resumen por categoría
+            for category, assets in self.categorized_assets.items():
+                self.log_message(f"   {category}: {len(assets)} activos", "INFO")
 
         except Exception as e:
             self.log_message(f"❌ Error cargando activos: {e}", "ERROR")
             self.all_futures_assets = []
+            self.categorized_assets = {}
 
     def create_asset_selection_ui(self, parent_frame):
-        """Crea la interfaz para selección de activos."""
+        """Crea la interfaz para selección de activos por categorías."""
         # Frame para selección de activos
-        assets_frame = ttk.LabelFrame(parent_frame, text="🎯 Selección de Activos", padding="10")
+        assets_frame = ttk.LabelFrame(parent_frame, text="🎯 Selección de Activos por Categorías", padding="10")
         assets_frame.pack(fill=tk.X, pady=(0, 10))
 
-        # Botones de control
+        # Botones de control principales
         control_frame = ttk.Frame(assets_frame)
         control_frame.pack(fill=tk.X, pady=(0, 5))
 
@@ -539,13 +586,59 @@ class MLTrainerGUI:
         ttk.Button(control_frame, text="❌ Deseleccionar Todos",
                   command=self.deselect_all_assets).pack(side=tk.LEFT, padx=(0, 5))
 
-        # Lista de activos con scroll
-        list_frame = ttk.Frame(assets_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True)
+        # Crear notebook (pestañas) para categorías
+        self.category_notebook = ttk.Notebook(assets_frame)
+        self.category_notebook.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
 
-        # Canvas y scrollbar para la lista
-        canvas = tk.Canvas(list_frame, height=150)
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=canvas.yview)
+        # Crear una pestaña por categoría
+        self.category_frames = {}
+        self.asset_checkboxes = {}
+
+        for category, assets in self.categorized_assets.items():
+            # Frame para la categoría
+            category_frame = ttk.Frame(self.category_notebook)
+            self.category_frames[category] = category_frame
+
+            # Scrollable frame para la categoría
+            scrollable_frame = self.create_scrollable_category_frame(category_frame, category, assets)
+
+            # Agregar pestaña al notebook
+            display_name = self.get_category_display_name(category)
+            self.category_notebook.add(category_frame, text=f"{display_name} ({len(assets)})")
+
+        # Controles por categoría
+        category_controls_frame = ttk.Frame(assets_frame)
+        category_controls_frame.pack(fill=tk.X, pady=(5, 0))
+
+        # Dropdown para seleccionar categoría
+        ttk.Label(category_controls_frame, text="Categoría:").pack(side=tk.LEFT, padx=(0, 5))
+        self.category_var = tk.StringVar()
+        if self.categorized_assets:
+            self.category_var.set(list(self.categorized_assets.keys())[0])
+
+        category_combo = ttk.Combobox(category_controls_frame, textvariable=self.category_var,
+                                    values=list(self.categorized_assets.keys()), state="readonly", width=15)
+        category_combo.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Botones para categoría seleccionada
+        ttk.Button(category_controls_frame, text="✅ Todos en Categoría",
+                  command=self.select_all_in_category).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(category_controls_frame, text="❌ Ninguno en Categoría",
+                  command=self.deselect_all_in_category).pack(side=tk.LEFT, padx=(0, 5))
+
+        # Contador de seleccionados
+        self.asset_count_label = ttk.Label(assets_frame, text="Seleccionados: 0")
+        self.asset_count_label.pack(anchor=tk.W, pady=(5, 0))
+
+    def create_scrollable_category_frame(self, parent, category, assets):
+        """Crea un frame scrollable para una categoría específica."""
+        # Frame contenedor
+        container = ttk.Frame(parent)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Canvas y scrollbar
+        canvas = tk.Canvas(container, height=120)
+        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
@@ -556,21 +649,52 @@ class MLTrainerGUI:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Crear checkboxes para cada activo
-        self.asset_checkboxes = {}
-        for i, asset in enumerate(self.all_futures_assets):
+        # Crear checkboxes para cada activo en la categoría
+        for i, asset in enumerate(sorted(assets)):
             var = tk.BooleanVar(value=False)
             cb = ttk.Checkbutton(scrollable_frame, text=asset, variable=var,
                                command=lambda a=asset, v=var: self.toggle_asset(a, v))
-            cb.grid(row=i//4, column=i%4, sticky=tk.W, padx=5, pady=2)
+            cb.grid(row=i//3, column=i%3, sticky=tk.W, padx=5, pady=2)
             self.asset_checkboxes[asset] = var
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Contador de seleccionados
-        self.asset_count_label = ttk.Label(assets_frame, text="Seleccionados: 0")
-        self.asset_count_label.pack(anchor=tk.W)
+        return scrollable_frame
+
+    def get_category_display_name(self, category: str) -> str:
+        """Obtiene el nombre para mostrar de una categoría."""
+        display_names = {
+            'MAJOR_CAPS': '🏆 Major Caps',
+            'MEME_COINS': '🐸 Meme Coins',
+            'DEFI': '🏛️ DeFi',
+            'AI_TECH': '🤖 AI & Tech',
+            'GAMING_METAVERSE': '🎮 Gaming & Metaverse',
+            'LAYER1_INFRA': '🏗️ Layer 1 & Infra',
+            'BYBIT_EXCLUSIVE': '📊 Bybit Exclusive',
+            'OTHER': '📋 Otros'
+        }
+        return display_names.get(category, category)
+
+    def select_all_in_category(self):
+        """Selecciona todos los activos en la categoría seleccionada."""
+        category = self.category_var.get()
+        if category in self.categorized_assets:
+            for asset in self.categorized_assets[category]:
+                if asset in self.asset_checkboxes:
+                    self.asset_checkboxes[asset].set(True)
+                    self.selected_assets.add(asset)
+        self.update_asset_count()
+
+    def deselect_all_in_category(self):
+        """Deselecciona todos los activos en la categoría seleccionada."""
+        category = self.category_var.get()
+        if category in self.categorized_assets:
+            for asset in self.categorized_assets[category]:
+                if asset in self.asset_checkboxes:
+                    self.asset_checkboxes[asset].set(False)
+                    self.selected_assets.discard(asset)
+        self.update_asset_count()
 
     def create_features_selection_ui(self, parent_frame):
         """Crea la interfaz para selección de features."""
@@ -621,22 +745,24 @@ class MLTrainerGUI:
         self.update_asset_count()
 
     def select_binance_assets(self):
-        """Selecciona todos los activos de Binance."""
-        binance_assets = self.get_binance_futures_assets()
+        """Selecciona todos los activos disponibles en Binance."""
+        binance_assets = set(self.get_binance_futures_assets())
         for asset in binance_assets:
             if asset in self.asset_checkboxes:
                 self.asset_checkboxes[asset].set(True)
                 self.selected_assets.add(asset)
         self.update_asset_count()
+        self.log_message(f"✅ Seleccionados {len(binance_assets)} activos de Binance", "SUCCESS")
 
     def select_bybit_assets(self):
-        """Selecciona todos los activos de Bybit."""
-        bybit_assets = self.get_bybit_futures_assets()
+        """Selecciona todos los activos disponibles en Bybit."""
+        bybit_assets = set(self.get_bybit_futures_assets())
         for asset in bybit_assets:
             if asset in self.asset_checkboxes:
                 self.asset_checkboxes[asset].set(True)
                 self.selected_assets.add(asset)
         self.update_asset_count()
+        self.log_message(f"✅ Seleccionados {len(bybit_assets)} activos de Bybit", "SUCCESS")
 
     def select_all_assets(self):
         """Selecciona todos los activos."""
