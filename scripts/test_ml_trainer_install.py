@@ -35,9 +35,15 @@ def test_dependencies():
 
     if python_version == "3.14":
         print("⚠️  Python 3.14 detectado - pandas-ta no disponible")
+        print("💡 Recomendación: Usar Python 3.13 para features completas")
         critical_deps.extend(optional_deps)  # pandas-ta se vuelve opcional
-    else:
+    elif python_version in ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]:
+        print("✅ Python compatible - features completas disponibles")
         critical_deps.extend(optional_deps)
+    else:
+        print(f"❌ Versión de Python {python_version} no soportada")
+        print("💡 Versiones recomendadas: 3.8-3.13 para features completas")
+        return False
 
     failed_deps = []
 

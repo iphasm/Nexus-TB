@@ -126,23 +126,42 @@ nexus_system/memory_archives/
 
 ## 🔧 Solución de Problemas
 
+### ✅ Versiones de Python Recomendadas
+
+| Versión Python | pandas-ta | Indicadores | Estado |
+|---------------|-----------|-------------|---------|
+| **3.13** | ✅ Incluido | Avanzados | 🏆 **Recomendado** |
+| 3.12 | ✅ Incluido | Avanzados | ✅ Excelente |
+| 3.11 | ✅ Incluido | Avanzados | ✅ Bueno |
+| 3.10 | ✅ Incluido | Avanzados | ✅ Compatible |
+| 3.9 | ✅ Incluido | Avanzados | ✅ Compatible |
+| 3.8 | ✅ Incluido | Avanzados | ✅ Compatible |
+| 3.14 | ❌ Excluido | Básicos | ⚠️ Limitado |
+
 ### Error: "Python no encontrado"
 ```
-Solución: Instalar Python 3.8+ desde python.org
+Solución: Instalar Python 3.13 desde python.org (recomendado)
 Verificar: python --version
 ```
 
 ### Error: "Dependencias faltantes"
 ```bash
+# Para Python 3.8-3.13 (features completas)
 pip install xgboost scikit-learn pandas joblib yfinance pandas-ta pyinstaller
+
+# Para Python 3.14 (limitado)
+pip install xgboost scikit-learn pandas joblib yfinance pyinstaller
 ```
 
 ### Error: "numba no compatible con Python 3.14"
 ```
 Problema: pandas-ta requiere numba, que no soporta Python 3.14
-Solución: Usar instalador especial para Python 3.14
+Solución: Usar Python 3.13 o instalador especial para Python 3.14
 
-# Ejecutar instalador específico para Python 3.14
+# Opción 1: Cambiar a Python 3.13 (recomendado)
+# Descargar Python 3.13 desde python.org
+
+# Opción 2: Usar instalador específico para Python 3.14
 python scripts/setup_ml_trainer_py314.py
 
 Nota: pandas-ta será excluido, limitando indicadores técnicos avanzados
@@ -155,6 +174,15 @@ Posibles causas:
 2. Dependencias faltantes → Verificar instalación completa
 3. Espacio insuficiente → Liberar al menos 1GB
 4. Antivirus bloqueando → Desactivar temporalmente
+5. Problemas de permisos → Ejecutar como administrador
+```
+
+### Instalador no Detecta Versión Correcta
+```
+Solución: El instalador automático detecta versiones automáticamente
+- Python 3.8-3.13 → Features completas con pandas-ta
+- Python 3.14 → Versión limitada sin pandas-ta
+- Otras versiones → Error de incompatibilidad
 ```
 
 ### Error: "No se puede crear ejecutable"
