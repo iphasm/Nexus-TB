@@ -56,10 +56,9 @@ def install_dependencies_py314():
     for dep in dependencies:
         print(f"📦 Instalando {dep}...")
         try:
-            # Usar --user para PyInstaller si es necesario para evitar problemas de permisos
             pip_args = [sys.executable, '-m', 'pip', 'install', dep]
             if 'pyinstaller' in dep:
-                pip_args.extend(['--user'])  # Instalar PyInstaller en user space
+                pip_args.extend(['--quiet'])  # PyInstaller sin --user para asegurar disponibilidad
             else:
                 pip_args.extend(['--quiet'])
 
@@ -74,13 +73,23 @@ def install_dependencies_py314():
                 # Intentar instalación alternativa para PyInstaller
                 if 'pyinstaller' in dep:
                     print("🔄 Intentando instalación alternativa de PyInstaller...")
+                    # Primero intentar con pip upgrade
                     alt_result = subprocess.run([
-                        sys.executable, '-m', 'pip', 'install', '--upgrade', 'pyinstaller'
+                        sys.executable, '-m', 'pip', 'install', '--upgrade', '--force-reinstall', 'pyinstaller'
                     ], capture_output=True, text=True, timeout=300)
                     if alt_result.returncode == 0:
-                        print("✅ PyInstaller instalado con método alternativo")
+                        print("✅ PyInstaller reinstalado exitosamente")
                     else:
-                        failed_deps.append(dep)
+                        # Si pip falla, intentar con conda (si está disponible)
+                        print("🔄 Intentando con conda...")
+                        conda_result = subprocess.run([
+                            'conda', 'install', '-c', 'conda-forge', 'pyinstaller', '-y'
+                        ], capture_output=True, text=True, timeout=300)
+                        if conda_result.returncode == 0:
+                            print("✅ PyInstaller instalado con conda")
+                        else:
+                            print("❌ Todos los métodos de instalación fallaron")
+                            failed_deps.append(dep)
                 else:
                     failed_deps.append(dep)
 
@@ -220,16 +229,44 @@ def build_executable_py314(spec_file):
 
     # Verificar que PyInstaller esté disponible
     try:
+        # Verificación detallada de PyInstaller
         result = subprocess.run([
-            sys.executable, '-c', 'import PyInstaller; print("PyInstaller version:", PyInstaller.__version__)'
+            sys.executable, '-c', '''
+import sys
+try:
+    import PyInstaller
+    print(f"PyInstaller version: {PyInstaller.__version__}")
+    print(f"Python executable: {sys.executable}")
+    print(f"PyInstaller location: {PyInstaller.__file__}")
+except ImportError as e:
+    print(f"ImportError: {e}")
+    sys.exit(1)
+'''
         ], capture_output=True, text=True, timeout=30)
 
         if result.returncode != 0:
             print("❌ PyInstaller no está disponible después de la instalación")
+            print(f"   STDOUT: {result.stdout}")
             print(f"   STDERR: {result.stderr}")
-            print("💡 Intente instalar PyInstaller manualmente:")
-            print(f"   {sys.executable} -m pip install pyinstaller>=6.0.0")
-            return False
+            print("💡 Intentando instalar PyInstaller nuevamente...")
+            # Intentar reinstalar PyInstaller inmediatamente
+            reinstall_result = subprocess.run([
+                sys.executable, '-m', 'pip', 'install', '--force-reinstall', 'pyinstaller'
+            ], capture_output=True, text=True, timeout=300)
+            if reinstall_result.returncode == 0:
+                print("✅ PyInstaller reinstalado - reintentando verificación...")
+                # Re-verificar después de reinstalar
+                recheck_result = subprocess.run([
+                    sys.executable, '-c', 'import PyInstaller; print(f"PyInstaller version: {PyInstaller.__version__}")'
+                ], capture_output=True, text=True, timeout=30)
+                if recheck_result.returncode != 0:
+                    print("❌ Reinstalación falló")
+                    return False
+                else:
+                    print(f"✅ PyInstaller verificado tras reinstalación: {recheck_result.stdout.strip()}")
+            else:
+                print("❌ Reinstalación falló")
+                return False
         else:
             print(f"✅ PyInstaller verificado: {result.stdout.strip()}")
 
@@ -240,6 +277,13 @@ def build_executable_py314(spec_file):
     # Configurar variables de entorno para mejor compatibilidad
     env = os.environ.copy()
     env['PYTHONOPTIMIZE'] = '1'  # Optimización de Python
+
+    # Asegurar que Python pueda encontrar paquetes instalados en user space
+    import site
+    user_site = site.getusersitepackages()
+    if user_site and user_site not in sys.path:
+        sys.path.insert(0, user_site)
+        env['PYTHONPATH'] = user_site + (os.pathsep + env.get('PYTHONPATH', ''))
 
     cmd = [
         sys.executable, '-m', 'pyinstaller',
