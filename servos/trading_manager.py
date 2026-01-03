@@ -2580,9 +2580,11 @@ class AsyncTradingSession:
                         sl_price = round_to_tick_size(max_allowed_sl, tick_size)
                         sl_label = f"SHIELD ({max_sl_allowed:.1%})"
 
-                # Execute Sync
+                # Execute Sync - CRITICAL: Use the exchange from position data to avoid cross-exchange routing
+                position_exchange = p.get('source')  # BINANCE or BYBIT
                 success, msg = await self.synchronize_sl_tp_safe(
-                    symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, entry_price=entry_price, current_price=current_price
+                    symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, 
+                    entry_price=entry_price, current_price=current_price, exchange=position_exchange
                 )
                 
                 status_icon = "✅" if success else "⚠️"
@@ -2784,10 +2786,11 @@ class AsyncTradingSession:
                 tp_pct = self.config.get('take_profit_pct', 0.05)
                 new_tp = round_to_tick_size(entry_price * (1 - tp_pct), tick_size)
                 
-            # 4. Apply via Bridge
+            # 4. Apply via Bridge - CRITICAL: Use the exchange from position data
+            position_exchange = pos.get('exchange', self.bridge._route_symbol(symbol) if self.bridge else None)
             success, msg = await self.synchronize_sl_tp_safe(
                 symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
-                entry_price=entry_price, current_price=current_price
+                entry_price=entry_price, current_price=current_price, exchange=position_exchange
             )
             
             if success:
@@ -2946,11 +2949,12 @@ class AsyncTradingSession:
                         new_sl = round_to_tick_size(entry_price * (1 - buffer), tick_size)
                         new_tp = round_to_tick_size(current_price * 0.85, tick_size)  # Keep TP at -15% from current
                     
-                    # Apply the new SL
+                    # Apply the new SL - CRITICAL: Use the exchange from position data
+                    position_exchange = p.get('source')  # BINANCE or BYBIT
                     try:
                         success, msg = await self.synchronize_sl_tp_safe(
                             symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, 
-                            entry_price=entry_price, current_price=current_price
+                            entry_price=entry_price, current_price=current_price, exchange=position_exchange
                         )
                         if success:
                             modified += 1
