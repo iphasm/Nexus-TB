@@ -47,7 +47,7 @@ def install_dependencies_py314():
         'pyinstaller>=6.0.0',
 
         # pandas-ta parchado compatible con Python 3.14
-        'pandas-ta-openbb>=0.4.22'  # Desde carpeta local del proyecto
+        'pandas-ta-openbb>=0.4.22'
     ]
 
     print("🔧 Instalando dependencias una por una (más seguro)...")
@@ -56,9 +56,14 @@ def install_dependencies_py314():
     for dep in dependencies:
         print(f"📦 Instalando {dep}...")
         try:
-            result = subprocess.run([
-                sys.executable, '-m', 'pip', 'install', dep, '--quiet'
-            ], capture_output=True, text=True, timeout=300)
+            # Usar --user para PyInstaller si es necesario para evitar problemas de permisos
+            pip_args = [sys.executable, '-m', 'pip', 'install', dep]
+            if 'pyinstaller' in dep:
+                pip_args.extend(['--user'])  # Instalar PyInstaller en user space
+            else:
+                pip_args.extend(['--quiet'])
+
+            result = subprocess.run(pip_args, capture_output=True, text=True, timeout=300)
 
             if result.returncode == 0:
                 print(f"✅ {dep} instalado correctamente")
@@ -66,7 +71,18 @@ def install_dependencies_py314():
                 print(f"❌ Error instalando {dep}")
                 print(f"   STDOUT: {result.stdout}")
                 print(f"   STDERR: {result.stderr}")
-                failed_deps.append(dep)
+                # Intentar instalación alternativa para PyInstaller
+                if 'pyinstaller' in dep:
+                    print("🔄 Intentando instalación alternativa de PyInstaller...")
+                    alt_result = subprocess.run([
+                        sys.executable, '-m', 'pip', 'install', '--upgrade', 'pyinstaller'
+                    ], capture_output=True, text=True, timeout=300)
+                    if alt_result.returncode == 0:
+                        print("✅ PyInstaller instalado con método alternativo")
+                    else:
+                        failed_deps.append(dep)
+                else:
+                    failed_deps.append(dep)
 
         except subprocess.TimeoutExpired:
             print(f"⏰ Timeout instalando {dep}")
@@ -202,6 +218,25 @@ def build_executable_py314(spec_file):
     """Construye ejecutable optimizado para Python 3.14."""
     print("🏗️ Construyendo ejecutable para Python 3.14...")
 
+    # Verificar que PyInstaller esté disponible
+    try:
+        result = subprocess.run([
+            sys.executable, '-c', 'import PyInstaller; print("PyInstaller version:", PyInstaller.__version__)'
+        ], capture_output=True, text=True, timeout=30)
+
+        if result.returncode != 0:
+            print("❌ PyInstaller no está disponible después de la instalación")
+            print(f"   STDERR: {result.stderr}")
+            print("💡 Intente instalar PyInstaller manualmente:")
+            print(f"   {sys.executable} -m pip install pyinstaller>=6.0.0")
+            return False
+        else:
+            print(f"✅ PyInstaller verificado: {result.stdout.strip()}")
+
+    except Exception as e:
+        print(f"❌ Error verificando PyInstaller: {e}")
+        return False
+
     # Configurar variables de entorno para mejor compatibilidad
     env = os.environ.copy()
     env['PYTHONOPTIMIZE'] = '1'  # Optimización de Python
@@ -231,6 +266,36 @@ def build_executable_py314(spec_file):
             # Verificar archivos generados
             exe_dir = "dist/Nexus_ML_Trainer_PY314"
             exe_file = os.path.join(exe_dir, "Nexus_ML_Trainer_PY314.exe")
+        else:
+            print(f"\n❌ Construcción falló (código: {process.returncode})")
+            print("🔄 Intentando método alternativo más simple...")
+
+            # Método alternativo: construir directamente sin .spec
+            alt_cmd = [
+                sys.executable, '-m', 'pyinstaller',
+                '--clean',
+                '--noconfirm',
+                '--onedir',
+                '--name', 'Nexus_ML_Trainer_PY314_Simple',
+                'scripts/ml_trainer_gui.py'
+            ]
+
+            print(f"🔧 Comando alternativo: {' '.join(alt_cmd)}")
+
+            try:
+                alt_result = subprocess.run(alt_cmd, capture_output=True, text=True, timeout=600)
+                if alt_result.returncode == 0:
+                    print("✅ Ejecutable construido exitosamente con método alternativo!")
+                    exe_dir = "dist/Nexus_ML_Trainer_PY314_Simple"
+                    exe_file = os.path.join(exe_dir, "Nexus_ML_Trainer_PY314_Simple.exe")
+                else:
+                    print("❌ Método alternativo también falló")
+                    print(f"   STDOUT: {alt_result.stdout[-500:]}")
+                    print(f"   STDERR: {alt_result.stderr[-500:]}")
+                    return False
+            except Exception as e:
+                print(f"❌ Error en método alternativo: {e}")
+                return False
 
             if os.path.exists(exe_file):
                 exe_size = os.path.getsize(exe_file) / (1024 * 1024)
