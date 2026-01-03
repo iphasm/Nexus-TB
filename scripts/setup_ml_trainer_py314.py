@@ -281,12 +281,22 @@ except ImportError as e:
     # Asegurar que Python pueda encontrar paquetes instalados en user space
     import site
     user_site = site.getusersitepackages()
+    current_pythonpath = env.get('PYTHONPATH', '')
+
+    # Construir PYTHONPATH que incluya user site-packages
+    if user_site:
+        if current_pythonpath:
+            env['PYTHONPATH'] = user_site + os.pathsep + current_pythonpath
+        else:
+            env['PYTHONPATH'] = user_site
+        print(f"📍 PYTHONPATH configurado: {env['PYTHONPATH']}")
+
+    # También agregar al sys.path del proceso actual
     if user_site and user_site not in sys.path:
         sys.path.insert(0, user_site)
-        env['PYTHONPATH'] = user_site + (os.pathsep + env.get('PYTHONPATH', ''))
 
     cmd = [
-        sys.executable, '-m', 'pyinstaller',
+        sys.executable, '-m', 'PyInstaller',
         '--clean',
         '--noconfirm',
         '--onedir',
@@ -314,7 +324,7 @@ except ImportError as e:
 
             # Método alternativo: construir directamente sin .spec
             alt_cmd = [
-                sys.executable, '-m', 'pyinstaller',
+                sys.executable, '-m', 'PyInstaller',
                 '--clean',
                 '--noconfirm',
                 '--onedir',
