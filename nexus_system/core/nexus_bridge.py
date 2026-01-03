@@ -661,10 +661,10 @@ class NexusBridge:
                 return False
             return True
 
-        # CRYPTO EXCHANGE ROUTING LOGIC (NUEVA JERARQUÍA):
+        # CRYPTO EXCHANGE ROUTING LOGIC - EQUAL WEIGHT DISTRIBUTION:
         # CRYPTO group contains ALL cryptocurrency assets
         # User preferences determine which exchanges to use within CRYPTO
-        # Both BINANCE and BYBIT are equally important choices
+        # BINANCE and BYBIT have EQUAL weight - no hierarchy between them
 
         # Check if this is a crypto symbol
         is_crypto = 'USDT' in normalized_symbol or normalized_symbol in ASSET_GROUPS.get('CRYPTO', [])
@@ -674,19 +674,22 @@ class NexusBridge:
             binance_available = is_exchange_available('BINANCE')
             bybit_available = is_exchange_available('BYBIT')
 
-            # PRIORIDAD: Binance primero (más estable con timestamps)
-            # Solo usar Bybit si Binance no está disponible para este símbolo
+            # EQUAL WEIGHT LOGIC: Both exchanges have the same priority
+            # Use deterministic distribution based on symbol ASCII sum for consistent routing
+            if binance_available and bybit_available:
+                # Both available - distribute evenly using ASCII sum of symbol
+                ascii_sum = sum(ord(c) for c in normalized_symbol)
+                return 'BINANCE' if ascii_sum % 2 == 0 else 'BYBIT'
+
+            # Only one available - use it
             if binance_available:
                 return 'BINANCE'
-
             if bybit_available:
                 return 'BYBIT'
 
-            # Fallback: Intentar Binance si está conectado (ignorar disponibilidad de símbolo)
+            # Fallback: Try any connected adapter
             if 'BINANCE' in self.adapters:
                 return 'BINANCE'
-
-            # Fallback: Intentar Bybit si está conectado
             if 'BYBIT' in self.adapters:
                 return 'BYBIT'
 
