@@ -32,6 +32,7 @@ from servos.voight_kampff import voight_kampff as nexus_logger
 logging.getLogger('aiogram').setLevel(logging.WARNING)
 logging.getLogger('aiohttp').setLevel(logging.WARNING)
 logging.getLogger('ccxt').setLevel(logging.WARNING)
+logging.getLogger('nexus_system').setLevel(logging.WARNING)  # Suppress NexusCore logs during init
 
 # Load Environment Variables
 load_dotenv()
@@ -765,35 +766,7 @@ async def main():
     nexus_logger.phase_success("Core modules loaded")
     nexus_logger.phase_success("Configuration parsed")
 
-    # Initialize Shark Sentinel (Black Swan & Shark Mode Defense)
-    try:
-        from strategies.shark_mode import SharkSentinel
-
-        async def notify_send(msg):
-             # Broadcast alert to all active sessions (async)
-             chat_ids = session_manager.get_active_chat_ids()
-             tasks = [
-                 bot.send_message(chat_id, msg, parse_mode='Markdown')
-                 for chat_id in chat_ids
-             ]
-             if tasks:
-                 await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Check function for Sentinel
-        def is_shark_enabled():
-             from system_directive import ENABLED_STRATEGIES
-             return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
-
-        sentinel = SharkSentinel(
-            session_manager=session_manager,
-            notify_callback=notify_send,
-            enabled_check_callback=is_shark_enabled
-        )
-        await sentinel.start()  # Async start
-        nexus_logger.phase_success("Sentinel initialized", "Black Swan & Shark Mode active")
-
-    except Exception as e:
-        nexus_logger.phase_error("Sentinel initialization failed", str(e))
+    # Sentinel will be initialized after session_manager is created
 
     # Phase 2: Security & Encryption
     nexus_logger.phase_start(2, "SECURITY & ENCRYPTION", "🔐")
@@ -864,7 +837,37 @@ async def main():
     from servos.trading_manager import AsyncSessionManager
     session_manager = AsyncSessionManager()
     await session_manager.load_sessions()
-    
+
+    # Initialize Shark Sentinel (Black Swan & Shark Mode Defense)
+    try:
+        from strategies.shark_mode import SharkSentinel
+
+        async def notify_send(msg):
+             # Broadcast alert to all active sessions (async)
+             chat_ids = session_manager.get_active_chat_ids()
+             tasks = [
+                 bot.send_message(chat_id, msg, parse_mode='Markdown')
+                 for chat_id in chat_ids
+             ]
+             if tasks:
+                 await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Check function for Sentinel
+        def is_shark_enabled():
+             from system_directive import ENABLED_STRATEGIES
+             return ENABLED_STRATEGIES.get('BLACK_SWAN', True) or ENABLED_STRATEGIES.get('SHARK', False)
+
+        sentinel = SharkSentinel(
+            session_manager=session_manager,
+            notify_callback=notify_send,
+            enabled_check_callback=is_shark_enabled
+        )
+        await sentinel.start()  # Async start
+        nexus_logger.phase_success("Sentinel initialized", "Black Swan & Shark Mode active")
+
+    except Exception as e:
+        nexus_logger.phase_error("Sentinel initialization failed", str(e))
+
     # TASK SCHEDULER ELIMINADO - No utilizado por el usuario
     # Se mantiene el código comentado por si se necesita en el futuro
     """

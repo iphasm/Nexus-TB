@@ -262,8 +262,7 @@ class VoightKampff:
         if self._global_banner_shown:
             return
 
-        banner = """
-┌─────────────────────────────────────────────────────────────┐
+        banner = """┌─────────────────────────────────────────────────────────────┐
 │  NEXUS CORE                                                │
 │  Professional Algorithmic Trading Platform                  │
 │                                                             │
@@ -279,10 +278,13 @@ class VoightKampff:
 │                                                             │
 │  Status: INITIALIZING...                                    │
 │  Build: v7.0.0                                              │
-└─────────────────────────────────────────────────────────────┘
-        """.strip()
+└─────────────────────────────────────────────────────────────┘"""
 
-        print(banner)
+        # Force immediate output without buffering to prevent interruptions
+        import sys
+        sys.stdout.write(banner + '\n')
+        sys.stdout.flush()
+
         self._global_banner_shown = True
 
     def phase_start(self, phase_num: int, title: str, emoji: str):
@@ -327,7 +329,6 @@ class VoightKampff:
         total_time = time.time() - self.start_time
 
         ready_message = f"""
-
 📊 System Health: EXCELLENT
 ⚡ Response Time: {response_time}
 🔄 Active Sessions: {session_count}
@@ -336,7 +337,10 @@ class VoightKampff:
 🤖 Nexus Algorithm-Based Trading Bot is now online and ready for directives.
         """.strip()
 
-        print(ready_message)
+        # Force immediate output for system ready message
+        import sys
+        sys.stdout.write(ready_message + '\n')
+        sys.stdout.flush()
 
     # PERFORMANCE MONITORING
 
