@@ -8,13 +8,19 @@ import os
 sys.path.append(os.getcwd())
 print("DEBUG: Root added to path")
 
-# MOCK CONFIGURATION
-print("DEBUG: Importing config...")
-import system_directive as aq_config
-aq_config.PREMIUM_SIGNALS_ENABLED = True
-print("DEBUG: Config imported and mocked.")
+# DEPRECATED: Premium Signals functionality has been removed
+# Premium Signals were redundant with the new AI Filter system
+# The AI Filter provides superior multi-factor analysis including:
+# - Fear & Greed Index analysis
+# - Market volatility assessment
+# - Technical momentum evaluation
+# - Social sentiment analysis
+# - Intelligent IA-powered decision making
 
-print("--- INITIALIZING TEST ENVIRONMENT ---")
+print("⚠️  PREMIUM SIGNALS TEST DEPRECATED")
+print("Premium Signals functionality has been removed as redundant with AI Filter")
+print("See servos/ai_filter.py for the new intelligent filtering system")
+print("=" * 60)
 
 # Import strategies
 print("DEBUG: Importing TrendStrategy...")

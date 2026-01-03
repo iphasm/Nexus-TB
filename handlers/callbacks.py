@@ -465,25 +465,8 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
         return
 
-    # Special case: PREMIUM SIGNALS toggle
-    if strategy == "PREMIUM":
-        import system_directive as aq_config
-        current = aq_config.PREMIUM_SIGNALS_ENABLED
-        new_state = not current
-        aq_config.PREMIUM_SIGNALS_ENABLED = new_state
-        
-        # Persist to DB
-        from servos.db import save_bot_state
-        from system_directive import GROUP_CONFIG
-        save_bot_state(aq_config.ENABLED_STRATEGIES, GROUP_CONFIG, list(aq_config.DISABLED_ASSETS), aq_config.AI_FILTER_ENABLED, new_state)
-        
-        status = "💎 ACTIVADO (MTF + Volume)" if new_state else "❌ DESACTIVADO"
-        await safe_answer(callback, f"Premium Signals: {status}")
-        
-        # Refresh Strategy Menu
-        from handlers.config import cmd_strategies
-        await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
-        return
+    # REMOVED: Premium Signals toggle - redundant with AI Filter
+    # Premium Signals functionality removed as AI Filter provides superior multi-factor analysis
 
     # REMOVED: SENTIMENT toggle - Redundant with hybrid AI system
     # Sentiment analysis now handled by /news and /fomc commands

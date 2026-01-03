@@ -627,18 +627,17 @@ def load_bot_state():
     finally:
         conn.close()
 
-def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets: list, ai_filter: bool = None, premium_signals: bool = None):
+def save_bot_state(enabled_strategies: dict, group_config: dict, disabled_assets: list, ai_filter: bool = None):
     """Save global bot state to PostgreSQL. Special flags are stored within group_config."""
     conn = get_connection()
     if not conn:
         return False
-    
+
     # Embed flags in group_config for persistence
     gc_to_save = dict(group_config)
     if ai_filter is not None:
         gc_to_save['_AI_FILTER'] = ai_filter
-    if premium_signals is not None:
-        gc_to_save['_PREMIUM_SIGNALS'] = premium_signals
+    # REMOVED: premium_signals - Premium Signals eliminated
     
     try:
         with conn.cursor() as cur:

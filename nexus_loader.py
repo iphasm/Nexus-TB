@@ -795,10 +795,12 @@ async def main():
                 # Extract AI Filter state if present
                 if '_AI_FILTER' in gc:
                     system_directive.AI_FILTER_ENABLED = gc.pop('_AI_FILTER')
-                
+
                 # Extract ML Classifier state if present
                 if '_ML_CLASSIFIER' in gc:
                     system_directive.ML_CLASSIFIER_ENABLED = gc.pop('_ML_CLASSIFIER')
+
+                # REMOVED: PREMIUM_SIGNALS loading - feature eliminated
                 
                 # --- MIGRATION: COMMODITY -> ETFS ---
                 if 'COMMODITY' in gc:
@@ -823,6 +825,7 @@ async def main():
                          DISABLED_ASSETS.add(asset)
             
             logger.info(f"✅ Estado cargado: {len(DISABLED_ASSETS)} assets deshabilitados, AI: {system_directive.AI_FILTER_ENABLED}, ML: {system_directive.ML_CLASSIFIER_ENABLED}", group=False)
+            # REMOVED: Premium Signals from logging - feature eliminated
             
     except Exception as e:
         logger.warning(f"DB Init skipped: {e}")

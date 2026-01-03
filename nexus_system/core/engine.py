@@ -170,17 +170,9 @@ class NexusCore:
                 # Ideally we pass different params for event driven? 
                 # For now, standard flow works as it hits cache.
                 
-                from system_directive import PREMIUM_SIGNALS_ENABLED
-                
-                if PREMIUM_SIGNALS_ENABLED:
-                    mtf_data = await self.market_stream.get_multiframe_candles(asset)
-                    market_data = mtf_data['main']
-                    if not mtf_data['macro']['dataframe'].empty:
-                        market_data['macro_dataframe'] = mtf_data['macro']['dataframe']
-                    if 'micro' in mtf_data and not mtf_data['micro']['dataframe'].empty:
-                        market_data['micro_dataframe'] = mtf_data['micro']['dataframe']
-                else:
-                    market_data = await self.market_stream.get_candles(asset)
+                # REMOVED: Premium Signals MTF analysis - redundant with AI Filter
+                # AI Filter now provides intelligent multi-factor analysis
+                market_data = await self.market_stream.get_candles(asset)
                 
                 if market_data.get('dataframe') is None or market_data['dataframe'].empty:
                     return

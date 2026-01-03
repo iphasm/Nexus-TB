@@ -424,15 +424,11 @@ async def cmd_strategies(message: Message, **kwargs):
     # Sentinel combines Black Swan + Shark
     sent_state = "✅" if session_strategies.get('SENTINEL', True) or session_strategies.get('BLACK_SWAN', True) else "❌"
     
-    # Premium Signal State
-    try:
-        from system_directive import PREMIUM_SIGNALS_ENABLED
-        ps_state = "✅" if PREMIUM_SIGNALS_ENABLED else "❌"
-    except ImportError:
-        ps_state = "❌"
+    # REMOVED: Premium Signals - redundant with AI Filter
+    # AI Filter provides superior multi-factor analysis
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"💎 Premium Signals: {ps_state}", callback_data="TOGGLE|PREMIUM")],
+        # REMOVED: Premium Signals button - redundant with AI Filter
         [InlineKeyboardButton(text=f"📈 Trend (BTC): {t_state}", callback_data="TOGGLE|TREND")],
         [InlineKeyboardButton(text=f"🛡️ Sentinel (Defense/Shark): {sent_state}", callback_data="TOGGLE|SENTINEL")],
         [
