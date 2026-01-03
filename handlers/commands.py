@@ -425,21 +425,94 @@ async def cmd_help(message: Message):
     full_help = help_part1 + help_part2 + help_part3
 
     try:
-        # Intentar enviar en un solo mensaje con markdown
-        await message.answer(full_help, parse_mode="Markdown")
-    except Exception as e:
+        # Log para debugging
+        logger.info(f"📖 Help command from user {user_id} (admin: {is_admin})")
+
+        # Verificar que tenemos un mensaje válido
+        if not message or not hasattr(message, 'answer'):
+            logger.error("❌ Invalid message object")
+            return
+
+        # Telegram tiene límites estrictos - enviar en partes con delays
+        logger.info("📦 Sending help in parts to avoid rate limits")
+
+        # Parte 1: Encabezado
         try:
-            # Fallback: enviar en dos partes si es muy largo
-            if len(full_help) > 4000:  # Límite aproximado de Telegram
-                await message.answer(help_part1, parse_mode="Markdown")
-                await message.answer(help_part2 + help_part3, parse_mode="Markdown")
-            else:
-                # Limpiar markdown y enviar completo
-                clean = full_help.replace('*', '').replace('`', '').replace('\\_', '_')
-                await message.answer(clean)
-        except Exception as e2:
-            # Último fallback: mensaje simple
-            await message.answer("❌ Error mostrando ayuda completa. Usa /start para navegación básica.", parse_mode="Markdown")
+            header = (
+                f"🤖 **NEXUS TRADING BOT v7**\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📋 **{total_commands} comandos disponibles**\n\n"
+                "📊 **DASHBOARD & MERCADO**\n"
+                "/start - Centro de comando principal ⭐\n"
+                "/dashboard - Balance, posiciones, PnL\n"
+                "/scanner - Diagnóstico de mercado\n"
+                "/price SYMBOL - Cotización rápida\n"
+                "/pnl - Historial de ganancias"
+            )
+            await message.answer(header, parse_mode="Markdown")
+            await asyncio.sleep(0.2)  # Pequeño delay
+        except Exception as e:
+            logger.error(f"❌ Failed to send header: {e}")
+            await message.answer("❌ Error enviando ayuda. Intenta /start", parse_mode="Markdown")
+            return
+
+        # Parte 2: Trading
+        try:
+            trading = (
+                "\n🎯 **TRADING MANUAL**\n"
+                "/long SYMBOL - Abrir LONG (auto-routing)\n"
+                "/short SYMBOL - Abrir SHORT (auto-routing)\n"
+                "/close SYMBOL - Cerrar posición\n"
+                "/closeall - Cierre de emergencia\n\n"
+                "🕹️ **MODOS OPERATIVOS**\n"
+                "/pilot - Trading 100% autónomo 🤖\n"
+                "/copilot - Confirmación manual\n"
+                "/watcher - Solo alertas"
+            )
+            await message.answer(trading, parse_mode="Markdown")
+            await asyncio.sleep(0.2)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to send trading section: {e}")
+
+        # Parte 3: IA y Config
+        try:
+            ia_config = (
+                "\n🤖 **IA & CONFIGURACIÓN**\n"
+                "/analyze SYMBOL - Análisis IA profundo\n"
+                "/news - Boletín de mercado con IA\n"
+                "/config - Panel completo ⭐\n"
+                "/strategies - Gestionar motores\n"
+                "/assets - Gestión de activos\n"
+                "/personality - Cambiar personalidad"
+            )
+            await message.answer(ia_config, parse_mode="Markdown")
+            await asyncio.sleep(0.2)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to send IA/config section: {e}")
+
+        # Parte 4: Utilidades y footer
+        try:
+            footer = (
+                "\n📅 **UTILIDADES**\n"
+                "/timezone - Zona horaria\n"
+                "/cooldowns - Tiempos de espera\n"
+                "/about - Información del bot\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "💡 _Usa /start para navegación rápida_"
+            )
+            await message.answer(footer, parse_mode="Markdown")
+            logger.info("✅ Help command completed successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to send footer: {e}")
+            # Al menos enviar un mensaje básico
+            await message.answer("🤖 Usa /start para menú interactivo", parse_mode="Markdown")
+
+    except Exception as e:
+        logger.error(f"💥 Critical error in help command: {e}")
+        try:
+            await message.answer("❌ Error interno. Usa /start", parse_mode="Markdown")
+        except:
+            pass  # Si ni siquiera podemos enviar error, no hay nada que hacer
         
 
 
