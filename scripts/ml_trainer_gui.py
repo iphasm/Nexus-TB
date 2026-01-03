@@ -18,7 +18,21 @@ from datetime import datetime
 import signal
 import requests
 from typing import List, Dict, Set, Tuple
-import system_directive
+
+# Fix imports for both script and packaged execution
+try:
+    import system_directive
+except ImportError:
+    # When running as script, add parent directory to path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    try:
+        import system_directive
+    except ImportError:
+        print("ERROR: Cannot import system_directive. Please run from project root or check PYTHONPATH.")
+        sys.exit(1)
 
 class MLTrainerGUI:
     """Interfaz gráfica para el entrenador ML de Nexus."""
@@ -122,7 +136,7 @@ class MLTrainerGUI:
 
         # Información del sistema
         info_frame = ttk.LabelFrame(main_frame, text="ℹ️ Información del Sistema", padding="10")
-        info_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        info_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
 
         self.system_info_text = tk.Text(info_frame, height=4, wrap=tk.WORD, state=tk.DISABLED)
         self.system_info_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -133,7 +147,7 @@ class MLTrainerGUI:
 
         # Área de logs
         logs_frame = ttk.LabelFrame(main_frame, text="📋 Logs de Entrenamiento", padding="10")
-        logs_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        logs_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         logs_frame.columnconfigure(0, weight=1)
         logs_frame.rowconfigure(0, weight=1)
 
@@ -142,7 +156,7 @@ class MLTrainerGUI:
 
         # Frame de botones
         buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.grid(row=6, column=0, columnspan=3, pady=(10, 0))
+        buttons_frame.grid(row=7, column=0, columnspan=3, pady=(10, 0))
 
         self.start_button = ttk.Button(buttons_frame, text="🚀 Iniciar Entrenamiento",
                                      command=self.start_training, style="Accent.TButton")
@@ -159,7 +173,7 @@ class MLTrainerGUI:
 
         # Barra de progreso
         progress_frame = ttk.Frame(main_frame)
-        progress_frame.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        progress_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
 
         ttk.Label(progress_frame, text="📈 Progreso:").grid(row=0, column=0, sticky=tk.W)
         self.progress_var = tk.DoubleVar()
@@ -381,7 +395,8 @@ class MLTrainerGUI:
                 self.root.after(0, lambda: self.log_message(f"❌ Entrenamiento falló (código: {return_code})", "ERROR"))
 
         except Exception as e:
-            self.root.after(0, lambda: self.log_message(f"❌ Error durante entrenamiento: {e}", "ERROR"))
+            error_msg = str(e)
+            self.root.after(0, lambda: self.log_message(f"❌ Error durante entrenamiento: {error_msg}", "ERROR"))
 
         finally:
             # Limpiar estado
@@ -571,24 +586,24 @@ class MLTrainerGUI:
         """Crea la interfaz para selección de activos por categorías."""
         # Frame para selección de activos
         assets_frame = ttk.LabelFrame(parent_frame, text="🎯 Selección de Activos por Categorías", padding="10")
-        assets_frame.pack(fill=tk.X, pady=(0, 10))
+        assets_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # Botones de control principales
         control_frame = ttk.Frame(assets_frame)
-        control_frame.pack(fill=tk.X, pady=(0, 5))
+        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
 
         ttk.Button(control_frame, text="📋 Todos Binance",
-                  command=self.select_binance_assets).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.select_binance_assets).grid(row=0, column=0, padx=(0, 5))
         ttk.Button(control_frame, text="📋 Todos Bybit",
-                  command=self.select_bybit_assets).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.select_bybit_assets).grid(row=0, column=1, padx=(0, 5))
         ttk.Button(control_frame, text="✅ Seleccionar Todos",
-                  command=self.select_all_assets).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.select_all_assets).grid(row=0, column=2, padx=(0, 5))
         ttk.Button(control_frame, text="❌ Deseleccionar Todos",
-                  command=self.deselect_all_assets).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.deselect_all_assets).grid(row=0, column=3)
 
         # Crear notebook (pestañas) para categorías
         self.category_notebook = ttk.Notebook(assets_frame)
-        self.category_notebook.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        self.category_notebook.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
 
         # Crear una pestaña por categoría
         self.category_frames = {}
@@ -608,33 +623,33 @@ class MLTrainerGUI:
 
         # Controles por categoría
         category_controls_frame = ttk.Frame(assets_frame)
-        category_controls_frame.pack(fill=tk.X, pady=(5, 0))
+        category_controls_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
 
         # Dropdown para seleccionar categoría
-        ttk.Label(category_controls_frame, text="Categoría:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(category_controls_frame, text="Categoría:").grid(row=0, column=0, padx=(0, 5))
         self.category_var = tk.StringVar()
         if self.categorized_assets:
             self.category_var.set(list(self.categorized_assets.keys())[0])
 
         category_combo = ttk.Combobox(category_controls_frame, textvariable=self.category_var,
                                     values=list(self.categorized_assets.keys()), state="readonly", width=15)
-        category_combo.pack(side=tk.LEFT, padx=(0, 10))
+        category_combo.grid(row=0, column=1, padx=(0, 10))
 
         # Botones para categoría seleccionada
         ttk.Button(category_controls_frame, text="✅ Todos en Categoría",
-                  command=self.select_all_in_category).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.select_all_in_category).grid(row=0, column=2, padx=(0, 5))
         ttk.Button(category_controls_frame, text="❌ Ninguno en Categoría",
-                  command=self.deselect_all_in_category).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.deselect_all_in_category).grid(row=0, column=3)
 
         # Contador de seleccionados
         self.asset_count_label = ttk.Label(assets_frame, text="Seleccionados: 0")
-        self.asset_count_label.pack(anchor=tk.W, pady=(5, 0))
+        self.asset_count_label.grid(row=3, column=0, sticky=tk.W, pady=(5, 0))
 
     def create_scrollable_category_frame(self, parent, category, assets):
         """Crea un frame scrollable para una categoría específica."""
         # Frame contenedor
         container = ttk.Frame(parent)
-        container.pack(fill=tk.BOTH, expand=True)
+        container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Canvas y scrollbar
         canvas = tk.Canvas(container, height=120)
@@ -657,8 +672,8 @@ class MLTrainerGUI:
             cb.grid(row=i//3, column=i%3, sticky=tk.W, padx=5, pady=2)
             self.asset_checkboxes[asset] = var
 
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
 
         return scrollable_frame
 
@@ -699,7 +714,7 @@ class MLTrainerGUI:
     def create_features_selection_ui(self, parent_frame):
         """Crea la interfaz para selección de features."""
         features_frame = ttk.LabelFrame(parent_frame, text="🧠 Configuración de Features", padding="10")
-        features_frame.pack(fill=tk.X, pady=(0, 10))
+        features_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # Features disponibles
         available_features = {
@@ -730,11 +745,11 @@ class MLTrainerGUI:
                           sticky=(tk.W, tk.E), pady=(10, 0))
 
         ttk.Button(control_frame, text="✅ Todos",
-                  command=self.select_all_features).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.select_all_features).grid(row=0, column=0, padx=(0, 5))
         ttk.Button(control_frame, text="❌ Ninguno",
-                  command=self.deselect_all_features).pack(side=tk.LEFT, padx=(0, 5))
+                  command=self.deselect_all_features).grid(row=0, column=1, padx=(0, 5))
         ttk.Button(control_frame, text="🔄 Restaurar",
-                  command=self.reset_features).pack(side=tk.LEFT)
+                  command=self.reset_features).grid(row=0, column=2)
 
     def toggle_asset(self, asset: str, var: tk.BooleanVar):
         """Alterna selección de un activo."""
