@@ -942,7 +942,7 @@ async def main():
     startup_components = {
         'DB': True,  # Asumimos OK si no hay excepción
         'SessionManager': True,
-        'TaskScheduler': scheduler is not None,
+        'xAI Integration': True,  # Sistema híbrido xAI + OpenAI
         'NexusCore': engine_task is not None,
         'SharkSentinel': True  # Asumimos OK si no hay excepción
     }
