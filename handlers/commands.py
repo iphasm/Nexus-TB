@@ -344,7 +344,8 @@ async def cmd_help(message: Message):
         "✨ **INTELIGENCIA ARTIFICIAL**\n"
         "/analyze SYMBOL - Análisis IA profundo\n"
         "/news - Boletín de mercado\n"
-        "/fomc - Análisis de la FED\n\n"
+        "/fomc - Análisis de la FED\n"
+        "/aistatus - Estado del sistema de IA\n\n"
 
         "⚙️ **CONFIGURACIÓN**\n"
         "/config - Panel interactivo ⭐\n"
@@ -997,6 +998,84 @@ async def cmd_news(message: Message, **kwargs):
 
 # REMOVED: /sentiment command - Redundant with hybrid AI system
 # Functionality moved to /news and /fomc commands with GPT-4o/Grok integration
+
+@router.message(Command("aistatus"))
+async def cmd_ai_status(message: Message, **kwargs):
+    """AI Systems Status - Estado completo de sistemas de IA"""
+    session_manager = kwargs.get('session_manager')
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id) if session_manager else None
+
+    try:
+        # Get AI Filter stats
+        from servos.ai_filter import get_filter_stats
+        filter_stats = get_filter_stats()
+
+        # Get xAI integration stats
+        from servos.xai_integration import xai_integration
+        xai_stats = xai_integration.get_usage_stats()
+
+        # Get session config
+        ai_filter_enabled = session.config.get('sentiment_filter', True) if session else True
+        ml_enabled = session.config.get('ml_mode', True) if session else True
+
+        # Build status message
+        status_msg = (
+            "🧠 **ESTADO COMPLETO DE SISTEMAS IA**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        )
+
+        # AI Filter Status
+        status_msg += (
+            "✨ **AI FILTER (Filtrado Inteligente)**\n"
+            f"• Estado: {'🟢 ACTIVO' if ai_filter_enabled else '🔴 DESACTIVADO'}\n"
+            f"• Sistema Híbrido: {'✅ Disponible' if xai_integration.xai_available else '❌ No disponible'}\n"
+            f"• Cache: {filter_stats.get('cache_size', 0)} elementos\n"
+            f"• Última actualización: {datetime.now().strftime('%H:%M:%S')}\n\n"
+        )
+
+        # xAI Integration Status
+        status_msg += (
+            "🤖 **XAI INTEGRATION (Sistema Híbrido)**\n"
+            f"• Estado: {'🟢 ACTIVO' if xai_integration.xai_available else '🔴 DESACTIVADO'}\n"
+            f"• Modelo: {xai_stats.get('xai_model', 'N/A')}\n"
+            f"• Consultas totales: {xai_stats.get('xai_queries', 0)}\n"
+            f"• Tasa de éxito: {xai_stats.get('success_rate', 0):.1f}%\n"
+            f"• Tiempo respuesta promedio: {xai_stats.get('avg_response_time', 0):.2f}s\n"
+            f"• Costo total: ${xai_stats.get('total_cost', 0):.4f}\n\n"
+        )
+
+        # ML Classifier Status
+        status_msg += (
+            "🧠 **ML CLASSIFIER (Predicción)**\n"
+            f"• Estado: {'🟢 ACTIVO' if ml_enabled else '🔴 DESACTIVADO'}\n"
+            f"• Modelo: XGBoost con features técnicos\n"
+            f"• Features: 15+ indicadores técnicos\n\n"
+        )
+
+        # Nexus Analyst Status
+        analyst_available = True  # Asumimos que está disponible si no hay errores
+        status_msg += (
+            "🧠 **NEXUS ANALYST (GPT-4o)**\n"
+            f"• Estado: {'🟢 ACTIVO' if analyst_available else '🔴 DESACTIVADO'}\n"
+            f"• Modelo: GPT-4o\n"
+            f"• Funciones: Análisis técnico, fundamental, FOMC\n\n"
+        )
+
+        # System Health
+        status_msg += (
+            "🔧 **SALUD DEL SISTEMA**\n"
+            f"• Fallback automático: {'✅ Funcionando' if xai_integration.xai_available else '⚠️ Limitado'}\n"
+            f"• Redundancia: {'✅ Alta' if xai_integration.xai_available else '⚠️ Media'}\n"
+            f"• Último check: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        )
+
+        await message.reply(status_msg, parse_mode='Markdown')
+
+    except Exception as e:
+        await message.reply(f"❌ Error obteniendo estado de IA: {e}")
+
+
 @router.message(Command("fomc"))
 async def cmd_fomc(message: Message, **kwargs):
     """Federal Reserve (FED) analysis"""

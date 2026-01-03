@@ -276,7 +276,47 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     
     # Map action to side
     side = 'LONG' if action == 'BUY' else 'SHORT'
-    
+
+    # === AI FILTER: Intelligent Signal Filtering ===
+    # Apply AI-powered filtering based on market sentiment
+    signal_data = {
+        'symbol': symbol,
+        'side': side,
+        'entry_price': price,
+        'strategy': strategy,
+        'confidence': confidence,
+        'timestamp': datetime.now().isoformat()
+    }
+
+    # Check if any active session has AI Filter enabled
+    ai_filter_applied = False
+    filter_reason = ""
+    filter_analysis = {}
+
+    for session in session_manager.get_all_sessions():
+        if session.config.get('sentiment_filter', True):  # AI Filter enabled
+            try:
+                from servos.ai_filter import should_filter_signal
+                should_filter, reason, analysis = await should_filter_signal(signal_data, session.config)
+
+                if should_filter:
+                    logger.warning(f"🚫 AI FILTER BLOCKED: {symbol} {side} | Reason: {reason}", group=True)
+                    ai_filter_applied = True
+                    filter_reason = reason
+                    filter_analysis = analysis
+                    break  # Si una sesión filtra, bloqueamos para todas
+
+            except Exception as e:
+                logger.error(f"❌ AI Filter error for {symbol}: {e}")
+                # Continue without filtering on error (fail-safe)
+
+    if ai_filter_applied:
+        # Log detailed analysis for monitoring
+        logger.info(f"📊 AI Filter Analysis: {symbol} | Fear/Greed: {filter_analysis.get('sentiment_data', {}).get('fear_greed', {}).get('value', 'N/A')} | "
+                   f"Volatility: {filter_analysis.get('sentiment_data', {}).get('volatility', {}).get('classification', 'N/A')} | "
+                   f"Momentum: {filter_analysis.get('sentiment_data', {}).get('momentum', {}).get('direction', 'N/A')}", group=False)
+        return  # Signal blocked by AI Filter
+
     # Map strategy name to config key for filtering
     strategy_config_key = STRATEGY_NAME_TO_CONFIG_KEY.get(strategy, strategy.upper())
     
@@ -837,6 +877,11 @@ async def main():
                 logger.info("🤖 xAI Integration: CONNECTED (Model: grok-3)", group=False)
             else:
                 logger.info("⚠️ xAI Integration: No XAI_API_KEY found - xAI disabled", group=False)
+
+            # Initialize AI Filter Engine
+            from servos.ai_filter import initialize_ai_filter
+            await initialize_ai_filter()
+            logger.info("✨ AI Filter Engine: INITIALIZED (Hybrid AI-powered)", group=False)
 
             # --- KEY INJECTION FIX ---
             # Try to get admin keys for Alpaca & Bybit (background engine needs them)
