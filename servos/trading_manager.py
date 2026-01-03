@@ -296,7 +296,7 @@ def format_position_message(
 
 ⚡ EJECUCIÓN
 ├─ Órdenes SL/TP: ✅ Configuradas
-├─ ATR Usado: {atr_value:.4f if atr_value else 'N/A'} ({'2x multiplicador' if atr_value else 'Porcentaje fijo'})
+├─ ATR Usado: {f'{atr_value:.4f}' if atr_value else 'N/A'} ({'2x multiplicador' if atr_value else 'Porcentaje fijo'})
 └─ Risk-Based Sizing: ✅ Aplicado
 
 💡 ESTRATEGIA: {strategy}{' con ATR Dinámico' if atr_value else ''}
