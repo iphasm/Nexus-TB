@@ -316,9 +316,9 @@ class AsyncTradingSession:
         self.config_api_key = api_key
         self.config_api_secret = api_secret
         
-        # Nexus Core
-        self.shadow_wallet = ShadowWallet()
-        self.bridge = NexusBridge(self.shadow_wallet)
+        # Nexus Core - Per-user isolated ShadowWallet
+        self.shadow_wallet = ShadowWallet(chat_id=self.chat_id)
+        self.bridge = NexusBridge(self.shadow_wallet, chat_id=self.chat_id)
         self.logger = get_logger("AsyncTradingSession")
         
         self.manager = manager
@@ -555,8 +555,7 @@ class AsyncTradingSession:
             # ShadowWallet access is synchronous (dict lookup).
 
             # Direct ShadowWallet Access for speed (exchange-specific)
-            exchange_bal = self.shadow_wallet.balances.get(exchange, {})
-            available = exchange_bal.get('available', 0.0)
+            available = self.shadow_wallet.get_available_balance(self.chat_id, exchange)
 
             # Buffer: Leave 5% margin free
             usable_margin = available * 0.95
@@ -1573,16 +1572,16 @@ class AsyncTradingSession:
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
-                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
+                self.shadow_wallet.update_balance(self.chat_id, target_exchange, fresh_balance)
             except Exception as sync_err:
                 # If sync fails, try to use cached balance
-                cached_balance = self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0)
+                cached_balance = self.shadow_wallet.get_available_balance(self.chat_id, target_exchange)
                 if cached_balance > 0:
                     fresh_balance = {'available': cached_balance}
                     self.shadow_wallet.update_balance(target_exchange, fresh_balance)
 
         # 4. Use exchange-reported available balance (already accounts for used margin on futures)
-        balance = float(self.shadow_wallet.balances.get(target_exchange, {}).get('available', 0) or 0)
+        balance = self.shadow_wallet.get_available_balance(self.chat_id, target_exchange)
 
         # 3. Define Threshold (Much more relaxed - only check if we have at least $1)
         threshold = 1.0  # Very low threshold to avoid blocking trades unnecessarily
@@ -1658,7 +1657,7 @@ class AsyncTradingSession:
             if exchange in self.bridge.adapters:
                 try:
                     fresh_balance = await self.bridge.adapters[exchange].get_account_balance()
-                    shadow_balance = self.shadow_wallet.balances.get(exchange, {})
+                    shadow_balance = self.shadow_wallet._get_user_wallet(self.chat_id)['balances'].get(exchange, {})
 
                     report += f"🏦 **{exchange}:**\n"
                     report += f"   Fresh API: ${fresh_balance.get('available', 0):.2f}\n"
@@ -1749,7 +1748,7 @@ class AsyncTradingSession:
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
-                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
+                self.shadow_wallet.update_balance(self.chat_id, target_exchange, fresh_balance)
             except Exception as sync_err:
                 self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
 
@@ -1797,10 +1796,11 @@ class AsyncTradingSession:
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
             
             # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
-            exchange_bal = self.shadow_wallet.balances.get(target_exchange, {})
+            user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+            exchange_bal = user_wallet['balances'].get(target_exchange, {})
             total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
-                 total_equity = self.shadow_wallet.get_unified_equity()
+                 total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
             
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
@@ -2055,7 +2055,7 @@ class AsyncTradingSession:
         if self.bridge and target_exchange in self.bridge.adapters:
             try:
                 fresh_balance = await self.bridge.adapters[target_exchange].get_account_balance()
-                self.shadow_wallet.update_balance(target_exchange, fresh_balance)
+                self.shadow_wallet.update_balance(self.chat_id, target_exchange, fresh_balance)
             except Exception as sync_err:
                 self.logger.debug(f"Balance sync failed for {target_exchange}: {sync_err}")
         
@@ -2112,10 +2112,11 @@ class AsyncTradingSession:
             if current_price <= 0: return False, f"❌ Failed to fetch price for {symbol}"
 
             # Use exchange-specific equity (BINANCE for crypto, ALPACA for stocks)
-            exchange_bal = self.shadow_wallet.balances.get(target_exchange, {})
+            user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+            exchange_bal = user_wallet['balances'].get(target_exchange, {})
             total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
-                 total_equity = self.shadow_wallet.get_unified_equity()
+                 total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
 
             qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
@@ -2731,7 +2732,7 @@ class AsyncTradingSession:
                 # Generate enhanced message with personality
                 personality = self.config.get('personality', 'STANDARD_ES')
                 leverage = 1  # Default for position updates
-                total_equity = self.shadow_wallet.get_unified_equity()
+                total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
                 margin_used = abs(qty) * entry_price / leverage
 
                 # Create position message using the same format as new positions
@@ -2767,7 +2768,8 @@ class AsyncTradingSession:
         """
         try:
             # 1. Get position details from Shadow Wallet
-            pos = self.shadow_wallet.positions.get(symbol)
+            user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+            pos = user_wallet['positions'].get(symbol)
             if not pos:
                 return False, "No active position."
             
@@ -3238,22 +3240,23 @@ class AsyncTradingSession:
                         # Update position with normalized symbol
                         pos_normalized = pos.copy()
                         pos_normalized['symbol'] = normalized_symbol
-                        self.shadow_wallet.update_position(normalized_symbol, pos_normalized)
-                        
+                        self.shadow_wallet.update_position(self.chat_id, normalized_symbol, pos_normalized)
+
                     # Sync Balance (fast enough to do here)
                     balance = await adapter.get_account_balance()
-                    self.shadow_wallet.update_balance(name, balance)
+                    self.shadow_wallet.update_balance(self.chat_id, name, balance)
                 except Exception as e:
                     print(f"⚠️ Dashboard Sync Error ({name}): {e}")
             
             # Remove closed positions (symbols in cache but not on exchange)
-            stale_symbols = [s for s in self.shadow_wallet.positions.keys() if s not in exchange_symbols]
+            user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+            stale_symbols = [s for s in user_wallet['positions'].keys() if s not in exchange_symbols]
             for stale in stale_symbols:
-                del self.shadow_wallet.positions[stale]
+                del user_wallet['positions'][stale]
                 print(f"🧹 ShadowWallet: Removed stale position {stale}")
 
         # 2. Read from Shadow Wallet
-        for symbol, p in self.shadow_wallet.positions.items():
+        for symbol, p in user_wallet['positions'].items():
             try:
                 raw_qty = float(p.get('quantity', 0))
                 if raw_qty == 0: continue
@@ -3284,11 +3287,14 @@ class AsyncTradingSession:
         try:
             configured_exchanges = self.get_configured_exchanges()
 
+            # Get user wallet for balance data
+            user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+
             # 1. Binance Futures (only if configured)
             futures_balance = 0.0
             futures_available = 0.0
             if configured_exchanges.get('BINANCE', False):
-                bin_bal = self.shadow_wallet.balances.get('BINANCE', {})
+                bin_bal = user_wallet['balances'].get('BINANCE', {})
                 futures_balance = bin_bal.get('total', 0.0)
                 futures_available = bin_bal.get('available', 0.0)
                 futures_pnl = 0.0 # ShadowWallet simple balance doesn't track UnrealizedPnL yet strictly
@@ -3296,13 +3302,13 @@ class AsyncTradingSession:
             # 2. Bybit (only if configured)
             bybit_total = 0.0
             if configured_exchanges.get('BYBIT', False):
-                bybit_bal = self.shadow_wallet.balances.get('BYBIT', {})
+                bybit_bal = user_wallet['balances'].get('BYBIT', {})
                 bybit_total = bybit_bal.get('total', 0.0)
-            
+
             # 3. Alpaca (only if configured)
             alpaca_equity = 0.0
             if configured_exchanges.get('ALPACA', False):
-                alp_bal = self.shadow_wallet.balances.get('ALPACA', {})
+                alp_bal = user_wallet['balances'].get('ALPACA', {})
                 alpaca_equity = alp_bal.get('total', 0.0)
             
             # Legacy Spot support (Mocked for now as we focus on Futures)

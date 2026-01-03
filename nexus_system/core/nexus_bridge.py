@@ -39,14 +39,16 @@ class NexusBridge:
     enrutando automáticamente a los adapters correctos según el símbolo.
     """
     
-    def __init__(self, shadow_wallet: ShadowWallet):
+    def __init__(self, shadow_wallet: ShadowWallet, chat_id: str = None):
         """
         Inicializa Nexus Bridge.
-        
+
         Args:
             shadow_wallet: Instancia de ShadowWallet para mantener estado en memoria
+            chat_id: ID del usuario para aislamiento de datos
         """
         self.shadow_wallet = shadow_wallet
+        self.chat_id = chat_id
         self.adapters: Dict[str, IExchangeAdapter] = {}  # Diccionario de adapters conectados
         self.primary_exchange = 'BINANCE'  # Exchange por defecto
 
@@ -86,7 +88,7 @@ class NexusBridge:
                     # Initial sync to Shadow Wallet (Balance & Positions) - silent
                     try:
                         balance = await adapter.get_account_balance()
-                        self.shadow_wallet.update_balance(name, balance)
+                        self.shadow_wallet.update_balance(self.chat_id, name, balance)
 
                         positions = await adapter.get_positions()
                         for pos in positions:
@@ -96,9 +98,9 @@ class NexusBridge:
                                 normalized_symbol = f"{symbol}USDT"
                                 pos_normalized = pos.copy()
                                 pos_normalized['symbol'] = normalized_symbol
-                                self.shadow_wallet.update_position(normalized_symbol, pos_normalized)
+                                self.shadow_wallet.update_position(self.chat_id, normalized_symbol, pos_normalized)
                             else:
-                                self.shadow_wallet.update_position(symbol, pos)
+                                self.shadow_wallet.update_position(self.chat_id, symbol, pos)
                     except Exception as e:
                         print(f"⚠️ NexusBridge: Error syncing {name} to Shadow Wallet: {e}")
                         # Continue anyway - adapter is connected
@@ -129,7 +131,8 @@ class NexusBridge:
         Returns:
             Dict con información de la posición o dict vacío si no existe
         """
-        return self.shadow_wallet.positions.get(symbol, {})
+        user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+        return user_wallet['positions'].get(symbol, {})
 
     async def get_positions(self, exchange: Optional[str] = None) -> list:
         """
@@ -153,7 +156,7 @@ class NexusBridge:
                     normalized = self.normalize_symbol(pos.get('symbol', ''))
                     pos['symbol'] = normalized
                     pos['exchange'] = name
-                    self.shadow_wallet.update_position(normalized, pos)
+                    self.shadow_wallet.update_position(self.chat_id, normalized, pos)
                     positions.append(pos)
             except Exception as e:
                 print(f"⚠️ NexusBridge: Error getting positions from {name}: {e}")
@@ -829,7 +832,7 @@ class NexusBridge:
                     else:
                         normalized_symbol = self.normalize_symbol(symbol)
 
-                    self.shadow_wallet.update_position(normalized_symbol, {
+                    self.shadow_wallet.update_position(self.chat_id, normalized_symbol, {
                         'symbol': normalized_symbol,
                         'quantity': pos.get('quantity', 0),
                         'side': pos.get('side', 'LONG'),
