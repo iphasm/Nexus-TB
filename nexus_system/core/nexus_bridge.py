@@ -90,7 +90,15 @@ class NexusBridge:
 
                         positions = await adapter.get_positions()
                         for pos in positions:
-                            self.shadow_wallet.update_position(pos['symbol'], pos)
+                            # Normalize symbol for consistent storage
+                            symbol = pos['symbol']
+                            if name.upper() == 'ALPACA' and not symbol.endswith('USDT'):
+                                normalized_symbol = f"{symbol}USDT"
+                                pos_normalized = pos.copy()
+                                pos_normalized['symbol'] = normalized_symbol
+                                self.shadow_wallet.update_position(normalized_symbol, pos_normalized)
+                            else:
+                                self.shadow_wallet.update_position(symbol, pos)
                     except Exception as e:
                         print(f"⚠️ NexusBridge: Error syncing {name} to Shadow Wallet: {e}")
                         # Continue anyway - adapter is connected
@@ -814,7 +822,13 @@ class NexusBridge:
             try:
                 positions = await adapter.get_positions()
                 for pos in positions:
-                    normalized_symbol = self.normalize_symbol(pos.get('symbol', ''))
+                    # Normalize symbol for consistent storage
+                    symbol = pos.get('symbol', '')
+                    if name.upper() == 'ALPACA' and not symbol.endswith('USDT'):
+                        normalized_symbol = f"{symbol}USDT"
+                    else:
+                        normalized_symbol = self.normalize_symbol(symbol)
+
                     self.shadow_wallet.update_position(normalized_symbol, {
                         'symbol': normalized_symbol,
                         'quantity': pos.get('quantity', 0),

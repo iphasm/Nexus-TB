@@ -265,27 +265,34 @@ def format_position_message(
     personality_manager = PersonalityManager()
     personality_phrase = personality_manager.get_message(personality, 'POSITION_EXECUTED')
 
+    # Safe formatting for percentages
+    margin_pct = "N/A"
+    if total_equity and total_equity > 0:
+        margin_pct = f"{margin_used/total_equity*100:.1f}%"
+    elif margin_used and margin_used > 0:
+        margin_pct = f"{margin_used:.2f}"
+
     return f"""
 {main_emoji} {side.upper()} EJECUTADO: {symbol}
 ═══════════════════════════════════════════
 
 💰 CAPITAL ASIGNADO
 ├─ Exchange: {target_exchange} ({'Crypto' if 'USDT' in symbol else 'Stocks'})
-├─ Equity Total: ${total_equity:,.2f}
-├─ Margen Usado: ${margin_used:,.2f} ({margin_used/total_equity*100:.1f}%)
+├─ Equity Total: ${total_equity if total_equity else 0:,.2f}
+├─ Margen Usado: ${margin_used if margin_used else 0:,.2f} ({margin_pct})
 └─ Leverage: {leverage}x
 
 📊 POSICIÓN
-├─ Cantidad: {quantity:.4f} {symbol.replace('USDT', '').replace('USD', '')}
-├─ Precio Entrada: ${entry_price:,.2f}
-├─ Valor Notional: ${notional:,.2f}
+├─ Cantidad: {quantity if quantity else 0:.4f} {symbol.replace('USDT', '').replace('USD', '')}
+├─ Precio Entrada: ${entry_price if entry_price else 0:,.2f}
+├─ Valor Notional: ${notional if notional else 0:,.2f}
 └─ Dirección: {side.upper()} {direction_emoji}
 
 🎯 OBJETIVOS DE RIESGO
 {sl_line}
 {tp_line}
-├─ Ratio Riesgo/Recompensa: 1:{rr_ratio:.1f}
-└─ Riesgo Máximo: ${risk_amount:.2f} ({risk_pct:.2f}% del capital)
+├─ Ratio Riesgo/Recompensa: 1:{rr_ratio if rr_ratio else 0:.1f}
+└─ Riesgo Máximo: ${risk_amount if risk_amount else 0:.2f} ({risk_pct if risk_pct else 0:.2f}% del capital)
 
 ⚡ EJECUCIÓN
 ├─ Órdenes SL/TP: ✅ Configuradas
@@ -2010,7 +2017,7 @@ class AsyncTradingSession:
             return True, message
 
         except Exception as e:
-            return False, f"Execution Error: {e}"
+            return False, f"Execution Error: {str(e) if e else 'Unknown error'}"
 
 
     async def execute_short_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
@@ -2309,10 +2316,10 @@ class AsyncTradingSession:
 
             return True, message
 
-                
+
         except Exception as e:
             print(f"⚠️ Execution Error (Short {symbol}): {e}")
-            return False, f"Execution Error: {e}"
+            return False, f"Execution Error: {str(e) if e else 'Unknown error'}"
 
     async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
         """
@@ -3042,8 +3049,17 @@ class AsyncTradingSession:
                     positions = await adapter.get_positions()
                     for pos in positions:
                         symbol = pos['symbol']
-                        exchange_symbols.add(symbol)
-                        self.shadow_wallet.update_position(symbol, pos)
+                        # Normalize symbol for consistent storage (add USDT for Alpaca stocks)
+                        if name.upper() == 'ALPACA' and not symbol.endswith('USDT'):
+                            normalized_symbol = f"{symbol}USDT"
+                        else:
+                            normalized_symbol = symbol
+
+                        exchange_symbols.add(normalized_symbol)
+                        # Update position with normalized symbol
+                        pos_normalized = pos.copy()
+                        pos_normalized['symbol'] = normalized_symbol
+                        self.shadow_wallet.update_position(normalized_symbol, pos_normalized)
                         
                     # Sync Balance (fast enough to do here)
                     balance = await adapter.get_account_balance()
@@ -3306,7 +3322,7 @@ class AsyncTradingSession:
             )
 
         except Exception as e:
-            return False, f"Bybit Execution Error: {e}"
+            return False, f"Bybit Execution Error: {str(e) if e else 'Unknown error'}"
     
     def _alpaca_order_sync(self, symbol: str, side: str, atr: Optional[float]) -> Tuple[bool, str]:
         """Sync Alpaca order execution (called via run_in_executor)."""
@@ -3486,8 +3502,14 @@ class AsyncTradingSession:
             for attempt in range(3):
                 await asyncio.sleep(2.0 if attempt == 0 else 1.0) # Total up to 4s
                 pos = await self.bridge.get_position(symbol)
-                qty_now = abs(float(pos.get('quantity', 0) or pos.get('amt', 0)))
-                
+                if pos:
+                    try:
+                        qty_now = abs(float(pos.get('quantity', 0) or pos.get('amt', 0) or 0))
+                    except (ValueError, TypeError):
+                        qty_now = 0
+                else:
+                    qty_now = 0
+
                 if qty_now == 0:
                     verified = True
                     break
@@ -3495,7 +3517,7 @@ class AsyncTradingSession:
                     self.logger.warning(f"🔄 Flip Verification (Attempt {attempt+1}/3): {symbol} still has {qty_now} contracts. Waiting...")
 
             if not verified:
-                return False, f"Flip Aborted: Position failed to close after 3 attempts ({qty_now} remaining)"
+                return False, f"Flip Aborted: Position failed to close after 3 attempts ({qty_now:.2f} remaining)"
         except Exception as e:
             self.logger.warning(f"⚠️ Verification Error ({symbol}): {e}")
         

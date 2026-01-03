@@ -30,6 +30,15 @@ from servos.media_manager import MediaManager
 # Load Environment Variables
 load_dotenv()
 
+
+async def safe_send_message(bot: Bot, chat_id: int, text: str, **kwargs):
+    """Send message with error handling to prevent silent failures"""
+    try:
+        await bot.send_message(chat_id, text, **kwargs)
+    except Exception as e:
+        logger.error(f"❌ Failed to send message to chat {chat_id}: {e}")
+        # Don't re-raise to avoid breaking the main flow
+
 # --- NEXUS BANNER ---
 def print_nexus_banner():
     # ANSI Color Codes
@@ -451,7 +460,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                 if force_watcher_mode:
                     msg += f"\n\n{liquidity_msg}"
 
-                await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
+                await safe_send_message(bot, session.chat_id, msg, parse_mode="Markdown")
 
             elif effective_mode == 'COPILOT':
                 if side == 'LONG':
@@ -471,6 +480,9 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         user_name=user_name, exchange=exchange_display
                     )
 
+                # Change header for COPILOT mode
+                msg = msg.replace("📢 SIGNAL TRADE TRIGGER 🤖", "🚨 CO-PILOT TRADE TRIGGER 🤖")
+
                 # Add low balance warning if forced to copilot mode
                 if force_watcher_mode:
                     msg += f"\n\n{liquidity_msg}"
@@ -487,8 +499,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         )
                     ]
                 ])
-                await bot.send_message(
-                    session.chat_id, msg,
+                await safe_send_message(bot, session.chat_id, msg,
                     reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
@@ -517,7 +528,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Add specific message for PILOT forced to watcher
                     msg += f"\n\n{liquidity_msg}\n\n⚠️ **Modo PILOT suspendido temporalmente por bajo saldo**"
 
-                    await bot.send_message(session.chat_id, msg, parse_mode="Markdown")
+                    await safe_send_message(bot, session.chat_id, msg, parse_mode="Markdown")
                     continue
 
                 # Normal PILOT execution
@@ -581,7 +592,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     formatted_quote = quote.rstrip('.!?,;:')
                     
                     caption = (
-                        f"✅ *AUTOPILOT ENGAGED: {side}*\n"
+                        f"⚡ AUTOPILOT ENGAGED 🤖\n"
                         f"🕐 `{timestamp}`\n\n"
                         f"\"{formatted_quote}, *{user_name}*.\"\n"
                         f"{title}\n\n"
@@ -597,17 +608,13 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         f"`{reason}`"
                     )
                     
-                    await bot.send_message(
-                        session.chat_id,
-                        caption,
-                        parse_mode="Markdown"
-                    )
-                    
+                    await safe_send_message(bot, session.chat_id, caption, parse_mode="Markdown")
+
                     # Check circuit breaker after trade
                     cb_triggered, cb_msg = await session.check_circuit_breaker()
                     if cb_triggered:
                         cb_alert = personality_manager.get_message(p_key, 'CB_TRIGGER')
-                        await bot.send_message(session.chat_id, cb_alert, parse_mode="Markdown")
+                        await safe_send_message(bot, session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
                     # Only log errors, don't spam user with cooldown messages
                     ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized", "SILENT_REJECTION", "Cupo lleno"]
@@ -628,8 +635,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     
                     # Handle Margin Insufficient errors with friendly message
                     if "INSUFFICIENT_MARGIN" in result or "Margin is insufficient" in result:
-                        await bot.send_message(
-                            session.chat_id,
+                        await safe_send_message(bot, session.chat_id,
                             f"⚠️ No se ejecutó operación automática para *{symbol}* "
                             f"en el exchange *{error_exchange}* por fondos insuficientes ⚠️",
                             parse_mode="Markdown"
@@ -641,8 +647,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         cooldown_manager.set_cooldown(symbol, seconds=3600, exchange=target_exchange, strategy=strategy)
 
                         # 2. Notify User only once
-                        await bot.send_message(
-                            session.chat_id,
+                        await safe_send_message(bot, session.chat_id,
                             f"⚠️ **CAPITAL INSUFICIENTE: {symbol}**\n\n"
                             f"Tamaño de posición por debajo del mínimo del exchange.\n"
                             f"❄️ **Acción:** {symbol} congelado por 1 hora.",
@@ -650,11 +655,33 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         )
                     
                     else:
-                        await bot.send_message(
-                            session.chat_id,
-                            f"❌ Effector Error: {result}",
-                            parse_mode=None
-                        )
+                        # Filter out balance/insufficient funds errors to avoid spam
+                        balance_error_phrases = [
+                            "ab not enough for new order",  # Bybit insufficient balance
+                            "insufficient balance",  # Generic insufficient balance
+                            "not enough",  # Various "not enough" messages
+                            "balance",  # Any message containing "balance"
+                            "funds",  # Any message containing "funds"
+                            "INSUFFICIENT_MARGIN",  # Already handled above but extra filter
+                            "MIN_NOTIONAL",  # Already handled above but extra filter
+                            "Flip Aborted",  # Position flip failures
+                            "failed to close",  # Position closing failures
+                            "after 3 attempts",  # Retry failures
+                            "retCode\":110007",  # Bybit insufficient balance error code
+                            "retMsg\":\"ab not enough",  # Bybit specific error message
+                            "Bridge Error",  # All bridge errors (usually balance related)
+                        ]
+
+                        is_balance_error = any(phrase.lower() in result.lower() for phrase in balance_error_phrases)
+
+                        if not is_balance_error:
+                            await safe_send_message(bot, session.chat_id,
+                                f"❌ Effector Error: {result}",
+                                parse_mode=None
+                            )
+                        else:
+                            # Log balance errors but don't spam the chat
+                            logger.info(f"💰 Balance error filtered (not sent to chat): {symbol} on {target_exchange} - {result}")
                     
             processed_exchanges.add(target_exchange)
         except Exception as e:

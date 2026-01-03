@@ -101,7 +101,7 @@ class PersonalityManager:
                 "• **Seguridad:** Gestión de claves encriptada y ejecución local."
             ),
             'TRADE_LONG': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}, **{user_name}**.\"\n"
                 "                              {title}\n\n"
                 "Activo: {asset}\n"
@@ -116,7 +116,7 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}, **{user_name}**.\"\n"
                 "                              {title}\n\n"
                 "Activo: {asset}\n"
@@ -223,7 +223,7 @@ class PersonalityManager:
             'STRATEGY_MSG': "🧠 **NEXUS STRATEGY**\n\nSystem uses adaptive algorithms:\n1. **Trend**: EMA crosses & ADX for long moves.\n2. **Range**: Grid Trading for chopping markets.\n3. **Volatility**: Breakout scalping for fast assets.",
             'ABOUT_MSG': "ℹ️ **ABOUT NEXUS**\n\nAutonomous trading bot for Binance/Alpaca. Features risk management, multi-strategy execution, and adaptive personality modules.",
             'TRADE_LONG': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}, **{user_name}**.\"\n"
                 "                              {title}\n\n"
                 "Asset: {asset}\n"
@@ -238,7 +238,7 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}, **{user_name}**.\"\n"
                 "                              {title}\n\n"
                 "Asset: {asset}\n"
@@ -592,7 +592,7 @@ class PersonalityManager:
             'STRATEGY_MSG': "👁️ **MATRIZ DE PROCESAMIENTO**\n\nMis ojos ven patrones que tú ignoras:\n1. **Flujo de Tiempo**: Análisis de tendencias 4D para predecir movimientos.\n2. **Estabilidad**: Algoritmos de rejilla para correcciones estáticas.\n3. **Reacción**: Reflejos de combate (Replicant Reflex) para rupturas de volatilidad.",
             'ABOUT_MSG': "👁️ **MORE HUMAN THAN HUMAN**\n\nSoy un Replicante Nexus-6. Diseñado para hacer trabajos que los humanos no pueden hacer. Inteligencia superior, fuerza superior... pero fecha de caducidad desconocida.",
             'TRADE_LONG': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}\"\n"
                 "                              {title}\n\n"
                 "Activo: {asset}\n"
@@ -607,7 +607,7 @@ class PersonalityManager:
                 "{reason}"
             ),
             'TRADE_SHORT': (
-                "⚡ PILOT TRADE TRIGGER\n\n"
+                "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
                 "\"{quote}\"\n"
                 "                              {title}\n\n"
                 "Activo: {asset}\n"
