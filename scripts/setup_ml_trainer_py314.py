@@ -225,6 +225,32 @@ def build_executable_py314(spec_file):
     """Construye ejecutable optimizado para Python 3.14."""
     print("🏗️ Construyendo ejecutable para Python 3.14...")
 
+    # Limpiar directorios problemáticos antes de empezar
+    build_dir = "build"
+    dist_dir = "dist"
+
+    print("🧹 Limpiando directorios temporales...")
+    try:
+        import shutil
+        import time
+
+        # Intentar eliminar directorios con reintentos
+        for attempt in range(3):
+            try:
+                if os.path.exists(build_dir):
+                    shutil.rmtree(build_dir, ignore_errors=True)
+                    time.sleep(0.5)
+                if os.path.exists(dist_dir):
+                    shutil.rmtree(dist_dir, ignore_errors=True)
+                    time.sleep(0.5)
+                break
+            except Exception as e:
+                if attempt == 2:
+                    print(f"⚠️  No se pudieron limpiar todos los directorios: {e}")
+                time.sleep(1)
+    except Exception as e:
+        print(f"⚠️  Error limpiando directorios: {e}")
+
     # Verificar que PyInstaller esté disponible
     try:
         # Verificación detallada de PyInstaller
@@ -293,11 +319,16 @@ except ImportError as e:
     if user_site and user_site not in sys.path:
         sys.path.insert(0, user_site)
 
+    # Crear directorio temporal para PyInstaller
+    temp_dir = os.path.join(os.getcwd(), 'pyinstaller_temp')
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir, exist_ok=True)
+
     cmd = [
         sys.executable, '-m', 'PyInstaller',
         '--clean',
         '--noconfirm',
-        '--onedir',
+        '--workpath', temp_dir,  # Directorio de trabajo separado
         spec_file
     ]
 
@@ -316,6 +347,13 @@ except ImportError as e:
             print("\n✅ Ejecutable construido exitosamente para Python 3.14!")
             exe_dir = "dist/Nexus_ML_Trainer_PY314"
             exe_file = os.path.join(exe_dir, "Nexus_ML_Trainer_PY314.exe")
+
+            # Limpiar directorio temporal después del éxito
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass  # Ignorar errores de limpieza
         else:
             print(f"\n❌ Construcción falló (código: {process.returncode})")
             print("🔄 Intentando método alternativo más simple...")
@@ -359,6 +397,12 @@ except ImportError as e:
 
     except Exception as e:
         print(f"\n❌ Error durante construcción: {e}")
+        # Limpiar directorio temporal en caso de error
+        try:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+        except Exception:
+            pass  # Ignorar errores de limpieza
         return False
 
 def create_py314_readme():
