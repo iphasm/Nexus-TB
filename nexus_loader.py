@@ -555,12 +555,24 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 
                 # Auto-execute (no "entering pilot mode" message)
                 # Force execution on the already-determined target_exchange to avoid re-routing
-                if side == 'LONG':
-                    success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
-                else:
-                    success, result = await session.execute_short_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
-                
+                try:
+                    if side == 'LONG':
+                        success, result = await session.execute_long_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
+                    else:
+                        success, result = await session.execute_short_position(symbol, atr=atr, strategy=strategy, force_exchange=target_exchange)
+
+                    # Validate return values to prevent None formatting errors
+                    if not isinstance(success, bool) or result is None:
+                        logger.error(f"Invalid return from execute_{side.lower()}_position for {symbol}: success={success}, result={result}")
+                        success, result = False, "Invalid function return (None or non-boolean success)"
+
+                except Exception as exec_error:
+                    logger.error(f"Exception during execute_{side.lower()}_position for {symbol}: {exec_error}")
+                    success, result = False, f"Execution Exception: {str(exec_error)}"
+
                 if success:
+                    logger.info(f"✅ Position executed successfully: {symbol} {side} on {target_exchange}")
+                    logger.info(f"✅ Position executed successfully: {symbol} {side} on {target_exchange}")
                     # Build enhanced AUTOPILOT message
                     from datetime import datetime, timezone
                     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -582,23 +594,28 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Direction styling
                     direction = "🟢 LONG (Activo)" if side == 'LONG' else "🔴 SHORT (Activo)"
                     
-                    # Format prices safely
-                    price_str = f"${price:.2f}" if price else "N/A"
-                    ts_str = f"${ts_prev:.2f}" if ts_prev else "N/A"
-                    tp_str = f"${tp_prev:.2f}" if tp_prev else "N/A"
-                    sl_str = f"${sl_prev:.2f}" if sl_prev else "N/A"
-                    
-                    # Format quote with username
-                    formatted_quote = quote.rstrip('.!?,;:')
+                    # Format prices safely (handle None values)
+                    price_str = f"${float(price):.2f}" if price and price != 0 else "N/A"
+                    ts_str = f"${float(ts_prev):.2f}" if ts_prev and ts_prev != 0 else "N/A"
+                    tp_str = f"${float(tp_prev):.2f}" if tp_prev and tp_prev != 0 else "N/A"
+                    sl_str = f"${float(sl_prev):.2f}" if sl_prev and sl_prev != 0 else "N/A"
+
+                    # Format other variables safely
+                    formatted_quote = str(quote).rstrip('.!?,;:') if quote else "Online."
+                    safe_user_name = str(user_name) if user_name else "Trader"
+                    safe_title = str(title) if title else "Nexus Bot"
+                    safe_symbol = str(symbol) if symbol else "UNKNOWN"
+                    safe_exchange = str(exchange) if exchange else "Unknown"
+                    safe_direction = str(direction) if direction else "UNKNOWN"
                     
                     caption = (
                         f"⚡ AUTOPILOT ENGAGED 🤖\n"
                         f"🕐 `{timestamp}`\n\n"
-                        f"\"{formatted_quote}, *{user_name}*.\"\n"
-                        f"{title}\n\n"
-                        f"*Activo:* `{symbol}`\n"
-                        f"*Exchange:* {exchange}\n"
-                        f"*Dirección:* {direction}\n"
+                        f"\"{formatted_quote}, *{safe_user_name}*.\"\n"
+                        f"{safe_title}\n\n"
+                        f"*Activo:* `{safe_symbol}`\n"
+                        f"*Exchange:* {safe_exchange}\n"
+                        f"*Dirección:* {safe_direction}\n"
                         f"*Estrategia:* {strategy}\n"
                         f"*Precio Actual:* {price_str}\n\n"
                         f"💸 *TS:* {ts_str}\n"
@@ -616,6 +633,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         cb_alert = personality_manager.get_message(p_key, 'CB_TRIGGER')
                         await safe_send_message(bot, session.chat_id, cb_alert, parse_mode="Markdown")
                 else:
+                    logger.info(f"❌ Position execution failed: {symbol} {side} on {target_exchange} - Result: {result}")
                     # Only log errors, don't spam user with cooldown messages
                     ignore_phrases = ["Wait", "cooldown", "duplicate", "Alpaca Client not initialized", "SILENT_REJECTION", "Cupo lleno"]
                     
@@ -675,8 +693,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                         is_balance_error = any(phrase.lower() in result.lower() for phrase in balance_error_phrases)
 
                         if not is_balance_error:
+                            # Safe formatting to handle None values
+                            result_str = str(result) if result is not None else "Unknown Error (None)"
                             await safe_send_message(bot, session.chat_id,
-                                f"❌ Effector Error: {result}",
+                                f"❌ Effector Error: {result_str}",
                                 parse_mode=None
                             )
                         else:
