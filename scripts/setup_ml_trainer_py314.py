@@ -132,22 +132,24 @@ def create_simplified_spec():
     """Crea especificaciones simplificadas con pandas-ta-openbb compatible con Python 3.14."""
     print("📝 Creando especificaciones simplificadas para Python 3.14...")
 
-    spec_content = '''# -*- mode: python ; coding: utf-8 -*-
+    # Calcular rutas absolutas correctamente
+    current_dir = os.getcwd()
+    spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
 
 import os
 import sys
 
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(SPEC)))
+project_root = r"{current_dir}"
 
 a = Analysis(
     ['scripts/ml_trainer_gui.py'],
-    pathex=[project_root],
+    pathex=[r"{current_dir}"],
     binaries=[],
     datas=[
-        (os.path.join(project_root, 'system_directive.py'), '.'),
-        (os.path.join(project_root, 'nexus_system'), 'nexus_system'),
-        (os.path.join(project_root, 'src'), 'src'),
-        (os.path.join(project_root, 'servos'), 'servos'),
+        (r"{os.path.join(current_dir, 'system_directive.py')}", '.'),
+        (r"{os.path.join(current_dir, 'nexus_system')}", 'nexus_system'),
+        (r"{os.path.join(current_dir, 'src')}", 'src'),
+        (r"{os.path.join(current_dir, 'servos')}", 'servos'),
     ],
     hiddenimports=[
         'tkinter', 'tkinter.ttk', 'tkinter.scrolledtext',
