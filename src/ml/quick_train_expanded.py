@@ -19,13 +19,20 @@ def quick_train():
     start_time = time.time()
 
     try:
-        # Cargar datos existentes
+        # Cargar datos existentes - usar activos HABILITADOS
         print("📂 Cargando datos existentes...")
-        from system_directive import get_all_assets
+        from system_directive import ASSET_GROUPS, GROUP_CONFIG
         from train_cortex import fetch_data, add_indicators
         from add_new_features import add_all_new_features
 
-        symbols = get_all_assets()[:3]  # Solo 3 símbolos para rapidez
+        # Solo usar activos de grupos habilitados
+        enabled_symbols = []
+        for group_name, assets in ASSET_GROUPS.items():
+            if GROUP_CONFIG.get(group_name, True):
+                enabled_symbols.extend(assets)
+        enabled_symbols = list(set(enabled_symbols))  # Remover duplicados
+
+        symbols = enabled_symbols[:5]  # Solo 5 símbolos para rapidez (de los habilitados)
         all_data = []
 
         for symbol in symbols:

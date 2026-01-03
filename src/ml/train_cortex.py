@@ -29,7 +29,7 @@ import requests
 warnings.filterwarnings('ignore')
 
 import yfinance as yf
-from system_directive import get_all_assets, is_crypto
+from system_directive import get_all_assets, is_crypto, ASSET_GROUPS, GROUP_CONFIG
 import pandas_ta as ta
 from .add_new_features import add_all_new_features
 
@@ -75,8 +75,13 @@ def log_progress(message, start_time=None, phase="", force_flush=True):
         sys.stdout.flush()
 
 
-# Configuration
-SYMBOLS = get_all_assets()
+# Configuration - Use only ENABLED assets for training
+SYMBOLS = []
+for group_name, assets in ASSET_GROUPS.items():
+    if GROUP_CONFIG.get(group_name, True):  # Only include enabled groups
+        SYMBOLS.extend(assets)
+SYMBOLS = list(set(SYMBOLS))  # Remove duplicates
+
 INTERVAL = '15m'
 # Local output (same directory as script)
 MODEL_OUTPUT = 'ml_model.pkl'
@@ -513,8 +518,15 @@ def train():
 
     # Test symbol configuration
     try:
-        test_symbols = get_all_assets()
-        print(f"✅ Configuración de {len(test_symbols)} símbolos cargada", flush=True)
+        # Use the same logic as the main script for consistency
+        enabled_symbols = []
+        for group_name, assets in ASSET_GROUPS.items():
+            if GROUP_CONFIG.get(group_name, True):
+                enabled_symbols.extend(assets)
+        enabled_symbols = list(set(enabled_symbols))
+
+        print(f"✅ Configuración de {len(enabled_symbols)} símbolos HABILITADOS cargada", flush=True)
+        print(f"   Grupos incluidos: {[g for g, enabled in GROUP_CONFIG.items() if enabled]}", flush=True)
     except Exception as e:
         print(f"❌ Error cargando configuración de símbolos: {e}", flush=True)
         return
