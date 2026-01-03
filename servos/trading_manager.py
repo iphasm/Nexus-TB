@@ -2353,22 +2353,6 @@ class AsyncTradingSession:
         
         return conditional_orders
 
-    async def _cancel_all_robust(self, symbol: str, verify: bool = True) -> bool:
-        """
-        Robust cancellation of ALL orders (Standard + Algo) via Bridge.
-        """
-        # Since standardizing on Nexus Bridge, we delegate to cancel_orders
-        # found in cancel_algo_orders (which we updated to use Bridge too).
-        
-        # We can just call the bridge directly here for clarity.
-        if not self.bridge: return False
-        
-        try:
-             await self.bridge.cancel_orders(symbol)
-             return True
-        except Exception as e:
-             print(f"⚠️ Cancel robustness warning ({symbol}): {e}")
-             return False
 
 
 
