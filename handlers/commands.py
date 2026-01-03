@@ -344,7 +344,6 @@ async def cmd_help(message: Message):
         "✨ **INTELIGENCIA ARTIFICIAL**\n"
         "/analyze SYMBOL - Análisis IA profundo\n"
         "/news - Boletín de mercado\n"
-        "/sentiment - Sentimiento crypto/macro\n"
         "/fomc - Análisis de la FED\n\n"
 
         "⚙️ **CONFIGURACIÓN**\n"
@@ -996,45 +995,8 @@ async def cmd_news(message: Message, **kwargs):
         await msg.edit_text(f"❌ Error: {e}")
 
 
-@router.message(Command("sentiment"))
-async def cmd_sentiment(message: Message, **kwargs):
-    """Global sentiment analysis"""
-    from servos.ai_analyst import NexusAnalyst
-    
-    msg = await message.answer("✨ *Escaneando Redes y Noticias...*", parse_mode='Markdown')
-    
-    try:
-        analyst = NexusAnalyst()
-        if not analyst.client:
-            await msg.edit_text("⚠️ IA no disponible. Configura OPENAI_API_KEY.")
-            return
-        
-        res_btc = analyst.check_market_sentiment('BTCUSDT')
-        res_macro = analyst.check_market_sentiment('^GSPC')  # S&P 500
-        
-        score_btc = res_btc.get('score', 0)
-        score_macro = res_macro.get('score', 0)
-        
-        def interpret(s):
-            if s > 0.3: return "🟢 BULLISH"
-            if s < -0.3: return "🔴 BEARISH"
-            return "⚪ NEUTRAL"
-        
-        result = (
-            "✨ **SENTIMIENTO GLOBAL DEL MERCADO**\n"
-            "-----------------------------------\n"
-            f"💎 **Cripto (BTC):** {score_btc:.2f} | {interpret(score_btc)}\n"
-            f"_{res_btc.get('reason', 'N/A')}_\n\n"
-            f"🌍 **Macro (S&P500):** {score_macro:.2f} | {interpret(score_macro)}\n"
-            f"_{res_macro.get('reason', 'N/A')}_\n\n"
-            f"⚠️ **Riesgo Volatilidad:** `{res_macro.get('volatility_risk', 'LOW')}`"
-        )
-        await msg.edit_text(result, parse_mode='Markdown')
-    
-    except Exception as e:
-        await msg.edit_text(f"❌ Error: {e}")
-
-
+# REMOVED: /sentiment command - Redundant with hybrid AI system
+# Functionality moved to /news and /fomc commands with GPT-4o/Grok integration
 @router.message(Command("fomc"))
 async def cmd_fomc(message: Message, **kwargs):
     """Federal Reserve (FED) analysis"""

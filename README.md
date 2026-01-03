@@ -78,7 +78,6 @@
 |---------|-------------|
 | `/analyze SYMBOL` | Deep AI analysis |
 | `/news` | Market briefing |
-| `/sentiment` | Crypto + macro sentiment |
 | `/fomc` | FED analysis |
 
 ### Configuration

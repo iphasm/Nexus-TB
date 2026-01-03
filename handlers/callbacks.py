@@ -485,24 +485,8 @@ async def handle_strategy_toggle(callback: CallbackQuery, **kwargs):
         await cmd_strategies(callback.message, session_manager=session_manager, edit_message=True)
         return
 
-    # Special case: SENTIMENT toggle (mapped to sentiment_filter like AI_FILTER)
-    if strategy == "SENTIMENT":
-        current = session.config.get('sentiment_filter', True)
-        new_state = not current
-        await session.update_config('sentiment_filter', new_state)
-        await session_manager.save_sessions()
-
-        # SYNC with global config
-        import system_directive as aq_config
-        aq_config.AI_FILTER_ENABLED = new_state
-
-        status = "🟢 ACTIVADO" if new_state else "🔴 DESACTIVADO"
-        await safe_answer(callback, f"🎭 Sentiment Analysis {status}")
-
-        # Refresh Config Menu
-        from handlers.config import cmd_config
-        await cmd_config(callback.message, session_manager=session_manager, edit_message=True)
-        return
+    # REMOVED: SENTIMENT toggle - Redundant with hybrid AI system
+    # Sentiment analysis now handled by /news and /fomc commands
 
     # Special case: CIRCUIT BREAKER toggle
     if strategy == "CIRCUIT_BREAKER":
@@ -1662,7 +1646,7 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
             "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             "• AI Filter: Filtra señales por sentimiento\n"
             "• ML Classifier: Predice dirección usando ML\n"
-            "• Sentiment Analysis: Análisis Fear & Greed\n"
+            "• Hybrid AI: GPT-4o + Grok para análisis inteligente\n"
             "• ATR Integration: Cálculos dinámicos siempre\n\n"
             "🎛️ **CONTROLES RÁPIDOS**"
         )
@@ -1670,7 +1654,7 @@ async def handle_module_callback(callback: CallbackQuery, **kwargs):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"✨ AI FILTER {ai_filter_status}", callback_data="TOGGLE|AI_FILTER")],
             [InlineKeyboardButton(text=f"🧠 ML MODE {ml_mode_status}", callback_data="TOGGLE|ML_MODE")],
-            [InlineKeyboardButton(text=f"🎭 SENTIMENT {sentiment_status}", callback_data="TOGGLE|SENTIMENT")],
+            # REMOVED: SENTIMENT toggle button - Redundant with hybrid AI system
             [InlineKeyboardButton(text="🎯 ESTADO IA", callback_data="INFO|AI_STATUS")],
             [InlineKeyboardButton(text="⬅️ VOLVER A CONFIG", callback_data="CMD|config")]
         ])
@@ -1813,10 +1797,10 @@ async def handle_info_callback(callback: CallbackQuery, **kwargs):
             "• Estado: ACTIVE\n"
             "• Función: Predice dirección de mercado\n"
             "• Modelo: XGBoost con features técnicas\n\n"
-            "🎭 **SENTIMENT ANALYSIS**\n"
+            "🤖 **HYBRID AI SYSTEM**\n"
             "• Estado: ACTIVE\n"
-            "• Función: Análisis de sentimiento macro\n"
-            "• Fuentes: Múltiples indicadores"
+            "• Función: Análisis inteligente GPT-4o + Grok\n"
+            "• Modelo: Sistema híbrido con fallback automático"
         )
 
     else:
