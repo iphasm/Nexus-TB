@@ -830,7 +830,14 @@ async def main():
     if USE_NEXUS_ENGINE:
         try:
             from nexus_system.core.engine import NexusCore
-            
+
+            # Initialize xAI Integration for hybrid AI system
+            from servos.xai_integration import xai_integration
+            if xai_integration.xai_available:
+                logger.info("🤖 xAI Integration: CONNECTED (Model: grok-3)", group=False)
+            else:
+                logger.info("⚠️ xAI Integration: No XAI_API_KEY found - xAI disabled", group=False)
+
             # --- KEY INJECTION FIX ---
             # Try to get admin keys for Alpaca & Bybit (background engine needs them)
             admin_id = os.getenv('TELEGRAM_ADMIN_ID')
@@ -942,7 +949,7 @@ async def main():
     startup_components = {
         'DB': True,  # Asumimos OK si no hay excepción
         'SessionManager': True,
-        'xAI Integration': True,  # Sistema híbrido xAI + OpenAI
+        'xAI Integration': xai_integration.xai_available,
         'NexusCore': engine_task is not None,
         'SharkSentinel': True  # Asumimos OK si no hay excepción
     }

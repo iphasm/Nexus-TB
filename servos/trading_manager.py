@@ -395,8 +395,7 @@ class AsyncTradingSession:
 
     async def initialize(self, verbose: bool = True) -> bool:
         """Async initialization via Nexus Bridge."""
-        if verbose:
-            print("🧠 Nexus Analyst: CONNECTED.")
+        # Removed duplicate Nexus Analyst message - now handled in ai_analyst.py
         
         # Proxy Settings (Config > Env > self._proxy)
         # Fix: Check PROXY_URL and self._proxy which were being ignored
@@ -3989,7 +3988,7 @@ class AsyncSessionManager:
         await self._ensure_admin_session(verbose=False)
         
         # --- AGGREGATED STARTUP LOG ---
-        print("🧠 Nexus Analyst: CONNECTED.")
+        # Nexus Analyst connection message removed - now handled in ai_analyst.py
         
         proxied_users = []
         binance_users = []
