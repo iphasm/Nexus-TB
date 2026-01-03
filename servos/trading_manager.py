@@ -77,6 +77,14 @@ def round_to_tick_size(price: float, tick_size: float) -> float:
     # Evitar errores de punto flotante usando formato y parse
     # Esto asegura que 0.001 * 100 = 0.1 exactamente
     decimals = len(str(tick_size).rstrip('0').split('.')[-1]) if '.' in str(tick_size) else 0
+
+    # Ensure decimals is always a valid integer for formatting
+    try:
+        decimals = int(decimals) if decimals is not None else 0
+        decimals = max(0, min(decimals, 12))  # Limit to reasonable range
+    except (ValueError, TypeError):
+        decimals = 0
+
     result = float(f"{rounded:.{decimals}f}")
     
     # Validación final: si el resultado es 0 pero el precio original no, devolver el precio original
