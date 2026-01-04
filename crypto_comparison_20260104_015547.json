@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-01-04T01:55:47.869923",
+  "cryptocurrencies": [
+    "BTC",
+    "ETH",
+    "XRP",
+    "SOL"
+  ],
+  "data": [
+    {
+      "symbol": "BTC-USD",
+      "name": "Bitcoin",
+      "current_price": 91397.55,
+      "change_1h_pct": 0.04,
+      "change_24h_pct": 1.44,
+      "change_7d_pct": 4.05,
+      "volume_24h": 4096524288,
+      "market_cap": 1825318764544,
+      "volume_24h_usd": 374412302641152.0,
+      "timestamp": "2026-01-04T01:55:41.650081",
+      "success": true
+    },
+    {
+      "symbol": "ETH-USD",
+      "name": "Ethereum",
+      "current_price": 3148.06,
+      "change_1h_pct": 0.03,
+      "change_24h_pct": 0.55,
+      "change_7d_pct": 6.77,
+      "volume_24h": 2217122816,
+      "market_cap": 379949645824,
+      "volume_24h_usd": 6979626580120.75,
+      "timestamp": "2026-01-04T01:55:43.326068",
+      "success": true
+    },
+    {
+      "symbol": "XRP-USD",
+      "name": "XRP",
+      "current_price": 2.07,
+      "change_1h_pct": 0.32,
+      "change_24h_pct": 2.4,
+      "change_7d_pct": 10.82,
+      "volume_24h": 442987776,
+      "market_cap": 125349953536,
+      "volume_24h_usd": 915262695.07,
+      "timestamp": "2026-01-04T01:55:44.998078",
+      "success": true
+    },
+    {
+      "symbol": "SOL-USD",
+      "name": "Solana",
+      "current_price": 134.38,
+      "change_1h_pct": 0.06,
+      "change_24h_pct": 1.31,
+      "change_7d_pct": 7.33,
+      "volume_24h": 388498688,
+      "market_cap": 75729690624,
+      "volume_24h_usd": 52207048392.36,
+      "timestamp": "2026-01-04T01:55:46.869295",
+      "success": true
+    }
+  ]
+}

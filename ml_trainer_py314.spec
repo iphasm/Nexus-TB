@@ -3,19 +3,17 @@
 import os
 import sys
 
-# Calcular rutas de manera genérica
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)
+project_root = r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB"
 
 a = Analysis(
     ['scripts/ml_trainer_gui.py'],
-    pathex=[project_root],
+    pathex=[r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB"],
     binaries=[],
     datas=[
-        (os.path.join(project_root, 'system_directive.py'), '.'),
-        (os.path.join(project_root, 'nexus_system'), 'nexus_system'),
-        (os.path.join(project_root, 'src'), 'src'),
-        (os.path.join(project_root, 'servos'), 'servos'),
+        (r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\system_directive.py", '.'),
+        (r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\nexus_system", 'nexus_system'),
+        (r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\src", 'src'),
+        (r"C:\Users\iphas\OneDrive\Documents\GitHub\Nexus-TB\servos", 'servos'),
     ],
     hiddenimports=[
         'tkinter', 'tkinter.ttk', 'tkinter.scrolledtext',

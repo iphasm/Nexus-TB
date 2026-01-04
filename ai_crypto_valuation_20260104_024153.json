@@ -1,0 +1,1497 @@
+{
+  "timestamp": "2026-01-04T02:37:06.492884",
+  "cryptos_analyzed": [
+    "BTC",
+    "ETH",
+    "XRP",
+    "SOL"
+  ],
+  "valuations": {
+    "BTC": {
+      "crypto_data": {
+        "price": 91509.7,
+        "change_1h": 0.08,
+        "change_24h": 1.57,
+        "volume_24h": 5616150528,
+        "market_cap": 1826903556096,
+        "success": true
+      },
+      "coingecko_metrics": {
+        "community_score": 0,
+        "developer_score": 0,
+        "liquidity_score": 0,
+        "public_interest_score": 0,
+        "twitter_followers": 0,
+        "reddit_subscribers": 0,
+        "telegram_channel_user_count": null,
+        "github_repos": 0,
+        "github_stars": 0,
+        "github_forks": 0,
+        "github_contributors": 846,
+        "github_commits_last_4_weeks": 108,
+        "total_supply": 19971278.0,
+        "circulating_supply": 19971278.0,
+        "max_supply": 21000000.0,
+        "fully_diluted_valuation": {
+          "aed": 6711541387035,
+          "ars": 2695124754398836,
+          "aud": 2730892838273,
+          "bch": 2848093673,
+          "bdt": 223327192989473,
+          "bhd": 690156618579,
+          "bmd": 1827512971282,
+          "bnb": 2059647140,
+          "brl": 9911973477993,
+          "btc": 19971278,
+          "cad": 2510911446894,
+          "chf": 1447273312426,
+          "clp": 1656750159245845,
+          "cny": 12781351594204,
+          "czk": 37650604985659,
+          "dkk": 11647836673766,
+          "dot": 852840000065,
+          "eos": 10451054953694,
+          "eth": 580353150,
+          "eur": 1558320310613,
+          "gbp": 1357030721904,
+          "gel": 4943422587319,
+          "hkd": 14239615569639,
+          "huf": 597541916220233,
+          "idr": 30524035402845620,
+          "ils": 5823114231176,
+          "inr": 164502574977858,
+          "jpy": 286544869339870,
+          "krw": 2636315386982965,
+          "kwd": 561631286335,
+          "lkr": 565772564135905,
+          "ltc": 22138204360,
+          "mmk": 3837228985801821,
+          "mxn": 32721802502110,
+          "myr": 7411478855036,
+          "ngn": 2628201148979901,
+          "nok": 18394100807255,
+          "nzd": 3169739010606,
+          "php": 107492474492786,
+          "pkr": 511526271825231,
+          "pln": 6563993472272,
+          "rub": 147003511440879,
+          "sar": 6854480314084,
+          "sek": 16851497108196,
+          "sgd": 2349633427178,
+          "sol": 13592784977,
+          "thb": 57625742089760,
+          "try": 78651589501570,
+          "twd": 57335843707125,
+          "uah": 77316704581852,
+          "usd": 1827512971282,
+          "vef": 182988873815,
+          "vnd": 48060828478750408,
+          "xag": 25094987794,
+          "xau": 421826544,
+          "xdr": 1270947550904,
+          "xlm": 7954003192749,
+          "xrp": 884414060188,
+          "yfi": 493716918,
+          "zar": 30135325221367,
+          "bits": 19967392111795,
+          "link": 136461332468,
+          "sats": 1996739211179548
+        },
+        "market_cap_rank": 1,
+        "coingecko_rank": null,
+        "categories": [
+          "Smart Contract Platform",
+          "Layer 1 (L1)",
+          "FTX Holdings",
+          "Proof of Work (PoW)",
+          "Bitcoin Ecosystem",
+          "GMCI 30 Index",
+          "GMCI Index",
+          "Coinbase 50 Index"
+        ],
+        "platforms": {
+          "": ""
+        },
+        "success": true
+      },
+      "openai_valuations": {
+        "GPT-4o": {
+          "provider": "OpenAI",
+          "model": "gpt-4o",
+          "crypto": "BTC",
+          "response_time": 3.67,
+          "result": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence_level": 0.85,
+            "price_target_long": 95000,
+            "price_target_short": 85000,
+            "key_drivers_long": [
+              "High market cap and liquidity",
+              "Positive 24h price change"
+            ],
+            "key_drivers_short": [
+              "Lack of developer and community engagement",
+              "Uncertain market sentiment"
+            ],
+            "technical_analysis": "Bitcoin is currently experiencing a slight upward trend with a 1.57% increase over the last 24 hours. The price is stable with a minor 0.08% change in the last hour, indicating potential for further growth.",
+            "fundamental_analysis": "Bitcoin maintains its position as the leading cryptocurrency with a market cap of $1.83T. However, the lack of developer activity and community engagement as indicated by the CoinGecko scores could be a concern for long-term growth.",
+            "coingecko_insights": "The CoinGecko metrics show a complete lack of developer and community engagement, which is unusual for Bitcoin. This could be a data error or indicate a temporary lull in activity.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Despite the lack of developer and community metrics, Bitcoin's strong market cap and liquidity provide a solid foundation for potential growth. The current economic context, with moderate risk sentiment and awaiting FED decisions, suggests a cautious but optimistic outlook for Bitcoin. Investors should monitor any changes in developer activity and community engagement for future insights."
+          },
+          "timestamp": "2026-01-04T02:37:16.361173"
+        },
+        "GPT-4o Mini": {
+          "provider": "OpenAI",
+          "model": "gpt-4o-mini",
+          "crypto": "BTC",
+          "response_time": 9.35,
+          "result": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence_level": 0.85,
+            "price_target_long": 95000,
+            "price_target_short": 85000,
+            "key_drivers_long": [
+              "Adopción institucional creciente",
+              "Estabilidad en el mercado de criptomonedas"
+            ],
+            "key_drivers_short": [
+              "Falta de desarrollo y comunidad activa",
+              "Incertidumbre económica global"
+            ],
+            "technical_analysis": "El precio de BTC ha mostrado una tendencia alcista moderada en las últimas 24 horas, con un cambio del 1.57%. Sin embargo, el volumen de $5.6B sugiere una actividad de trading saludable. La resistencia a corto plazo se encuentra en $95,000, mientras que el soporte se establece en $85,000.",
+            "fundamental_analysis": "A pesar de la falta de métricas de desarrollo y comunidad, Bitcoin sigue siendo el líder del mercado con una capitalización de $1.83T. La ausencia de un índice de miedo y avaricia indica una incertidumbre en el mercado. Las decisiones de la FED sobre tasas de interés también influirán en la dirección futura del precio.",
+            "coingecko_insights": "El Developer Score, Community Score y Liquidity Score son todos 0, lo que indica una falta de actividad en el desarrollo y compromiso comunitario. Sin embargo, el alto número de commits en GitHub sugiere que el desarrollo técnico sigue en marcha, aunque la falta de estrellas y seguidores es preocupante.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Bitcoin sigue siendo un activo atractivo a largo plazo debido a su posición dominante en el mercado y la creciente adopción institucional. Sin embargo, la falta de métricas de desarrollo y comunidad activa sugiere que los inversores deben ser cautelosos y monitorear de cerca el sentimiento del mercado y las condiciones económicas globales."
+          },
+          "timestamp": "2026-01-04T02:37:25.884286"
+        },
+        "GPT-5": null,
+        "GPT-5 Mini": null
+      },
+      "xai_valuations": {
+        "Grok-3": {
+          "provider": "xAI",
+          "model": "grok-3",
+          "crypto": "BTC",
+          "response_time": 15.32,
+          "result": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence_level": 0.8,
+            "price_target_long": 95000,
+            "price_target_short": 85000,
+            "key_drivers_long": [
+              "Mayor adopción institucional en el sector cripto",
+              "Estabilidad en los mercados tradicionales con Dow Jones mostrando un crecimiento del 0.66%"
+            ],
+            "key_drivers_short": [
+              "Preocupaciones por desaceleración económica global",
+              "Ausencia de datos claros sobre sentimiento de mercado y métricas sociales de Bitcoin"
+            ],
+            "technical_analysis": "El precio de Bitcoin se mantiene en $91,509.70 con un cambio positivo del 1.57% en las últimas 24 horas, lo que indica un impulso alcista a corto plazo. El volumen de $5.6B respalda la actividad del mercado, aunque la falta de datos de dominancia y sentimiento limita una evaluación más profunda.",
+            "fundamental_analysis": "Bitcoin mantiene un market cap de $1.83T y ocupa el puesto #1 en CoinGecko, lo que refleja su posición dominante en el mercado cripto. Sin embargo, las métricas de CoinGecko muestran un Developer Score, Community Score y Liquidity Score de 0/100, lo que podría indicar una falta de datos actualizados o una subestimación de la actividad real. Los 108 commits en GitHub en las últimas 4 semanas sugieren que el desarrollo técnico sigue activo.",
+            "coingecko_insights": "Las métricas de CoinGecko presentan limitaciones significativas con puntajes de 0/100 en desarrolladores, comunidad y liquidez, lo que podría no reflejar la realidad del ecosistema de Bitcoin. La ausencia de seguidores en Twitter y suscriptores en Reddit reportados también parece inconsistente con la popularidad conocida de BTC. Esto sugiere que los datos pueden estar incompletos o desactualizados, aunque el ranking #1 y el market cap refuerzan su relevancia.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Bitcoin muestra un potencial alcista moderado (long_signal 0.750) impulsado por la adopción institucional y un contexto económico global mixto con mercados tradicionales estables. Sin embargo, la falta de datos claros sobre sentimiento de mercado y métricas sociales introduce incertidumbre, justificando un short_signal de 0.250. La tesis de inversión se inclina hacia una postura cautelosamente optimista con un objetivo de precio a largo de $95,000, pero recomienda monitorear datos económicos globales y decisiones de la FED."
+          },
+          "timestamp": "2026-01-04T02:37:42.009566"
+        },
+        "Grok-3 Mini": {
+          "provider": "xAI",
+          "model": "grok-3-mini",
+          "crypto": "BTC",
+          "response_time": 12.36,
+          "result": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence_level": 0.8,
+            "price_target_long": 95000,
+            "price_target_short": 85000,
+            "key_drivers_long": [
+              "Adopción institucional creciente y regulación positiva",
+              "Aumento reciente en precio (1.57% en 24h) y alto market cap rank (#1)"
+            ],
+            "key_drivers_short": [
+              "Preocupaciones por desaceleración económica global y decisiones pendientes de la FED",
+              "Métricas de CoinGecko bajas (e.g., Developer Score 0/100) indicando debilidades en desarrollo y comunidad"
+            ],
+            "technical_analysis": "El precio de BTC está en $91,509.70 con un cambio positivo del 1.57% en 24h y 0.08% en 1h, sugiriendo un momentum alcista a corto plazo, aunque el volumen de $5.6B indica actividad moderada.",
+            "fundamental_analysis": "BTC domina como el activo cripto líder con un market cap de $1.83T, pero las métricas de CoinGecko revelan preocupaciones con puntuaciones de 0 en developer, community y liquidity, a pesar de 108 commits en GitHub, destacando posibles riesgos en el ecosistema de desarrollo.",
+            "coingecko_insights": "Las puntuaciones de 0 en developer, community y liquidity scores, junto con 0 GitHub stars y seguidores en redes sociales, indican una participación comunitaria y de desarrollo limitada, aunque los 108 commits recientes sugieren algo de actividad ongoing que podría no ser suficiente para contrarrestar las debilidades observadas.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "BTC presenta un potencial alcista debido a su liderazgo en market cap y adopción institucional, pero el sentimiento desconocido, métricas de CoinGecko débiles y preocupaciones económicas globales como la espera de decisiones de la FED mantienen un panorama neutral, recomendando cautela con objetivos de precio entre $85,000 y $95,000."
+          },
+          "timestamp": "2026-01-04T02:37:54.365730"
+        },
+        "Grok-4": null,
+        "Grok-4.1 Fast": {
+          "provider": "xAI",
+          "model": "grok-4-1-fast-reasoning",
+          "crypto": "BTC",
+          "response_time": 9.41,
+          "result": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence_level": 0.75,
+            "price_target_long": 95000,
+            "price_target_short": 85000,
+            "key_drivers_long": [
+              "Recent 24h gains (1.57%) and positive 1h change",
+              "Institutional adoption and #1 market cap rank",
+              "Awaiting potential FED rate cuts boosting risk assets"
+            ],
+            "key_drivers_short": [
+              "Low CoinGecko scores across developer, community, liquidity",
+              "Global economic slowdown concerns",
+              "Unknown market sentiment and empty news flow"
+            ],
+            "technical_analysis": "BTC trading at $91,509 with modest gains (1h: +0.08%, 24h: +1.57%) and $5.6B volume; holding above key supports amid traditional market uptrend (S&P/Dow gains), but lacks momentum without sentiment data.",
+            "fundamental_analysis": "Dominant #1 rank with $1.83T market cap underscores BTC's store-of-value status; recent 108 GitHub commits signal ongoing development despite low overall scores; institutional adoption grows amid regulatory progress, offset by global growth worries.",
+            "coingecko_insights": "Developer Score 0/100, Community 0/100, Liquidity 0/100 indicate weak metrics, but GitHub Commits (108 in 4 weeks) show active maintenance; 0 stars/followers/subscribers puzzling for #1 asset, highlighting data gaps over fundamental strength.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "BTC remains market leader with price momentum and institutional tailwinds, but low engagement metrics and unknown sentiment cap upside; lean long to $95k on economic data, hedge short risks to $85k."
+          },
+          "timestamp": "2026-01-04T02:38:24.021889"
+        }
+      },
+      "multi_model_comparison": {
+        "models_count": 5,
+        "models_data": {
+          "GPT-4o": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence": 0.85,
+            "response_time": 3.67,
+            "precision": 0.5,
+            "direction": "LONG"
+          },
+          "GPT-4o Mini": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence": 0.85,
+            "response_time": 9.35,
+            "precision": 0.5,
+            "direction": "LONG"
+          },
+          "Grok-3": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence": 0.8,
+            "response_time": 15.32,
+            "precision": 0.5,
+            "direction": "LONG"
+          },
+          "Grok-3 Mini": {
+            "long_signal": 0.75,
+            "short_signal": 0.25,
+            "confidence": 0.8,
+            "response_time": 12.36,
+            "precision": 0.5,
+            "direction": "LONG"
+          },
+          "Grok-4.1 Fast": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence": 0.75,
+            "response_time": 9.41,
+            "precision": 0.39999999999999997,
+            "direction": "LONG"
+          }
+        },
+        "statistics": {
+          "avg_long_signal": 0.74,
+          "avg_short_signal": 0.26,
+          "avg_precision": 0.48,
+          "avg_confidence": 0.81,
+          "avg_response_time": 10.02
+        },
+        "best_models": {
+          "most_precise": "GPT-4o",
+          "fastest": "GPT-4o",
+          "most_confident": "GPT-4o"
+        },
+        "consensus": {
+          "direction": "LONG",
+          "strength": 0.48
+        }
+      }
+    },
+    "ETH": {
+      "crypto_data": {
+        "price": 3149.28,
+        "change_1h": 0.02,
+        "change_24h": 0.59,
+        "volume_24h": 3238890496,
+        "market_cap": 379882438656,
+        "success": true
+      },
+      "coingecko_metrics": {
+        "community_score": 0,
+        "developer_score": 0,
+        "liquidity_score": 0,
+        "public_interest_score": 0,
+        "twitter_followers": 0,
+        "reddit_subscribers": 0,
+        "telegram_channel_user_count": null,
+        "github_repos": 0,
+        "github_stars": 0,
+        "github_forks": 0,
+        "github_contributors": 906,
+        "github_commits_last_4_weeks": 41,
+        "total_supply": 120694861.1753791,
+        "circulating_supply": 120694861.1753791,
+        "max_supply": null,
+        "fully_diluted_valuation": {
+          "aed": 1395572033095,
+          "ars": 560413847734966,
+          "aud": 567851325157,
+          "bch": 591835013,
+          "bdt": 46437795253377,
+          "bhd": 143508505692,
+          "bmd": 380005999481,
+          "bnb": 428264030,
+          "brl": 2061057539686,
+          "btc": 4152051,
+          "cad": 522109242987,
+          "chf": 300940431205,
+          "clp": 344498238889717,
+          "cny": 2657704959472,
+          "czk": 7828921601913,
+          "dkk": 2422006238294,
+          "dot": 177185990983,
+          "eos": 2177414473468,
+          "eth": 120694861,
+          "eur": 324031115758,
+          "gbp": 282175734951,
+          "gel": 1027916228597,
+          "hkd": 2960930746758,
+          "huf": 124250561650383,
+          "idr": 6347050206335491,
+          "ils": 1210835916507,
+          "inr": 34206031040005,
+          "jpy": 59583035075973,
+          "krw": 548185254671659,
+          "kwd": 116783443761,
+          "lkr": 117644565095839,
+          "ltc": 4602185435,
+          "mmk": 797898597110770,
+          "mxn": 6804045421312,
+          "myr": 1541114330896,
+          "ngn": 546498011313699,
+          "nok": 3824798385379,
+          "nzd": 659103305830,
+          "php": 22351570603451,
+          "pkr": 106364800272499,
+          "pln": 1364891488715,
+          "rub": 30567343252914,
+          "sar": 1425294202344,
+          "sek": 3504035321217,
+          "sgd": 488573713533,
+          "sol": 2825326673,
+          "thb": 11982474577622,
+          "try": 16354508202674,
+          "twd": 11922194225925,
+          "uah": 16076937380425,
+          "usd": 380005999481,
+          "vef": 38050000728,
+          "vnd": 9993583328247280,
+          "xag": 5218154983,
+          "xau": 87712985,
+          "xdr": 264275932351,
+          "xlm": 1653107667006,
+          "xrp": 183846429901,
+          "yfi": 102634181,
+          "zar": 6266223310252,
+          "bits": 4152050997356,
+          "link": 28363935274,
+          "sats": 415205099735555
+        },
+        "market_cap_rank": 2,
+        "coingecko_rank": null,
+        "categories": [
+          "Smart Contract Platform",
+          "Layer 1 (L1)",
+          "Ethereum Ecosystem",
+          "FTX Holdings",
+          "Multicoin Capital Portfolio",
+          "Proof of Stake (PoS)",
+          "Alameda Research Portfolio",
+          "Andreessen Horowitz (a16z) Portfolio",
+          "GMCI Layer 1 Index",
+          "GMCI 30 Index",
+          "Delphi Ventures Portfolio",
+          "Galaxy Digital Portfolio",
+          "GMCI Index",
+          "World Liberty Financial Portfolio",
+          "Coinbase 50 Index"
+        ],
+        "platforms": {
+          "": ""
+        },
+        "success": true
+      },
+      "openai_valuations": {
+        "GPT-4o": {
+          "provider": "OpenAI",
+          "model": "gpt-4o",
+          "crypto": "ETH",
+          "response_time": 3.06,
+          "result": {
+            "long_signal": 0.6,
+            "short_signal": 0.4,
+            "confidence_level": 0.7,
+            "price_target_long": 4000,
+            "price_target_short": 2800,
+            "key_drivers_long": [
+              "Institutional adoption",
+              "Potential regulatory clarity"
+            ],
+            "key_drivers_short": [
+              "Lack of developer and community engagement",
+              "Global economic slowdown concerns"
+            ],
+            "technical_analysis": "ETH is currently trading at $3,149.28 with minor hourly and daily changes, indicating a consolidation phase. The market cap rank at #2 shows strong market presence.",
+            "fundamental_analysis": "Despite a strong market cap, the developer and community scores are notably absent, which could indicate a lack of engagement or data issues. The GitHub activity shows some development activity with 41 commits in the past 4 weeks.",
+            "coingecko_insights": "The absence of developer and community scores, along with zero GitHub stars and social media followers, suggests a potential data retrieval issue or lack of engagement.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "ETH maintains a strong market position with a high market cap rank. However, the lack of developer and community engagement metrics raises concerns. The global economic context and potential regulatory developments could influence its future trajectory. Investors should monitor these factors closely."
+          },
+          "timestamp": "2026-01-04T02:38:27.406190"
+        },
+        "GPT-4o Mini": {
+          "provider": "OpenAI",
+          "model": "gpt-4o-mini",
+          "crypto": "ETH",
+          "response_time": 6.27,
+          "result": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence_level": 0.75,
+            "price_target_long": 3500,
+            "price_target_short": 2900,
+            "key_drivers_long": [
+              "Adopción institucional",
+              "Desarrollo en la red Ethereum"
+            ],
+            "key_drivers_short": [
+              "Falta de actividad en GitHub",
+              "Sentimiento de mercado incierto"
+            ],
+            "technical_analysis": "El precio de ETH ha mostrado una ligera tendencia alcista en las últimas 24 horas, pero la falta de volatilidad significativa sugiere un mercado lateral. Los niveles de soporte se encuentran alrededor de $3,000 y la resistencia en $3,200.",
+            "fundamental_analysis": "Ethereum sigue siendo la segunda criptomoneda más grande por capitalización de mercado, pero las métricas de desarrollo y comunidad son preocupantes. La falta de actividad en GitHub y seguidores en redes sociales indica una posible falta de interés en el desarrollo del proyecto.",
+            "coingecko_insights": "El Developer Score y Community Score son ambos 0, lo que indica que no hay actividad significativa en el desarrollo ni en la comunidad. Esto puede ser un indicador de que el interés en Ethereum está disminuyendo, a pesar de su posición en el mercado.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "A pesar de la sólida posición de Ethereum en el mercado, la falta de métricas de desarrollo y comunidad sugiere que los inversores deben ser cautelosos. La adopción institucional y la regulación son factores positivos, pero la falta de actividad en el ecosistema podría limitar el crecimiento a corto plazo."
+          },
+          "timestamp": "2026-01-04T02:38:34.041337"
+        },
+        "GPT-5": null,
+        "GPT-5 Mini": null
+      },
+      "xai_valuations": {
+        "Grok-3": {
+          "provider": "xAI",
+          "model": "grok-3",
+          "crypto": "ETH",
+          "response_time": 8.12,
+          "result": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence_level": 0.75,
+            "price_target_long": 3500,
+            "price_target_short": 2800,
+            "key_drivers_long": [
+              "Mayor adopción institucional en el ecosistema cripto",
+              "Estabilidad reciente en el precio con ligeros incrementos en 24h"
+            ],
+            "key_drivers_short": [
+              "Preocupaciones por desaceleración económica global",
+              "Falta de datos claros sobre sentimiento de mercado y métricas comunitarias"
+            ],
+            "technical_analysis": "Ethereum muestra estabilidad a corto plazo con un cambio del 0.59% en 24 horas y un volumen de trading sólido de $3.2B, lo que indica interés sostenido. Sin embargo, la falta de datos sobre dominancia y sentimiento limita proyecciones más precisas.",
+            "fundamental_analysis": "Ethereum mantiene una posición fuerte como la segunda criptomoneda por capitalización de mercado ($0.38T), lo que refleja su relevancia en el ecosistema. Sin embargo, las métricas de CoinGecko muestran puntajes nulos en desarrollo, comunidad y liquidez, lo que podría indicar datos incompletos o falta de actualización en estas áreas.",
+            "coingecko_insights": "Las métricas de CoinGecko presentan un panorama limitado con Developer Score, Community Score y Liquidity Score en 0/100, lo que no permite evaluar el compromiso de la comunidad ni la actividad de desarrollo. Sin embargo, los 41 commits en GitHub en las últimas 4 semanas sugieren cierta actividad técnica, aunque no es suficiente para un análisis profundo.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Ethereum presenta un caso de inversión neutral debido a la estabilidad de precio y su posición de mercado, apoyada por un volumen de trading significativo. Sin embargo, la falta de datos sobre sentimiento, comunidad y desarrollo, junto con un contexto económico global incierto (desaceleración y decisiones de la FED), recomienda cautela. La adopción institucional es un factor positivo a largo plazo, pero se necesitan más datos para confirmar tendencias."
+          },
+          "timestamp": "2026-01-04T02:38:43.381820"
+        },
+        "Grok-3 Mini": {
+          "provider": "xAI",
+          "model": "grok-3-mini",
+          "crypto": "ETH",
+          "response_time": 15.98,
+          "result": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence_level": 0.75,
+            "price_target_long": 4000,
+            "price_target_short": 2500,
+            "key_drivers_long": [
+              "Adopción institucional creciente y regulación positiva",
+              "Market cap alto de $0.38T y rank #2, indicando fortaleza",
+              "Estabilidad de precio con cambios positivos recientes"
+            ],
+            "key_drivers_short": [
+              "Métricas de CoinGecko bajas (e.g., Developer Score 0/100), sugiriendo bajo engagement",
+              "Sentimiento de mercado desconocido y noticias vacías, aumentando la incertidumbre",
+              "Preocupaciones por desaceleración económica global y políticas de la FED"
+            ],
+            "technical_analysis": "El precio de ETH está en $3,149.28 con un cambio positivo del 0.59% en 24h y 0.02% en 1h, indicando estabilidad y una ligera tendencia alcista a corto plazo, respaldada por un volumen de $3.2B.",
+            "fundamental_analysis": "Ethereum muestra un market cap sólido de $0.38T, pero las métricas de CoinGecko revelan debilidades significativas, como Developer Score en 0/100, Community Score en 0/100 y solo 41 commits en GitHub en 4 semanas, lo que contrasta con la adopción institucional y el contexto económico global mixto.",
+            "coingecko_insights": "Las métricas indican problemas graves: Developer Score, Community Score y Liquidity Score en 0/100, con 0 GitHub Stars, 0 Twitter Followers y 0 Reddit Subscribers, sugiriendo un bajo engagement reciente a pesar de 41 commits, lo que podría reflejar estancamiento en el desarrollo y comunidad.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Ethereum mantiene una posición dominante como el segundo criptoactivo, impulsado por la adopción institucional y un contexto económico con ganancias en índices como S&P 500 (+0.19%), pero las métricas de CoinGecko bajas y un sentimiento desconocido introducen riesgos, favoreciendo una postura neutral con potencial alcista si se resuelven estas debilidades."
+          },
+          "timestamp": "2026-01-04T02:38:59.365310"
+        },
+        "Grok-4": null,
+        "Grok-4.1 Fast": {
+          "provider": "xAI",
+          "model": "grok-4-1-fast-reasoning",
+          "crypto": "ETH",
+          "response_time": 10.75,
+          "result": {
+            "long_signal": 0.55,
+            "short_signal": 0.45,
+            "confidence_level": 0.7,
+            "price_target_long": 3500,
+            "price_target_short": 2800,
+            "key_drivers_long": [
+              "Adopción institucional creciente",
+              "Market Cap rank #2 sólido",
+              "Cambios de precio positivos leves"
+            ],
+            "key_drivers_short": [
+              "Métricas CoinGecko en 0 (dev/community/liquidity)",
+              "Sentimiento de mercado unknown",
+              "Preocupaciones por desaceleración económica global"
+            ],
+            "technical_analysis": "Precio estable en $3,149 con gains mínimos (0.02% 1h, 0.59% 24h) y volumen alto de $3.2B, indicando soporte pero falta de momentum fuerte.",
+            "fundamental_analysis": "Ethereum mantiene posición dominante como #2 por MC ($0.38T), respaldado por adopción institucional y regulación positiva, pero impactado por datos económicos mixtos (S&P/Dow up, Nasdaq down) y espera de decisiones FED.",
+            "coingecko_insights": "Scores críticos en 0/100 (Developer, Community, Liquidity) señalan debilidades en engagement y desarrollo visible; GitHub commits recientes (41 en 4 semanas) ofrecen algo de actividad, contrastando con rank #2.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "ETH sostiene fuerza fundamental por rank y adopción, pero métricas CoinGecko bajas y sentimiento unknown limitan upside; neutral con bias leve alcista si economía mejora."
+          },
+          "timestamp": "2026-01-04T02:39:30.591804"
+        }
+      },
+      "multi_model_comparison": {
+        "models_count": 5,
+        "models_data": {
+          "GPT-4o": {
+            "long_signal": 0.6,
+            "short_signal": 0.4,
+            "confidence": 0.7,
+            "response_time": 3.06,
+            "precision": 0.19999999999999996,
+            "direction": "LONG"
+          },
+          "GPT-4o Mini": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence": 0.75,
+            "response_time": 6.27,
+            "precision": 0.30000000000000004,
+            "direction": "LONG"
+          },
+          "Grok-3": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence": 0.75,
+            "response_time": 8.12,
+            "precision": 0.30000000000000004,
+            "direction": "LONG"
+          },
+          "Grok-3 Mini": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence": 0.75,
+            "response_time": 15.98,
+            "precision": 0.39999999999999997,
+            "direction": "LONG"
+          },
+          "Grok-4.1 Fast": {
+            "long_signal": 0.55,
+            "short_signal": 0.45,
+            "confidence": 0.7,
+            "response_time": 10.75,
+            "precision": 0.10000000000000003,
+            "direction": "LONG"
+          }
+        },
+        "statistics": {
+          "avg_long_signal": 0.63,
+          "avg_short_signal": 0.37,
+          "avg_precision": 0.26,
+          "avg_confidence": 0.73,
+          "avg_response_time": 8.84
+        },
+        "best_models": {
+          "most_precise": "Grok-3 Mini",
+          "fastest": "GPT-4o",
+          "most_confident": "GPT-4o Mini"
+        },
+        "consensus": {
+          "direction": "LONG",
+          "strength": 0.26
+        }
+      }
+    },
+    "XRP": {
+      "crypto_data": {
+        "price": 2.07,
+        "change_1h": -0.01,
+        "change_24h": 2.42,
+        "volume_24h": 429276416,
+        "market_cap": 125320716288,
+        "success": true
+      },
+      "coingecko_metrics": {
+        "community_score": 0,
+        "developer_score": 0,
+        "liquidity_score": 0,
+        "public_interest_score": 0,
+        "twitter_followers": 0,
+        "reddit_subscribers": 0,
+        "telegram_channel_user_count": null,
+        "github_repos": 0,
+        "github_stars": 0,
+        "github_forks": 0,
+        "github_contributors": 62,
+        "github_commits_last_4_weeks": 4,
+        "total_supply": 99985734415.0,
+        "circulating_supply": 60676393849.0,
+        "max_supply": 100000000000.0,
+        "fully_diluted_valuation": {
+          "aed": 758811832095,
+          "ars": 304712797653526,
+          "aud": 308756763665,
+          "bch": 322007577,
+          "bdt": 25249537579610,
+          "bhd": 78029617636,
+          "bmd": 206619967895,
+          "bnb": 232865229,
+          "brl": 1120655050872,
+          "btc": 2257528,
+          "cad": 283885504890,
+          "chf": 163629790895,
+          "clp": 187313398095121,
+          "cny": 1445069062464,
+          "czk": 4256805240575,
+          "dkk": 1316913027377,
+          "dot": 96422721043,
+          "eos": 1181604001141,
+          "eth": 65615156,
+          "eur": 176184846624,
+          "gbp": 153426896880,
+          "gel": 558907013157,
+          "hkd": 1609941465846,
+          "huf": 67558530902711,
+          "idr": 3451070013770479,
+          "ils": 658365600903,
+          "inr": 18598782769109,
+          "jpy": 32396974814359,
+          "krw": 298063767086656,
+          "kwd": 63498448534,
+          "lkr": 63966664464078,
+          "ltc": 2502961755,
+          "mmk": 433839946589665,
+          "mxn": 3699551187161,
+          "myr": 837947279799,
+          "ngn": 297146365337923,
+          "nok": 2079650638863,
+          "nzd": 358373036416,
+          "php": 12153178651911,
+          "pkr": 57833538542787,
+          "pln": 742129955747,
+          "rub": 16620325705863,
+          "sar": 774972612884,
+          "sek": 1905242723962,
+          "sgd": 265651292723,
+          "sol": 1536810321,
+          "thb": 6515209012263,
+          "try": 8892406868292,
+          "twd": 6482432886755,
+          "uah": 8741483792183,
+          "usd": 206619967895,
+          "vef": 20688857385,
+          "vnd": 5433792806586750,
+          "xag": 2837257877,
+          "xau": 47692021,
+          "xdr": 143694269913,
+          "xlm": 899285482593,
+          "xrp": 99985734415,
+          "yfi": 55820000,
+          "zar": 3407122153219,
+          "bits": 2257528117131,
+          "link": 15428419156,
+          "sats": 225752811713062
+        },
+        "market_cap_rank": 4,
+        "coingecko_rank": null,
+        "categories": [
+          "FTX Holdings",
+          "Pantera Capital Portfolio",
+          "Andreessen Horowitz (a16z) Portfolio",
+          "XRP Ledger Ecosystem",
+          "GMCI 30 Index",
+          "Blockchain Capital Portfolio",
+          "GMCI Index",
+          "Made in USA",
+          "Coinbase 50 Index"
+        ],
+        "platforms": {
+          "": ""
+        },
+        "success": true
+      },
+      "openai_valuations": {
+        "GPT-4o": {
+          "provider": "OpenAI",
+          "model": "gpt-4o",
+          "crypto": "XRP",
+          "response_time": 3.45,
+          "result": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence_level": 0.6,
+            "price_target_long": 2.5,
+            "price_target_short": 1.8,
+            "key_drivers_long": [
+              "Posible adopción institucional futura",
+              "Regulaciones favorables en el futuro"
+            ],
+            "key_drivers_short": [
+              "Bajo Developer Score y Community Score",
+              "Falta de actividad en redes sociales y GitHub"
+            ],
+            "technical_analysis": "El precio de XRP ha mostrado un leve incremento en las últimas 24 horas, pero el cambio horario es negativo, indicando volatilidad. El volumen de $0.4B sugiere actividad moderada.",
+            "fundamental_analysis": "XRP tiene un Market Cap de $0.13T, posicionándolo en el rango alto del mercado. Sin embargo, las métricas de CoinGecko revelan una falta de desarrollo activo y participación comunitaria, lo cual es preocupante para su crecimiento a largo plazo.",
+            "coingecko_insights": "El Developer Score, Community Score y Liquidity Score son todos 0, lo que indica una falta de desarrollo, compromiso comunitario y liquidez. Esto podría limitar el potencial de crecimiento de XRP.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "A pesar de su alta capitalización de mercado, XRP enfrenta desafíos significativos debido a la falta de desarrollo y participación comunitaria. Sin embargo, su posición en el mercado y potencial adopción institucional podrían ofrecer oportunidades a largo plazo si se abordan estos problemas."
+          },
+          "timestamp": "2026-01-04T02:39:34.395757"
+        },
+        "GPT-4o Mini": {
+          "provider": "OpenAI",
+          "model": "gpt-4o-mini",
+          "crypto": "XRP",
+          "response_time": 6.65,
+          "result": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence_level": 0.6,
+            "price_target_long": 2.5,
+            "price_target_short": 1.5,
+            "key_drivers_long": [
+              "Potencial adopción institucional",
+              "Mejoras en la regulación"
+            ],
+            "key_drivers_short": [
+              "Baja actividad de desarrollo",
+              "Sentimiento de mercado negativo"
+            ],
+            "technical_analysis": "El precio de XRP ha mostrado una ligera recuperación en las últimas 24 horas, pero el cambio en la última hora es negativo, lo que sugiere una posible corrección a corto plazo. La falta de impulso en el volumen de operaciones también es preocupante.",
+            "fundamental_analysis": "A pesar de un market cap significativo, las métricas de CoinGecko indican una falta de actividad en el desarrollo y la comunidad, lo que podría limitar el crecimiento a largo plazo. La falta de noticias relevantes y un sentimiento de mercado neutral contribuyen a la incertidumbre.",
+            "coingecko_insights": "El Developer Score, Community Score y Liquidity Score son todos 0, lo que indica una falta de interés y actividad en el ecosistema de XRP. Esto es un indicador negativo para el futuro del activo.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "XRP presenta un potencial de crecimiento moderado a corto plazo, pero la falta de desarrollo y actividad comunitaria, junto con un sentimiento de mercado incierto, sugieren que los inversores deben proceder con cautela. Se recomienda monitorear de cerca las métricas de desarrollo y el sentimiento del mercado antes de tomar decisiones de inversión."
+          },
+          "timestamp": "2026-01-04T02:39:41.367662"
+        },
+        "GPT-5": null,
+        "GPT-5 Mini": null
+      },
+      "xai_valuations": {
+        "Grok-3": {
+          "provider": "xAI",
+          "model": "grok-3",
+          "crypto": "XRP",
+          "response_time": 9.36,
+          "result": {
+            "long_signal": 0.6,
+            "short_signal": 0.4,
+            "confidence_level": 0.65,
+            "price_target_long": 2.5,
+            "price_target_short": 1.8,
+            "key_drivers_long": [
+              "Positive 24h price change of 2.42%",
+              "Strong market cap rank at #4 indicating significant market presence"
+            ],
+            "key_drivers_short": [
+              "Extremely low CoinGecko scores across developer, community, and liquidity metrics",
+              "Lack of community engagement and development activity"
+            ],
+            "technical_analysis": "XRP shows a modest 24-hour gain of 2.42%, indicating short-term bullish momentum. However, the 1-hour change of -0.01% suggests potential consolidation or minor pullback. Trading volume of $0.4B supports moderate market interest, but further price action confirmation is needed for a stronger trend.",
+            "fundamental_analysis": "XRP's market cap of $0.13T and rank at #4 reflect a strong position in the crypto market. However, CoinGecko metrics reveal critical weaknesses: Developer Score (0/100), Community Score (0/100), and Liquidity Score (0/100) indicate negligible activity and engagement, raising concerns about long-term sustainability and adoption.",
+            "coingecko_insights": "CoinGecko data paints a concerning picture for XRP. A Developer Score of 0/100 and only 4 GitHub commits in the last 4 weeks suggest minimal development activity. Community Score of 0/100, with no Twitter followers or Reddit subscribers, indicates a complete lack of community engagement. Liquidity Score of 0/100 further highlights potential issues with market depth and trading efficiency.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "XRP presents a mixed outlook. While its market cap rank and recent 24h price increase suggest short-term potential, the complete lack of developer activity, community engagement, and liquidity as per CoinGecko metrics raises significant red flags. In the context of global economic uncertainty and moderate risk sentiment (as seen in S&P 500 and Dow Jones gains), alongside growing crypto adoption, XRP's fundamentals do not strongly support a bullish case without improvements in engagement and development. Investors should approach with caution, favoring short-term trades over long-term holds until fundamental metrics improve."
+          },
+          "timestamp": "2026-01-04T02:39:51.890604"
+        },
+        "Grok-3 Mini": {
+          "provider": "xAI",
+          "model": "grok-3-mini",
+          "crypto": "XRP",
+          "response_time": 12.82,
+          "result": {
+            "long_signal": 0.4,
+            "short_signal": 0.6,
+            "confidence_level": 0.6,
+            "price_target_long": 3.0,
+            "price_target_short": 1.5,
+            "key_drivers_long": [
+              "Aumento reciente del 2.42% en 24 horas indicando momentum corto plazo",
+              "Mayor adopción institucional y regulación global que podría beneficiar a activos como XRP"
+            ],
+            "key_drivers_short": [
+              "Métricas CoinGecko extremadamente bajas (Developer Score: 0, Community Score: 0) sugiriendo falta de innovación y engagement",
+              "Sentimiento de mercado desconocido y noticias vacías, aumentando la incertidumbre"
+            ],
+            "technical_analysis": "El precio de XRP está en $2.07 con un cambio positivo del 2.42% en 24 horas, pero un volumen de $0.4B moderado y un cambio negativo del -0.01% en 1 hora indican volatilidad limitada y posible corrección; el market cap de $0.13T y rank #4 muestran estabilidad relativa, pero sin patrones claros de tendencia alcista.",
+            "fundamental_analysis": "XRP exhibe un market cap sólido de $0.13T, pero las métricas CoinGecko son alarmantes con puntuaciones de 0 en developer, community y liquidity, lo que resalta debilidades en el ecosistema; en el contexto económico global, la espera por decisiones de la FED y preocupaciones por desaceleración podrían impactar negativamente, a pesar de la adopción institucional creciente.",
+            "coingecko_insights": "El Developer Score de 0/100 y GitHub Commits de solo 4 en 4 semanas indican actividad mínima en desarrollo; Community Score de 0/100 con 0 Twitter Followers y 0 Reddit Subscribers sugiere escaso engagement, lo que aumenta el riesgo de obsolescencia a largo plazo.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "XRP presenta un caso mixto con un precio reciente al alza pero métricas fundamentales débiles y un panorama económico global incierto; invertir podría ser riesgoso debido a la falta de actividad en desarrollo y comunidad, recomendando una postura cautelosa con enfoque en diversificación"
+          },
+          "timestamp": "2026-01-04T02:40:04.707547"
+        },
+        "Grok-4": null,
+        "Grok-4.1 Fast": {
+          "provider": "xAI",
+          "model": "grok-4-1-fast-reasoning",
+          "crypto": "XRP",
+          "response_time": 12.03,
+          "result": {
+            "long_signal": 0.55,
+            "short_signal": 0.45,
+            "confidence_level": 0.6,
+            "price_target_long": 2.5,
+            "price_target_short": 1.8,
+            "key_drivers_long": [
+              "Adopción institucional creciente",
+              "Market cap rank #4 y momentum 24h positivo (+2.42%)"
+            ],
+            "key_drivers_short": [
+              "Métricas CoinGecko en 0/100 (dev, community, liquidity)",
+              "Falta de engagement en GitHub/Twitter/Reddit y sentimiento unknown"
+            ],
+            "technical_analysis": "Precio en $2.07 con +2.42% en 24h y volumen $0.4B indica momentum alcista corto plazo, pero -0.01% en 1h sugiere posible consolidación. Rank #4 soporta estabilidad relativa.",
+            "fundamental_analysis": "Market cap $0.13T refleja valoración alta, pero métricas CoinGecko revelan debilidades: developer score 0/100, community 0/100, liquidity 0/100. GitHub commits bajos (4 en 4 semanas). Contexto económico global mixto con S&P/Dow up y adopción crypto positiva, pero preocupaciones por desaceleración.",
+            "coingecko_insights": "Scores nulos en developer, community y liquidity indican bajo soporte orgánico y riesgo de manipulación/volatilidad. GitHub stars 0 y commits mínimos sugieren desarrollo estancado, contrastando con rank #4 impulsado por hype especulativo.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "XRP muestra momentum técnico y posicionamiento top-4, respaldado por adopción institucional, pero métricas CoinGecko pobres y datos de sentimiento unknown generan cautela. Potencial upside moderado en bull market global, priorizar stops por riesgos fundamentales."
+          },
+          "timestamp": "2026-01-04T02:40:37.132019"
+        }
+      },
+      "multi_model_comparison": {
+        "models_count": 5,
+        "models_data": {
+          "GPT-4o": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence": 0.6,
+            "response_time": 3.45,
+            "precision": 0.39999999999999997,
+            "direction": "SHORT"
+          },
+          "GPT-4o Mini": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence": 0.6,
+            "response_time": 6.65,
+            "precision": 0.39999999999999997,
+            "direction": "SHORT"
+          },
+          "Grok-3": {
+            "long_signal": 0.6,
+            "short_signal": 0.4,
+            "confidence": 0.65,
+            "response_time": 9.36,
+            "precision": 0.19999999999999996,
+            "direction": "LONG"
+          },
+          "Grok-3 Mini": {
+            "long_signal": 0.4,
+            "short_signal": 0.6,
+            "confidence": 0.6,
+            "response_time": 12.82,
+            "precision": 0.19999999999999996,
+            "direction": "SHORT"
+          },
+          "Grok-4.1 Fast": {
+            "long_signal": 0.55,
+            "short_signal": 0.45,
+            "confidence": 0.6,
+            "response_time": 12.03,
+            "precision": 0.10000000000000003,
+            "direction": "LONG"
+          }
+        },
+        "statistics": {
+          "avg_long_signal": 0.43,
+          "avg_short_signal": 0.57,
+          "avg_precision": 0.26,
+          "avg_confidence": 0.61,
+          "avg_response_time": 8.86
+        },
+        "best_models": {
+          "most_precise": "GPT-4o",
+          "fastest": "GPT-4o",
+          "most_confident": "Grok-3"
+        },
+        "consensus": {
+          "direction": "SHORT",
+          "strength": 0.14
+        }
+      }
+    },
+    "SOL": {
+      "crypto_data": {
+        "price": 134.41,
+        "change_1h": -0.03,
+        "change_24h": 1.33,
+        "volume_24h": 424019968,
+        "market_cap": 75690811392,
+        "success": true
+      },
+      "coingecko_metrics": {
+        "community_score": 0,
+        "developer_score": 0,
+        "liquidity_score": 0,
+        "public_interest_score": 0,
+        "twitter_followers": 0,
+        "reddit_subscribers": 0,
+        "telegram_channel_user_count": 3125,
+        "github_repos": 0,
+        "github_stars": 0,
+        "github_forks": 0,
+        "github_contributors": 411,
+        "github_commits_last_4_weeks": 171,
+        "total_supply": 617546129.4580445,
+        "circulating_supply": 563277812.08179,
+        "max_supply": null,
+        "fully_diluted_valuation": {
+          "aed": 304887819759,
+          "ars": 122432488002810,
+          "aud": 124057338761,
+          "bch": 129380606,
+          "bdt": 10145171881843,
+          "bhd": 31352015073,
+          "bmd": 83019147654,
+          "bnb": 93614979,
+          "brl": 450275102089,
+          "btc": 907166,
+          "cad": 114064157919,
+          "chf": 65745851717,
+          "clp": 75261838497255,
+          "cny": 580623465820,
+          "czk": 1710368781883,
+          "dkk": 529130839488,
+          "dot": 38750782169,
+          "eos": 474816343430,
+          "eth": 26368677,
+          "eur": 70790427205,
+          "gbp": 61646366205,
+          "gel": 224566794404,
+          "hkd": 646868594691,
+          "huf": 27144770708445,
+          "idr": 1386627313691764,
+          "ils": 264528891319,
+          "inr": 7472922915548,
+          "jpy": 13016986030224,
+          "krw": 119760931831302,
+          "kwd": 25513444457,
+          "lkr": 25701571906024,
+          "ltc": 1006458936,
+          "mmk": 174315304329208,
+          "mxn": 1486466140661,
+          "myr": 336684153311,
+          "ngn": 119392323162876,
+          "nok": 835596023053,
+          "nzd": 143992975744,
+          "php": 4883102747749,
+          "pkr": 23237304334854,
+          "pln": 298185102835,
+          "rub": 6677986101193,
+          "sar": 311381162393,
+          "sek": 765519560518,
+          "sgd": 106737718139,
+          "sol": 617533474,
+          "thb": 2617787160146,
+          "try": 3572936567161,
+          "twd": 2604617832754,
+          "uah": 3512296226987,
+          "usd": 83019147654,
+          "vef": 8312707255,
+          "vnd": 2183278082591844,
+          "xag": 1139999841,
+          "xau": 19162480,
+          "xdr": 57735832274,
+          "xlm": 361484874790,
+          "xrp": 40184653588,
+          "yfi": 22429468,
+          "zar": 1368969224005,
+          "bits": 907166228898,
+          "link": 6199846522,
+          "sats": 90716622889782
+        },
+        "market_cap_rank": 6,
+        "coingecko_rank": null,
+        "categories": [
+          "Smart Contract Platform",
+          "Solana Ecosystem",
+          "Layer 1 (L1)",
+          "Alleged SEC Securities",
+          "FTX Holdings",
+          "Multicoin Capital Portfolio",
+          "Proof of Stake (PoS)",
+          "Alameda Research Portfolio",
+          "Andreessen Horowitz (a16z) Portfolio",
+          "GMCI Layer 1 Index",
+          "GMCI 30 Index",
+          "Delphi Ventures Portfolio",
+          "GMCI Index",
+          "Polychain Capital Portfolio",
+          "Made in USA",
+          "Coinbase 50 Index"
+        ],
+        "platforms": {
+          "": ""
+        },
+        "success": true
+      },
+      "openai_valuations": {
+        "GPT-4o": {
+          "provider": "OpenAI",
+          "model": "gpt-4o",
+          "crypto": "SOL",
+          "response_time": 3.8,
+          "result": {
+            "long_signal": 0.5,
+            "short_signal": 0.5,
+            "confidence_level": 0.6,
+            "price_target_long": 150,
+            "price_target_short": 120,
+            "key_drivers_long": [
+              "Market Cap Rank #6 indicating strong market presence",
+              "Recent price increase of 1.33% in 24h"
+            ],
+            "key_drivers_short": [
+              "Developer Score, Community Score, and Liquidity Score are all 0",
+              "Lack of social media presence and community engagement"
+            ],
+            "technical_analysis": "SOL is currently experiencing a slight upward trend with a 1.33% increase over 24 hours, but the 1-hour change shows a minor decrease, indicating potential volatility.",
+            "fundamental_analysis": "Despite a strong market cap rank, the absence of developer and community engagement metrics is concerning. The GitHub activity is moderate with 171 commits in the last 4 weeks, but no stars, indicating limited interest.",
+            "coingecko_insights": "The lack of scores in developer, community, and liquidity metrics suggests a potential risk in terms of project sustainability and investor interest.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "While Solana holds a strong position in the market cap ranking, the absence of developer and community engagement poses significant risks. The current market sentiment is neutral, reflecting uncertainty. Investors should be cautious and consider both the potential for growth and the risks associated with low engagement metrics."
+          },
+          "timestamp": "2026-01-04T02:40:41.267173"
+        },
+        "GPT-4o Mini": {
+          "provider": "OpenAI",
+          "model": "gpt-4o-mini",
+          "crypto": "SOL",
+          "response_time": 7.39,
+          "result": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence_level": 0.6,
+            "price_target_long": 150.0,
+            "price_target_short": 100.0,
+            "key_drivers_long": [
+              "Potencial de adopción institucional",
+              "Innovaciones tecnológicas en la red"
+            ],
+            "key_drivers_short": [
+              "Bajo engagement de la comunidad",
+              "Desaceleración económica global"
+            ],
+            "technical_analysis": "El precio de SOL ha mostrado una ligera recuperación en las últimas 24 horas, pero con un volumen de operaciones bajo, lo que sugiere una falta de impulso. La tendencia a corto plazo es incierta.",
+            "fundamental_analysis": "A pesar de un precio actual de $134.41 y un market cap de $0.08T, las métricas de CoinGecko muestran un desarrollo y comunidad muy débiles, lo que puede limitar el crecimiento futuro.",
+            "coingecko_insights": "El Developer Score es 0, lo que indica una falta de actividad de desarrollo. La comunidad también es débil, con 0 seguidores en Twitter y 0 suscriptores en Reddit, lo que sugiere un bajo interés y participación.",
+            "market_sentiment": "BEARISH",
+            "investment_thesis": "La falta de actividad en el desarrollo y el compromiso de la comunidad, junto con un contexto económico global incierto, sugiere que SOL podría enfrentar desafíos significativos a corto plazo. Se recomienda cautela en la inversión."
+          },
+          "timestamp": "2026-01-04T02:40:48.986927"
+        },
+        "GPT-5": null,
+        "GPT-5 Mini": null
+      },
+      "xai_valuations": {
+        "Grok-3": {
+          "provider": "xAI",
+          "model": "grok-3",
+          "crypto": "SOL",
+          "response_time": 17.23,
+          "result": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence_level": 0.75,
+            "price_target_long": 150.0,
+            "price_target_short": 120.0,
+            "key_drivers_long": [
+              "Incremento en el volumen de transacciones y adopción institucional",
+              "Estabilidad a corto plazo con un cambio positivo del 1.33% en 24h"
+            ],
+            "key_drivers_short": [
+              "Puntuaciones bajas en métricas de CoinGecko (Developer, Community, Liquidity)",
+              "Falta de datos de sentimiento de mercado y noticias relevantes"
+            ],
+            "technical_analysis": "Solana muestra una ligera tendencia alcista con un aumento del 1.33% en las últimas 24 horas, aunque la caída del 0.03% en la última hora sugiere cierta volatilidad a corto plazo. El volumen de $0.4B indica un interés moderado del mercado, pero la capitalización de $0.08T y el puesto #6 en el ranking reflejan una posición sólida.",
+            "fundamental_analysis": "Desde el punto de vista fundamental, Solana tiene una capitalización de mercado significativa ($0.08T), lo que la posiciona como un jugador relevante en el ecosistema cripto. Sin embargo, las métricas de CoinGecko muestran debilidades importantes: Developer Score, Community Score y Liquidity Score están en 0/100, lo que podría indicar falta de transparencia o datos insuficientes. A pesar de esto, los 171 commits en GitHub en las últimas 4 semanas sugieren actividad de desarrollo activa.",
+            "coingecko_insights": "Las métricas de CoinGecko son preocupantes, con puntuaciones de 0/100 en Developer, Community y Liquidity Scores, lo que podría reflejar una falta de datos o una percepción negativa en estos aspectos. La ausencia de seguidores en Twitter y suscriptores en Reddit también limita la visibilidad de la comunidad. Sin embargo, la actividad en GitHub (171 commits) es un punto positivo que indica que el proyecto sigue siendo desarrollado activamente.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Solana presenta un panorama mixto: su posición en el mercado (#6) y un cambio positivo del 1.33% en 24h sugieren potencial alcista, apoyado por la adopción institucional y un contexto económico global con mayor interés en criptoactivos. Sin embargo, las métricas de CoinGecko y la falta de datos de sentimiento y noticias relevantes generan incertidumbre. La recomendación es cautelosa, con un sesgo alcista moderado (long_signal 0.650) y un enfoque en monitorear mejoras en las métricas de comunidad y desarrollo."
+          },
+          "timestamp": "2026-01-04T02:41:07.444300"
+        },
+        "Grok-3 Mini": {
+          "provider": "xAI",
+          "model": "grok-3-mini",
+          "crypto": "SOL",
+          "response_time": 17.04,
+          "result": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence_level": 0.75,
+            "price_target_long": 150.0,
+            "price_target_short": 100.0,
+            "key_drivers_long": [
+              "Mayor adopción institucional y regulación en criptomonedas, impulsando el uso de Solana",
+              "Actividad en GitHub con 171 commits en las últimas 4 semanas, indicando desarrollo continuo"
+            ],
+            "key_drivers_short": [
+              "Métricas de CoinGecko en cero para developer, community y liquidity scores, sugiriendo baja visibilidad o datos incompletos",
+              "Sentimiento de mercado desconocido y noticias vacías, aumentando la incertidumbre"
+            ],
+            "technical_analysis": "El precio de SOL está en $134.41 con un cambio de +1.33% en 24 horas y -0.03% en 1 hora, mostrando estabilidad reciente con un sesgo ligeramente alcista a corto plazo, pero el volumen de $0.4B indica moderada actividad.",
+            "fundamental_analysis": "Solana mantiene un market cap de $0.08T y rank #6, lo que refleja una posición sólida en el mercado cripto. Sin embargo, las métricas de CoinGecko son preocupantes con scores de 0/100 en developer, community y liquidity, a pesar de 171 commits en GitHub. En el contexto económico global, la adopción institucional y la regulación podrían apoyar el crecimiento, pero preocupaciones por desaceleración económica global representan riesgos.",
+            "coingecko_insights": "Las métricas indican problemas graves: developer score de 0/100 sugiere poca actividad visible, community score de 0/100 implica engagement mínimo (con 0 Twitter followers y Reddit subscribers), y liquidity score de 0/100 podría afectar la estabilidad. Los 171 commits en GitHub son un punto positivo, pero no compensan las otras deficiencias en los datos proporcionados.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "Solana ofrece potencial alcista debido a su tecnología de blockchain de alta velocidad y creciente adopción institucional, pero las métricas de CoinGecko en cero y el sentimiento de mercado desconocido introducen riesgos significativos, recomendando una aproximación cautelosa con enfoque en monitoreo de desarrollos globales y económicos."
+          },
+          "timestamp": "2026-01-04T02:41:24.480228"
+        },
+        "Grok-4": null,
+        "Grok-4.1 Fast": {
+          "provider": "xAI",
+          "model": "grok-4-1-fast-reasoning",
+          "crypto": "SOL",
+          "response_time": 8.8,
+          "result": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence_level": 0.75,
+            "price_target_long": 180,
+            "price_target_short": 110,
+            "key_drivers_long": [
+              "Adopción institucional creciente",
+              "Market Cap Rank #6 y commits GitHub recientes"
+            ],
+            "key_drivers_short": [
+              "Métricas CoinGecko en 0 (developer/community/liquidity)",
+              "Sentimiento de mercado desconocido y noticias vacías"
+            ],
+            "technical_analysis": "Precio estable en $134.41 con +1.33% en 24h y volumen $0.4B; leve corrección -0.03% en 1h sugiere consolidación en medio de tendencia alcista moderada.",
+            "fundamental_analysis": "Solana mantiene posición elite (#6 en Market Cap $0.08T) pese a métricas CoinGecko deficientes; contexto económico global muestra mercados bursátiles alcistas (S&P +0.19%, Dow +0.66%) y adopción institucional positiva, contrarrestando preocupaciones por desaceleración global.",
+            "coingecko_insights": "Scores en 0/100 para developer, community y liquidity indican datos posiblemente incompletos o débiles; sin embargo, 171 commits GitHub en 4 semanas y 0 stars/followers sugieren actividad dev activa pero engagement comunitario bajo; rank #6 destaca fortaleza fundamental.",
+            "market_sentiment": "NEUTRAL",
+            "investment_thesis": "SOL resiste con rank top-6 y adopción institucional en contexto económico moderado, pero métricas CoinGecko nulas y sentimiento unknown limitan upside; posición neutral con bias long si datos económicos FED favorecen riesgo."
+          },
+          "timestamp": "2026-01-04T02:41:53.687091"
+        }
+      },
+      "multi_model_comparison": {
+        "models_count": 5,
+        "models_data": {
+          "GPT-4o": {
+            "long_signal": 0.5,
+            "short_signal": 0.5,
+            "confidence": 0.6,
+            "response_time": 3.8,
+            "precision": 0.0,
+            "direction": "SHORT"
+          },
+          "GPT-4o Mini": {
+            "long_signal": 0.3,
+            "short_signal": 0.7,
+            "confidence": 0.6,
+            "response_time": 7.39,
+            "precision": 0.39999999999999997,
+            "direction": "SHORT"
+          },
+          "Grok-3": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence": 0.75,
+            "response_time": 17.23,
+            "precision": 0.30000000000000004,
+            "direction": "LONG"
+          },
+          "Grok-3 Mini": {
+            "long_signal": 0.7,
+            "short_signal": 0.3,
+            "confidence": 0.75,
+            "response_time": 17.04,
+            "precision": 0.39999999999999997,
+            "direction": "LONG"
+          },
+          "Grok-4.1 Fast": {
+            "long_signal": 0.65,
+            "short_signal": 0.35,
+            "confidence": 0.75,
+            "response_time": 8.8,
+            "precision": 0.30000000000000004,
+            "direction": "LONG"
+          }
+        },
+        "statistics": {
+          "avg_long_signal": 0.56,
+          "avg_short_signal": 0.44,
+          "avg_precision": 0.28,
+          "avg_confidence": 0.69,
+          "avg_response_time": 10.85
+        },
+        "best_models": {
+          "most_precise": "GPT-4o Mini",
+          "fastest": "GPT-4o",
+          "most_confident": "Grok-3"
+        },
+        "consensus": {
+          "direction": "LONG",
+          "strength": 0.12
+        }
+      }
+    }
+  },
+  "final_analysis": {
+    "market_sentiment": "BULLISH",
+    "long_signals_ratio": 0.75,
+    "avg_long_signal": 0.59,
+    "avg_short_signal": 0.41,
+    "most_recommended_crypto": "BTC",
+    "model_performance": {
+      "GPT-4o": {
+        "avg_precision": 0.27499999999999997,
+        "avg_response_time": 3.495,
+        "avg_long_signal": 0.5375
+      },
+      "GPT-4o Mini": {
+        "avg_precision": 0.4,
+        "avg_response_time": 7.415,
+        "avg_long_signal": 0.5
+      },
+      "Grok-3": {
+        "avg_precision": 0.325,
+        "avg_response_time": 12.5075,
+        "avg_long_signal": 0.6625
+      },
+      "Grok-3 Mini": {
+        "avg_precision": 0.375,
+        "avg_response_time": 14.55,
+        "avg_long_signal": 0.6375
+      },
+      "Grok-4.1 Fast": {
+        "avg_precision": 0.22500000000000003,
+        "avg_response_time": 10.2475,
+        "avg_long_signal": 0.6125
+      }
+    },
+    "top_models": {
+      "most_precise": "GPT-4o Mini",
+      "fastest": "GPT-4o",
+      "most_bullish": "Grok-3"
+    },
+    "fear_greed_analysis": {
+      "value": 50,
+      "sentiment": "NEUTRAL",
+      "interpretation": "Fear & Greed Index en 50 indica neutral"
+    },
+    "cryptopanic_sentiment_analysis": {
+      "market_sentiment": "NEUTRAL",
+      "bullish_percentage": 0,
+      "bearish_percentage": 0,
+      "interpretation": "CryptoPanic indica sentimiento neutral con 0.0% bullish y 0.0% bearish"
+    },
+    "developer_activity": {
+      "best_developer": "BTC",
+      "scores": {
+        "BTC": 0,
+        "ETH": 0,
+        "XRP": 0,
+        "SOL": 0
+      }
+    },
+    "key_insights": [
+      "Mercado general: BULLISH",
+      "Señales LONG promedio: 0.590 | SHORT promedio: 0.410",
+      "Ratio señales LONG: 75.0%",
+      "Modelo más preciso: GPT-4o Mini",
+      "Modelo más rápido: GPT-4o",
+      "Fear & Greed Index: 50 (NEUTRAL)",
+      "CryptoPanic sentimiento: NEUTRAL (0.0% bullish)",
+      "Mejor actividad de desarrollo: BTC",
+      "Análisis de sentimiento CryptoPanic proporciona señal adicional",
+      "Múltiples modelos AIs proporcionan análisis diversificado",
+      "Contexto económico global y sentimiento de mercado influyen en todas las valoraciones"
+    ]
+  },
+  "market_sentiment": {
+    "fear_greed_index": {
+      "error": "Error obteniendo Fear & Greed Index: 'CoinGeckoAPI' object has no attribute 'get_fear_greed_index'",
+      "success": false
+    },
+    "global_crypto_metrics": {
+      "active_cryptocurrencies": null,
+      "upcoming_icos": null,
+      "ongoing_icos": null,
+      "ended_icos": null,
+      "markets": null,
+      "total_market_cap": {},
+      "total_volume": {},
+      "market_cap_percentage": {},
+      "market_cap_change_percentage_24h_usd": null,
+      "updated_at": null,
+      "success": true
+    },
+    "trending_coins": {
+      "trending_coins": [
+        {
+          "id": "pepe",
+          "name": "Pepe",
+          "symbol": "PEPE",
+          "market_cap_rank": 50,
+          "thumb": "https://coin-images.coingecko.com/coins/images/29850/standard/pepe-token.jpeg?1696528776",
+          "price_btc": 7.011165007890123e-11
+        },
+        {
+          "id": "dogecoin",
+          "name": "Dogecoin",
+          "symbol": "DOGE",
+          "market_cap_rank": 10,
+          "thumb": "https://coin-images.coingecko.com/coins/images/5/standard/dogecoin.png?1696501409",
+          "price_btc": 1.6656080475420253e-06
+        },
+        {
+          "id": "pudgy-penguins",
+          "name": "Pudgy Penguins",
+          "symbol": "PENGU",
+          "market_cap_rank": 116,
+          "thumb": "https://coin-images.coingecko.com/coins/images/52622/standard/PUDGY_PENGUINS_PENGU_PFP.png?1733809110",
+          "price_btc": 1.2982531832013986e-07
+        },
+        {
+          "id": "render-token",
+          "name": "Render",
+          "symbol": "RENDER",
+          "market_cap_rank": 107,
+          "thumb": "https://coin-images.coingecko.com/coins/images/11636/standard/rndr.png?1696511529",
+          "price_btc": 1.9790784002754504e-05
+        },
+        {
+          "id": "lighter",
+          "name": "Lighter",
+          "symbol": "LIT",
+          "market_cap_rank": 130,
+          "thumb": "https://coin-images.coingecko.com/coins/images/71121/standard/lighter.png?1765888098",
+          "price_btc": 2.8605583631551746e-05
+        },
+        {
+          "id": "solana",
+          "name": "Solana",
+          "symbol": "SOL",
+          "market_cap_rank": 6,
+          "thumb": "https://coin-images.coingecko.com/coins/images/4128/standard/solana.png?1718769756",
+          "price_btc": 0.001467977831063565
+        },
+        {
+          "id": "canton-network",
+          "name": "Canton",
+          "symbol": "CC",
+          "market_cap_rank": 33,
+          "thumb": "https://coin-images.coingecko.com/coins/images/70468/standard/Canton-Ticker_%281%29.png?1762826299",
+          "price_btc": 1.721197527932001e-06
+        },
+        {
+          "id": "cardano",
+          "name": "Cardano",
+          "symbol": "ADA",
+          "market_cap_rank": 12,
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/standard/cardano.png?1696502090",
+          "price_btc": 4.339018468590386e-06
+        },
+        {
+          "id": "zcash",
+          "name": "Zcash",
+          "symbol": "ZEC",
+          "market_cap_rank": 23,
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/standard/circle-zcash-color.png?1696501740",
+          "price_btc": 0.0055893362808534615
+        },
+        {
+          "id": "virtual-protocol",
+          "name": "Virtuals Protocol",
+          "symbol": "VIRTUAL",
+          "market_cap_rank": 142,
+          "thumb": "https://coin-images.coingecko.com/coins/images/34057/standard/LOGOMARK.png?1708356054",
+          "price_btc": 9.438703821793857e-06
+        },
+        {
+          "id": "myx-finance",
+          "name": "MYX Finance",
+          "symbol": "MYX",
+          "market_cap_rank": 90,
+          "thumb": "https://coin-images.coingecko.com/coins/images/55506/standard/myx.jpg?1746434335",
+          "price_btc": 7.035792863133508e-05
+        },
+        {
+          "id": "pi-network",
+          "name": "Pi Network",
+          "symbol": "PI",
+          "market_cap_rank": 63,
+          "thumb": "https://coin-images.coingecko.com/coins/images/54342/standard/pi_network.jpg?1739347576",
+          "price_btc": 2.2951062969517866e-06
+        },
+        {
+          "id": "ethereum",
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "market_cap_rank": 2,
+          "thumb": "https://coin-images.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
+          "price_btc": 0.03440412724920782
+        },
+        {
+          "id": "spx6900",
+          "name": "SPX6900",
+          "symbol": "SPX",
+          "market_cap_rank": 143,
+          "thumb": "https://coin-images.coingecko.com/coins/images/31401/standard/centeredcoin_%281%29.png?1737048493",
+          "price_btc": 6.627418721784443e-06
+        },
+        {
+          "id": "baby-doge-coin",
+          "name": "Baby Doge Coin",
+          "symbol": "BABYDOGE",
+          "market_cap_rank": 382,
+          "thumb": "https://coin-images.coingecko.com/coins/images/16125/standard/babydoge.jpg?1696515731",
+          "price_btc": 7.858814926254944e-15
+        }
+      ],
+      "success": true
+    },
+    "cryptopanic_sentiment": {
+      "error": "Error HTTP 404",
+      "success": false
+    }
+  }
+}

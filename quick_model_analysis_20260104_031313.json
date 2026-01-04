@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-01-04T03:13:13.313761",
+  "analysis_type": "quick_model_comparison",
+  "models_tested": [
+    "GPT-4o",
+    "GPT-4o Mini",
+    "Grok-3",
+    "Grok-3 Mini"
+  ],
+  "cryptos_analyzed": [
+    "BTC",
+    "ETH",
+    "XRP",
+    "SOL"
+  ],
+  "model_stats": {
+    "GPT-4o": {
+      "successful_valuations": 0,
+      "total_cryptos": 4,
+      "success_rate": 0.0,
+      "avg_long_signal": 0,
+      "avg_short_signal": 0,
+      "avg_confidence": 0
+    },
+    "GPT-4o Mini": {
+      "successful_valuations": 0,
+      "total_cryptos": 4,
+      "success_rate": 0.0,
+      "avg_long_signal": 0,
+      "avg_short_signal": 0,
+      "avg_confidence": 0
+    },
+    "Grok-3": {
+      "successful_valuations": 0,
+      "total_cryptos": 4,
+      "success_rate": 0.0,
+      "avg_long_signal": 0,
+      "avg_short_signal": 0,
+      "avg_confidence": 0
+    },
+    "Grok-3 Mini": {
+      "successful_valuations": 0,
+      "total_cryptos": 4,
+      "success_rate": 0.0,
+      "avg_long_signal": 0,
+      "avg_short_signal": 0,
+      "avg_confidence": 0
+    }
+  },
+  "rankings": {
+    "precision": [
+      "GPT-4o",
+      "GPT-4o Mini",
+      "Grok-3",
+      "Grok-3 Mini"
+    ],
+    "confidence": [
+      "GPT-4o",
+      "GPT-4o Mini",
+      "Grok-3",
+      "Grok-3 Mini"
+    ],
+    "bullish": [
+      "GPT-4o",
+      "GPT-4o Mini",
+      "Grok-3",
+      "Grok-3 Mini"
+    ]
+  },
+  "total_time": 155.43002009391785,
+  "avg_time_per_model": 38.85750502347946
+}

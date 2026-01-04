@@ -1,0 +1,51 @@
+# 🚀 Variables de Entorno para Sistema de Valoración de Criptomonedas
+# Copiar este contenido a un archivo .env y configurar las claves reales
+
+# ===================================================================
+# 🤖 APIs DE IA Y MODELOS
+# ===================================================================
+
+# OpenAI API Key (OBLIGATORIA)
+# Obtener en: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-proj-tu_clave_de_openai_aqui...
+
+# xAI API Key (OPCIONAL - para análisis híbrido)
+# Obtener en: https://x.ai/
+XAI_API_KEY=xai-tu_clave_de_xai_aqui...
+
+# ===================================================================
+# 🪙 APIs DE DATOS DE CRIPTOMONEDAS
+# ===================================================================
+
+# CoinGecko API Key (OBLIGATORIA)
+# Obtener gratuita en: https://www.coingecko.com/en/api
+COINGECKO_API_KEY=CG-tu_clave_de_coingecko_aqui...
+
+# CryptoPanic API Key (OPCIONAL - mejora análisis de sentimiento)
+# Obtener en: https://cryptopanic.com/developers/api/
+CRYPTOPANIC_API_KEY=tu_clave_de_cryptopanic_aqui...
+
+# ===================================================================
+# 🗄️ BASE DE DATOS (OPCIONAL)
+# ===================================================================
+
+# PostgreSQL Database URL (para persistencia de datos)
+DATABASE_URL=postgresql://usuario:contraseña@host:5432/base_datos
+
+# ===================================================================
+# 🔧 CONFIGURACIÓN ADICIONAL
+# ===================================================================
+
+# Nivel de logging (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL=INFO
+
+# Timeout para requests externos (segundos)
+REQUEST_TIMEOUT=10
+
+# ===================================================================
+# ⚠️  SEGURIDAD - NUNCA COMMITEAR .env CON CLAVES REALES
+# ===================================================================
+# 1. Copiar este contenido a un archivo .env
+# 2. Configurar las claves reales en .env
+# 3. Agregar .env al .gitignore
+# 4. Configurar variables en Railway Dashboard -> Variables

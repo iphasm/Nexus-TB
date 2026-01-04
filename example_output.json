@@ -1,0 +1,162 @@
+{
+  "test_timestamp": "2026-01-04T01:49:24.843184",
+  "phases": {
+    "btc_data": {
+      "success": true,
+      "data": {
+        "current_price": 45230.75,
+        "change_24h_pct": 2.45,
+        "change_1h_pct": -0.12,
+        "high_24h": 45890.0,
+        "low_24h": 44120.5,
+        "volume_24h": 28500000000,
+        "timestamp": "2026-01-04T01:49:24.843139",
+        "symbol": "BTC-USD"
+      }
+    },
+    "news_data": {
+      "success": true,
+      "count": 5,
+      "data": [
+        {
+          "title": "Bitcoin rompe resistencia clave de $45,000 con volumen alto",
+          "publisher": "CoinDesk",
+          "link": "https://coindesk.com/bitcoin-breakout",
+          "timestamp": 1735938564,
+          "related_ticker": "BTC-USD",
+          "date": "2026-01-04T01:49:24.843184"
+        },
+        {
+          "title": "FED mantiene tasas de interés sin cambios, cripto celebra",
+          "publisher": "Bloomberg",
+          "link": "https://bloomberg.com/fed-holds-rates",
+          "timestamp": 1735934964,
+          "related_ticker": "^GSPC",
+          "date": "2026-01-04T01:49:24.843184"
+        },
+        {
+          "title": "Tesla aumenta holdings de Bitcoin en $500M",
+          "publisher": "Reuters",
+          "link": "https://reuters.com/tesla-bitcoin",
+          "timestamp": 1735931364,
+          "related_ticker": "TSLA",
+          "date": "2026-01-04T01:49:24.843184"
+        }
+      ]
+    },
+    "payload_creation": {
+      "success": true,
+      "payload": {
+        "timestamp": "2026-01-04T01:49:24.843184",
+        "market_data": {
+          "btc_usd": {
+            "current_price": 45230.75,
+            "change_24h_pct": 2.45,
+            "change_1h_pct": -0.12,
+            "high_24h": 45890.0,
+            "low_24h": 44120.5,
+            "volume_24h": 28500000000,
+            "timestamp": "2026-01-04T01:49:24.843139",
+            "symbol": "BTC-USD"
+          }
+        },
+        "news": {
+          "count": 5,
+          "items": [
+            {
+              "title": "Bitcoin rompe resistencia clave de $45,000 con volumen alto",
+              "publisher": "CoinDesk",
+              "link": "https://coindesk.com/bitcoin-breakout",
+              "timestamp": 1735938564,
+              "related_ticker": "BTC-USD",
+              "date": "2026-01-04T01:49:24.843184"
+            }
+          ],
+          "sources": ["CoinDesk", "Bloomberg", "Reuters", "Financial Times", "Cointelegraph"]
+        },
+        "analysis_request": {
+          "task": "market_sentiment_analysis",
+          "objective": "Evaluar condiciones actuales para operación LONG en BTC",
+          "requirements": [
+            "Analizar sentimiento de mercado basado en noticias",
+            "Evaluar momentum técnico actual",
+            "Proporcionar valoración numérica: -1 (muy negativo) a +1 (muy positivo)",
+            "Recomendar si es buena oportunidad para compra LONG",
+            "Explicar factores principales que influyen en la decisión"
+          ]
+        }
+      }
+    },
+    "openai_analysis": {
+      "provider": "OpenAI",
+      "model": "gpt-4o",
+      "response_time": 2.34,
+      "result": {
+        "sentiment_score": 0.75,
+        "technical_momentum": "bullish",
+        "recommendation": "BUY_LONG",
+        "confidence_level": 0.82,
+        "key_factors": [
+          "Ruptura de resistencia de $45,000 con alto volumen",
+          "Noticias positivas de FED y Tesla",
+          "Momentum técnico alcista en BTC"
+        ],
+        "analysis": "El mercado muestra fuerte momentum alcista con ruptura técnica clave y noticias positivas fundamentales. Recomiendo entrada LONG con stop loss en $43,500."
+      },
+      "timestamp": "2026-01-04T01:49:27.183184"
+    },
+    "xai_analysis": {
+      "provider": "xAI",
+      "model": "grok-3",
+      "response_time": 1.87,
+      "result": {
+        "sentiment_score": 0.68,
+        "technical_momentum": "bullish",
+        "recommendation": "BUY_LONG",
+        "confidence_level": 0.79,
+        "key_factors": [
+          "Breakout técnico confirmado",
+          "Aumento de posiciones institucionales",
+          "Sentimiento positivo en noticias"
+        ],
+        "analysis": "Datos técnicos y fundamentales apuntan a continuación del rally alcista. El volumen en la ruptura es un indicador positivo fuerte."
+      },
+      "timestamp": "2026-01-04T01:49:29.053184"
+    },
+    "comparison": {
+      "openai": {
+        "sentiment_score": 0.75,
+        "recommendation": "BUY_LONG",
+        "confidence": 0.82,
+        "response_time": 2.34,
+        "key_factors": [
+          "Ruptura de resistencia de $45,000 con alto volumen",
+          "Noticias positivas de FED y Tesla",
+          "Momentum técnico alcista en BTC"
+        ]
+      },
+      "xai": {
+        "sentiment_score": 0.68,
+        "recommendation": "BUY_LONG",
+        "confidence": 0.79,
+        "response_time": 1.87,
+        "key_factors": [
+          "Breakout técnico confirmado",
+          "Aumento de posiciones institucionales",
+          "Sentimiento positivo en noticias"
+        ]
+      },
+      "agreement": {
+        "direction_match": true,
+        "recommendation_match": true,
+        "score_difference": 0.07,
+        "average_score": 0.715
+      },
+      "consensus": {
+        "signal": "BULLISH",
+        "strength": "STRONG",
+        "confidence": 0.79
+      }
+    }
+  }
+}
