@@ -527,11 +527,31 @@ class MLTrainerGUI:
             return []
 
     def classify_assets_by_category(self, assets: List[str]) -> Dict[str, List[str]]:
-        """Clasifica activos por categorías usando system_directive."""
+        """Clasifica activos por categorías usando system_directive con múltiples fallbacks."""
         try:
-            # Obtener categorías de system_directive
-            crypto_subgroups = getattr(system_directive, 'CRYPTO_SUBGROUPS', {})
+            # Intentar obtener categorías de system_directive
+            crypto_subgroups = {}
+            try:
+                import system_directive
+                crypto_subgroups = getattr(system_directive, 'CRYPTO_SUBGROUPS', {})
+                self.log_message(f"✅ system_directive cargado: {len(crypto_subgroups)} categorías", "INFO")
+            except Exception as import_error:
+                self.log_message(f"⚠️ Error importando system_directive: {import_error}", "WARNING")
+                crypto_subgroups = {}
+
             classified = {}
+
+            # Si no hay categorías de system_directive, usar fallback básico
+            if not crypto_subgroups:
+                self.log_message("🔄 Usando clasificación básica de respaldo", "INFO")
+                crypto_subgroups = {
+                    'MAJOR_CAPS': ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "DOTUSDT", "AVAXUSDT"],
+                    'MEME_COINS': ["DOGEUSDT", "SHIBUSDT", "PEPEUSDT", "FLOKIUSDT", "WIFUSDT"],
+                    'DEFI': ["UNIUSDT", "AAVEUSDT", "SUSHIUSDT", "CRVUSDT", "COMPUSDT"],
+                    'AI_TECH': ["FETUSDT", "AGIXUSDT", "OCEANUSDT", "GRTUSDT"],
+                    'GAMING_METAVERSE': ["AXSUSDT", "SANDUSDT", "MANAUSDT", "ENJUSDT", "GALUSDT"],
+                    'LAYER1_INFRA': ["NEARUSDT", "FTMUSDT", "FLOWUSDT", "ICPUSDT", "HBARUSDT"]
+                }
 
             # Inicializar todas las categorías disponibles
             for category in crypto_subgroups.keys():
@@ -553,61 +573,101 @@ class MLTrainerGUI:
             # Remover categorías vacías
             classified = {k: v for k, v in classified.items() if v}
 
+            # Asegurar que al menos haya una categoría
+            if not classified:
+                classified = {'OTHER': sorted(assets)}
+
+            self.log_message(f"✅ Clasificación completada: {len(classified)} categorías", "SUCCESS")
             return classified
 
         except Exception as e:
-            self.log_message(f"⚠️ Error clasificando activos: {e}", "WARNING")
-            # Fallback: intentar clasificar manualmente algunos conocidos
-            fallback_categories = {
-                'MAJOR_CAPS': [a for a in assets if a in ["BTCUSDT", "ETHUSDT", "BNBUSDT"]],
-                'MEME_COINS': [a for a in assets if a in ["DOGEUSDT", "SHIBUSDT"]],
-                'OTHER': assets  # Todos los demás
-            }
-            # Filtrar categorías vacías
-            fallback_categories = {k: v for k, v in fallback_categories.items() if v}
-            return fallback_categories if fallback_categories else {'OTHER': assets}
+            self.log_message(f"❌ Error grave en clasificación: {e}", "ERROR")
+            # Último fallback: dividir en grupos básicos
+            try:
+                basic_categories = {
+                    'MAJOR_CAPS': [a for a in assets if a in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT"]],
+                    'MEME_COINS': [a for a in assets if 'DOGE' in a or 'SHIB' in a or 'PEPE' in a],
+                    'OTHER': assets
+                }
+                # Filtrar categorías vacías
+                basic_categories = {k: v for k, v in basic_categories.items() if v}
+                return basic_categories if basic_categories else {'OTHER': assets}
+            except:
+                return {'OTHER': assets}
 
     def load_futures_assets(self):
         """Carga lista de activos de futuros de ambos exchanges y los clasifica por categorías."""
         try:
             self.log_message("🔄 Cargando lista de activos de futuros...", "INFO")
 
-            binance_assets = self.get_binance_futures_assets()
-            bybit_assets = self.get_bybit_futures_assets()
+            # Forzar lista de activos conocidos para evitar problemas con APIs en ejecutable
+            self.log_message("🔄 Usando lista predefinida de activos para estabilidad", "INFO")
+            self.all_futures_assets = [
+                # Major Caps
+                "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "DOTUSDT", "AVAXUSDT",
+                # Meme Coins
+                "DOGEUSDT", "SHIBUSDT", "PEPEUSDT", "FLOKIUSDT",
+                # DeFi
+                "UNIUSDT", "AAVEUSDT", "SUSHIUSDT", "CRVUSDT",
+                # AI/Tech
+                "FETUSDT", "AGIXUSDT", "OCEANUSDT",
+                # Gaming
+                "AXSUSDT", "SANDUSDT", "MANAUSDT", "ENJUSDT",
+                # Layer 1
+                "NEARUSDT", "FTMUSDT", "FLOWUSDT", "ICPUSDT",
+                # Otros populares
+                "LINKUSDT", "TRXUSDT", "LTCUSDT", "ETCUSDT", "XLMUSDT", "VETUSDT"
+            ]
 
-            self.log_message(f"📈 Binance: {len(binance_assets)} activos", "INFO")
-            self.log_message(f"📈 Bybit: {len(bybit_assets)} activos", "INFO")
+            self.log_message(f"📊 Lista predefinida: {len(self.all_futures_assets)} activos", "INFO")
 
-            # Combinar y eliminar duplicados
-            all_assets = list(set(binance_assets + bybit_assets))
-            self.all_futures_assets = sorted(all_assets)
+            # Intentar cargar de APIs como respaldo (solo si funciona)
+            try:
+                binance_assets = self.get_binance_futures_assets()
+                bybit_assets = self.get_bybit_futures_assets()
+                if binance_assets or bybit_assets:
+                    api_assets = list(set(binance_assets + bybit_assets))
+                    self.all_futures_assets.extend([a for a in api_assets if a not in self.all_futures_assets])
+                    self.all_futures_assets = sorted(list(set(self.all_futures_assets)))
+                    self.log_message(f"📈 APIs agregaron {len(api_assets)} activos adicionales", "INFO")
+            except Exception as api_error:
+                self.log_message(f"ℹ️ APIs no disponibles, usando solo lista predefinida: {api_error}", "INFO")
 
-            # Verificar que tenemos activos
-            if not self.all_futures_assets:
-                self.log_message("⚠️ No se pudieron cargar activos de las APIs", "WARNING")
-                # Fallback: usar activos conocidos
-                self.all_futures_assets = [
-                    "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT",
-                    "DOTUSDT", "DOGEUSDT", "AVAXUSDT", "LTCUSDT", "TRXUSDT"
-                ]
-                self.log_message("🔄 Usando lista de activos de fallback", "INFO")
-
-            # Clasificar por categorías
+            # Clasificar por categorías con fallback mejorado
             self.categorized_assets = self.classify_assets_by_category(self.all_futures_assets)
 
-            # Si no hay categorías clasificadas, crear una categoría OTHER
-            if not self.categorized_assets:
-                self.categorized_assets = {'OTHER': self.all_futures_assets}
-                self.log_message("📂 Creando categoría OTHER con todos los activos", "INFO")
+            # Si no hay categorías clasificadas, crear categorías básicas
+            if not self.categorized_assets or all(len(assets) == 0 for assets in self.categorized_assets.values()):
+                self.log_message("🔄 Creando categorías básicas de respaldo", "INFO")
+                self.categorized_assets = {
+                    'MAJOR_CAPS': [a for a in self.all_futures_assets if a in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT"]],
+                    'MEME_COINS': [a for a in self.all_futures_assets if a in ["DOGEUSDT", "SHIBUSDT", "PEPEUSDT"]],
+                    'DEFI': [a for a in self.all_futures_assets if a in ["UNIUSDT", "AAVEUSDT", "SUSHIUSDT"]],
+                    'OTHER': self.all_futures_assets  # Todos los demás
+                }
+                # Filtrar categorías vacías
+                self.categorized_assets = {k: v for k, v in self.categorized_assets.items() if v}
+
+            # Asegurar que OTHER tenga todos los activos no clasificados
+            classified_assets = set()
+            for assets in self.categorized_assets.values():
+                classified_assets.update(assets)
+
+            unclassified = [a for a in self.all_futures_assets if a not in classified_assets]
+            if unclassified and 'OTHER' not in self.categorized_assets:
+                self.categorized_assets['OTHER'] = unclassified
+            elif unclassified and 'OTHER' in self.categorized_assets:
+                self.categorized_assets['OTHER'].extend(unclassified)
 
             # Log de categorías encontradas
             total_classified = sum(len(assets) for assets in self.categorized_assets.values())
             self.log_message(f"✅ Cargados {len(self.all_futures_assets)} activos de futuros", "SUCCESS")
-            self.log_message(f"📊 Clasificados en {len(self.categorized_assets)} categorías: {', '.join(self.categorized_assets.keys())}", "INFO")
+            self.log_message(f"📊 Clasificados en {len(self.categorized_assets)} categorías", "INFO")
 
             # Mostrar resumen por categoría
             for category, assets in self.categorized_assets.items():
-                self.log_message(f"   • {category}: {len(assets)} activos", "INFO")
+                display_name = self.get_category_display_name(category)
+                self.log_message(f"   • {display_name}: {len(assets)} activos", "INFO")
 
         except Exception as e:
             self.log_message(f"❌ Error cargando activos: {e}", "ERROR")
