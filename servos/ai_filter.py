@@ -260,7 +260,11 @@ class AIFilterEngine:
 
         try:
             # Ejecutar valoración en thread separado (ya que es síncrona)
-            valuation_result = await asyncio.to_thread(self._run_valuation_sync, symbol)
+            # ⏰ Timeout de 10 segundos para evitar bloqueos
+            valuation_result = await asyncio.wait_for(
+                asyncio.to_thread(self._run_valuation_sync, symbol),
+                timeout=10.0
+            )
 
             if valuation_result.get('success'):
                 # Extraer datos relevantes para el filtro
@@ -465,9 +469,12 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
                 ai_score = 0.8 if ai_analysis.get('should_filter') else 0.2
             scores.append(('IA Híbrida', ai_score))
 
-            # 5. 🎯 VALORACIÓN GPT-4o MINI (FACTOR MÁS IMPORTANTE - NUEVO)
-            gpt_valuation_score = 0.5  # Default neutral
-            if sentiment_data.get('ai_valuation', {}).get('available'):
+            # 5. 🎯 VALORACIÓN GPT-4o MINI (FACTOR IMPORTANTE - ROBUSTO)
+            gpt_valuation_score = 0.3  # Default permisivo cuando APIs fallan
+            ai_valuation_available = sentiment_data.get('ai_valuation', {}).get('available', False)
+
+            if ai_valuation_available:
+                # Valoración disponible - usar normalmente
                 ai_val = sentiment_data['ai_valuation']
                 side = signal_data.get('side', 'LONG')
 
@@ -489,17 +496,56 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
                     gpt_valuation_score = 0.2  # Permitir
                 else:
                     gpt_valuation_score = 0.4  # Neutral
+            else:
+                # 🎯 CRÍTICO: Cuando GPT-4o Mini NO está disponible, ser más permisivo
+                # Esto evita que el fallo de APIs bloquee señales válidas
+                logger.warning(f"⚠️ GPT-4o Mini no disponible para {signal_data['symbol']} - usando score permisivo")
+                gpt_valuation_score = 0.3  # Más permisivo que el neutral 0.5
 
             scores.append(('GPT-4o Mini', gpt_valuation_score))
 
-            # Calcular score final (promedio ponderado)
-            weights = {
-                'Fear & Greed': 0.15,
-                'Volatilidad': 0.15,
-                'Momentum': 0.15,
-                'IA Híbrida': 0.2,
-                'GPT-4o Mini': 0.35  # 🎯 PESO MÁXIMO - Factor más importante
-            }
+            # Calcular score final (promedio ponderado - AJUSTADO PARA ROBUSTEZ)
+            # 🎯 AJUSTE: Reducir dependencia de GPT-4o Mini cuando puede fallar
+            ai_valuation_available = sentiment_data.get('ai_valuation', {}).get('available', False)
+            xai_available = self.xai_integration is not None
+
+            if ai_valuation_available and xai_available:
+                # Ambos sistemas disponibles - pesos normales
+                weights = {
+                    'Fear & Greed': 0.15,
+                    'Volatilidad': 0.15,
+                    'Momentum': 0.15,
+                    'IA Híbrida': 0.20,
+                    'GPT-4o Mini': 0.35
+                }
+            elif ai_valuation_available:
+                # Solo GPT-4o Mini disponible - aumentar su peso relativo
+                weights = {
+                    'Fear & Greed': 0.15,
+                    'Volatilidad': 0.15,
+                    'Momentum': 0.20,
+                    'IA Híbrida': 0.15,
+                    'GPT-4o Mini': 0.35
+                }
+            elif xai_available:
+                # Solo xAI disponible - reducir peso de GPT-4o Mini
+                weights = {
+                    'Fear & Greed': 0.18,
+                    'Volatilidad': 0.18,
+                    'Momentum': 0.18,
+                    'IA Híbrida': 0.28,
+                    'GPT-4o Mini': 0.18  # Reducido significativamente
+                }
+            else:
+                # Ningún sistema avanzado disponible - depender de indicadores básicos
+                weights = {
+                    'Fear & Greed': 0.25,
+                    'Volatilidad': 0.25,
+                    'Momentum': 0.25,
+                    'IA Híbrida': 0.10,
+                    'GPT-4o Mini': 0.15  # Muy reducido
+                }
+                logger.warning("⚠️ Ambos sistemas IA no disponibles - usando indicadores básicos")
             total_score = 0
             total_weight = 0
 
@@ -510,8 +556,9 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
 
             final_score = total_score / total_weight if total_weight > 0 else 0.5
 
-            # Decisión: filtrar si score > 0.7
-            should_filter = final_score > 0.7
+            # Decisión: filtrar si score > 0.75 (AJUSTADO - MENOS RESTRICTIVO)
+            # 🎯 ANTES: 0.7 (muy restrictivo), AHORA: 0.75 (más permisivo)
+            should_filter = final_score > 0.75
 
             # Crear razón detallada
             if should_filter:
