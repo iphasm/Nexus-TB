@@ -236,7 +236,7 @@ class MLTrainerGUI:
         try:
             config = {
                 "candles": int(self.candles_var.get() or self.default_config["candles"]),
-                "symbols": int(self.symbols_var.get()) if self.symbols_var.get() else None,
+                "symbols": int(self.symbols_var.get().strip()) if self.symbols_var.get().strip() else None,
                 "verbose": self.verbose_var.get(),
                 "backup": self.backup_var.get()
             }
@@ -280,9 +280,15 @@ class MLTrainerGUI:
 
         # Validar parámetros
         try:
-            candles = int(self.candles_var.get())
-            if candles < 1000:
-                raise ValueError("Mínimo 1000 velas")
+            candles_str = self.candles_var.get().strip()
+            if not candles_str:
+                raise ValueError("Campo de velas está vacío")
+            try:
+                candles = int(candles_str)
+                if candles < 1000:
+                    raise ValueError("Mínimo 1000 velas")
+            except ValueError:
+                raise ValueError("Valor de velas debe ser un número válido")
             if candles > 50000:
                 raise ValueError("Máximo 50000 velas")
         except ValueError as e:
@@ -290,9 +296,10 @@ class MLTrainerGUI:
             return
 
         symbols_limit = None
-        if self.symbols_var.get():
+        symbols_str = self.symbols_var.get().strip()
+        if symbols_str:
             try:
-                symbols_limit = int(self.symbols_var.get())
+                symbols_limit = int(symbols_str)
                 if symbols_limit < 1:
                     raise ValueError("Mínimo 1 símbolo")
             except ValueError as e:
@@ -541,7 +548,7 @@ class MLTrainerGUI:
             # Activos no clasificados van a "OTHER"
             unclassified = [asset for asset in assets if asset not in known_assets]
             if unclassified:
-                classified['OTHER'] = unclassified
+                classified['OTHER'] = sorted(unclassified)
 
             # Remover categorías vacías
             classified = {k: v for k, v in classified.items() if v}
@@ -550,8 +557,15 @@ class MLTrainerGUI:
 
         except Exception as e:
             self.log_message(f"⚠️ Error clasificando activos: {e}", "WARNING")
-            # Fallback: todos en OTHER
-            return {'OTHER': assets}
+            # Fallback: intentar clasificar manualmente algunos conocidos
+            fallback_categories = {
+                'MAJOR_CAPS': [a for a in assets if a in ["BTCUSDT", "ETHUSDT", "BNBUSDT"]],
+                'MEME_COINS': [a for a in assets if a in ["DOGEUSDT", "SHIBUSDT"]],
+                'OTHER': assets  # Todos los demás
+            }
+            # Filtrar categorías vacías
+            fallback_categories = {k: v for k, v in fallback_categories.items() if v}
+            return fallback_categories if fallback_categories else {'OTHER': assets}
 
     def load_futures_assets(self):
         """Carga lista de activos de futuros de ambos exchanges y los clasifica por categorías."""
@@ -561,12 +575,30 @@ class MLTrainerGUI:
             binance_assets = self.get_binance_futures_assets()
             bybit_assets = self.get_bybit_futures_assets()
 
+            self.log_message(f"📈 Binance: {len(binance_assets)} activos", "INFO")
+            self.log_message(f"📈 Bybit: {len(bybit_assets)} activos", "INFO")
+
             # Combinar y eliminar duplicados
             all_assets = list(set(binance_assets + bybit_assets))
             self.all_futures_assets = sorted(all_assets)
 
+            # Verificar que tenemos activos
+            if not self.all_futures_assets:
+                self.log_message("⚠️ No se pudieron cargar activos de las APIs", "WARNING")
+                # Fallback: usar activos conocidos
+                self.all_futures_assets = [
+                    "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT",
+                    "DOTUSDT", "DOGEUSDT", "AVAXUSDT", "LTCUSDT", "TRXUSDT"
+                ]
+                self.log_message("🔄 Usando lista de activos de fallback", "INFO")
+
             # Clasificar por categorías
             self.categorized_assets = self.classify_assets_by_category(self.all_futures_assets)
+
+            # Si no hay categorías clasificadas, crear una categoría OTHER
+            if not self.categorized_assets:
+                self.categorized_assets = {'OTHER': self.all_futures_assets}
+                self.log_message("📂 Creando categoría OTHER con todos los activos", "INFO")
 
             # Log de categorías encontradas
             total_classified = sum(len(assets) for assets in self.categorized_assets.values())
@@ -575,7 +607,7 @@ class MLTrainerGUI:
 
             # Mostrar resumen por categoría
             for category, assets in self.categorized_assets.items():
-                self.log_message(f"   {category}: {len(assets)} activos", "INFO")
+                self.log_message(f"   • {category}: {len(assets)} activos", "INFO")
 
         except Exception as e:
             self.log_message(f"❌ Error cargando activos: {e}", "ERROR")
@@ -618,8 +650,8 @@ class MLTrainerGUI:
             scrollable_frame = self.create_scrollable_category_frame(category_frame, category, assets)
 
             # Agregar pestaña al notebook
-            display_name = self.get_category_display_name(category)
-            self.category_notebook.add(category_frame, text=f"{display_name} ({len(assets)})")
+            display_name = f"{self.get_category_display_name(category)} ({len(assets)})"
+            self.category_notebook.add(category_frame, text=display_name)
 
         # Controles por categoría
         category_controls_frame = ttk.Frame(assets_frame)
@@ -644,6 +676,19 @@ class MLTrainerGUI:
         # Contador de seleccionados
         self.asset_count_label = ttk.Label(assets_frame, text="Seleccionados: 0")
         self.asset_count_label.grid(row=3, column=0, sticky=tk.W, pady=(5, 0))
+
+    def get_category_display_name(self, category_key: str) -> str:
+        """Obtiene nombre amigable para mostrar en la UI."""
+        display_names = {
+            'MAJOR_CAPS': '🏆 Major Caps',
+            'MEME_COINS': '🐕 Meme Coins',
+            'DEFI': '🔗 DeFi',
+            'AI_TECH': '🤖 AI & Tech',
+            'GAMING_METAVERSE': '🎮 Gaming & Metaverse',
+            'LAYER1_INFRA': '🏗️ Layer 1 & Infra',
+            'OTHER': '📦 Otros'
+        }
+        return display_names.get(category_key, category_key)
 
     def create_scrollable_category_frame(self, parent, category, assets):
         """Crea un frame scrollable para una categoría específica."""
