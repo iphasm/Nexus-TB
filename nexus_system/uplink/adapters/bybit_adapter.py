@@ -828,38 +828,62 @@ class BybitAdapter(IExchangeAdapter):
 
             try:
                 # Bybit uses different structure than Binance
-                # Try to get precision from market object
-                price_precision = market.get('precision', {}).get('price', 0)
+                # Try to get tick size from filters (similar to Binance)
+                info = market.get('info', {})
 
-                # Try to get tick size from limits or calculate from precision
+                # Look for price filter in Bybit format
+                tick_size = None
+                if 'priceFilter' in info:
+                    price_filter = info['priceFilter']
+                    tick_size = float(price_filter.get('tickSize', 0))
+                elif 'filters' in info:
+                    # Alternative: look in filters array
+                    filters = info['filters']
+                    for f in filters:
+                        if f.get('filterType') == 'PRICE_FILTER':
+                            tick_size = float(f.get('tickSize', 0))
+                            break
+
+                # If still no tick_size, try precision-based calculation
+                if tick_size is None or tick_size <= 0:
+                    price_precision = market.get('precision', {}).get('price', 0)
+                    if price_precision and price_precision > 0:
+                        if price_precision < 1:  # Already a tick size
+                            tick_size = float(price_precision)
+                        else:  # Decimal places, convert to tick size
+                            tick_size = 10 ** (-int(price_precision))
+
+                # Get min price for additional validation
                 limits = market.get('limits', {})
                 price_limits = limits.get('price', {})
                 min_price = price_limits.get('min')
 
-                if min_price and min_price > 0:
-                    # For crypto, tick size is often 0.1 or similar
-                    # Use precision to calculate tick size
-                    if price_precision and price_precision > 0:
-                        tick_size = 10 ** (-price_precision)
-                    else:
-                        # Fallback: estimate tick size based on min price
-                        if min_price >= 1:
-                            tick_size = 0.1  # Common for prices >= $1
-                        elif min_price >= 0.1:
+                # Validate and adjust tick_size if needed
+                if tick_size is None or tick_size <= 0:
+                    # Fallback: estimate tick size based on min price
+                    if min_price and min_price > 0:
+                        if min_price >= 1000:
+                            tick_size = 1.0
+                        elif min_price >= 100:
+                            tick_size = 0.1
+                        elif min_price >= 10:
                             tick_size = 0.01
+                        elif min_price >= 1:
+                            tick_size = 0.001
+                        elif min_price >= 0.1:
+                            tick_size = 0.0001
+                        elif min_price >= 0.01:
+                            tick_size = 0.00001
                         else:
-                            tick_size = 0.0001  # Very small for volatile assets
+                            tick_size = 0.000001
+                    else:
+                        # Generic crypto fallback
+                        tick_size = 0.0001
 
-                # Fallback to precision-based calculation
-                if tick_size is None and price_precision:
-                    if price_precision < 1:  # Already a tick size
-                        tick_size = float(price_precision)
-                    else:  # Decimal places, convert to tick size
-                        tick_size = 10 ** (-int(price_precision))
-
-                # Final fallback
-                if tick_size is None:
-                    tick_size = 0.01  # Default for most crypto
+                # Additional validation: tick_size shouldn't be too large
+                if tick_size >= 1 and min_price and min_price < 1:
+                    print(f"⚠️ BybitAdapter: Tick size {tick_size} too large for min_price {min_price}, adjusting")
+                    tick_size = 0.0001  # Conservative fallback for crypto
 
             except Exception as e:
                 print(f"⚠️ BybitAdapter: Error extracting tick_size: {e}")

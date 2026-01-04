@@ -1966,12 +1966,19 @@ class AsyncTradingSession:
             )
             print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
+            # DEBUG: Log precios antes del ajuste
+            self.logger.info(f"🎯 {symbol} Precios ANTES de ajuste - SL: {sl_price}, TP: {tp_price}, Entry: {entry_price}, TickSize: {tick_size}")
+
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
 
+            # DEBUG: Log precios después del ajuste
+            self.logger.info(f"🎯 {symbol} Precios DESPUÉS de ajuste - SL: {sl_price}, TP: {tp_price}")
+
             # Final validation of SL/TP prices
             if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                self.logger.error(f"❌ {symbol} Precios inválidos - SL: {sl_price} (type: {type(sl_price)}), TP: {tp_price} (type: {type(tp_price)})")
                 return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
             # 6. Protection Layer: SL/TP/Trailing (surgical sync)
@@ -2259,12 +2266,19 @@ class AsyncTradingSession:
             )
             print(f"🎯 {symbol} Exit Plan Created: {len(exit_plan.exit_rules)} rules")
 
+            # DEBUG: Log precios antes del ajuste
+            self.logger.info(f"🎯 {symbol} SHORT Precios ANTES de ajuste - SL: {sl_price}, TP: {tp_price}, Entry: {entry_price}, TickSize: {tick_size}")
+
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'SHORT', is_sl=False)
 
+            # DEBUG: Log precios después del ajuste
+            self.logger.info(f"🎯 {symbol} SHORT Precios DESPUÉS de ajuste - SL: {sl_price}, TP: {tp_price}")
+
             # Final validation of SL/TP prices
             if sl_price is None or tp_price is None or sl_price <= 0 or tp_price <= 0:
+                self.logger.error(f"❌ {symbol} SHORT Precios inválidos - SL: {sl_price} (type: {type(sl_price)}), TP: {tp_price} (type: {type(tp_price)})")
                 return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
             # 6. Apply Protection (SL/TP/Trailing) using unified protection layer
