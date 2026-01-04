@@ -108,38 +108,197 @@ class AIFilterEngine:
             return False, f"Error en AI Filter: {e}", {}
 
     async def _gather_sentiment_data(self, symbol: str) -> Dict[str, Any]:
-        """Reunir datos de sentimiento de múltiples fuentes."""
+        """Reunir datos de sentimiento de múltiples fuentes con verificación robusta de APIs."""
         sentiment_data = {}
+
+        # 📊 SISTEMA DE VERIFICACIÓN DE APIs
+        api_status = await self._check_api_status()
 
         try:
             # 1. Fear & Greed Index
-            fng_data = await self._get_fear_greed_index()
-            sentiment_data['fear_greed'] = fng_data
-
-            # 2. Volatilidad del mercado (usando ATR o volatilidad histórica)
-            volatility = await self._calculate_market_volatility(symbol)
-            sentiment_data['volatility'] = volatility
-
-            # 3. Momentum técnico (RSI, MACD, etc.)
-            momentum = await self._calculate_technical_momentum(symbol)
-            sentiment_data['momentum'] = momentum
-
-            # 4. Sentimiento social (si está disponible a través del sistema híbrido)
-            social_sentiment = await self._get_social_sentiment(symbol)
-            sentiment_data['social_sentiment'] = social_sentiment
-
-            # 5. 🎯 VALORACIÓN GPT-4o MINI (NUEVO - INTEGRACIÓN PRINCIPAL)
-            if self.valuation_system:
-                ai_valuation = await self._get_ai_valuation(symbol)
-                sentiment_data['ai_valuation'] = ai_valuation
+            if api_status['fear_greed_api']:
+                try:
+                    fng_data = await self._get_fear_greed_index()
+                    sentiment_data['fear_greed'] = fng_data
+                except Exception as e:
+                    logger.warning(f"⚠️ Fear & Greed API falló: {e}")
+                    sentiment_data['fear_greed'] = self._get_fear_greed_fallback()
             else:
-                sentiment_data['ai_valuation'] = {'available': False, 'reason': 'Sistema de valoración no disponible'}
+                sentiment_data['fear_greed'] = self._get_fear_greed_fallback()
+
+            # 2. Volatilidad del mercado (siempre disponible - cálculo local)
+            try:
+                volatility = await self._calculate_market_volatility(symbol)
+                sentiment_data['volatility'] = volatility
+            except Exception as e:
+                logger.warning(f"⚠️ Error calculando volatilidad: {e}")
+                sentiment_data['volatility'] = self._get_volatility_fallback()
+
+            # 3. Momentum técnico (siempre disponible - cálculo local)
+            try:
+                momentum = await self._calculate_technical_momentum(symbol)
+                sentiment_data['momentum'] = momentum
+            except Exception as e:
+                logger.warning(f"⚠️ Error calculando momentum: {e}")
+                sentiment_data['momentum'] = self._get_momentum_fallback()
+
+            # 4. Sentimiento social (xAI - puede fallar)
+            if api_status['xai_api']:
+                try:
+                    social_sentiment = await self._get_social_sentiment(symbol)
+                    sentiment_data['social_sentiment'] = social_sentiment
+                except Exception as e:
+                    logger.warning(f"⚠️ xAI API falló: {e}")
+                    sentiment_data['social_sentiment'] = self._get_social_sentiment_fallback()
+            else:
+                sentiment_data['social_sentiment'] = self._get_social_sentiment_fallback()
+
+            # 5. 🎯 VALORACIÓN GPT-4o MINI (puede fallar)
+            if api_status['gpt_api'] and self.valuation_system:
+                try:
+                    ai_valuation = await self._get_ai_valuation(symbol)
+                    sentiment_data['ai_valuation'] = ai_valuation
+                except Exception as e:
+                    logger.warning(f"⚠️ GPT-4o Mini API falló: {e}")
+                    sentiment_data['ai_valuation'] = self._get_ai_valuation_fallback()
+            else:
+                sentiment_data['ai_valuation'] = self._get_ai_valuation_fallback()
+
+            # 📊 RESUMEN DE APIs FUNCIONANDO
+            working_apis = sum([
+                sentiment_data['fear_greed'].get('error') is None,
+                sentiment_data['volatility'].get('error') is None,
+                sentiment_data['momentum'].get('error') is None,
+                sentiment_data['social_sentiment'].get('available', False),
+                sentiment_data['ai_valuation'].get('available', False)
+            ])
+
+            sentiment_data['api_status'] = {
+                'working_apis': working_apis,
+                'total_apis': 5,
+                'all_apis_failed': working_apis == 0,
+                'technical_fallback': working_apis <= 2  # Solo APIs técnicas funcionando
+            }
+
+            if working_apis == 0:
+                logger.warning("🚨 TODAS las APIs fallaron - usando análisis técnico puro")
+            elif working_apis <= 2:
+                logger.info(f"⚠️ Solo {working_apis} APIs funcionando - fallback a análisis técnico")
 
         except Exception as e:
-            logger.warning(f"⚠️ Error obteniendo datos de sentimiento: {e}")
-            sentiment_data['error'] = str(e)
+            logger.error(f"❌ Error crítico en _gather_sentiment_data: {e}")
+            # Fallback completo a análisis técnico
+            sentiment_data = self._get_complete_technical_fallback(symbol)
+            sentiment_data['api_status'] = {
+                'working_apis': 0,
+                'total_apis': 5,
+                'all_apis_failed': True,
+                'technical_fallback': True,
+                'error': str(e)
+            }
 
         return sentiment_data
+
+    async def _check_api_status(self) -> Dict[str, bool]:
+        """Verificar el estado de todas las APIs antes de usarlas."""
+        api_status = {
+            'fear_greed_api': False,
+            'xai_api': False,
+            'gpt_api': False,
+            'coingecko_api': False,
+            'cryptopanic_api': False
+        }
+
+        # 1. Verificar Fear & Greed API
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get("https://api.alternative.me/fng/",
+                                     timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    api_status['fear_greed_api'] = resp.status == 200
+        except:
+            api_status['fear_greed_api'] = False
+
+        # 2. Verificar xAI API
+        api_status['xai_api'] = self.xai_integration is not None
+
+        # 3. Verificar GPT API (a través del sistema de valoración)
+        api_status['gpt_api'] = self.valuation_system is not None
+
+        # 4. Verificar CoinGecko (siempre disponible teóricamente)
+        api_status['coingecko_api'] = True  # Asumimos disponible
+
+        # 5. Verificar CryptoPanic
+        api_status['cryptopanic_api'] = True  # Asumimos disponible
+
+        working_count = sum(api_status.values())
+        logger.info(f"🔍 Verificación APIs: {working_count}/5 funcionando")
+
+        return api_status
+
+    def _get_fear_greed_fallback(self) -> Dict[str, Any]:
+        """Fallback para Fear & Greed Index."""
+        return {
+            'value': 50,  # Neutral
+            'classification': 'Neutral',
+            'fallback': True,
+            'reason': 'API no disponible'
+        }
+
+    def _get_volatility_fallback(self) -> Dict[str, Any]:
+        """Fallback para volatilidad (cálculo básico)."""
+        return {
+            'level': 0.5,  # Volatilidad media
+            'classification': 'Medium',
+            'fallback': True
+        }
+
+    def _get_momentum_fallback(self) -> Dict[str, Any]:
+        """Fallback para momentum técnico."""
+        return {
+            'score': 0.5,  # Momentum neutral
+            'direction': 'Neutral',
+            'strength': 'Medium',
+            'fallback': True
+        }
+
+    def _get_social_sentiment_fallback(self) -> Dict[str, Any]:
+        """Fallback para sentimiento social."""
+        return {
+            'available': False,
+            'reason': 'API no disponible',
+            'fallback': True,
+            'score': 0.0  # Neutral
+        }
+
+    def _get_ai_valuation_fallback(self) -> Dict[str, Any]:
+        """Fallback para valoración GPT-4o Mini."""
+        return {
+            'available': False,
+            'reason': 'API no disponible',
+            'fallback': True,
+            'long_signal': 0.5,   # Neutral
+            'short_signal': 0.5,  # Neutral
+            'confidence': 0.5     # Neutral
+        }
+
+    def _get_complete_technical_fallback(self, symbol: str) -> Dict[str, Any]:
+        """Fallback completo cuando TODAS las APIs fallan - análisis técnico puro."""
+        logger.warning(f"🚨 USANDO ANÁLISIS TÉCNICO PURO para {symbol} - todas las APIs fallaron")
+
+        return {
+            'fear_greed': self._get_fear_greed_fallback(),
+            'volatility': self._get_volatility_fallback(),
+            'momentum': self._get_momentum_fallback(),
+            'social_sentiment': self._get_social_sentiment_fallback(),
+            'ai_valuation': self._get_ai_valuation_fallback(),
+            'api_status': {
+                'working_apis': 0,
+                'total_apis': 5,
+                'all_apis_failed': True,
+                'technical_fallback': True,
+                'reason': 'Todas las APIs externas fallaron'
+            }
+        }
 
     async def _get_fear_greed_index(self) -> Dict[str, Any]:
         """Obtener Fear & Greed Index."""
@@ -504,48 +663,74 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
 
             scores.append(('GPT-4o Mini', gpt_valuation_score))
 
-            # Calcular score final (promedio ponderado - AJUSTADO PARA ROBUSTEZ)
-            # 🎯 AJUSTE: Reducir dependencia de GPT-4o Mini cuando puede fallar
-            ai_valuation_available = sentiment_data.get('ai_valuation', {}).get('available', False)
-            xai_available = self.xai_integration is not None
+            # Calcular score final (promedio ponderado - ROBUSTO CON APIs)
+            api_status = sentiment_data.get('api_status', {})
+            working_apis = api_status.get('working_apis', 5)
+            all_apis_failed = api_status.get('all_apis_failed', False)
 
-            if ai_valuation_available and xai_available:
-                # Ambos sistemas disponibles - pesos normales
+            if all_apis_failed:
+                # 🚨 TODAS LAS APIs FALLARON - ANÁLISIS TÉCNICO PURO
                 weights = {
-                    'Fear & Greed': 0.15,
-                    'Volatilidad': 0.15,
-                    'Momentum': 0.15,
-                    'IA Híbrida': 0.20,
-                    'GPT-4o Mini': 0.35
+                    'Fear & Greed': 0.20,  # Fallback neutral
+                    'Volatilidad': 0.30,   # Análisis técnico - mayor peso
+                    'Momentum': 0.30,      # Análisis técnico - mayor peso
+                    'IA Híbrida': 0.10,    # No disponible
+                    'GPT-4o Mini': 0.10   # No disponible
                 }
-            elif ai_valuation_available:
-                # Solo GPT-4o Mini disponible - aumentar su peso relativo
+                logger.info("🎯 MODO TÉCNICO PURO: Todas las APIs fallaron, usando solo indicadores técnicos")
+
+            elif working_apis <= 2:
+                # ⚠️ POCAS APIs FUNCIONANDO - DEPENDER DE TÉCNICOS
                 weights = {
-                    'Fear & Greed': 0.15,
-                    'Volatilidad': 0.15,
-                    'Momentum': 0.20,
+                    'Fear & Greed': 0.20,
+                    'Volatilidad': 0.25,   # Mayor peso técnico
+                    'Momentum': 0.25,      # Mayor peso técnico
                     'IA Híbrida': 0.15,
-                    'GPT-4o Mini': 0.35
+                    'GPT-4o Mini': 0.15
                 }
-            elif xai_available:
-                # Solo xAI disponible - reducir peso de GPT-4o Mini
-                weights = {
-                    'Fear & Greed': 0.18,
-                    'Volatilidad': 0.18,
-                    'Momentum': 0.18,
-                    'IA Híbrida': 0.28,
-                    'GPT-4o Mini': 0.18  # Reducido significativamente
-                }
+                logger.info(f"⚠️ MODO HÍBRIDO LIMITADO: Solo {working_apis} APIs funcionando")
+
             else:
-                # Ningún sistema avanzado disponible - depender de indicadores básicos
-                weights = {
-                    'Fear & Greed': 0.25,
-                    'Volatilidad': 0.25,
-                    'Momentum': 0.25,
-                    'IA Híbrida': 0.10,
-                    'GPT-4o Mini': 0.15  # Muy reducido
-                }
-                logger.warning("⚠️ Ambos sistemas IA no disponibles - usando indicadores básicos")
+                # ✅ APIs SUFICIENTES - PESOS NORMALES
+                ai_valuation_available = sentiment_data.get('ai_valuation', {}).get('available', False)
+                xai_available = sentiment_data.get('social_sentiment', {}).get('available', False)
+
+                if ai_valuation_available and xai_available:
+                    # Ambos sistemas disponibles - pesos normales
+                    weights = {
+                        'Fear & Greed': 0.15,
+                        'Volatilidad': 0.15,
+                        'Momentum': 0.15,
+                        'IA Híbrida': 0.20,
+                        'GPT-4o Mini': 0.35
+                    }
+                elif ai_valuation_available:
+                    # Solo GPT-4o Mini disponible - aumentar su peso relativo
+                    weights = {
+                        'Fear & Greed': 0.15,
+                        'Volatilidad': 0.15,
+                        'Momentum': 0.20,
+                        'IA Híbrida': 0.15,
+                        'GPT-4o Mini': 0.35
+                    }
+                elif xai_available:
+                    # Solo xAI disponible - reducir peso de GPT-4o Mini
+                    weights = {
+                        'Fear & Greed': 0.18,
+                        'Volatilidad': 0.18,
+                        'Momentum': 0.18,
+                        'IA Híbrida': 0.28,
+                        'GPT-4o Mini': 0.18
+                    }
+                else:
+                    # APIs básicas funcionando
+                    weights = {
+                        'Fear & Greed': 0.25,
+                        'Volatilidad': 0.25,
+                        'Momentum': 0.25,
+                        'IA Híbrida': 0.15,
+                        'GPT-4o Mini': 0.10
+                    }
             total_score = 0
             total_weight = 0
 
@@ -556,9 +741,21 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
 
             final_score = total_score / total_weight if total_weight > 0 else 0.5
 
-            # Decisión: filtrar si score > 0.75 (AJUSTADO - MENOS RESTRICTIVO)
-            # 🎯 ANTES: 0.7 (muy restrictivo), AHORA: 0.75 (más permisivo)
-            should_filter = final_score > 0.75
+            # Decisión: adaptable según estado de APIs
+            api_status = sentiment_data.get('api_status', {})
+            all_apis_failed = api_status.get('all_apis_failed', False)
+
+            if all_apis_failed:
+                # 🚨 ANÁLISIS TÉCNICO PURO - MUY PERMISIVO
+                should_filter = final_score > 0.9  # Solo filtrar señales muy problemáticas
+                logger.info(f"🎯 MODO TÉCNICO PURO: Umbral 0.9, Score {final_score:.2f}")
+            elif api_status.get('working_apis', 5) <= 2:
+                # ⚠️ APIs LIMITADAS - MODERADAMENTE PERMISIVO
+                should_filter = final_score > 0.8  # Menos restrictivo
+                logger.info(f"⚠️ MODO HÍBRIDO LIMITADO: Umbral 0.8, Score {final_score:.2f}")
+            else:
+                # ✅ APIs COMPLETAS - NORMAL
+                should_filter = final_score > 0.75  # Umbral normal
 
             # Crear razón detallada
             if should_filter:
