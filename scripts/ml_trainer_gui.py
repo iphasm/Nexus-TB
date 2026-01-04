@@ -79,8 +79,9 @@ class MLTrainerGUI:
         # Variables para features
         self.feature_vars = {}
 
-        self.setup_ui()
+        # IMPORTANTE: Cargar activos ANTES de crear la UI para que las categorías estén disponibles
         self.load_futures_assets()
+        self.setup_ui()
         self.load_last_config()
 
     def setup_ui(self):
@@ -261,16 +262,27 @@ class MLTrainerGUI:
         emoji = level_emojis.get(level, "📝")
         formatted_message = f"[{timestamp}] {emoji} {message}\n"
 
-        self.logs_text.insert(tk.END, formatted_message)
-        self.logs_text.see(tk.END)
+        # Solo agregar al UI si los logs_text está inicializado
+        if hasattr(self, 'logs_text') and self.logs_text:
+            try:
+                self.logs_text.insert(tk.END, formatted_message)
+                self.logs_text.see(tk.END)
+            except:
+                print(formatted_message.strip())
+        else:
+            print(formatted_message.strip())
 
-        # Actualizar status
-        if level == "ERROR":
-            self.status_label.config(text=f"❌ Error: {message[:50]}...")
-        elif level == "SUCCESS":
-            self.status_label.config(text=f"✅ {message[:50]}...")
-        elif "progreso" in message.lower() or "completado" in message.lower():
-            self.status_label.config(text=f"📊 {message[:50]}...")
+        # Actualizar status (solo si UI está inicializado)
+        if hasattr(self, 'status_label') and self.status_label:
+            try:
+                if level == "ERROR":
+                    self.status_label.config(text=f"❌ Error: {message[:50]}...")
+                elif level == "SUCCESS":
+                    self.status_label.config(text=f"✅ {message[:50]}...")
+                elif "progreso" in message.lower() or "completado" in message.lower():
+                    self.status_label.config(text=f"📊 {message[:50]}...")
+            except:
+                pass  # Ignorar si UI no está lista
 
     def start_training(self):
         """Inicia el proceso de entrenamiento."""
@@ -337,11 +349,11 @@ class MLTrainerGUI:
 
         # Ejecutar en thread separado
         self.training_thread = threading.Thread(target=self.run_training,
-                                              args=(candles, symbols_limit),
+                                              args=(candles, symbols_limit, selected_assets_list, selected_features),
                                               daemon=True)
         self.training_thread.start()
 
-    def run_training(self, candles, symbols_limit):
+    def run_training(self, candles, symbols_limit, selected_assets_list, selected_features):
         """Ejecuta el entrenamiento en un thread separado."""
         try:
             # Preparar comando
@@ -352,9 +364,10 @@ class MLTrainerGUI:
                 cmd.extend(["--assets"] + selected_assets_list)
 
             # Agregar configuración de features
-            for feature, enabled in selected_features.items():
-                if enabled:
-                    cmd.extend([f"--{feature}"])
+            if selected_features:
+                for feature, enabled in selected_features.items():
+                    if enabled:
+                        cmd.extend([f"--{feature}"])
 
             if symbols_limit:
                 cmd.extend(["--symbols", str(symbols_limit)])
