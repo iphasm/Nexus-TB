@@ -741,6 +741,40 @@ class BinanceAdapter(IExchangeAdapter):
             return []
 
 
+    def _normalize_result(self, result: dict) -> dict:
+        """
+        Normaliza resultado de orden de CCXT para consistencia interna.
+
+        Args:
+            result: Resultado crudo de CCXT create_order
+
+        Returns:
+            Resultado normalizado
+        """
+        if not result:
+            return {'error': 'Empty result from CCXT'}
+
+        # CCXT puede devolver diferentes formatos, normalizar a nuestro formato interno
+        if 'info' in result:
+            # Binance raw response
+            info = result['info']
+            if isinstance(info, dict):
+                # Check for error in Binance response
+                if info.get('code') != 200 and info.get('code') != 0:
+                    return {
+                        'error': info.get('msg', 'Binance API error'),
+                        'code': info.get('code')
+                    }
+
+        # Success case - normalize to our format
+        return {
+            'success': True,
+            'order_id': result.get('id'),
+            'status': result.get('status'),
+            'result': result
+        }
+
+
     async def cancel_orders(self, symbol: str) -> bool:
         """
         Cancel all open orders for symbol (standard + conditional).

@@ -1969,6 +1969,20 @@ class AsyncTradingSession:
             # DEBUG: Log precios antes del ajuste
             self.logger.info(f"🎯 {symbol} Precios ANTES de ajuste - SL: {sl_price}, TP: {tp_price}, Entry: {entry_price}, TickSize: {tick_size}")
 
+            # FIX: Recalcular TP usando entry_price real si difiere del precio usado en RiskPolicy
+            # RiskPolicy calcula basado en current_price, pero entry_price puede ser diferente por slippage
+            if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
+                self.logger.info(f"🎯 {symbol} Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
+                # Recalcular TP usando la misma lógica que RiskPolicy pero con entry_price real
+                stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                tp_ratio = self.config.get('tp_ratio', 1.5)
+                if side == 'LONG':
+                    tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
+                else:  # SHORT
+                    tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
+                tp_price = round_to_tick_size(tp_price, tick_size)
+                self.logger.info(f"🎯 {symbol} TP recalculado: {tp_price:.6f}")
+
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
             tp_price = ensure_price_separation(tp_price, entry_price, tick_size, 'LONG', is_sl=False)
@@ -2274,6 +2288,20 @@ class AsyncTradingSession:
 
             # DEBUG: Log precios antes del ajuste
             self.logger.info(f"🎯 {symbol} SHORT Precios ANTES de ajuste - SL: {sl_price}, TP: {tp_price}, Entry: {entry_price}, TickSize: {tick_size}")
+
+            # FIX: Recalcular TP usando entry_price real si difiere del precio usado en RiskPolicy
+            # RiskPolicy calcula basado en current_price, pero entry_price puede ser diferente por slippage
+            if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
+                self.logger.info(f"🎯 {symbol} SHORT Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
+                # Recalcular TP usando la misma lógica que RiskPolicy pero con entry_price real
+                stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                tp_ratio = self.config.get('tp_ratio', 1.5)
+                if side == 'LONG':
+                    tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
+                else:  # SHORT
+                    tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
+                tp_price = round_to_tick_size(tp_price, tick_size)
+                self.logger.info(f"🎯 {symbol} SHORT TP recalculado: {tp_price:.6f}")
 
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)

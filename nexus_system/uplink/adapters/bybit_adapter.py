@@ -414,6 +414,8 @@ class BybitAdapter(IExchangeAdapter):
                     order_label = 'StopLoss'
                 elif 'TAKE_PROFIT' in order_type_upper:
                     # TAKE_PROFIT_MARKET - Take Profit
+                    # Para cerrar LONG position (SELL side): activar cuando price > TP (rises above) -> direction 1
+                    # Para cerrar SHORT position (BUY side): activar cuando price < TP (falls below) -> direction 2
                     params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
                     order_label = 'TakeProfit'
                 elif 'TRAILING' in order_type_upper:
