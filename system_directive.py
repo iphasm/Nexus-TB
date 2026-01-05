@@ -140,7 +140,7 @@ CRYPTO_SUBGROUPS = {
     ],
     'BYBIT_EXCLUSIVE': [
         # Bybit-specific tokens for coverage
-        'FLOWUSDT', 'PENDLEUSDT', 'MNTUSDT', 'XAIUSDT'
+        'FLOWUSDT', 'PENDLEUSDT', 'XAIUSDT'
     ]
 }
 
