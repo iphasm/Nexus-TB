@@ -874,16 +874,17 @@ class AsyncTradingSession:
     
     # --- HELPER METHODS ---
     
-    async def get_symbol_precision(self, symbol: str, exchange: Optional[str] = None) -> Tuple[int, int, float, float]:
+    async def get_symbol_precision(self, symbol: str, exchange: Optional[str] = None) -> Tuple[int, int, float, float, float]:
         """
-        Returns (quantityPrecision, pricePrecision, minNotional, tickSize)
+        Returns (quantityPrecision, pricePrecision, minNotional, tickSize, minQty)
         tickSize es el tamaño de tick real de Binance para redondeo correcto.
+        minQty es la cantidad mínima requerida por el exchange.
         """
         # Default Fallback High Precision (6) to avoid 0.0 on PEPE/SHIB
         default_q, default_p, default_n, default_tick = 2, 6, 5.0, 0.01
         
-        if not self.bridge: 
-            return default_q, default_p, default_n, default_tick
+        if not self.bridge:
+            return default_q, default_p, default_n, default_tick, 0.001
         
         try:
             info = await self.bridge.get_symbol_info(symbol, exchange=exchange)
@@ -892,21 +893,22 @@ class AsyncTradingSession:
                 p = info.get('price_precision', default_p)
                 n = info.get('min_notional', default_n)
                 tick_size = info.get('tick_size', default_tick)  # NEW: Get real tick size
-                
+                min_qty = info.get('min_qty', 0.001)  # NEW: Get minimum quantity
+
                 # Validar tick_size
                 if tick_size <= 0:
                     tick_size = default_tick
-                
+
                 # Log de precisión ajustada (solo en modo debug)
-                self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n}, TickSize={tick_size}")
-                return (q, p, n, tick_size)
+                self.logger.debug(f"Precisión {symbol}: Q={q}, P={p}, N={n}, TickSize={tick_size}, MinQty={min_qty}")
+                return (q, p, n, tick_size, min_qty)
             else:
                 print(f"⚠️ No Info for {symbol}, using calculated defaults (P={default_p}, TickSize={default_tick})", flush=True)
                 
         except Exception as e:
             self.logger.debug(f"Precision calculation failed for {symbol}: {e}")
-            
-        return default_q, default_p, default_n, default_tick
+
+        return default_q, default_p, default_n, default_tick, 0.001
     
     async def _fetch_ohlcv_for_chart(self, symbol: str, limit: int = 100) -> Optional[pd.DataFrame]:
         """Fetch historical klines for chart generation."""
@@ -1341,15 +1343,16 @@ class AsyncTradingSession:
             return False, str(e), None
 
     async def synchronize_sl_tp_safe(
-        self, 
-        symbol: str, 
-        quantity: float, 
-        sl_price: float, 
-        tp_price: float, 
-        side: str, 
-        min_notional: float, 
-        qty_precision: int, 
-        entry_price: float = 0.0, 
+        self,
+        symbol: str,
+        quantity: float,
+        sl_price: float,
+        tp_price: float,
+        side: str,
+        min_notional: float,
+        qty_precision: int,
+        min_qty: float = 0.001,
+        entry_price: float = 0.0,
         current_price: float = 0.0,
         exchange: Optional[str] = None
     ) -> Tuple[bool, str]:
@@ -1474,7 +1477,11 @@ class AsyncTradingSession:
             
             # Check split feasibility
             ref_price = current_price if current_price > 0 else (sl_price if sl_price > 0 else tp_price)
-            is_split = ref_price > 0 and (qty_tp1 * ref_price) > min_notional and (qty_trail * ref_price) > min_notional
+            is_split = (ref_price > 0 and
+                       (qty_tp1 * ref_price) > min_notional and
+                       (qty_trail * ref_price) > min_notional and
+                       qty_tp1 >= min_qty and
+                       qty_trail >= min_qty)
             
             if not is_split:
                 print(f"ℹ️ {symbol}: Skipping TP1 split (Position value < 2x MinNotional). Using Full Trailing.")
@@ -1561,7 +1568,7 @@ class AsyncTradingSession:
         )
 
         # 2. Get Min Notional (Minimum trade size allowed by exchange)
-        qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
+        qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol, exchange=target_exchange)
         
         # 2. Get Available Balance (Unified via ShadowWallet/Bridge)
         # Note: We need 'available' balance, not total equity
@@ -1800,9 +1807,9 @@ class AsyncTradingSession:
             exchange_bal = user_wallet['balances'].get(target_exchange, {})
             total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
-                 total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
-            
-            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
+                total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
+
+            qty_precision, price_precision, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
             # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
             base_leverage = self.config.get('leverage', 5)
@@ -2143,9 +2150,9 @@ class AsyncTradingSession:
             exchange_bal = user_wallet['balances'].get(target_exchange, {})
             total_equity = exchange_bal.get('total', 0)
             if total_equity == 0:
-                 total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
+                total_equity = self.shadow_wallet.get_unified_equity(self.chat_id)
 
-            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol, exchange=target_exchange)
+            qty_precision, price_precision, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol, exchange=target_exchange)
 
             # 3. Calculate Sizing & Risk Parameters (RESPETANDO PERFILES DE RIESGO)
             base_leverage = self.config.get('leverage', 5)
@@ -2591,7 +2598,7 @@ class AsyncTradingSession:
                 current_price = await self.bridge.get_last_price(symbol)
 
                 # Get precision
-                qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+                qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
 
                 # Standard SL/TP logic:
                 stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
@@ -2641,7 +2648,7 @@ class AsyncTradingSession:
                 # Execute Sync - CRITICAL: Use the exchange from position data to avoid cross-exchange routing
                 position_exchange = p.get('source')  # BINANCE or BYBIT
                 success, msg = await self.synchronize_sl_tp_safe(
-                    symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, 
+                    symbol, qty, sl_price, tp_price, side, min_notional, qty_prec, min_qty,
                     entry_price=entry_price, current_price=current_price, exchange=position_exchange
                 )
                 
@@ -2706,7 +2713,7 @@ class AsyncTradingSession:
             
             # Get precision via Bridge function already defined
             # (No change needed here, just verifying logic flow)
-            qty_precision, price_precision, min_notional, tick_size = await self.get_symbol_precision(symbol)
+            qty_precision, price_precision, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
             
             stop_loss_pct = self.config['stop_loss_pct']
             
@@ -2829,7 +2836,7 @@ class AsyncTradingSession:
                 return False, "Invalid position data."
             
             # 2. Get symbol info
-            qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+            qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
             current_price = await self.bridge.get_last_price(symbol, exchange=position_exchange)
 
             # 3. Get existing TP to preserve it
@@ -2901,7 +2908,7 @@ class AsyncTradingSession:
             # 5. Apply via Bridge - CRITICAL: Use the exchange from position data
             position_exchange = pos.get('exchange', self.bridge._route_symbol(symbol) if self.bridge else None)
             success, msg = await self.synchronize_sl_tp_safe(
-                symbol, qty, new_sl, new_tp, side, min_notional, qty_prec,
+                symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, min_qty,
                 entry_price=entry_price, current_price=current_price, exchange=position_exchange
             )
             
@@ -2948,7 +2955,7 @@ class AsyncTradingSession:
                 pnl_calc = (entry_price - current_price) / entry_price * 100
 
             # Execute partial close
-            qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+            qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
 
             # Ensure quantity doesn't exceed position size
             max_close_qty = abs(position.get('quantity', 0))
@@ -3110,7 +3117,7 @@ class AsyncTradingSession:
                 # Check if ROI >= threshold (10%)
                 if roi >= breakeven_roi_threshold:
                     # Time to move SL to breakeven with improved logic!
-                    qty_prec, price_prec, min_notional, tick_size = await self.get_symbol_precision(symbol)
+                    qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
 
             # Get current ATR for dynamic buffer calculation
             atr_value = 0.0
@@ -3191,7 +3198,7 @@ class AsyncTradingSession:
             position_exchange = p.get('source')  # BINANCE or BYBIT
             try:
                 success, msg = await self.synchronize_sl_tp_safe(
-                    symbol, qty, new_sl, new_tp, side, min_notional, qty_prec,
+                    symbol, qty, new_sl, new_tp, side, min_notional, qty_prec, min_qty,
                     entry_price=entry_price, current_price=current_price, exchange=position_exchange
                 )
                 if success:
