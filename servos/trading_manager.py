@@ -1981,19 +1981,25 @@ class AsyncTradingSession:
                 self.logger.error(f"❌ {symbol} Precios inválidos - SL: {sl_price} (type: {type(sl_price)}), TP: {tp_price} (type: {type(tp_price)})")
                 return False, f"❌ Invalid SL/TP prices after adjustment for {symbol}"
 
-            # 6. Protection Layer: SL/TP/Trailing (surgical sync)
-            # IMPORTANT: must run on the SAME exchange as the entry.
-            sltp_ok, sltp_msg = await self.synchronize_sl_tp_safe(
+            # 6. Apply Protection (SL/TP/Trailing) using unified protection layer
+            # IMPORTANT: This function includes retry logic and works for both Binance and Bybit
+            trailing_data = None
+            if self.config.get('trailing_enabled', True):
+                trailing_pct = self.config.get('trailing_pct_bybit' if target_exchange == 'BYBIT' else 'trailing_callback_rate_binance_pct', 1.0)
+                trailing_data = {
+                    "activation_price": entry_price,
+                    "pct": trailing_pct,
+                    "qty": quantity
+                }
+
+            sltp_ok, sltp_msg = await self.apply_and_verify_protection(
                 symbol=symbol,
-                quantity=quantity,
+                exchange=target_exchange,
+                side='LONG',
+                qty=quantity,
                 sl_price=sl_price,
                 tp_price=tp_price,
-                side='LONG',
-                min_notional=min_notional,
-                qty_precision=qty_precision,
-                entry_price=entry_price,
-                current_price=current_price,
-                exchange=target_exchange
+                trailing=trailing_data
             )
 
             # Generar mensaje enriquecido con personalidad

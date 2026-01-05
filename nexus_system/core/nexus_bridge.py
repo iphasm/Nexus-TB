@@ -571,6 +571,7 @@ class NexusBridge:
     async def _set_protection_bybit(self, symbol: str, side: str, qty: float, sl: float, tp: float, trailing: dict | None) -> dict:
         """
         Implementa protección Bybit usando endpoint V5 position/trading-stop (server-side).
+        Includes post-verification and fallback to conditional orders if trading-stop fails.
         """
         bybit = self.adapters.get("BYBIT")
         if not bybit:
@@ -589,43 +590,113 @@ class NexusBridge:
         applied = {"sl": False, "tp": False, "trailing": False}
         errors = []
 
+        # --- ATTEMPT 1: Use set_trading_stop (position-linked SL/TP) ---
         try:
-            # Intento 1: set_trading_stop con SL+TP+Trailing
             res = await bybit.set_trading_stop(
                 symbol=symbol,
                 stop_loss=sl,
                 take_profit=tp,
                 trailing_stop=trailing_distance,
-                # activePrice=active_price si se soporta
             )
             if res.get("success", False):
                 applied = {"sl": True, "tp": True, "trailing": trailing_distance is not None}
             else:
-                # Fallback A: si Bybit rechaza trailing junto con TP/SL
+                # Fallback A: if Bybit rejects trailing with TP/SL
                 res2 = await bybit.set_trading_stop(symbol, stop_loss=sl, take_profit=tp, trailing_stop=0)
                 if res2.get("success", False):
                     applied["sl"] = True
                     applied["tp"] = True
-
-                    # Trailing por orden nativa si se necesita
-                    if trailing_distance and active_price:
-                        tr = await bybit.place_trailing_stop(
-                            symbol=symbol,
-                            side=("SELL" if side == "LONG" else "BUY"),
-                            quantity=qty,
-                            callback_rate=trailing_distance,     # distancia, NO %
-                            activation_price=active_price,
-                        )
-                        if tr.get("success", False):
-                            applied["trailing"] = True
-                        else:
-                            errors.append(f"Trailing order failed: {tr.get('message', 'Unknown')}")
                 else:
                     errors.append(f"Trading stop failed: {res.get('message', 'Unknown')}")
         except Exception as e:
-            errors.append(f"Exception: {e}")
+            errors.append(f"Trading stop exception: {e}")
 
-        ok = applied["sl"] or applied["tp"]  # Al menos SL o TP debe funcionar
+        # --- POST-VERIFICATION: Check if SL/TP was actually applied ---
+        import asyncio
+        await asyncio.sleep(0.5)  # Brief delay for API propagation
+        
+        try:
+            positions = await bybit.get_positions()
+            pos = next((p for p in positions if p.get('symbol') == symbol), None)
+            
+            if pos:
+                verified_sl = float(pos.get('stopLoss', 0) or 0)
+                verified_tp = float(pos.get('takeProfit', 0) or 0)
+                
+                # Check if SL was actually set
+                if sl > 0 and verified_sl <= 0:
+                    print(f"⚠️ Bybit: SL verification failed for {symbol} - expected {sl}, got {verified_sl}")
+                    applied["sl"] = False
+                    errors.append("SL verification failed - not applied to position")
+                
+                # Check if TP was actually set
+                if tp > 0 and verified_tp <= 0:
+                    print(f"⚠️ Bybit: TP verification failed for {symbol} - expected {tp}, got {verified_tp}")
+                    applied["tp"] = False
+                    errors.append("TP verification failed - not applied to position")
+        except Exception as verify_err:
+            print(f"⚠️ Bybit: Verification check failed: {verify_err}")
+
+        # --- FALLBACK: Use conditional orders if trading_stop failed ---
+        close_side = "SELL" if side == "LONG" else "BUY"
+        
+        if not applied["sl"] and sl > 0:
+            print(f"🔄 Bybit: Retrying SL with conditional order for {symbol}")
+            try:
+                sl_res = await bybit.place_order(
+                    symbol=symbol,
+                    side=close_side,
+                    order_type="STOP_MARKET",
+                    quantity=qty,
+                    price=sl,
+                    reduceOnly=True
+                )
+                if "error" not in sl_res:
+                    applied["sl"] = True
+                    print(f"✅ Bybit: SL conditional order placed for {symbol}")
+                else:
+                    errors.append(f"SL conditional order failed: {sl_res.get('error')}")
+            except Exception as sl_err:
+                errors.append(f"SL conditional exception: {sl_err}")
+
+        if not applied["tp"] and tp > 0:
+            print(f"🔄 Bybit: Retrying TP with conditional order for {symbol}")
+            try:
+                tp_res = await bybit.place_order(
+                    symbol=symbol,
+                    side=close_side,
+                    order_type="TAKE_PROFIT_MARKET",
+                    quantity=qty,
+                    price=tp,
+                    reduceOnly=True
+                )
+                if "error" not in tp_res:
+                    applied["tp"] = True
+                    print(f"✅ Bybit: TP conditional order placed for {symbol}")
+                else:
+                    errors.append(f"TP conditional order failed: {tp_res.get('error')}")
+            except Exception as tp_err:
+                errors.append(f"TP conditional exception: {tp_err}")
+
+        # Handle trailing stop separately if needed
+        if trailing_distance and active_price and not applied["trailing"]:
+            try:
+                tr = await bybit.place_trailing_stop(
+                    symbol=symbol,
+                    side=close_side,
+                    quantity=qty,
+                    callback_rate=trailing_distance,
+                    activation_price=active_price,
+                )
+                if tr.get("success", False):
+                    applied["trailing"] = True
+                else:
+                    errors.append(f"Trailing order failed: {tr.get('message', 'Unknown')}")
+            except Exception as tr_err:
+                errors.append(f"Trailing exception: {tr_err}")
+
+        # Final result: require BOTH SL and TP for full protection
+        ok = applied["sl"] and applied["tp"]
         details = f"Bybit: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
         if errors:
             details += f" | Errors: {errors}"
