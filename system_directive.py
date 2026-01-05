@@ -112,39 +112,35 @@ def is_symbol_available_on_exchange(symbol: str, exchange: str) -> bool:
     return True  # Por defecto, asumir disponible
 
 # =================================================================
-# CRYPTO SUBGROUPS - OPTIMIZED LIST (2025)
+# CRYPTO SUBGROUPS - OPTIMIZED LIST (2025) - Correlation Analysis
 # =================================================================
-# Lista optimizada y actualizada con los activos más relevantes y líquidos
+# Optimized based on correlation analysis to reduce overexposure
+# Removed assets with >85% correlation to keep portfolio diversified
 CRYPTO_SUBGROUPS = {
     'MAJOR_CAPS': [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT",
-        "AVAXUSDT", "DOTUSDT", "LINKUSDT", "TRXUSDT"
+        # Core positions - user preferences preserved
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT"
     ],
     'MEME_COINS': [
-        "DOGEUSDT", "WIFUSDT", "BRETTUSDT", "MEWUSDT", "BOMEUSDT",
-        "1000PEPEUSDT", "PONKEUSDT"
+        # Low-correlation meme representatives
+        "DOGEUSDT", "WIFUSDT", "1000PEPEUSDT", "PONKEUSDT"
     ],
     'DEFI': [
-        "UNIUSDT", "AAVEUSDT", "CRVUSDT", "COMPUSDT", "SNXUSDT",
-        "LDOUSDT", "ENAUSDT", "DYDXUSDT", "INJUSDT"
+        # Low-correlation DeFi picks
+        "AAVEUSDT", "CRVUSDT", "SNXUSDT", "LDOUSDT", "DYDXUSDT"
     ],
     'AI_TECH': [
-        "TAOUSDT", "WLDUSDT", "GRTUSDT", "ARKMUSDT", "TRBUSDT", "TIAUSDT"
-    ],
-    'GAMING_METAVERSE': [
-        "AXSUSDT", "SANDUSDT", "MANAUSDT", "IMXUSDT", "GALAUSDT", "ENJUSDT",
-        "ILVUSDT", "PIXELUSDT"
+        # AI/Tech tokens
+        "WLDUSDT", "INJUSDT"
     ],
     'LAYER1_INFRA': [
-        "SUIUSDT", "SEIUSDT", "NEARUSDT", "MATICUSDT", "APTUSDT",
-        "OPUSDT", "ARBUSDT", "ATOMUSDT", "ETCUSDT", "LTCUSDT", "BCHUSDT",
-        "ALGOUSDT", "VETUSDT"
+        # Low-correlation L1/Infrastructure
+        "NEARUSDT", "ARBUSDT", "LTCUSDT", "BCHUSDT", "ETCUSDT", "ALGOUSDT"
     ],
     'BYBIT_EXCLUSIVE': [
-        'FLOWUSDT', 'LPTUSDT', 'PENDLEUSDT', 'ASTRUSDT', 'CFGUSDT', 'ACEUSDT',
-        'NFPUSDT', 'MAVIAUSDT', 'PIXELUSDT', 'BEAMUSDT', 'NIGHTUSDT', 'MNTUSDT',
-        'ZKPUSDT', 'RAVEUSDT', 'FOLKSUSDT', 'AIUSDT', 'XAIUSDT', 'FOXYUSDT',
-        'SANTOSUSDT', 'PORTOUSDT', 'CITYUSDT', 'INTERUSDT', 'BARUSDT', 'PSGUSDT', 'JUVUSDT'
+        # Bybit-specific tokens for coverage
+        'FLOWUSDT', 'PENDLEUSDT', 'MNTUSDT', 'XAIUSDT'
     ]
 }
 
@@ -160,7 +156,6 @@ GROUP_CONFIG = {
     'MEME_COINS': True,        # Meme coins and viral tokens
     'DEFI': True,              # Decentralized Finance tokens
     'AI_TECH': True,           # AI, Tech, and utility tokens
-    'GAMING_METAVERSE': True,  # Gaming and metaverse tokens
     'LAYER1_INFRA': True,      # Layer 1 and infrastructure tokens
     'BYBIT_EXCLUSIVE': False   # Bybit-specific tokens (disabled by default)
 }
