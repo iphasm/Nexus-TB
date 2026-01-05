@@ -3167,3 +3167,72 @@ async def cmd_ml_logs(message: Message, **kwargs):
 
     except Exception as e:
         await message.answer(f"❌ **Error interno:** {str(e)}")
+
+
+# =================================================================
+# ML MODEL SYNC COMMANDS (PostgreSQL-based model management)
+# =================================================================
+
+@router.message(Command("reload_model"))
+@admin_only
+async def cmd_reload_model(message: Message, **kwargs):
+    """Force reload ML model from PostgreSQL database."""
+    from servos.model_sync import load_model_from_db, get_model_info
+    
+    msg = await message.answer("🔄 **Recargando modelo ML desde PostgreSQL...**")
+    
+    try:
+        # Get info before reload
+        old_info = get_model_info()
+        old_version = old_info['version'] if old_info else 'N/A'
+        
+        # Force reload
+        result = load_model_from_db(force_reload=True)
+        
+        if result:
+            model_data, scaler, info = result
+            new_version = info.get('version', 'Unknown')
+            accuracy = info.get('accuracy', 0)
+            
+            await msg.edit_text(
+                f"✅ **Modelo ML Recargado**\n\n"
+                f"📦 **Versión anterior:** `{old_version}`\n"
+                f"📦 **Versión nueva:** `{new_version}`\n"
+                f"🎯 **Accuracy:** `{accuracy:.1%}`\n"
+                f"📊 **Features:** `{len(model_data.get('feature_names', []))}`\n\n"
+                f"_El modelo está ahora activo en memoria._",
+                parse_mode="Markdown"
+            )
+        else:
+            await msg.edit_text(
+                "❌ **No se pudo cargar el modelo**\n\n"
+                "Verifica que:\n"
+                "• La tabla `ml_models` existe en PostgreSQL\n"
+                "• Hay al menos un modelo con `is_active = TRUE`\n"
+                "• La variable `DATABASE_URL` está configurada"
+            )
+            
+    except Exception as e:
+        await msg.edit_text(f"❌ **Error recargando modelo:** {str(e)}")
+
+
+@router.message(Command("model_status"))
+async def cmd_model_status(message: Message, **kwargs):
+    """Show current ML model status from PostgreSQL."""
+    from servos.model_sync import format_model_status, get_model_info, get_cached_model
+    
+    try:
+        # Get formatted status
+        status_msg = format_model_status()
+        
+        # Add cache info
+        cached = get_cached_model()
+        if cached:
+            status_msg += f"\n💾 **Modelo en RAM:** ✅ Cargado"
+        else:
+            status_msg += f"\n💾 **Modelo en RAM:** ❌ No cargado (usa `/reload_model`)"
+        
+        await message.answer(status_msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        await message.answer(f"❌ **Error obteniendo estado del modelo:** {str(e)}")

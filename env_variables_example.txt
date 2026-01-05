@@ -49,3 +49,4 @@ REQUEST_TIMEOUT=10
 # 2. Configurar las claves reales en .env
 # 3. Agregar .env al .gitignore
 # 4. Configurar variables en Railway Dashboard -> Variables
+

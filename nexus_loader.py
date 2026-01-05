@@ -52,24 +52,28 @@ def print_nexus_banner():
     """Legacy function - replaced by NexusLogger."""
     pass
 
-# --- AUTO-TRAIN CORTEX (ML) IF MISSING ---
-# This ensures the ML model exists on Railway's persistent volume
-ML_MODEL_PATH = os.path.join('nexus_system', 'memory_archives', 'ml_model.pkl')
-if not os.path.exists(ML_MODEL_PATH):
-    print("🧠 Cortex Model not found! Initializing training sequence...")
-    print("   This may take 2-3 minutes on first deployment.")
-    try:
-        import subprocess
-        result = subprocess.run(
-            [sys.executable, 'train_cortex.py'],
-            capture_output=True,
-            text=True,
-            timeout=600  # 10 min max
-        )
-        if result.returncode != 0:
-            nexus_logger.log_warning(f"ML model training failed: {result.stderr[-100:]}")
-    except Exception as e:
-        nexus_logger.log_warning(f"ML model auto-training error: {e}")
+# --- LOAD ML MODEL FROM POSTGRESQL ---
+# The ML Trainer runs as a separate Railway service and uploads models to PostgreSQL.
+# We just download the latest model here instead of training locally.
+print("🧠 Loading Cortex Model from PostgreSQL...")
+try:
+    from servos.model_sync import load_model_from_db, get_model_info
+    
+    # Check if model exists in database
+    model_info = get_model_info()
+    if model_info:
+        print(f"   📦 Found model: {model_info['version']} (Accuracy: {model_info['accuracy']:.1%})")
+        result = load_model_from_db(force_reload=True)
+        if result:
+            print(f"   ✅ Model loaded successfully into memory")
+        else:
+            print(f"   ⚠️ Could not load model blob - will use fallback strategies")
+    else:
+        print("   ⚠️ No ML model found in database - ML Trainer may not have run yet")
+        print("   ℹ️ Bot will use rule-based strategies until a model is trained")
+except Exception as e:
+    print(f"   ⚠️ Could not load ML model from PostgreSQL: {e}")
+    print(f"   ℹ️ Bot will use rule-based strategies as fallback")
 
 # --- SUPPRESS NOISY WARNINGS ---
 import warnings
