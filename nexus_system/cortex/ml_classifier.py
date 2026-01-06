@@ -107,7 +107,7 @@ class MLClassifier:
             df_with_indicators = add_indicators(df.copy())
             df_with_all_features = add_all_new_features(df_with_indicators)
 
-            # Extract the feature columns that match training (X_cols from train_cortex.py)
+            # Extract the feature columns that match training (must match FEATURE_COLUMNS from cloud trainer)
             X_cols = [
                 # Core (original)
                 'rsi', 'adx', 'atr_pct', 'trend_str', 'vol_change',
@@ -116,20 +116,24 @@ class MLClassifier:
                 'roc_5', 'roc_10', 'obv_change',
                 'price_position', 'body_pct',
                 'above_ema200', 'ema_cross',
-                # NEW v3.1 features (reduce ATR dependence)
+                # v3.1 features
                 'ema20_slope', 'mfi', 'dist_50_high', 'dist_50_low',
                 'hour_of_day', 'day_of_week',
-                # NEW v3.2 features (further reduce ATR dependence)
-                # Momentum features
+                # v3.2 features
                 'roc_21', 'roc_50', 'williams_r', 'cci', 'ultimate_osc',
-                # Volume features
                 'volume_roc_5', 'volume_roc_21', 'chaikin_mf', 'force_index', 'ease_movement',
-                # Structure features
                 'dist_sma20', 'dist_sma50', 'pivot_dist', 'fib_dist',
-                # Correlation features
                 'morning_volatility', 'afternoon_volatility', 'gap_up', 'gap_down', 'range_change',
-                # Sentiment features
-                'bull_power', 'bear_power', 'momentum_div', 'vpt', 'intraday_momentum'
+                'bull_power', 'bear_power', 'momentum_div', 'vpt', 'intraday_momentum',
+                # v3.3 features
+                'market_regime',
+                # v3.4 ADVANCED FEATURES
+                'stoch_rsi', 'kst', 'dpo',
+                'ulcer_index', 'vwap',
+                'market_regime_advanced', 'sentiment_proxy',
+                'rsi_stoch_rsi', 'cci_kst', 'vol_price_change', 'regime_volatility',
+                'returns_skew', 'returns_kurtosis',
+                'hour_sin', 'hour_cos', 'day_sin', 'day_cos'
             ]
 
             # Filter to available features (some may not be calculated if data is insufficient)

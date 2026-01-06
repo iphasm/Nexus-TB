@@ -6,10 +6,12 @@ separated from training code.
 
 import pandas as pd
 import numpy as np
-from ta.trend import ADXIndicator, EMAIndicator, SMAIndicator, MACD
-from ta.momentum import RSIIndicator, WilliamsRIndicator, UltimateOscillator
-from ta.volatility import AverageTrueRange, BollingerBands
-from ta.volume import MFIIndicator, ChaikinMoneyFlowIndicator, EaseOfMovementIndicator
+from ta.trend import ADXIndicator, EMAIndicator, SMAIndicator, MACD, CCIIndicator, DPOIndicator
+from ta.momentum import RSIIndicator, WilliamsRIndicator, UltimateOscillator, StochRSIIndicator, KSTIndicator
+from ta.volatility import AverageTrueRange, BollingerBands, UlcerIndex
+from ta.volume import MFIIndicator, ChaikinMoneyFlowIndicator, EaseOfMovementIndicator, ForceIndexIndicator, VolumeWeightedAveragePrice
+from ta.others import DailyReturnIndicator, CumulativeReturnIndicator
+import math
 
 
 def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
@@ -28,6 +30,126 @@ def calculate_mfi(df: pd.DataFrame, period: int = 14) -> pd.Series:
         return mfi.money_flow_index().fillna(50).clip(0, 100)
     except Exception:
         return pd.Series(50, index=df.index)
+
+
+def calculate_stoch_rsi(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Calculate Stochastic RSI."""
+    try:
+        stoch_rsi = StochRSIIndicator(df['close'], window=period)
+        return stoch_rsi.stochrsi_k().fillna(0.5)
+    except Exception:
+        return pd.Series(0.5, index=df.index)
+
+
+def calculate_kst(df: pd.DataFrame) -> pd.Series:
+    """Calculate Know Sure Thing (KST) oscillator."""
+    try:
+        kst = KSTIndicator(df['close'])
+        return kst.kst().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_cci(df: pd.DataFrame, period: int = 20) -> pd.Series:
+    """Calculate Commodity Channel Index."""
+    try:
+        cci = CCIIndicator(df['high'], df['low'], df['close'], window=period)
+        return cci.cci().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_dpo(df: pd.DataFrame, period: int = 20) -> pd.Series:
+    """Calculate Detrended Price Oscillator."""
+    try:
+        dpo = DPOIndicator(df['close'], window=period)
+        return dpo.dpo().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_ulcer_index(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Calculate Ulcer Index for volatility measurement."""
+    try:
+        ulcer = UlcerIndex(df['close'], window=period)
+        return ulcer.ulcer_index().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_force_index(df: pd.DataFrame, period: int = 13) -> pd.Series:
+    """Calculate Force Index."""
+    try:
+        force = ForceIndexIndicator(df['close'], df['volume'], window=period)
+        return force.force_index().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_vwap(df: pd.DataFrame) -> pd.Series:
+    """Calculate Volume Weighted Average Price."""
+    try:
+        vwap = VolumeWeightedAveragePrice(df['high'], df['low'], df['close'], df['volume'])
+        return vwap.volume_weighted_average_price().fillna(df['close'])
+    except Exception:
+        return df['close']
+
+
+def calculate_market_regime(df: pd.DataFrame) -> pd.Series:
+    """Calculate market regime based on volatility and trend."""
+    try:
+        # Combine ADX and ATR for regime classification
+        adx = calculate_adx(df)
+        atr_pct = (calculate_atr(df) / df['close']) * 100
+
+        # Simple regime logic
+        regime = pd.Series(0, index=df.index)  # Default: ranging
+
+        # Trending up: ADX > 25 and positive slope
+        trending_up = (adx > 25) & (df['close'] > df['close'].shift(20))
+        regime[trending_up] = 1
+
+        # Trending down: ADX > 25 and negative slope
+        trending_down = (adx > 25) & (df['close'] < df['close'].shift(20))
+        regime[trending_down] = -1
+
+        # High volatility ranging
+        high_vol = (atr_pct > atr_pct.rolling(50).mean() * 1.2)
+        regime[high_vol] = 2
+
+        return regime
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
+def calculate_sentiment_proxy(df: pd.DataFrame) -> pd.Series:
+    """Calculate sentiment proxy based on price action patterns."""
+    try:
+        # Simple sentiment proxy based on buying vs selling pressure
+        returns = df['close'].pct_change()
+
+        # Bullish signals
+        bullish = (
+            (df['close'] > df['open']) &  # Green candle
+            (df['close'] > df['close'].shift(1)) &  # Higher close
+            (df['volume'] > df['volume'].rolling(10).mean())  # Above average volume
+        )
+
+        # Bearish signals
+        bearish = (
+            (df['close'] < df['open']) &  # Red candle
+            (df['close'] < df['close'].shift(1)) &  # Lower close
+            (df['volume'] > df['volume'].rolling(10).mean())  # Above average volume
+        )
+
+        sentiment = pd.Series(0, index=df.index)
+        sentiment[bullish] = 1
+        sentiment[bearish] = -1
+
+        # Smooth with rolling average
+        return sentiment.rolling(5).mean().fillna(0)
+    except Exception:
+        return pd.Series(0, index=df.index)
 
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
@@ -205,9 +327,65 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_all_new_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add all new features to the dataframe.
-    This is a simplified version for inference only.
+    Add all advanced features to the dataframe for enhanced ML performance.
+    Includes technical indicators, sentiment analysis, and market regime features.
     """
-    # For inference, we just return the dataframe with basic indicators
-    # The full feature engineering is done during training in the cloud trainer
-    return add_indicators(df)
+    df = add_indicators(df)
+
+    # === ADVANCED MOMENTUM INDICATORS ===
+    df['stoch_rsi'] = calculate_stoch_rsi(df, 14)
+    df['kst'] = calculate_kst(df)
+    df['cci'] = calculate_cci(df, 20)
+    df['dpo'] = calculate_dpo(df, 20)
+
+    # === ADVANCED VOLATILITY INDICATORS ===
+    df['ulcer_index'] = calculate_ulcer_index(df, 14)
+
+    # === ADVANCED VOLUME INDICATORS ===
+    df['force_index'] = calculate_force_index(df, 13)
+    df['vwap'] = calculate_vwap(df)
+
+    # === MARKET REGIME FEATURES ===
+    df['market_regime'] = calculate_market_regime(df)
+    df['sentiment_proxy'] = calculate_sentiment_proxy(df)
+
+    # === INTERACTIONS AND DERIVED FEATURES ===
+    # RSI + Momentum interactions
+    df['rsi_momentum'] = df['rsi'] * df['momentum']
+    df['stoch_rsi_kst'] = df['stoch_rsi'] * df['kst']
+
+    # Volatility + Volume interactions
+    df['vol_price_change'] = df['volatility'] * df['returns'].abs()
+    df['volume_volatility'] = df['volume_change'] * df['volatility']
+
+    # Trend + Momentum combinations
+    df['trend_momentum'] = df['ema9_trend'] * df['momentum']
+    df['regime_trend'] = df['market_regime'] * df['adx']
+
+    # === SEASONAL AND TIME-BASED FEATURES ===
+    # Market hours (crypto markets are 24/7, but there are patterns)
+    df['is_asian_session'] = ((df['hour'] >= 0) & (df['hour'] < 8)).astype(int)
+    df['is_european_session'] = ((df['hour'] >= 8) & (df['hour'] < 16)).astype(int)
+    df['is_us_session'] = ((df['hour'] >= 16) & (df['hour'] < 24)).astype(int)
+
+    # Weekend effect (Friday-Sunday might have different behavior)
+    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+
+    # === STATISTICAL FEATURES ===
+    # Higher order moments
+    df['skewness'] = df['returns'].rolling(20).skew().fillna(0)
+    df['kurtosis'] = df['returns'].rolling(20).kurt().fillna(0)
+
+    # Autocorrelation
+    df['autocorr_1'] = df['returns'].rolling(20).corr(df['returns'].shift(1)).fillna(0)
+    df['autocorr_5'] = df['returns'].rolling(20).corr(df['returns'].shift(5)).fillna(0)
+
+    # === MARKET MICROSTRUCTURE ===
+    # Bid-ask spread proxy (using high-low range)
+    df['spread_proxy'] = (df['high'] - df['low']) / df['close']
+    df['realized_volatility'] = df['returns'].rolling(20).std() * np.sqrt(252)  # Annualized
+
+    # Fill any remaining NaN values
+    df = df.fillna(0)
+
+    return df
