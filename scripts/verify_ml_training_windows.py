@@ -91,13 +91,43 @@ def verify_windows_compatibility():
 
     for module, items in imports_to_test:
         try:
+            # Usar importlib en lugar de exec() para seguridad
+            import importlib
+
             if items:
-                # Import específico
-                exec(f"from {module} import {items}")
+                # Import específico - validar nombres antes de importar
+                if not all(item.replace('_', '').isalnum() for item in items.split(',')):
+                    warnings.append(f"Import peligroso detectado: {module}.{items}")
+                    print(f"⚠️  {module}.{items} - Nombre peligroso")
+                    continue
+
+                # Intentar importar el módulo primero
+                try:
+                    mod = importlib.import_module(module)
+                except ImportError:
+                    issues.append(f"Import faltante: {module} - módulo no encontrado")
+                    print(f"❌ {module} - módulo no encontrado")
+                    continue
+
+                # Intentar acceder a los items específicos
+                for item in items.split(','):
+                    item = item.strip()
+                    if not hasattr(mod, item):
+                        issues.append(f"Import faltante: {module}.{item} - atributo no encontrado")
+                        print(f"❌ {module}.{item} - atributo no encontrado")
+                        break
+                else:
+                    print(f"✅ {module}.{items}")
             else:
-                # Import general
-                exec(f"import {module}")
-            print(f"✅ {module}")
+                # Import general - validar nombre del módulo
+                if not module.replace('_', '').replace('.', '').isalnum():
+                    warnings.append(f"Import peligroso detectado: {module}")
+                    print(f"⚠️  {module} - Nombre peligroso")
+                    continue
+
+                importlib.import_module(module)
+                print(f"✅ {module}")
+
         except ImportError as e:
             issues.append(f"Import faltante: {module} - {e}")
             print(f"❌ {module} - {e}")

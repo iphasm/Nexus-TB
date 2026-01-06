@@ -82,19 +82,13 @@ class MLClassifier:
             return None
 
         try:
-            # Import functions from the organized ML module
+            # Import functions from the feature engineering module
             try:
-                from src.ml.train_cortex import add_indicators
-                from src.ml.add_new_features import add_all_new_features
+                from .feature_engineering import add_indicators, add_all_new_features
             except ImportError:
-                # Fallback to compatibility imports
-                try:
-                    from compatibility_imports import fetch_data, add_indicators
-                    from compatibility_imports import add_all_new_features
-                except ImportError:
-                    # Last resort: calculate basic features only
-                    print("⚠️  ML features extraction failed - using basic features only")
-                    return cls._extract_basic_features(df)
+                # Last resort: calculate basic features only
+                print("⚠️  ML features extraction failed - using basic features only")
+                return cls._extract_basic_features(df)
 
             # Apply the same feature engineering pipeline as training
             df_with_indicators = add_indicators(df.copy())
@@ -167,12 +161,27 @@ class MLClassifier:
         # 🔄 BYPASS CHECK: If asset is not in training data, skip ML and use rule-based
         # This prevents errors with newly added assets before model retraining
         symbol = market_data.get('symbol', '')
-        if hasattr(cls, '_feature_names') and cls._feature_names:
-            # If we have feature names but asset wasn't in training, skip ML
-            # This is a temporary bypass until model is retrained with all assets
-            if symbol and not any(symbol.upper() in str(name).upper() for name in cls._feature_names[:10]):
-                print(f"🔄 ML Bypass: {symbol} not in training data, using rule-based classifier")
+
+        # Check if we have metadata with trained symbols
+        model_metadata = None
+        if hasattr(cls, '_model') and cls._model and isinstance(cls._model, dict):
+            model_metadata = cls._model.get('metadata', {})
+
+        if model_metadata and 'symbols' in model_metadata:
+            # We have symbol metadata - check if symbol was in training data
+            trained_symbols = model_metadata['symbols']
+            if symbol and symbol not in trained_symbols:
+                print(f"🔄 ML Bypass: {symbol} not in training data ({len(trained_symbols)} symbols), using rule-based classifier")
                 return None  # Trigger fallback to rule-based
+        elif hasattr(cls, '_feature_names') and cls._feature_names:
+            # Legacy check: look for symbol in feature names (less reliable)
+            # Only bypass if we're very confident the symbol wasn't trained
+            if symbol and len(cls._feature_names) > 20:  # Only if we have substantial features
+                # Be more permissive - don't bypass unless very sure
+                feature_name_check = any(symbol.upper() in str(name).upper() for name in cls._feature_names[:20])
+                if not feature_name_check:
+                    print(f"🔄 ML Bypass: {symbol} likely not in training data (legacy check), using rule-based classifier")
+                    return None  # Trigger fallback to rule-based
 
         features = cls._extract_features(market_data.get('dataframe'))
         if features is None:

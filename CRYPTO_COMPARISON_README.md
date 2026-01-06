@@ -189,3 +189,4 @@ El script puede extenderse para incluir:
 
 **Herramienta integrada en Nexus Trading Bot** - Análisis de mercado automatizado
 
+

@@ -706,8 +706,10 @@ class BybitAdapter(IExchangeAdapter):
                  try:
                      data = json.loads(match.group(0))
                      err_msg = f"Bybit Error {data.get('code')}: {data.get('msg')}"
-                 except: pass
-                 
+                 except Exception as json_err:
+                     print(f"⚠️ BybitAdapter: Failed to parse error JSON: {json_err}")
+                     err_msg = f"Bybit Error (unparseable): {match.group(0)[:100]}"
+
             print(f"⚠️ BybitAdapter: get_positions error: {err_msg}")
             return []
 

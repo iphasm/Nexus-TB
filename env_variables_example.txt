@@ -50,3 +50,4 @@ REQUEST_TIMEOUT=10
 # 3. Agregar .env al .gitignore
 # 4. Configurar variables en Railway Dashboard -> Variables
 
+

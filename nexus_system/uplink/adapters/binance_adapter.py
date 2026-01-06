@@ -216,8 +216,10 @@ class BinanceAdapter(IExchangeAdapter):
                  try:
                      data = json.loads(match.group(0))
                      err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
-                 except: pass
-                 
+                 except Exception as json_err:
+                     print(f"⚠️ BinanceAdapter: Failed to parse error JSON: {json_err}")
+                     err_msg = f"Binance Error (unparseable): {match.group(0)[:100]}"
+
             print(f"⚠️ BinanceAdapter: fetch_candles error ({symbol}): {err_msg}")
             return pd.DataFrame()
 
@@ -243,7 +245,9 @@ class BinanceAdapter(IExchangeAdapter):
                  try:
                      data = json.loads(match.group(0))
                      err_msg = f"Binance Error {data.get('code')}: {data.get('msg')}"
-                 except: pass
+                 except Exception as json_err:
+                     print(f"⚠️ BinanceAdapter: Failed to parse error JSON: {json_err}")
+                     err_msg = f"Binance Error (unparseable): {match.group(0)[:100]}"
             
             print(f"⚠️ BinanceAdapter: get_balance error: {err_msg}")
             return {'total': 0, 'available': 0, 'currency': 'USDT'}

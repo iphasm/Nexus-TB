@@ -17,7 +17,8 @@
 
 ### 🧠 AI & Machine Learning
 - **GPT-4 Integration**: Market sentiment, news analysis, trade recommendations
-- **XGBoost Classifier**: Dynamic strategy selection based on market regime
+- **XGBoost Classifier**: Dynamic strategy selection based on market regime (Cloud ML Service)
+- **ML Cloud Trainer**: Separate microservice for model training and deployment
 - **Feature Engineering**: 15+ technical indicators + time-based features
 - **NexusLogger**: Centralized, debounced logging for clean diagnostics
 

@@ -29,6 +29,29 @@ from nexus_system.core.exit_manager import ExitManager
 # Personalities
 from servos.personalities import PersonalityManager
 
+# Input validation utilities
+def validate_symbol(symbol: str) -> bool:
+    """Validate cryptocurrency trading pair symbol."""
+    if not isinstance(symbol, str):
+        return False
+    # Basic validation: should be uppercase, contain USDT/BTC/ETH, no spaces
+    symbol = symbol.upper()
+    return (len(symbol) >= 6 and len(symbol) <= 12 and
+            symbol.endswith(('USDT', 'BTC', 'ETH', 'BNB', 'BUSD')) and
+            symbol[:-4].replace('_', '').isalnum())
+
+def validate_percentage(value: float, min_val: float = 0.0, max_val: float = 100.0) -> bool:
+    """Validate percentage value."""
+    return isinstance(value, (int, float)) and min_val <= value <= max_val
+
+def validate_positive_number(value: float) -> bool:
+    """Validate positive number."""
+    return isinstance(value, (int, float)) and value > 0
+
+def validate_leverage(leverage: int) -> bool:
+    """Validate leverage value."""
+    return isinstance(leverage, int) and 1 <= leverage <= 100
+
 import pandas as pd
 
 # Cortex / Strategy System
@@ -1737,7 +1760,17 @@ class AsyncTradingSession:
 
     async def execute_long_position(self, symbol: str, atr: Optional[float] = None, strategy: str = "Manual", force_exchange: str = None) -> Tuple[bool, str]:
         """Execute a LONG position asynchronously via Nexus Bridge (Refactored)."""
-        
+
+        # Input validation
+        if not validate_symbol(symbol):
+            return False, f"❌ Invalid symbol format: {symbol}"
+
+        if atr is not None and not validate_positive_number(atr):
+            return False, f"❌ Invalid ATR value: {atr}"
+
+        if force_exchange and not isinstance(force_exchange, str):
+            return False, f"❌ Invalid exchange format: {force_exchange}"
+
         # Log de inicio de ejecución de posición LONG
         self.logger.debug(f"Ejecutando posición LONG: {symbol}, ATR={atr}")
 
@@ -2072,6 +2105,17 @@ class AsyncTradingSession:
         Returns:
             Tuple[bool, str]: (éxito, mensaje descriptivo)
         """
+
+        # Input validation
+        if not validate_symbol(symbol):
+            return False, f"❌ Invalid symbol format: {symbol}"
+
+        if atr is not None and not validate_positive_number(atr):
+            return False, f"❌ Invalid ATR value: {atr}"
+
+        if force_exchange and not isinstance(force_exchange, str):
+            return False, f"❌ Invalid exchange format: {force_exchange}"
+
         # Log de inicio de ejecución de posición SHORT
         self.logger.debug(f"Ejecutando posición SHORT: {symbol}, ATR={atr}")
 

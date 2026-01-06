@@ -6,33 +6,18 @@ Esta estructura ha sido optimizada para **máxima claridad, mantenibilidad y esc
 
 ```
 nexus-tb/
-├── 📂 src/                          # Código fuente principal
-│   ├── __init__.py                 # Paquete principal
-│   ├── ml/                         # Machine Learning
-│   │   ├── __init__.py            # Paquete ML
-│   │   ├── train_cortex.py        # Entrenamiento principal
-│   │   ├── add_new_features.py    # Expansión de features
-│   │   ├── analyze_features.py    # Análisis de importancia
-│   │   ├── walk_forward_validation.py  # Validación temporal
-│   │   ├── performance_evaluation.py   # Evaluación completa
-│   │   ├── train_expanded_model.py     # Entrenamiento avanzado
-│   │   ├── quick_train_expanded.py     # Entrenamiento rápido
-│   │   ├── verify_features.py     # Verificación de features
-│   │   └── debug_features.py      # Debug de features
-│   └── utils/                     # Utilidades comunes
-│       └── __init__.py           # Paquete utils
+├── 📂 src/                          # Código fuente principal (eliminado - ahora usa ML Cloud Trainer)
+│   └── README: ML training moved to separate repository
 │
-├── 📂 scripts/                     # Scripts ejecutables
-│   ├── evaluation/                # Scripts de evaluación ML
-│   │   └── run_ml_evaluation.bat  # Launcher principal
+├── 📂 scripts/                     # Scripts ejecutables organizados
+│   ├── analysis/                  # Scripts de análisis de datos/modelos
+│   ├── demos/                     # Scripts de demostración
+│   ├── utils/                     # Scripts utilitarios
 │   ├── setup/                     # Scripts de instalación
-│   │   ├── check_dependencies.*   # Verificación dependencias
-│   │   ├── install_*.bat          # Scripts de instalación
-│   │   └── diagnose_python.*      # Diagnóstico Python
-│   └── testing/                   # Scripts de testing/debug
-│       ├── debug_*.py             # Scripts de debugging
-│       ├── test_*.py              # Scripts de testing
-│       └── debug_step_by_step.py  # Debug paso a paso
+│   │   ├── check_dependencies.py  # Verificación dependencias
+│   │   └── diagnose_python.py     # Diagnóstico Python
+│   └── evaluation/                # Scripts de evaluación
+│       └── run_ml_evaluation.bat  # Launcher principal
 │
 ├── 📂 models/                      # Modelos entrenados
 │   ├── ml_model.pkl              # Modelo principal
@@ -67,17 +52,24 @@ nexus-tb/
 ## 🎯 **Principios de Organización**
 
 ### **1. Separación por Responsabilidades**
-- **`src/`**: Código fuente reusable
-- **`scripts/`**: Scripts ejecutables y utilitarios
+- **`tests/`**: Testing y verificación
+- **`deploy/`**: Deployment e infraestructura
+- **`analysis/`**: Análisis y comparación de datos
+- **`examples/`**: Demos y ejemplos de uso
+- **`config/`**: Configuración y mantenimiento
+- **`tools/`**: Utilidades y herramientas
+- **`scripts/`**: Scripts organizados por función
 - **`models/`**: Artefactos de ML entrenados
 - **`docs/`**: Documentación completa
-- **`data/`**: Datos y dependencias externas
+- **`nexus_system/`**: Sistema principal (core)
 
 ### **2. Jerarquía Lógica**
-- **ML**: Todo lo relacionado con machine learning → `src/ml/`
-- **Setup**: Instalación y configuración → `scripts/setup/`
-- **Testing**: Debug y testing → `scripts/testing/`
-- **Evaluation**: Evaluación de modelos → `scripts/evaluation/`
+- **Testing**: Tests y verificación → `tests/`
+- **Deployment**: Infraestructura → `deploy/`
+- **Analysis**: Investigación y comparación → `analysis/`
+- **Examples**: Demostraciones → `examples/`
+- **Configuration**: Setup y mantenimiento → `config/`
+- **Utilities**: Herramientas → `tools/`
 
 ### **3. Compatibilidad Backward**
 - **`nexus_system/`**: Estructura existente preservada

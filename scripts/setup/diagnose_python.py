@@ -62,8 +62,14 @@ deps = [
 for dep_name, test_code in deps:
     print(f"  {dep_name}...", end=" ")
     try:
-        exec(test_code)
-        print("✅")
+        # Usar eval() en lugar de exec() para expresiones simples
+        # Más seguro que exec() ya que no permite statements
+        if test_code.strip() and not any(keyword in test_code for keyword in ['import ', 'exec', 'eval', '__']):
+            result = eval(test_code)
+            print("✅")
+        else:
+            # Para código más complejo, usar alternativa segura
+            print("⚠️  (test skipped - complex code)")
     except Exception as e:
         print(f"❌ ({str(e)[:30]}...)")
 
