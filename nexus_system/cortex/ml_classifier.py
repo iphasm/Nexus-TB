@@ -7,14 +7,41 @@ from .classifier import MarketClassifier, MarketRegime
 from servos.indicators import calculate_ema, calculate_rsi, calculate_atr, calculate_adx
 import pandas_ta as ta
 
-# Try to import feature engineering functions
+# Try to import feature engineering functions with detailed error logging
+FEATURE_ENGINEERING_AVAILABLE = False
+add_indicators = None
+add_all_new_features = None
+
+print("🧠 ML Classifier: Checking feature engineering availability...")
+
+# Check ta library availability first
+ta_available = True
 try:
-    from nexus_system.cortex.feature_engineering import add_indicators, add_all_new_features
-    FEATURE_ENGINEERING_AVAILABLE = True
-except ImportError:
+    import ta.trend
+    import ta.momentum
+    import ta.volatility
+    import ta.volume
+    print("   ✅ ta library dependencies available")
+except ImportError as ta_error:
+    ta_available = False
+    print(f"   ❌ ta library not available: {ta_error}")
+
+if ta_available:
+    try:
+        from nexus_system.cortex.feature_engineering import add_indicators, add_all_new_features
+        FEATURE_ENGINEERING_AVAILABLE = True
+        print("🧠 ML Classifier: Advanced feature engineering loaded successfully")
+    except ImportError as ie:
+        print(f"⚠️  ML Classifier: Advanced feature engineering import failed: {ie}")
+        print("   ℹ️  Using basic features only")
+        FEATURE_ENGINEERING_AVAILABLE = False
+    except Exception as e:
+        print(f"⚠️  ML Classifier: Unexpected error loading feature engineering: {e}")
+        print("   ℹ️  Using basic features only")
+        FEATURE_ENGINEERING_AVAILABLE = False
+else:
+    print("⚠️  ML Classifier: ta library not available - using basic features only")
     FEATURE_ENGINEERING_AVAILABLE = False
-    add_indicators = None
-    add_all_new_features = None
 
 # Define paths to model artifacts
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
@@ -101,6 +128,9 @@ class MLClassifier:
             if not FEATURE_ENGINEERING_AVAILABLE or add_indicators is None or add_all_new_features is None:
                 # Last resort: calculate basic features only
                 print("⚠️  ML features extraction failed - using basic features only")
+                print(f"   ℹ️  FEATURE_ENGINEERING_AVAILABLE: {FEATURE_ENGINEERING_AVAILABLE}")
+                print(f"   ℹ️  add_indicators: {add_indicators is not None}")
+                print(f"   ℹ️  add_all_new_features: {add_all_new_features is not None}")
                 return MLClassifier._extract_basic_features(df)
 
             # Apply the same feature engineering pipeline as training
