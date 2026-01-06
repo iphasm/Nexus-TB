@@ -133,3 +133,4 @@ def mark_service_unhealthy():
 
 # Export the app for use in main application
 __all__ = ['app', 'update_health_status', 'mark_service_healthy', 'mark_service_starting', 'mark_service_unhealthy']
+

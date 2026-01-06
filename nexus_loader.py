@@ -314,27 +314,10 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
     # Map strategy name to config key for filtering
     strategy_config_key = STRATEGY_NAME_TO_CONFIG_KEY.get(strategy, strategy.upper())
     
-    # Format Reason with Metadata
+    # Format Reason with Metadata (safely escaped for Markdown)
     # User Format: [Strategy | Conf: 85% | Param1: Val1]
-    meta_params = []
-    if getattr(signal, 'metadata', None):
-        for k, v in signal.metadata.items():
-            if k.lower() == 'strategy': continue
-            
-            # Emoji Logic for TREND
-            if k.upper() == 'TREND':
-                if str(v).upper() == 'UP':
-                    v = f"{v} 🐂"
-                elif str(v).upper() == 'DOWN':
-                    v = f"{v} 🐻"
-            
-            if isinstance(v, float):
-                meta_params.append(f"{k.upper()}: {v:.1f}")
-            else:
-                meta_params.append(f"{k.upper()}: {v}")
-    
-    params_str = " | ".join(meta_params)
-    reason = f"[{strategy} | Conf: {confidence:.0%} | {params_str}]"
+    from servos.markdown_utils import create_safe_reason
+    reason = create_safe_reason(strategy, confidence, getattr(signal, 'metadata', {}))
     
     logger.info(f"📡 Signal: {action} {symbol} (Conf: {confidence:.0%}, {strategy})", group=True)
     
