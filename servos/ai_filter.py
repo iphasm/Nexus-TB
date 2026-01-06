@@ -267,6 +267,55 @@ class AIFilterEngine:
             'confidence': 0.5     # Neutral
         }
 
+    def _get_smart_crypto_data_sync(self, symbol: str) -> Dict[str, Any]:
+        """Versión síncrona de _get_smart_crypto_data para usar en threads."""
+        if not self.valuation_system or not self.valuation_system.yfinance_available:
+            return {"success": False, "error": "yfinance no disponible"}
+
+        # Intentar diferentes formatos de símbolo para yfinance
+        symbol_formats = []
+
+        # 1. Formato directo (ej: BTCUSDT -> BTC-USD)
+        base_symbol = symbol.replace('USDT', '').replace('USD', '')
+        symbol_formats.append(f"{base_symbol}-USD")
+
+        # 2. Formato con USDT (algunos símbolos usan esto)
+        symbol_formats.append(f"{base_symbol}USDT-USD")
+
+        # 3. Solo el símbolo base (para símbolos principales)
+        if base_symbol in ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'DOT', 'LINK', 'LTC']:
+            symbol_formats.append(base_symbol)
+
+        # Intentar cada formato hasta que uno funcione
+        for yf_symbol in symbol_formats:
+            try:
+                logger.debug(f"🔍 Probando símbolo yfinance: {yf_symbol}")
+                # Llamar directamente sin await (versión síncrona)
+                result = self.valuation_system.get_crypto_data(yf_symbol)
+                if result.get('success'):
+                    logger.info(f"✅ Símbolo yfinance exitoso: {symbol} -> {yf_symbol}")
+                    return result
+            except Exception as e:
+                logger.debug(f"❌ Símbolo yfinance falló: {yf_symbol} - {e}")
+                continue
+
+        # Si ninguno funciona, devolver fallback
+        logger.warning(f"⚠️ No se pudo obtener datos para {symbol}, usando fallback")
+        return self._get_smart_crypto_data_fallback(symbol)
+
+    def _get_smart_crypto_data_fallback(self, symbol: str) -> Dict[str, Any]:
+        """Fallback cuando no se pueden obtener datos de yfinance."""
+        base_symbol = symbol.replace('USDT', '').replace('USD', '')
+        return {
+            "success": True,
+            "symbol": symbol,
+            "price": 1.0,  # Placeholder
+            "change_24h": 0.0,
+            "volume_24h": 0,
+            "market_cap": 0,
+            "error": "Using fallback data"
+        }
+
     async def _get_smart_crypto_data(self, symbol: str) -> Dict[str, Any]:
         """Obtener datos de cripto con manejo inteligente de símbolos yfinance."""
         if not self.valuation_system or not self.valuation_system.yfinance_available:
@@ -503,8 +552,8 @@ class AIFilterEngine:
             # Crear payload para valoración individual
             crypto_info = self._get_crypto_info(symbol)
 
-            # Obtener datos básicos (con manejo inteligente de símbolos yfinance)
-            market_data = {symbol: self._get_smart_crypto_data(symbol)}
+            # Obtener datos básicos - versión síncrona simplificada
+            market_data = {symbol: self._get_smart_crypto_data_sync(symbol)}
             coingecko_data = {symbol: self.valuation_system.get_coingecko_metrics(crypto_info['coingecko_id'])}
             global_crypto = self.valuation_system.get_global_crypto_data()
             fear_greed = self.valuation_system.get_fear_greed_index()
