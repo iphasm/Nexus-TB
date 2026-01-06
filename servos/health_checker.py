@@ -78,8 +78,9 @@ async def health_check():
     health_data["uptime_seconds"] = time.time() - start_time
     health_data["timestamp"] = datetime.now(timezone.utc).isoformat()
 
-    # Return 200 OK for healthy status, 503 Service Unavailable for others
-    if health_data["status"] == "healthy":
+    # Return 200 OK for healthy OR starting status (Railway needs 200 to pass healthcheck)
+    # Only return 503 for truly unhealthy/degraded states
+    if health_data["status"] in ("healthy", "starting"):
         return JSONResponse(
             status_code=200,
             content=health_data
