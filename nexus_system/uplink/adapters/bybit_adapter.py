@@ -514,6 +514,16 @@ class BybitAdapter(IExchangeAdapter):
             print(f"⚠️ BybitAdapter: cancel_all_orders error: {e}")
             return {'success': False, 'cancelled': 0, 'message': str(e)}
 
+    def _get_current_position_stops(self, symbol: str, positions: List[Dict[str, Any]]) -> Dict[str, float]:
+        """Get current TP/SL values for a symbol from positions data."""
+        for position in positions:
+            if position.get('symbol') == symbol:
+                return {
+                    'take_profit': float(position.get('takeProfitPrice') or 0),
+                    'stop_loss': float(position.get('stopLossPrice') or 0)
+                }
+        return {'take_profit': 0, 'stop_loss': 0}
+
     async def set_trading_stop(
         self,
         symbol: str,
@@ -534,6 +544,25 @@ class BybitAdapter(IExchangeAdapter):
             return {'success': False, 'message': 'Not initialized'}
 
         try:
+            # Get current position stops to avoid unnecessary API calls
+            positions = await self.get_positions()
+            current_stops = self._get_current_position_stops(symbol, positions)
+
+            # Check if values are actually different (avoid "not modified" error)
+            needs_update = False
+
+            if take_profit is not None and abs(current_stops['take_profit'] - take_profit) > 0.01:
+                needs_update = True
+            if stop_loss is not None and abs(current_stops['stop_loss'] - stop_loss) > 0.01:
+                needs_update = True
+            if trailing_stop is not None:
+                needs_update = True  # Always update trailing stop if specified
+
+            # If no changes needed, return success (same as "not modified")
+            if not needs_update:
+                print(f"ℹ️ BybitAdapter: Trading stop unchanged for {symbol} (values already set)")
+                return {'success': True, 'message': 'Trading stop unchanged (already set)', 'result': {'code': 34040}}
+
             formatted = self._format_symbol(symbol)
 
             params = {
@@ -560,8 +589,14 @@ class BybitAdapter(IExchangeAdapter):
             return {'success': True, 'message': f'Trading stop {action}', 'result': result}
 
         except Exception as e:
-            print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
-            return {'success': False, 'message': str(e)}
+            error_str = str(e)
+            # Handle "not modified" error as success
+            if '34040' in error_str or 'not modified' in error_str.lower():
+                print(f"ℹ️ BybitAdapter: Trading stop unchanged for {symbol} (not modified)")
+                return {'success': True, 'message': 'Trading stop unchanged (not modified)', 'result': {'code': 34040}}
+            else:
+                print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
+                return {'success': False, 'message': str(e)}
 
     async def amend_order(
         self, 
