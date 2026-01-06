@@ -6,8 +6,8 @@ separated from training code.
 
 import pandas as pd
 import numpy as np
-from ta.trend import ADXIndicator, EMAIndicator, SMAIndicator, MACD, CCIIndicator, DPOIndicator
-from ta.momentum import RSIIndicator, WilliamsRIndicator, UltimateOscillator, StochRSIIndicator, KSTIndicator
+from ta.trend import ADXIndicator, EMAIndicator, SMAIndicator, MACD, CCIIndicator, DPOIndicator, KSTIndicator
+from ta.momentum import RSIIndicator, WilliamsRIndicator, UltimateOscillator, StochRSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, UlcerIndex
 from ta.volume import MFIIndicator, ChaikinMoneyFlowIndicator, EaseOfMovementIndicator, ForceIndexIndicator, VolumeWeightedAveragePrice
 from ta.others import DailyReturnIndicator, CumulativeReturnIndicator
