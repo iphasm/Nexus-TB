@@ -25,5 +25,8 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app:/app/src:$PYTHONPATH
 
+# Expose port for health checks (8080 as specified)
+EXPOSE 8080
+
 # Command to run the bot (Async version)
 CMD ["python", "nexus_loader.py"]

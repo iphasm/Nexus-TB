@@ -744,12 +744,18 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
         logger.debug(f"📭 Signal for {symbol} not dispatched (no eligible sessions)")
 
 
+# --- HEALTH CHECKER ---
+from servos.health_checker import app as health_app, mark_service_healthy, mark_service_starting, mark_service_unhealthy, update_health_status
+
 # --- MAIN APPLICATION ---
 async def main():
     """Main entry point for the async bot with structured premium logging."""
 
     # IMMEDIATE: Show professional banner FIRST (before any other operations)
     nexus_logger.show_banner()
+
+    # Mark service as starting
+    mark_service_starting()
 
     if not TELEGRAM_TOKEN:
         nexus_logger.phase_error("Telegram token not found", "Check TELEGRAM_TOKEN environment variable")
@@ -1043,12 +1049,67 @@ async def main():
             except Exception as e:
                 nexus_logger.log_error(f"Admin notification failed for {admin_id}", str(e))
     
-    # 8. Start Polling with Error Handling
+    # 8. Start Health Check Server
+    from uvicorn import Config, Server
+
+    # Configure uvicorn server (use 8080 as specified for network connection)
+    port = int(os.getenv('PORT', '8080'))
+    config = Config(
+        app=health_app,
+        host="0.0.0.0",
+        port=port,
+        log_level="warning",
+        access_log=False
+    )
+    server = Server(config)
+
+    # Start health check server as background task
+    async def run_health_server():
+        logger.info(f"🌐 Starting health check server on port {port}")
+        try:
+            await server.serve()
+        except Exception as e:
+            logger.error(f"❌ Health server error: {e}")
+
+    # Mark service as healthy when everything is initialized
+    mark_service_healthy()
+    update_health_status("telegram_bot", "healthy")
+    update_health_status("database", "healthy")
+    update_health_status("exchanges", "healthy")
+    update_health_status("nexus_core", "healthy" if USE_NEXUS_ENGINE else "disabled")
+
+    # 9. Start Both Services Concurrently
     try:
-        logger.info("🔄 Starting Telegram bot polling...")
-        await dp.start_polling(bot)
+        logger.info("🔄 Starting services: Telegram bot + Health check server...")
+
+        # Create tasks for both services
+        bot_task = asyncio.create_task(dp.start_polling(bot))
+        health_task = asyncio.create_task(run_health_server())
+
+        # Wait for either task to complete (they should run indefinitely)
+        done, pending = await asyncio.wait(
+            [bot_task, health_task],
+            return_when=asyncio.FIRST_EXCEPTION
+        )
+
+        # If we get here, one of the tasks failed
+        for task in done:
+            try:
+                await task
+            except Exception as e:
+                logger.error(f"❌ Service failed: {e}")
+
+        # Cancel pending tasks
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
     except Exception as e:
-        logger.error(f"❌ Fatal error during bot polling: {e}")
+        logger.error(f"❌ Fatal error during service startup: {e}")
+        mark_service_unhealthy()
         logger.error("🔄 Attempting graceful shutdown...")
         raise  # Re-raise to ensure cleanup happens
     finally:
