@@ -751,11 +751,39 @@ from servos.health_checker import app as health_app, mark_service_healthy, mark_
 async def main():
     """Main entry point for the async bot with structured premium logging."""
 
+    # CRITICAL: Start health server IMMEDIATELY to pass Railway healthcheck
+    # This MUST happen before any other initialization
+    from uvicorn import Config, Server
+    
+    port = int(os.getenv('PORT', '8080'))
+    health_config = Config(
+        app=health_app,
+        host="0.0.0.0",
+        port=port,
+        log_level="warning",
+        access_log=False
+    )
+    health_server = Server(health_config)
+    
+    async def run_health_server():
+        logger.info(f"🌐 Health check server starting on port {port}")
+        try:
+            await health_server.serve()
+        except Exception as e:
+            logger.error(f"❌ Health server error: {e}")
+    
+    # Start health server as background task IMMEDIATELY
+    health_task = asyncio.create_task(run_health_server())
+    
+    # Mark service as starting (health endpoint will return 200)
+    mark_service_starting()
+    
+    # Give health server a moment to bind to port
+    await asyncio.sleep(0.5)
+    logger.info(f"✅ Health server ready on port {port}")
+
     # IMMEDIATE: Show professional banner FIRST (before any other operations)
     nexus_logger.show_banner()
-
-    # Mark service as starting
-    mark_service_starting()
 
     if not TELEGRAM_TOKEN:
         nexus_logger.phase_error("Telegram token not found", "Check TELEGRAM_TOKEN environment variable")
@@ -1049,44 +1077,23 @@ async def main():
             except Exception as e:
                 nexus_logger.log_error(f"Admin notification failed for {admin_id}", str(e))
     
-    # 8. Start Health Check Server
-    from uvicorn import Config, Server
-
-    # Configure uvicorn server (use 8080 as specified for network connection)
-    port = int(os.getenv('PORT', '8080'))
-    config = Config(
-        app=health_app,
-        host="0.0.0.0",
-        port=port,
-        log_level="warning",
-        access_log=False
-    )
-    server = Server(config)
-
-    # Start health check server as background task
-    async def run_health_server():
-        logger.info(f"🌐 Starting health check server on port {port}")
-        try:
-            await server.serve()
-        except Exception as e:
-            logger.error(f"❌ Health server error: {e}")
-
-    # Mark service as healthy when everything is initialized
+    # Mark service as healthy now that everything is initialized
     mark_service_healthy()
     update_health_status("telegram_bot", "healthy")
     update_health_status("database", "healthy")
     update_health_status("exchanges", "healthy")
     update_health_status("nexus_core", "healthy" if USE_NEXUS_ENGINE else "disabled")
+    logger.info("✅ All systems initialized - service marked healthy")
 
-    # 9. Start Both Services Concurrently
+    # 9. Start Telegram Bot (health server already running from startup)
     try:
-        logger.info("🔄 Starting services: Telegram bot + Health check server...")
+        logger.info("🔄 Starting Telegram bot polling...")
 
-        # Create tasks for both services
+        # Create bot polling task
         bot_task = asyncio.create_task(dp.start_polling(bot))
-        health_task = asyncio.create_task(run_health_server())
 
         # Wait for either task to complete (they should run indefinitely)
+        # health_task was created at the start of main()
         done, pending = await asyncio.wait(
             [bot_task, health_task],
             return_when=asyncio.FIRST_EXCEPTION
