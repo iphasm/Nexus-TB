@@ -1,4 +1,5 @@
 import random
+from .markdown_utils import safe_format_number, safe_format_template
 
 class PersonalityManager:
     """
@@ -2155,20 +2156,34 @@ class PersonalityManager:
             kwargs['user_name'] = "Operador"
              
         try:
-            return raw_msg.format(**kwargs)
-        except KeyError as e:
-            # If we miss something else, try to just provide the user_name at least
+            # Pre-process kwargs to ensure numbers are safely formatted
+            processed_kwargs = {}
+            for k, v in kwargs.items():
+                if isinstance(v, float) and k in ['price', 'tp', 'sl', 'ts']:
+                    # Special handling for price fields - ensure no commas
+                    processed_kwargs[k] = safe_format_number(v, 2)
+                elif isinstance(v, float):
+                    processed_kwargs[k] = safe_format_number(v, 1)
+                else:
+                    processed_kwargs[k] = v
+
+            # Use safe formatting to prevent Markdown parsing errors
+            return safe_format_template(raw_msg, **processed_kwargs)
+        except Exception as e:
+            # If safe formatting fails, try with defaults and safe formatting
             try:
                 # Basic cleanup of common placeholders if they are missing
                 defaults = {
-                    'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER', 
-                    'auth': 'User', 'asset': 'BTC', 'price': 0.0, 'tp': 0.0, 'sl': 0.0,
-                    'ts': 0.0, 'reason': 'Análisis técnico', 'side_long': 'LONG',
+                    'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER',
+                    'auth': 'User', 'asset': 'BTC', 'price': '0.00', 'tp': '0.00', 'sl': '0.00',
+                    'ts': '0.00', 'reason': 'Análisis técnico', 'side_long': 'LONG',
                     'strategy_name': 'Nexus', 'quote': 'Génesis', 'title': 'ALERTA'
                 }
                 for k, v in defaults.items():
-                    if k not in kwargs: kwargs[k] = v
-                return raw_msg.format(**kwargs)
-            except:
-                return raw_msg # Final fallback
+                    if k not in processed_kwargs: processed_kwargs[k] = v
+                return safe_format_template(raw_msg, **processed_kwargs)
+            except Exception:
+                # Final fallback with basic escaping
+                from .markdown_utils import escape_markdown
+                return escape_markdown(raw_msg) # Final fallback
 
