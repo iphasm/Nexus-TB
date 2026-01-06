@@ -7,6 +7,15 @@ from .classifier import MarketClassifier, MarketRegime
 from servos.indicators import calculate_ema, calculate_rsi, calculate_atr, calculate_adx
 import pandas_ta as ta
 
+# Try to import feature engineering functions
+try:
+    from nexus_system.cortex.feature_engineering import add_indicators, add_all_new_features
+    FEATURE_ENGINEERING_AVAILABLE = True
+except ImportError:
+    FEATURE_ENGINEERING_AVAILABLE = False
+    add_indicators = None
+    add_all_new_features = None
+
 # Define paths to model artifacts
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
 SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'scaler.pkl')
@@ -88,13 +97,11 @@ class MLClassifier:
             return None
 
         try:
-            # Import functions from the feature engineering module
-            try:
-                from .feature_engineering import add_indicators, add_all_new_features
-            except ImportError:
+            # Check if feature engineering functions are available
+            if not FEATURE_ENGINEERING_AVAILABLE or add_indicators is None or add_all_new_features is None:
                 # Last resort: calculate basic features only
                 print("⚠️  ML features extraction failed - using basic features only")
-                return cls._extract_basic_features(df)
+                return MLClassifier._extract_basic_features(df)
 
             # Apply the same feature engineering pipeline as training
             df_with_indicators = add_indicators(df.copy())
