@@ -45,11 +45,17 @@ class MLClassifier:
                     cls._model = model_data.get('model')
                     cls._label_encoder = model_data.get('label_encoder')
                     cls._feature_names = model_data.get('feature_names')
+                    # Also load metadata if available (for symbol validation)
+                    if 'metadata' in model_data:
+                        cls._model_metadata = model_data['metadata']
+                    else:
+                        cls._model_metadata = None
                 else:
                     # Legacy format (just the model)
                     cls._model = model_data
                     cls._label_encoder = None
                     cls._feature_names = None
+                    cls._model_metadata = None
                 print(f"🧠 ML Classifier: Model loaded from {MODEL_PATH}")
             except Exception as e:
                 print(f"⚠️ ML Classifier: Failed to load model: {e}")
@@ -163,9 +169,7 @@ class MLClassifier:
         symbol = market_data.get('symbol', '')
 
         # Check if we have metadata with trained symbols
-        model_metadata = None
-        if hasattr(cls, '_model') and cls._model and isinstance(cls._model, dict):
-            model_metadata = cls._model.get('metadata', {})
+        model_metadata = getattr(cls, '_model_metadata', None)
 
         if model_metadata and 'symbols' in model_metadata:
             # We have symbol metadata - check if symbol was in training data
