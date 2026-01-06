@@ -100,7 +100,7 @@ El servicio de health check permite a Railway monitorear el estado de salud de l
 ```
 
 ### Variables de Entorno
-- `PORT` - Puerto donde escuchar el servidor web (default: 8080 para conexiones de red)
+- `PORT` - Puerto donde escuchar el servidor web (default: 8000 para Railway)
 
 ## Arquitectura
 

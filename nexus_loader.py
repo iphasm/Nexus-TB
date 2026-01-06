@@ -755,7 +755,7 @@ async def main():
     # This MUST happen before any other initialization
     from uvicorn import Config, Server
     
-    port = int(os.getenv('PORT', '8080'))
+    port = int(os.getenv('PORT', '8000'))
     health_config = Config(
         app=health_app,
         host="0.0.0.0",
