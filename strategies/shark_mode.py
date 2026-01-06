@@ -108,28 +108,48 @@ class SharkSentinel:
         Uses WebSocket-ready approach (can be upgraded to use MarketStream later).
         """
         if not self._http_session:
-            self._http_session = aiohttp.ClientSession()
-        
+            # Create session with proper headers to avoid blocking
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            self._http_session = aiohttp.ClientSession(headers=headers)
+
         url = f"{BINANCE_PUBLIC_API}/ticker/price?symbol=BTCUSDT"
-        
-        for attempt in range(2):  # 2 attempts total
+
+        for attempt in range(3):  # Increased to 3 attempts
             try:
                 async with self._http_session.get(
-                    url, 
+                    url,
                     timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SHORT)
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         return float(data['price'])
+                    elif resp.status == 418:  # I'm a teapot - Binance blocking
+                        delay = (attempt + 1) * 5  # Progressive delay: 5s, 10s, 15s
+                        logger.warning(f"Price fetch blocked (HTTP 418). Backing off {delay}s before retry {attempt + 1}/3")
+                        if attempt < 2:  # Don't sleep on last attempt
+                            await asyncio.sleep(delay)
+                        continue
+                    elif resp.status == 429:  # Rate limit
+                        delay = (attempt + 1) * 10  # Longer delay for rate limits
+                        logger.warning(f"Rate limited (HTTP 429). Backing off {delay}s before retry {attempt + 1}/3")
+                        if attempt < 2:
+                            await asyncio.sleep(delay)
+                        continue
                     else:
                         logger.warning(f"Price fetch failed: HTTP {resp.status}")
             except Exception as e:
-                if attempt == 0:
-                    await asyncio.sleep(0.5)  # Brief pause before retry
+                if attempt < 2:  # Don't retry on last attempt
+                    delay = (attempt + 1) * 2  # Progressive delay: 2s, 4s
+                    logger.warning(f"Price fetch error, retrying in {delay}s: {e}")
+                    await asyncio.sleep(delay)
                     continue
-                logger.warning(f"Price fetch failed after retry: {e}")
+                logger.warning(f"Price fetch failed after retries: {e}")
                 return None
-        
+
         return None
 
     async def execute_defense_sequence(self, mode: str = "BLACK_SWAN"):
@@ -262,11 +282,19 @@ class SharkSentinel:
                     data = await resp.json()
                     price_change_pct = abs(float(data['priceChangePercent']))
                     return price_change_pct  # Use 24h change as volatility proxy
+                elif resp.status == 418:  # I'm a teapot - Binance blocking
+                    logger.warning("Volatility fetch blocked (HTTP 418)")
+                    return 2.0  # Default fallback
+                elif resp.status == 429:  # Rate limit
+                    logger.warning("Volatility fetch rate limited (HTTP 429)")
+                    return 2.0  # Default fallback
+                else:
+                    logger.warning(f"Volatility fetch failed: HTTP {resp.status}")
+                    return 2.0  # Default fallback
 
-        except Exception:
-            pass
-
-        return 2.0  # Default volatility fallback
+        except Exception as e:
+            logger.warning(f"Error fetching volatility: {e}")
+            return 2.0  # Default volatility fallback
 
     async def _monitor_loop(self):
         """Main async monitoring loop with dynamic thresholds."""
