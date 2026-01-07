@@ -162,7 +162,7 @@ GROUP_CONFIG = {
 
 # --- STRATEGY CONFIG ---
 ENABLED_STRATEGIES = {
-    'SCALPING': True,
+    'SCALPING': False,  # DESHABILITADO: Nunca se activa y causa conflictos de cálculo
     'GRID': True,
     'MEAN_REVERSION': True,
     'BLACK_SWAN': True,
