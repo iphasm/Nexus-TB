@@ -375,7 +375,7 @@ class SharkSentinel:
                 await asyncio.sleep(SHARK_HEARTBEAT_SECONDS)
                 
             except Exception as e:
-                logger.error(f"Sentinel Loop Error: {e}", exc_info=True)
+                logger.error(f"Sentinel Loop Error: {e}")
                 await asyncio.sleep(5)  # Prevent CPU spin on hard crash
 
     async def start(self):
