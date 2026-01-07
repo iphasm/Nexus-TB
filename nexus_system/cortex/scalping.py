@@ -104,22 +104,80 @@ class ScalpingStrategy(IStrategy):
 
     def calculate_entry_params(self, signal: Signal, wallet_balance: float, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Scalping: High Leverage, Tight Stops, Quick TP.
+        Scalping: High Leverage, ATR-based Stops, Quick TP.
+        Now uses ATR for dynamic SL/TP calculation instead of fixed percentages.
         """
         # Safe Config Get
         cfg = config or {}
         lev = cfg.get('leverage', 10)
-        size_pct = cfg.get('max_capital_pct', 0.05) # Default 5% for scalping if not set
-        
-        # Fixed % stops for scalping (Legacy) -> Should typically be ATR based too, 
-        # but maintaining logic for now to avoid drastic behavior change, just exposing params.
-        # Ideally: Scalping SL = 1.5 * ATR
-        
+        size_pct = cfg.get('max_capital_pct', 0.05)  # Default 5% for scalping
+
+        # Get ATR from signal metadata (passed from trading_manager)
+        atr = signal.metadata.get('atr', 0)
+        current_price = signal.price
+
+        # Base SL/TP calculations using ATR (much more realistic)
+        if atr > 0:
+            # Scalping: SL = 1.5 * ATR, TP = 2.5 * ATR (RR ratio ~1.7:1)
+            sl_distance = 1.5 * atr
+            tp_distance = 2.5 * atr
+        else:
+            # Fallback if no ATR available (shouldn't happen in normal operation)
+            # Use 2% SL and 3.5% TP as reasonable defaults
+            sl_distance = current_price * 0.02
+            tp_distance = current_price * 0.035
+
+        # Apply Risk Scaling if available
+        try:
+            from nexus_system.core.risk_scaler import RiskScaler
+            scaler = RiskScaler()
+
+            # Get scaling multipliers (requires confidence, strategy, and market data)
+            # For now, use defaults since we don't have full context
+            confidence = signal.confidence if hasattr(signal, 'confidence') else 0.7
+            multipliers = scaler.calculate_risk_multipliers(
+                confidence=confidence,
+                strategy="Scalping",
+                market_data=None  # Could be enhanced to pass market regime
+            )
+
+            # Apply scaling to SL/TP distances
+            sl_distance *= multipliers.stop_loss_multiplier
+            tp_distance *= multipliers.take_profit_multiplier
+
+        except Exception as e:
+            # If risk scaling fails, use base ATR calculations
+            print(f"⚠️ Risk scaling unavailable for scalping: {e}")
+
+        # Calculate actual SL/TP prices
+        if signal.action == "BUY":
+            stop_loss_price = current_price - sl_distance
+            take_profit_price = current_price + tp_distance
+        else:  # SHORT
+            stop_loss_price = current_price + sl_distance
+            take_profit_price = current_price - tp_distance
+
+        # Ensure minimum distance to avoid instant closes
+        min_distance_pct = 0.005  # 0.5% minimum
+        min_distance = current_price * min_distance_pct
+
+        if abs(stop_loss_price - current_price) < min_distance:
+            if signal.action == "BUY":
+                stop_loss_price = current_price - min_distance
+            else:
+                stop_loss_price = current_price + min_distance
+
+        if abs(take_profit_price - current_price) < min_distance:
+            if signal.action == "BUY":
+                take_profit_price = current_price + min_distance
+            else:
+                take_profit_price = current_price - min_distance
+
         return {
-            "leverage": lev, 
+            "leverage": lev,
             "size_pct": size_pct,
-            "stop_loss_price": signal.price * (0.99 if signal.action == "BUY" else 1.01), # 1% SL
-            "take_profit_price": signal.price * (1.015 if signal.action == "BUY" else 0.985) # 1.5% TP
+            "stop_loss_price": stop_loss_price,
+            "take_profit_price": take_profit_price
         }
 
 
