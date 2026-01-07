@@ -208,14 +208,17 @@ class EventLoopMonitor:
         logger.info("
 🐘 DATABASE PERFORMANCE:"        for key, value in db.items():
             logger.info("6.4f"
-        # XAI Results
+        # XAI Results (removed)
         xai = results.get('xai_benchmark', {})
-        logger.info("
-🧠 XAI PERFORMANCE:"        for key, value in xai.items():
-            if isinstance(value, bool):
-                logger.info(f"  {key}: {'✅' if value else '❌'}")
-            elif isinstance(value, (int, float)):
-                logger.info("6.4f"
+        if xai.get('xai_removed'):
+            logger.info("
+🧠 XAI PERFORMANCE: ⚠️ xAI integration removed"        else:
+            logger.info("
+🧠 XAI PERFORMANCE:"            for key, value in xai.items():
+                if isinstance(value, bool):
+                    logger.info(f"  {key}: {'✅' if value else '❌'}")
+                elif isinstance(value, (int, float)):
+                    logger.info("6.4f"
         # Concurrent Results
         concurrent = results.get('concurrent_benchmark', {})
         logger.info("

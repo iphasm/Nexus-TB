@@ -510,7 +510,7 @@ class NexusBridge:
                 side=close_side,
                 order_type="STOP_MARKET",
                 quantity=qty,
-                price=sl,                    # se mapea a stopPrice
+                stopPrice=sl,
                 reduceOnly=True,
                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
             )
@@ -521,36 +521,43 @@ class NexusBridge:
                 if "ORDER_WOULD_IMMEDIATELY_TRIGGER" in error_msg or "-2021" in error_msg:
                     print(f"🔄 Binance: SL -2021 detected for {symbol}, retrying with adjusted price...")
                     
-                    # Obtener precio actual para ajustar SL
-                    current_price = await self.get_last_price(symbol, exchange="BINANCE")
-                    if current_price > 0:
-                        min_distance = current_price * 0.005  # 0.5% mínimo de distancia
-                        
-                        if side == "LONG":
-                            # SL para LONG debe estar DEBAJO del precio actual
-                            adjusted_sl = current_price - min_distance
-                        else:
-                            # SL para SHORT debe estar ARRIBA del precio actual
-                            adjusted_sl = current_price + min_distance
-                        
-                        # Reintentar con precio ajustado
-                        print(f"🔄 Binance: Adjusting SL from {sl:.6f} to {adjusted_sl:.6f}")
-                        sl_res2 = await self.place_order(
-                            symbol=symbol,
-                            side=close_side,
-                            order_type="STOP_MARKET",
-                            quantity=qty,
-                            price=adjusted_sl,
-                            reduceOnly=True,
-                            workingType=config.get("protection_trigger_by", "MARK_PRICE"),
-                        )
-                        if "error" not in sl_res2:
-                            applied["sl"] = True
-                            print(f"✅ Binance: SL placed with adjusted price for {symbol}")
-                        else:
-                            errors.append(f"SL (retry): {sl_res2['error']}")
+                    # FIX Issue #9: Check if SL already exists before retrying (prevent duplicates)
+                    existing_orders = await self.get_open_orders(symbol, exchange="BINANCE")
+                    has_existing_sl = any(o.get('type', '').upper() in ['STOP_MARKET', 'STOP'] for o in existing_orders)
+                    if has_existing_sl:
+                        print(f"ℹ️ Binance: SL already exists for {symbol}, skipping retry")
+                        applied["sl"] = True
                     else:
-                        errors.append(f"SL: {error_msg} (could not get current price for adjustment)")
+                        # Obtener precio actual para ajustar SL
+                        current_price = await self.get_last_price(symbol, exchange="BINANCE")
+                        if current_price > 0:
+                            min_distance = current_price * 0.005  # 0.5% mínimo de distancia
+                            
+                            if side == "LONG":
+                                # SL para LONG debe estar DEBAJO del precio actual
+                                adjusted_sl = current_price - min_distance
+                            else:
+                                # SL para SHORT debe estar ARRIBA del precio actual
+                                adjusted_sl = current_price + min_distance
+                            
+                            # Reintentar con precio ajustado
+                            print(f"🔄 Binance: Adjusting SL from {sl:.6f} to {adjusted_sl:.6f}")
+                            sl_res2 = await self.place_order(
+                                symbol=symbol,
+                                side=close_side,
+                                order_type="STOP_MARKET",
+                                quantity=qty,
+                                stopPrice=adjusted_sl,
+                                reduceOnly=True,
+                                workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                            )
+                            if "error" not in sl_res2:
+                                applied["sl"] = True
+                                print(f"✅ Binance: SL placed with adjusted price for {symbol}")
+                            else:
+                                errors.append(f"SL (retry): {sl_res2['error']}")
+                        else:
+                            errors.append(f"SL: {error_msg} (could not get current price for adjustment)")
                 else:
                     errors.append(f"SL: {error_msg}")
             else:
@@ -565,7 +572,7 @@ class NexusBridge:
                 side=close_side,
                 order_type="TAKE_PROFIT_MARKET",
                 quantity=qty,
-                price=tp,
+                stopPrice=tp,
                 reduceOnly=True,
                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
             )

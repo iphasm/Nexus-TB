@@ -462,6 +462,12 @@ class BinanceAdapter(IExchangeAdapter):
                 # Set stopPrice in params (required by Binance)
                 params['stopPrice'] = stop_price
                 
+                # FIX Issue #3: Add workingType for consistent trigger behavior
+                # MARK_PRICE is more stable and recommended for protection orders
+                # CONTRACT_PRICE uses the actual contract/last price
+                if 'workingType' not in params:
+                    params['workingType'] = kwargs.get('workingType', 'MARK_PRICE')
+                
                 # --- RETRY LOGIC FOR INVALID SYMBOL (-1121) ---
                 try:
                     # Use the correct order type for CCXT

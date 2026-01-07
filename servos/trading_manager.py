@@ -1185,7 +1185,7 @@ class AsyncTradingSession:
                         if sl_valid:
                             result = await self.bridge.place_order(
                                 symbol, order_side, 'STOP_MARKET', 
-                                quantity=qty, price=sl_price, reduceOnly=True
+                                quantity=qty, stopPrice=sl_price, reduceOnly=True
                             )
                             if result.get('error'):
                                 report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
@@ -1203,7 +1203,7 @@ class AsyncTradingSession:
                         if tp_valid:
                             result = await self.bridge.place_order(
                                 symbol, order_side, 'TAKE_PROFIT_MARKET', 
-                                quantity=qty, price=tp_price, reduceOnly=True
+                                quantity=qty, stopPrice=tp_price, reduceOnly=True
                             )
                             if result.get('error'):
                                 report.append(f"⚠️ {symbol}: TP Error - {result['error']}")
@@ -1477,7 +1477,7 @@ class AsyncTradingSession:
                 print(f"📤 SyncSLTP: Placing SL for {symbol} on {exchange} - Side: {sl_side}, Price: {sl_price}, Qty: {abs_qty}")
                 result = await self.bridge.place_order(
                     symbol=symbol, side=sl_side, order_type='STOP_MARKET',
-                    quantity=abs_qty, price=sl_price,
+                    quantity=abs_qty, stopPrice=sl_price,
                     reduceOnly=True,
                     exchange=exchange
                 )
@@ -1524,7 +1524,7 @@ class AsyncTradingSession:
                 if valid_tp and tp_price > 0:
                     tp1_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TAKE_PROFIT_MARKET',
-                        quantity=qty_tp1, price=tp_price,
+                        quantity=qty_tp1, stopPrice=tp_price,
                         reduceOnly=True,
                         exchange=exchange
                     )
@@ -1539,7 +1539,7 @@ class AsyncTradingSession:
                     trailing_pct = float(self.config.get('trailing_callback_rate', 1.0))
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=qty_trail, price=activation,
+                        quantity=qty_trail, activationPrice=activation,
                         callbackRate=trailing_pct,
                         reduceOnly=True,
                         exchange=exchange
@@ -1558,7 +1558,7 @@ class AsyncTradingSession:
                     trailing_pct = float(self.config.get('trailing_callback_rate', 1.0))
                     trail_result = await self.bridge.place_order(
                         symbol=symbol, side=sl_side, order_type='TRAILING_STOP_MARKET',
-                        quantity=abs_qty, price=activation,
+                        quantity=abs_qty, activationPrice=activation,
                         callbackRate=trailing_pct,
                         reduceOnly=True,
                         exchange=exchange

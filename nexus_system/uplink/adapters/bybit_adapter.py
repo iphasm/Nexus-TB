@@ -410,18 +410,25 @@ class BybitAdapter(IExchangeAdapter):
 
                 if 'STOP' in order_type_upper and 'TAKE_PROFIT' not in order_type_upper:
                     # STOP_MARKET - Stop Loss
+                    # LONG close (SELL): SL triggers when price FALLS below stop -> direction=2
+                    # SHORT close (BUY): SL triggers when price RISES above stop -> direction=1
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
+                    params['tpslMode'] = 'Partial'  # We use specific quantity, not full position
                     order_label = 'StopLoss'
                 elif 'TAKE_PROFIT' in order_type_upper:
                     # TAKE_PROFIT_MARKET - Take Profit
-                    # Bybit V5 API expects triggerDirection=1 (rises above) for TAKE_PROFIT_MARKET orders
-                    # This applies to both LONG and SHORT position closures
-                    params['triggerDirection'] = 1
+                    # LONG close (SELL): TP triggers when price RISES above target -> direction=1
+                    # SHORT close (BUY): TP triggers when price FALLS below target -> direction=2
+                    # FIX: Previously always used direction=1, incorrect for SHORT positions
+                    params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
+                    params['tpslMode'] = 'Partial'  # We use specific quantity, not full position
                     order_label = 'TakeProfit'
                 elif 'TRAILING' in order_type_upper:
                     # TRAILING_STOP_MARKET - Trailing Stop
-                    # Bybit V5 API expects triggerDirection=1 (rises above) for TRAILING_STOP_MARKET orders
-                    params['triggerDirection'] = 1
+                    # LONG close (SELL): Trailing triggers when price FALLS -> direction=2
+                    # SHORT close (BUY): Trailing triggers when price RISES -> direction=1
+                    # FIX: Previously always used direction=1, incorrect for LONG positions
+                    params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
                     # Bybit trailing uses 'trailingStop' parameter
                     callback_rate = kwargs.get('callbackRate', 1.0)
                     params['trailingStop'] = str(callback_rate)
