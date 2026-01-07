@@ -2013,15 +2013,52 @@ class AsyncTradingSession:
             # RiskPolicy calcula basado en current_price, pero entry_price puede ser diferente por slippage
             if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
                 self.logger.info(f"🎯 {symbol} Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
-                # Recalcular TP usando la misma lógica que RiskPolicy pero con entry_price real
-                stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
-                tp_ratio = self.config.get('tp_ratio', 1.5)
-                if side == 'LONG':
-                    tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
-                else:  # SHORT
-                    tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
-                tp_price = round_to_tick_size(tp_price, tick_size)
-                self.logger.info(f"🎯 {symbol} TP recalculado: {tp_price:.6f}")
+
+                # Si tenemos ATR disponible (estrategias como scalping lo usan), recalcular usando ATR
+                if atr and atr > 0:
+                    # Usar la misma lógica ATR que la estrategia original
+                    if side == 'LONG':
+                        # Para LONG: SL por debajo, TP por encima
+                        sl_distance = 1.5 * atr  # 1.5x ATR para SL
+                        tp_distance = 2.5 * atr  # 2.5x ATR para TP
+                        tp_price = entry_price + tp_distance
+                    else:  # SHORT
+                        # Para SHORT: SL por encima, TP por debajo
+                        sl_distance = 1.5 * atr  # 1.5x ATR para SL
+                        tp_distance = 2.5 * atr  # 2.5x ATR para TP
+                        tp_price = entry_price - tp_distance
+
+                    # Aplicar risk scaling si está disponible
+                    try:
+                        from nexus_system.core.risk_scaler import RiskScaler
+                        scaler = RiskScaler()
+                        confidence = decision_data.get('confidence', 0.7)
+                        multipliers = scaler.calculate_risk_multipliers(
+                            confidence=confidence,
+                            strategy=decision_data.get('strategy', 'Unknown'),
+                            market_data=None
+                        )
+                        tp_distance *= multipliers.take_profit_multiplier
+                        if side == 'LONG':
+                            tp_price = entry_price + tp_distance
+                        else:  # SHORT
+                            tp_price = entry_price - tp_distance
+                    except Exception as e:
+                        self.logger.debug(f"Risk scaling not available for TP recalculation: {e}")
+
+                    tp_price = round_to_tick_size(tp_price, tick_size)
+                    self.logger.info(f"🎯 {symbol} TP recalculado usando ATR ({atr:.6f}): {tp_price:.6f}")
+
+                else:
+                    # Fallback: Recalcular TP usando porcentajes fijos (lógica original)
+                    stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                    tp_ratio = self.config.get('tp_ratio', 1.5)
+                    if side == 'LONG':
+                        tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
+                    else:  # SHORT
+                        tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
+                    tp_price = round_to_tick_size(tp_price, tick_size)
+                    self.logger.info(f"🎯 {symbol} TP recalculado usando porcentajes: {tp_price:.6f}")
 
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'LONG', is_sl=True)
@@ -2352,15 +2389,52 @@ class AsyncTradingSession:
             # RiskPolicy calcula basado en current_price, pero entry_price puede ser diferente por slippage
             if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
                 self.logger.info(f"🎯 {symbol} SHORT Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
-                # Recalcular TP usando la misma lógica que RiskPolicy pero con entry_price real
-                stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
-                tp_ratio = self.config.get('tp_ratio', 1.5)
-                if side == 'LONG':
-                    tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
-                else:  # SHORT
-                    tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
-                tp_price = round_to_tick_size(tp_price, tick_size)
-                self.logger.info(f"🎯 {symbol} SHORT TP recalculado: {tp_price:.6f}")
+
+                # Si tenemos ATR disponible (estrategias como scalping lo usan), recalcular usando ATR
+                if atr and atr > 0:
+                    # Usar la misma lógica ATR que la estrategia original
+                    if side == 'LONG':
+                        # Para LONG: SL por debajo, TP por encima
+                        sl_distance = 1.5 * atr  # 1.5x ATR para SL
+                        tp_distance = 2.5 * atr  # 2.5x ATR para TP
+                        tp_price = entry_price + tp_distance
+                    else:  # SHORT
+                        # Para SHORT: SL por encima, TP por debajo
+                        sl_distance = 1.5 * atr  # 1.5x ATR para SL
+                        tp_distance = 2.5 * atr  # 2.5x ATR para TP
+                        tp_price = entry_price - tp_distance
+
+                    # Aplicar risk scaling si está disponible
+                    try:
+                        from nexus_system.core.risk_scaler import RiskScaler
+                        scaler = RiskScaler()
+                        confidence = decision_data.get('confidence', 0.7)
+                        multipliers = scaler.calculate_risk_multipliers(
+                            confidence=confidence,
+                            strategy=decision_data.get('strategy', 'Unknown'),
+                            market_data=None
+                        )
+                        tp_distance *= multipliers.take_profit_multiplier
+                        if side == 'LONG':
+                            tp_price = entry_price + tp_distance
+                        else:  # SHORT
+                            tp_price = entry_price - tp_distance
+                    except Exception as e:
+                        self.logger.debug(f"Risk scaling not available for TP recalculation: {e}")
+
+                    tp_price = round_to_tick_size(tp_price, tick_size)
+                    self.logger.info(f"🎯 {symbol} SHORT TP recalculado usando ATR ({atr:.6f}): {tp_price:.6f}")
+
+                else:
+                    # Fallback: Recalcular TP usando porcentajes fijos (lógica original)
+                    stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
+                    tp_ratio = self.config.get('tp_ratio', 1.5)
+                    if side == 'LONG':
+                        tp_price = entry_price * (1 + (stop_loss_pct * tp_ratio))
+                    else:  # SHORT
+                        tp_price = entry_price * (1 - (stop_loss_pct * tp_ratio))
+                    tp_price = round_to_tick_size(tp_price, tick_size)
+                    self.logger.info(f"🎯 {symbol} SHORT TP recalculado usando porcentajes: {tp_price:.6f}")
 
             # Ensure SL/TP have minimum separation from entry price after rounding
             sl_price = ensure_price_separation(sl_price, entry_price, tick_size, 'SHORT', is_sl=True)
