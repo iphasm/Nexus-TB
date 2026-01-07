@@ -1064,13 +1064,14 @@ class AsyncTradingSession:
             positions = await self.bridge.get_positions()
             for pos in positions:
                 symbol = pos['symbol']
+                pos_exchange = pos.get('exchange')
                 qty = float(pos['quantity'])
                 if qty == 0: continue
                 
-                entry = float(pos['entry_price'])
+                entry = float(pos.get('entry_price') or pos.get('entryPrice') or 0)
                 if entry <= 0: continue
                 
-                curr = await self.bridge.get_last_price(symbol)
+                curr = await self.bridge.get_last_price(symbol, exchange=pos_exchange)
                 side = pos['side']
                 
                 # Check current price validity
@@ -1080,10 +1081,10 @@ class AsyncTradingSession:
                 
                 if pnl_pct >= breakeven_roi_threshold:
                     # Cancel existing SL
-                    await self.bridge.cancel_orders(symbol)
+                    await self.bridge.cancel_orders(symbol, exchange=pos_exchange)
                     
                     # Place New SL at Entry
-                    qty_prec, price_prec, _, tick_size = await self.get_symbol_precision(symbol)
+                    qty_prec, price_prec, _, tick_size, min_qty = await self.get_symbol_precision(symbol, exchange=pos_exchange)
                     sl_price = round_to_tick_size(entry, tick_size)
                     
                     sl_side = 'SELL' if side == 'LONG' else 'BUY'
@@ -1091,7 +1092,8 @@ class AsyncTradingSession:
                     result = await self.bridge.place_order(
                         symbol, sl_side, 'STOP_MARKET', 
                         quantity=qty, price=sl_price,
-                        reduceOnly=True
+                        reduceOnly=True,
+                        exchange=pos_exchange
                     )
                     if result.get('error'):
                         report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
@@ -1110,22 +1112,26 @@ class AsyncTradingSession:
             positions = await self.bridge.get_positions()
             for pos in positions:
                 symbol = pos['symbol']
+                pos_exchange = pos.get('exchange')
                 qty = float(pos['quantity'])
                 if qty == 0: continue
                 
                 # Check existing orders
-                orders = await self.get_open_algo_orders(symbol)
+                orders = await self.get_open_algo_orders(symbol, exchange=pos_exchange)
                 has_sl = any(o.get('type') in ['STOP_MARKET', 'STOP'] for o in orders)
                 has_tp = any(o.get('type') in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT'] for o in orders)
                 
                 if not has_sl or not has_tp:
                     # Recalculate and Place
-                    entry = float(pos['entry_price'])
-                    curr = await self.bridge.get_last_price(symbol)
+                    entry = float(pos.get('entry_price') or pos.get('entryPrice') or 0)
+                    if entry <= 0:
+                        continue
+
+                    curr = await self.bridge.get_last_price(symbol, exchange=pos_exchange)
                     
                     stop_loss_pct = self.config.get('stop_loss_pct', 0.02)
                     tp_ratio = self.config.get('tp_ratio', 1.5)
-                    qty_prec, price_prec, _, tick_size = await self.get_symbol_precision(symbol)
+                    qty_prec, price_prec, _, tick_size, min_qty = await self.get_symbol_precision(symbol, exchange=pos_exchange)
                     
                     sl_dist = entry * stop_loss_pct
                     side = pos['side']
@@ -1185,7 +1191,7 @@ class AsyncTradingSession:
                         if sl_valid:
                             result = await self.bridge.place_order(
                                 symbol, order_side, 'STOP_MARKET', 
-                                quantity=qty, stopPrice=sl_price, reduceOnly=True
+                                quantity=qty, stopPrice=sl_price, reduceOnly=True, exchange=pos_exchange
                             )
                             if result.get('error'):
                                 report.append(f"⚠️ {symbol}: SL Error - {result['error']}")
@@ -1203,7 +1209,7 @@ class AsyncTradingSession:
                         if tp_valid:
                             result = await self.bridge.place_order(
                                 symbol, order_side, 'TAKE_PROFIT_MARKET', 
-                                quantity=qty, stopPrice=tp_price, reduceOnly=True
+                                quantity=qty, stopPrice=tp_price, reduceOnly=True, exchange=pos_exchange
                             )
                             if result.get('error'):
                                 report.append(f"⚠️ {symbol}: TP Error - {result['error']}")
@@ -2508,7 +2514,7 @@ class AsyncTradingSession:
             print(f"⚠️ Execution Error (Short {symbol}): {e}")
             return False, f"Execution Error: {str(e) if e else 'Unknown error'}"
 
-    async def get_open_algo_orders(self, symbol: str = None) -> List[Dict]:
+    async def get_open_algo_orders(self, symbol: str = None, exchange: Optional[str] = None) -> List[Dict]:
         """
         Get open ALGO orders (conditional orders) for a symbol.
         
@@ -2519,13 +2525,14 @@ class AsyncTradingSession:
         This function checks both the Algo Service AND filters standard orders
         for conditional types.
         """
-        if not self.client: return []
+        if not self.bridge:
+            return []
         
         conditional_orders = []
         
         # 1. Use Bridge to get open orders (consistent format)
         try:
-            standard_orders = await self.bridge.get_open_orders(symbol)
+            standard_orders = await self.bridge.get_open_orders(symbol, exchange=exchange)
             conditional_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 
                                 'STOP', 'TAKE_PROFIT', 'TRAILING_STOP',
                                 'stop_market', 'take_profit_market', 'trailing_stop_market']
@@ -2539,22 +2546,23 @@ class AsyncTradingSession:
         
         # 2. Try Algo Service endpoint (may not be available for all accounts)
         # Silently fail if not available - the standard orders check above is the fallback
-        try:
-            params = {'symbol': symbol} if symbol else {}
-            
-            # Try the algo endpoint - this may return 404 or error for some accounts
-            result = await self.client._request(
-                'get', 'algo/openOrders', signed=True, data=params
-            )
-            
-            if isinstance(result, dict) and 'orders' in result:
-                conditional_orders.extend(result['orders'])
-            elif isinstance(result, list):
-                conditional_orders.extend(result)
+        if self.client and (exchange is None or str(exchange).upper() == "BINANCE"):
+            try:
+                params = {'symbol': symbol} if symbol else {}
                 
-        except Exception:
-            # Algo endpoint not available - that's OK, standard orders fallback works
-            pass
+                # Try the algo endpoint - this may return 404 or error for some accounts
+                result = await self.client._request(
+                    'get', 'algo/openOrders', signed=True, data=params
+                )
+                
+                if isinstance(result, dict) and 'orders' in result:
+                    conditional_orders.extend(result['orders'])
+                elif isinstance(result, list):
+                    conditional_orders.extend(result)
+                    
+            except Exception:
+                # Algo endpoint not available - that's OK, standard orders fallback works
+                pass
         
         return conditional_orders
 

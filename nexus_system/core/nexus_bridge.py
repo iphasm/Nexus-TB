@@ -483,10 +483,10 @@ class NexusBridge:
         """
         ex = exchange.upper()
         if ex == "BINANCE":
-            return await self.cancel_orders(symbol)
+            return await self.cancel_orders(symbol, exchange="BINANCE")
         if ex == "BYBIT":
             # 1) cancel condicionales
-            await self.cancel_orders(symbol)
+            await self.cancel_orders(symbol, exchange="BYBIT")
             # 2) reset trading stop (0 cancela)
             bybit = self.adapters.get("BYBIT")
             if bybit:
@@ -513,6 +513,7 @@ class NexusBridge:
                 stopPrice=sl,
                 reduceOnly=True,
                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                exchange="BINANCE",
             )
             if "error" in sl_res:
                 error_msg = str(sl_res.get('error', ''))
@@ -550,6 +551,7 @@ class NexusBridge:
                                 stopPrice=adjusted_sl,
                                 reduceOnly=True,
                                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                                exchange="BINANCE",
                             )
                             if "error" not in sl_res2:
                                 applied["sl"] = True
@@ -575,6 +577,7 @@ class NexusBridge:
                 stopPrice=tp,
                 reduceOnly=True,
                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                exchange="BINANCE",
             )
             if "error" in tp_res:
                 errors.append(f"TP: {tp_res['error']}")
@@ -586,6 +589,7 @@ class NexusBridge:
         # TRAILING (corregir binance_adapter: no exigir stopPrice aquí)
         if trailing and config.get("trailing_enabled", True):
             try:
+                callback_pct = trailing.get("callback_rate_pct", trailing.get("pct", 1.0))
                 tr_res = await self.place_order(
                     symbol=symbol,
                     side=close_side,
@@ -594,8 +598,9 @@ class NexusBridge:
                     price=None,  # NO stopPrice
                     reduceOnly=True,
                     activationPrice=trailing.get("activation_price"),
-                    callbackRate=trailing.get("callback_rate_pct", 1.0),
+                    callbackRate=callback_pct,
                     workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                    exchange="BINANCE",
                 )
                 if "error" in tr_res:
                     errors.append(f"Trailing: {tr_res['error']}")
@@ -673,6 +678,7 @@ class NexusBridge:
                 stop_loss=sl,
                 take_profit=tp,
                 trailing_stop=trailing_distance,
+                active_price=active_price if (trailing_distance and active_price) else None,
             )
             if res.get("success", False):
                 applied = {"sl": True, "tp": True, "trailing": trailing_distance is not None}

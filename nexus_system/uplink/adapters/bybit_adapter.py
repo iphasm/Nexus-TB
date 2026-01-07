@@ -382,23 +382,73 @@ class BybitAdapter(IExchangeAdapter):
             formatted = self._format_symbol(symbol)
             params = kwargs.copy()
             params['positionIdx'] = 0  # One-Way Mode
+            order_type_upper = order_type.upper()
             
-            if order_type.upper() == 'MARKET':
+            if order_type_upper == 'MARKET':
                 result = await self._exchange.create_order(
                     formatted, 'market', side.lower(), quantity, None, params
                 )
-            elif order_type.upper() == 'LIMIT':
+            elif order_type_upper == 'LIMIT':
                 result = await self._exchange.create_order(
                     formatted, 'limit', side.lower(), quantity, price, params
                 )
+            elif order_type_upper == 'TRAILING_STOP_MARKET':
+                # TRAILING_STOP_MARKET - Bybit expects trailingStop as DISTANCE (not %)
+                # We standardize callbackRate as PERCENT across the codebase, then convert.
+                activation_price = kwargs.get('activationPrice') or kwargs.get('activePrice')
+                callback_rate_pct = kwargs.get('callbackRate')
+
+                if callback_rate_pct is None:
+                    return {'error': 'callbackRate is required for TRAILING_STOP_MARKET (Bybit)'}
+
+                # Reference price used to convert pct->distance
+                ref_price = activation_price
+                if ref_price is None or float(ref_price) <= 0:
+                    ref_price = await self.get_market_price(symbol)
+
+                try:
+                    pct = float(callback_rate_pct)
+                except Exception:
+                    return {'error': f'Invalid callbackRate for TRAILING_STOP_MARKET (Bybit): {callback_rate_pct}'}
+
+                if not ref_price or float(ref_price) <= 0:
+                    return {'error': 'activationPrice (or market price) is required to compute trailing distance (Bybit)'}
+
+                trailing_distance = float(ref_price) * (pct / 100.0)
+                if trailing_distance <= 0:
+                    return {'error': f'Computed trailing distance invalid (Bybit): {trailing_distance}'}
+
+                # Clean up generic params that don't apply to Bybit trailing order
+                params.pop('stopPrice', None)
+                params.pop('triggerPrice', None)
+                params.pop('triggerDirection', None)
+                params.pop('activationPrice', None)
+                params.pop('activePrice', None)
+                params.pop('callbackRate', None)
+
+                params['reduceOnly'] = True
+                params['trailingStop'] = str(trailing_distance)  # DISTANCE
+                if activation_price and float(activation_price) > 0:
+                    params['activePrice'] = str(activation_price)
+
+                print(
+                    f"🔧 BybitAdapter: Placing TrailingStop order for {symbol} - "
+                    f"Side: {side}, Qty: {quantity}, Dist: {trailing_distance}, Act: {activation_price}"
+                )
+
+                result = await self._exchange.create_order(
+                    formatted, 'trailing_stop_market', side.lower(), quantity, None, params
+                )
+                print(f"✅ BybitAdapter: TrailingStop order placed successfully - ID: {result.get('id')}")
             else:
-                # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET)
+                # Conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET)
                 # Bybit V5 CCXT: Use 'market' type with triggerPrice in params
                 # triggerDirection: 1 = triggers when price rises ABOVE triggerPrice
                 #                   2 = triggers when price falls BELOW triggerPrice
 
                 stop_price = kwargs.get('stopPrice') or price
-                order_type_upper = order_type.upper()
+                if stop_price is None:
+                    return {'error': 'stopPrice is required for conditional orders (Bybit)'}
                 
                 # Determine trigger direction based on order type and side
                 # For LONG position closing (SELL side):
@@ -423,16 +473,6 @@ class BybitAdapter(IExchangeAdapter):
                     params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
                     params['tpslMode'] = 'Partial'  # We use specific quantity, not full position
                     order_label = 'TakeProfit'
-                elif 'TRAILING' in order_type_upper:
-                    # TRAILING_STOP_MARKET - Trailing Stop
-                    # LONG close (SELL): Trailing triggers when price FALLS -> direction=2
-                    # SHORT close (BUY): Trailing triggers when price RISES -> direction=1
-                    # FIX: Previously always used direction=1, incorrect for LONG positions
-                    params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
-                    # Bybit trailing uses 'trailingStop' parameter
-                    callback_rate = kwargs.get('callbackRate', 1.0)
-                    params['trailingStop'] = str(callback_rate)
-                    order_label = 'TrailingStop'
                 else:
                     params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
                     order_label = 'Conditional'
@@ -443,6 +483,11 @@ class BybitAdapter(IExchangeAdapter):
                 
                 # Remove stopPrice from params if present (we use triggerPrice)
                 params.pop('stopPrice', None)
+                # Remove trailing-specific fields if caller passed them erroneously
+                params.pop('activationPrice', None)
+                params.pop('activePrice', None)
+                params.pop('callbackRate', None)
+                params.pop('trailingStop', None)
 
                 print(f"🔧 BybitAdapter: Placing {order_label} order for {symbol} - Side: {side}, Qty: {quantity}, Trigger: {stop_price}")
                 
@@ -527,8 +572,9 @@ class BybitAdapter(IExchangeAdapter):
         for position in positions:
             if position.get('symbol') == symbol:
                 return {
-                    'take_profit': float(position.get('takeProfitPrice') or 0),
-                    'stop_loss': float(position.get('stopLossPrice') or 0)
+                    # Our normalized positions use takeProfit/stopLoss; fall back to CCXT raw keys if present.
+                    'take_profit': float(position.get('takeProfit') or position.get('takeProfitPrice') or 0),
+                    'stop_loss': float(position.get('stopLoss') or position.get('stopLossPrice') or 0)
                 }
         return {'take_profit': 0, 'stop_loss': 0}
 
