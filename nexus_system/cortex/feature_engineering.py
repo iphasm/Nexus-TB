@@ -1,7 +1,6 @@
 """
-Feature Engineering Module for ML Classifier
-Contains only the feature extraction functions needed for inference,
-separated from training code.
+Technical Indicators Module for ML Inference
+MUST match the feature set from ML Cloud Trainer NTB/indicators.py
 """
 
 import pandas as pd
@@ -122,20 +121,47 @@ def calculate_market_regime(df: pd.DataFrame) -> pd.Series:
         return pd.Series(0, index=df.index)
 
 
+def calculate_market_regime_advanced(df: pd.DataFrame) -> pd.Series:
+    """Calculate advanced market regime based on multiple factors."""
+    try:
+        # Combine multiple indicators for more sophisticated regime detection
+        adx = calculate_adx(df)
+        atr_pct = (calculate_atr(df) / df['close']) * 100
+        rsi = df['close'].rolling(14).apply(lambda x: 100 - (100 / (1 + ((x[-1] - x.mean()) / x.std() + 1e-10))))
+
+        regime = pd.Series(0, index=df.index)  # Default: consolidation
+
+        # Strong uptrend: High ADX + RSI > 60 + positive momentum
+        strong_up = (adx > 30) & (rsi > 60) & (df['close'] > df['close'].shift(10))
+        regime[strong_up] = 1
+
+        # Strong downtrend: High ADX + RSI < 40 + negative momentum
+        strong_down = (adx > 30) & (rsi < 40) & (df['close'] < df['close'].shift(10))
+        regime[strong_down] = -1
+
+        # High volatility breakout
+        high_vol_breakout = (atr_pct > atr_pct.rolling(20).mean() * 1.5) & (adx > 20)
+        regime[high_vol_breakout] = 2
+
+        # Low volatility ranging
+        low_vol_range = (atr_pct < atr_pct.rolling(20).mean() * 0.8) & (adx < 20)
+        regime[low_vol_range] = 3
+
+        return regime
+    except Exception:
+        return pd.Series(0, index=df.index)
+
+
 def calculate_sentiment_proxy(df: pd.DataFrame) -> pd.Series:
     """Calculate sentiment proxy based on price action patterns."""
     try:
-        # Simple sentiment proxy based on buying vs selling pressure
-        returns = df['close'].pct_change()
-
-        # Bullish signals
+        # Simple sentiment proxy based on candlestick patterns and volume
         bullish = (
             (df['close'] > df['open']) &  # Green candle
             (df['close'] > df['close'].shift(1)) &  # Higher close
             (df['volume'] > df['volume'].rolling(10).mean())  # Above average volume
         )
 
-        # Bearish signals
         bearish = (
             (df['close'] < df['open']) &  # Red candle
             (df['close'] < df['close'].shift(1)) &  # Lower close
@@ -155,7 +181,7 @@ def calculate_sentiment_proxy(df: pd.DataFrame) -> pd.Series:
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate ALL technical indicators for inference.
-    EXTENDED FEATURE SET for v3.1
+    MUST match the feature set from ML Cloud Trainer NTB/indicators.py
     """
     close = df['close']
     high = df['high']
@@ -163,227 +189,242 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     volume = df['volume']
 
     # === BASIC INDICATORS ===
-    # RSI (14)
+    # RSI
     try:
         rsi_indicator = RSIIndicator(close, window=14)
-        df['rsi'] = rsi_indicator.rsi().fillna(50)
+        df['rsi'] = rsi_indicator.rsi().fillna(50).clip(0, 100)
     except Exception:
         df['rsi'] = 50
 
-    # ADX (14)
-    try:
-        adx_indicator = ADXIndicator(high, low, close, window=14)
-        df['adx'] = adx_indicator.adx().fillna(0)
-        df['adx_pos'] = adx_indicator.adx_pos().fillna(0)
-        df['adx_neg'] = adx_indicator.adx_neg().fillna(0)
-    except Exception:
-        df['adx'] = 0
-        df['adx_pos'] = 0
-        df['adx_neg'] = 0
-
-    # MACD
-    try:
-        macd_indicator = MACD(close)
-        df['macd'] = macd_indicator.macd().fillna(0)
-        df['macd_signal'] = macd_indicator.macd_signal().fillna(0)
-        df['macd_diff'] = macd_indicator.macd_diff().fillna(0)
-    except Exception:
-        df['macd'] = 0
-        df['macd_signal'] = 0
-        df['macd_diff'] = 0
-
-    # Bollinger Bands
-    try:
-        bb_indicator = BollingerBands(close, window=20)
-        df['bb_upper'] = bb_indicator.bollinger_hband().fillna(close)
-        df['bb_lower'] = bb_indicator.bollinger_lband().fillna(close)
-        df['bb_middle'] = bb_indicator.bollinger_mavg().fillna(close)
-        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
-        df['bb_position'] = (close - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
-        df['bb_position'] = df['bb_position'].fillna(0.5).clip(0, 1)
-    except Exception:
-        df['bb_upper'] = close
-        df['bb_lower'] = close
-        df['bb_middle'] = close
-        df['bb_width'] = 0
-        df['bb_position'] = 0.5
-
-    # ATR (14)
+    # ATR and ATR%
     try:
         atr_indicator = AverageTrueRange(high, low, close, window=14)
         df['atr'] = atr_indicator.average_true_range().fillna(0)
     except Exception:
         df['atr'] = 0
+    df['atr_pct'] = (df['atr'] / close) * 100
 
-    # === MOMENTUM INDICATORS ===
-    # Williams %R (14)
+    # ADX
+    df['adx'] = calculate_adx(df, period=14)
+
+    # EMAs
     try:
-        williams_indicator = WilliamsRIndicator(high, low, close, lbp=14)
-        df['williams_r'] = williams_indicator.williams_r().fillna(-50)
+        ema9 = EMAIndicator(close, window=9)
+        df['ema_9'] = ema9.ema_indicator().fillna(close)
+
+        ema20 = EMAIndicator(close, window=20)
+        df['ema_20'] = ema20.ema_indicator().fillna(close)
+
+        ema50 = EMAIndicator(close, window=50)
+        df['ema_50'] = ema50.ema_indicator().fillna(close)
+
+        ema200 = EMAIndicator(close, window=200)
+        df['ema_200'] = ema200.ema_indicator().fillna(close)
+    except Exception:
+        df['ema_9'] = close
+        df['ema_20'] = close
+        df['ema_50'] = close
+        df['ema_200'] = close
+
+    # Fill NaN in EMAs
+    for col in ['ema_9', 'ema_20', 'ema_50', 'ema_200']:
+        df[col] = df[col].bfill().fillna(close)
+
+    # Trend Strength (EMA divergence)
+    df['trend_str'] = (df['ema_20'] - df['ema_50']) / close * 100
+
+    # Volume Change
+    df['vol_ma_5'] = volume.rolling(5).mean()
+    df['vol_ma_20'] = volume.rolling(20).mean()
+    df['vol_change'] = (df['vol_ma_5'] - df['vol_ma_20']) / (df['vol_ma_20'] + 1e-10)
+
+    # === v3.0 FEATURES ===
+
+    # MACD
+    try:
+        macd = MACD(close)
+        df['macd'] = macd.macd().fillna(0)
+        df['macd_signal'] = macd.macd_signal().fillna(0)
+        df['macd_hist'] = macd.macd_diff().fillna(0)
+    except Exception:
+        df['macd'] = 0
+        df['macd_signal'] = 0
+        df['macd_hist'] = 0
+    df['macd_hist_norm'] = df['macd_hist'] / close * 100
+
+    # Bollinger Bands
+    try:
+        bb = BollingerBands(close, window=20, window_dev=2)
+        df['bb_middle'] = bb.bollinger_mavg()
+        df['bb_upper'] = bb.bollinger_hband()
+        df['bb_lower'] = bb.bollinger_lband()
+        df['bb_std'] = (df['bb_upper'] - df['bb_middle']) / 2
+        df['bb_width'] = (df['bb_std'] * 2) / (df['bb_middle'] + 1e-10) * 100
+        df['bb_pct'] = (close - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'] + 1e-10)
+    except Exception:
+        df['bb_middle'] = close
+        df['bb_upper'] = close
+        df['bb_lower'] = close
+        df['bb_std'] = 0
+        df['bb_width'] = 0
+        df['bb_pct'] = 0.5
+
+    # Price Momentum (Rate of Change)
+    df['roc_5'] = (close - close.shift(5)) / close.shift(5) * 100
+    df['roc_10'] = (close - close.shift(10)) / close.shift(10) * 100
+
+    # OBV (On-Balance Volume) - normalized
+    obv = (np.sign(close.diff()) * volume).cumsum()
+    df['obv_change'] = obv.diff(5) / (obv.rolling(20).mean() + 1e-10)
+
+    # Price position and body percentage
+    df['price_position'] = (close - low) / (high - low + 1e-10)
+    df['body_pct'] = abs(close - df['open']) / (high - low + 1e-10) * 100
+
+    # EMA signals
+    df['above_ema200'] = (close > df['ema_200']).astype(int)
+    df['ema_cross'] = ((close > df['ema_20']) & (df['ema_20'] > df['ema_50'])).astype(int)
+
+    # === v3.1 FEATURES ===
+
+    # EMA slope
+    df['ema20_slope'] = df['ema_20'].diff(5).fillna(0)
+
+    # MFI
+    df['mfi'] = calculate_mfi(df, 14)
+
+    # Distance to 50-period high/low
+    df['dist_50_high'] = (close - high.rolling(50).max()) / close * 100
+    df['dist_50_low'] = (close - low.rolling(50).min()) / close * 100
+
+    # Time-based features
+    df['hour_of_day'] = df.index.hour if hasattr(df.index, 'hour') else 12
+    df['day_of_week'] = df.index.dayofweek if hasattr(df.index, 'dayofweek') else 0
+
+    # === v3.2 ADDITIONAL FEATURES ===
+
+    # Extended ROC
+    df['roc_21'] = (close - close.shift(21)) / close.shift(21) * 100
+    df['roc_50'] = (close - close.shift(50)) / close.shift(50) * 100
+
+    # Williams %R
+    try:
+        williams = WilliamsRIndicator(high, low, close, lbp=14)
+        df['williams_r'] = williams.williams_r().fillna(-50)
     except Exception:
         df['williams_r'] = -50
 
+    # CCI
+    df['cci'] = calculate_cci(df, 20)
+
     # Ultimate Oscillator
     try:
-        uo_indicator = UltimateOscillator(high, low, close)
-        df['uo'] = uo_indicator.ultimate_oscillator().fillna(50)
+        uo = UltimateOscillator(high, low, close)
+        df['ultimate_osc'] = uo.ultimate_oscillator().fillna(50)
     except Exception:
-        df['uo'] = 50
+        df['ultimate_osc'] = 50
 
-    # === VOLUME INDICATORS ===
-    # MFI (14)
-    df['mfi'] = calculate_mfi(df, 14)
+    # Volume features
+    df['volume_roc_5'] = (volume - volume.shift(5)) / (volume.shift(5) + 1e-10) * 100
+    df['volume_roc_21'] = (volume - volume.shift(21)) / (volume.shift(21) + 1e-10) * 100
 
     # Chaikin Money Flow
     try:
-        cmf_indicator = ChaikinMoneyFlowIndicator(high, low, close, volume)
-        df['cmf'] = cmf_indicator.chaikin_money_flow().fillna(0)
+        cmf = ChaikinMoneyFlowIndicator(high, low, close, volume, window=20)
+        df['chaikin_mf'] = cmf.chaikin_money_flow().fillna(0)
     except Exception:
-        df['cmf'] = 0
+        df['chaikin_mf'] = 0
+
+    # Force Index
+    df['force_index'] = calculate_force_index(df, 13)
 
     # Ease of Movement
     try:
-        eom_indicator = EaseOfMovementIndicator(high, low, volume)
-        df['eom'] = eom_indicator.ease_of_movement().fillna(0)
-        df['eom_sma'] = eom_indicator.sma_ease_of_movement().fillna(0)
+        eom = EaseOfMovementIndicator(high, low, volume)
+        df['ease_movement'] = eom.ease_of_movement().fillna(0)
     except Exception:
-        df['eom'] = 0
-        df['eom_sma'] = 0
+        df['ease_movement'] = 0
 
-    # === TREND INDICATORS ===
-    # EMA 9, 21, 50
-    try:
-        ema9 = EMAIndicator(close, window=9)
-        df['ema9'] = ema9.ema_indicator().fillna(close)
+    # Distance to SMAs
+    df['dist_sma20'] = (close - close.rolling(20).mean()) / close * 100
+    df['dist_sma50'] = (close - close.rolling(50).mean()) / close * 100
 
-        ema21 = EMAIndicator(close, window=21)
-        df['ema21'] = ema21.ema_indicator().fillna(close)
+    # Pivot points and Fibonacci
+    pivot = (high + low + close) / 3
+    df['pivot_dist'] = (close - pivot) / close * 100
 
-        ema50 = EMAIndicator(close, window=50)
-        df['ema50'] = ema50.ema_indicator().fillna(close)
-    except Exception:
-        df['ema9'] = close
-        df['ema21'] = close
-        df['ema50'] = close
+    recent_high = high.rolling(20).max()
+    recent_low = low.rolling(20).min()
+    fib_382 = recent_low + (recent_high - recent_low) * 0.382
+    df['fib_dist'] = (close - fib_382) / close * 100
 
-    # SMA 20, 50
-    try:
-        sma20 = SMAIndicator(close, window=20)
-        df['sma20'] = sma20.sma_indicator().fillna(close)
+    # Volatility by session
+    df['morning_volatility'] = df['atr_pct'].rolling(8).mean()  # ~2 hours
+    df['afternoon_volatility'] = df['atr_pct'].rolling(16).mean()  # ~4 hours
 
-        sma50 = SMAIndicator(close, window=50)
-        df['sma50'] = sma50.sma_indicator().fillna(close)
-    except Exception:
-        df['sma20'] = close
-        df['sma50'] = close
+    # Gap detection
+    df['gap_up'] = ((df['open'] - close.shift(1)) / close.shift(1) * 100).clip(lower=0)
+    df['gap_down'] = ((df['open'] - close.shift(1)) / close.shift(1) * 100).clip(upper=0).abs()
 
-    # === PRICE DERIVATIVES ===
-    # Returns
-    df['returns'] = close.pct_change().fillna(0)
-    df['log_returns'] = np.log(close / close.shift(1)).fillna(0)
+    # Range change
+    df['range_change'] = ((high - low) - (high - low).shift(1)) / (high - low).shift(1) * 100
 
-    # Volatility
-    df['volatility'] = df['returns'].rolling(window=20).std().fillna(0)
+    # Elder Ray (Bull/Bear Power)
+    df['bull_power'] = high - df['ema_20']
+    df['bear_power'] = low - df['ema_20']
 
-    # Volume changes
-    if 'volume' in df.columns:
-        df['volume_change'] = volume.pct_change().fillna(0)
-        df['volume_ma'] = volume.rolling(window=20).mean().fillna(volume)
-    else:
-        df['volume_change'] = 0
-        df['volume_ma'] = 0
+    # Momentum divergence
+    df['momentum_div'] = df['rsi'].diff(5).fillna(0)
 
-    # === TIME FEATURES ===
-    # Hour of day (assuming UTC timestamps)
-    if isinstance(df.index, pd.DatetimeIndex):
-        df['hour'] = df.index.hour
-        df['day_of_week'] = df.index.dayofweek
-        df['month'] = df.index.month
-    else:
-        df['hour'] = 12
-        df['day_of_week'] = 0
-        df['month'] = 1
+    # Volume Price Trend
+    df['vpt'] = (close.pct_change() * volume).cumsum()
 
-    # === TREND FEATURES ===
-    # Trend strength
-    df['ema9_trend'] = np.where(df['close'] > df['ema9'], 1, -1)
-    df['ema21_trend'] = np.where(df['close'] > df['ema21'], 1, -1)
-    df['sma_trend'] = np.where(df['close'] > df['sma20'], 1, -1)
+    # Intraday momentum
+    df['intraday_momentum'] = (close - df['open']) / df['open'] * 100
 
-    # Momentum
-    df['momentum'] = (close - close.shift(10)) / close.shift(10)
-    df['momentum'] = df['momentum'].fillna(0)
+    # === v3.3 FEATURES ===
 
-    # Distance from moving averages
-    df['dist_ema9'] = (close - df['ema9']) / close
-    df['dist_ema21'] = (close - df['ema21']) / close
-    df['dist_sma20'] = (close - df['sma20']) / close
+    # Market regime
+    df['market_regime'] = calculate_market_regime(df)
 
-    # Fill any remaining NaN values
-    df = df.fillna(0)
+    # === v3.4 ADVANCED FEATURES ===
 
-    return df
-
-
-def add_all_new_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add all advanced features to the dataframe for enhanced ML performance.
-    Includes technical indicators, sentiment analysis, and market regime features.
-    """
-    df = add_indicators(df)
-
-    # === ADVANCED MOMENTUM INDICATORS ===
+    # Stochastic RSI
     df['stoch_rsi'] = calculate_stoch_rsi(df, 14)
+
+    # KST Oscillator
     df['kst'] = calculate_kst(df)
-    df['cci'] = calculate_cci(df, 20)
+
+    # Detrended Price Oscillator
     df['dpo'] = calculate_dpo(df, 20)
 
-    # === ADVANCED VOLATILITY INDICATORS ===
+    # Ulcer Index
     df['ulcer_index'] = calculate_ulcer_index(df, 14)
 
-    # === ADVANCED VOLUME INDICATORS ===
-    df['force_index'] = calculate_force_index(df, 13)
+    # VWAP
     df['vwap'] = calculate_vwap(df)
 
-    # === MARKET REGIME FEATURES ===
-    df['market_regime'] = calculate_market_regime(df)
+    # Advanced market regime
+    df['market_regime_advanced'] = calculate_market_regime_advanced(df)
+
+    # Sentiment proxy
     df['sentiment_proxy'] = calculate_sentiment_proxy(df)
 
-    # === INTERACTIONS AND DERIVED FEATURES ===
-    # RSI + Momentum interactions
-    df['rsi_momentum'] = df['rsi'] * df['momentum']
-    df['stoch_rsi_kst'] = df['stoch_rsi'] * df['kst']
+    # Feature interactions
+    df['rsi_stoch_rsi'] = df['rsi'] * df['stoch_rsi']
+    df['cci_kst'] = df['cci'] * df['kst']
+    df['vol_price_change'] = df['atr_pct'] * df['roc_5'].abs()
+    df['regime_volatility'] = df['market_regime'] * df['atr_pct']
 
-    # Volatility + Volume interactions
-    df['vol_price_change'] = df['volatility'] * df['returns'].abs()
-    df['volume_volatility'] = df['volume_change'] * df['volatility']
+    # Statistical features
+    df['returns_skew'] = close.pct_change().rolling(20).skew().fillna(0)
+    df['returns_kurtosis'] = close.pct_change().rolling(20).kurt().fillna(0)
 
-    # Trend + Momentum combinations
-    df['trend_momentum'] = df['ema9_trend'] * df['momentum']
-    df['regime_trend'] = df['market_regime'] * df['adx']
-
-    # === SEASONAL AND TIME-BASED FEATURES ===
-    # Market hours (crypto markets are 24/7, but there are patterns)
-    df['is_asian_session'] = ((df['hour'] >= 0) & (df['hour'] < 8)).astype(int)
-    df['is_european_session'] = ((df['hour'] >= 8) & (df['hour'] < 16)).astype(int)
-    df['is_us_session'] = ((df['hour'] >= 16) & (df['hour'] < 24)).astype(int)
-
-    # Weekend effect (Friday-Sunday might have different behavior)
-    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
-
-    # === STATISTICAL FEATURES ===
-    # Higher order moments
-    df['skewness'] = df['returns'].rolling(20).skew().fillna(0)
-    df['kurtosis'] = df['returns'].rolling(20).kurt().fillna(0)
-
-    # Autocorrelation
-    df['autocorr_1'] = df['returns'].rolling(20).corr(df['returns'].shift(1)).fillna(0)
-    df['autocorr_5'] = df['returns'].rolling(20).corr(df['returns'].shift(5)).fillna(0)
-
-    # === MARKET MICROSTRUCTURE ===
-    # Bid-ask spread proxy (using high-low range)
-    df['spread_proxy'] = (df['high'] - df['low']) / df['close']
-    df['realized_volatility'] = df['returns'].rolling(20).std() * np.sqrt(252)  # Annualized
+    # Cyclical time features
+    df['hour_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / 24)
+    df['hour_cos'] = np.cos(2 * np.pi * df['hour_of_day'] / 24)
+    df['day_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
+    df['day_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
 
     # Fill any remaining NaN values
     df = df.fillna(0)
