@@ -475,6 +475,17 @@ class NexusBridge:
         return {"ok": False, "details": f"Exchange no soportado: {ex}"}
 
 
+    def _sanitize_error_for_markdown(self, error: str) -> str:
+        """
+        Sanitize error messages containing JSON for safe Markdown display.
+        Replaces problematic characters that Telegram Markdown parser can't handle.
+        """
+        return (str(error)
+                .replace('{', '[')
+                .replace('}', ']')
+                .replace('"', "'")
+                .replace('\\', '/'))
+
     async def cancel_protection_orders(self, symbol: str, exchange: str) -> bool:
         """
         Cancela órdenes protectoras en el exchange correcto.
@@ -644,7 +655,9 @@ class NexusBridge:
         ok = applied["sl"] and applied["tp"]
         details = f"Binance: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
         if errors:
-            details += f" | Errors: {errors}"
+            # Sanitize errors for safe Markdown display
+            safe_errors = [self._sanitize_error_for_markdown(error) for error in errors]
+            details += f" | Errors: {safe_errors}"
 
         return {"ok": ok, "details": details, "applied": applied, "errors": errors}
 
@@ -781,7 +794,9 @@ class NexusBridge:
         ok = applied["sl"] and applied["tp"]
         details = f"Bybit: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
         if errors:
-            details += f" | Errors: {errors}"
+            # Sanitize errors for safe Markdown display
+            safe_errors = [self._sanitize_error_for_markdown(error) for error in errors]
+            details += f" | Errors: {safe_errors}"
 
         return {"ok": ok, "details": details, "applied": applied, "errors": errors}
 
