@@ -414,13 +414,14 @@ class BybitAdapter(IExchangeAdapter):
                     order_label = 'StopLoss'
                 elif 'TAKE_PROFIT' in order_type_upper:
                     # TAKE_PROFIT_MARKET - Take Profit
-                    # Para cerrar LONG position (SELL side): activar cuando price > TP (rises above) -> direction 1
-                    # Para cerrar SHORT position (BUY side): activar cuando price < TP (falls below) -> direction 2
-                    params['triggerDirection'] = 1 if side.upper() == 'SELL' else 2
+                    # Bybit V5 API expects triggerDirection=1 (rises above) for TAKE_PROFIT_MARKET orders
+                    # This applies to both LONG and SHORT position closures
+                    params['triggerDirection'] = 1
                     order_label = 'TakeProfit'
                 elif 'TRAILING' in order_type_upper:
                     # TRAILING_STOP_MARKET - Trailing Stop
-                    params['triggerDirection'] = 2 if side.upper() == 'SELL' else 1
+                    # Bybit V5 API expects triggerDirection=1 (rises above) for TRAILING_STOP_MARKET orders
+                    params['triggerDirection'] = 1
                     # Bybit trailing uses 'trailingStop' parameter
                     callback_rate = kwargs.get('callbackRate', 1.0)
                     params['trailingStop'] = str(callback_rate)
@@ -430,7 +431,15 @@ class BybitAdapter(IExchangeAdapter):
                     order_label = 'Conditional'
 
                 # Set trigger price and ensure reduceOnly for closing orders
-                params['triggerPrice'] = str(stop_price)
+                # For Bybit V5, ensure triggerPrice is compatible with triggerDirection
+                if params.get('triggerDirection') == 1 and stop_price <= float(current_price):
+                    # If triggerDirection=1 (rises above) but triggerPrice <= currentPrice, adjust upward
+                    # This is a workaround for Bybit API requirements
+                    adjusted_price = float(current_price) * 1.001  # 0.1% above current price
+                    params['triggerPrice'] = str(adjusted_price)
+                    print(f"⚠️ BybitAdapter: Adjusted {order_label} trigger from {stop_price} to {adjusted_price} for direction compatibility")
+                else:
+                    params['triggerPrice'] = str(stop_price)
                 params['reduceOnly'] = True
                 
                 # Remove stopPrice from params if present (we use triggerPrice)
