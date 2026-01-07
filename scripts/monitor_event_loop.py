@@ -115,41 +115,9 @@ class EventLoopMonitor:
             return {}
 
     async def benchmark_xai_operations(self) -> Dict[str, float]:
-        """Benchmark XAI operations."""
-        logger.info("🧪 Benchmarking XAI operations...")
-
-        try:
-            from servos.xai_integration import xai_integration
-
-            results = {}
-
-            if not xai_integration.xai_available:
-                logger.info("⚠️ XAI not configured - skipping benchmark")
-                return {'xai_available': False}
-
-            # Test XAI query (will fail without real key, but measures blocking)
-            start_time = time.time()
-
-            try:
-                result = await xai_integration.query_xai("Test query for benchmarking")
-                success = True
-            except Exception as e:
-                success = False
-                logger.info(f"XAI query failed (expected): {str(e)[:50]}...")
-
-            query_time = time.time() - start_time
-            results['xai_query_time'] = query_time
-            results['xai_success'] = success
-
-            # Check if it blocked (should be fast even if failed)
-            if query_time < 2:  # Should fail quickly, not block
-                logger.info("✅ XAI async: No blocking detected"            else:
-                logger.warning(".2f"
-            return results
-
-        except Exception as e:
-            logger.error(f"❌ XAI benchmark failed: {e}")
-            return {'error': str(e)}
+        """Benchmark XAI operations - DISABLED: xAI removed."""
+        logger.info("ℹ️ xAI integration removed - skipping benchmark")
+        return {'xai_available': False, 'xai_removed': True}
 
     async def benchmark_concurrent_operations(self, num_operations: int = 100) -> Dict[str, Any]:
         """Benchmark concurrent operations."""

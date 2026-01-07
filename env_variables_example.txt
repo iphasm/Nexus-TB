@@ -11,7 +11,7 @@ OPENAI_API_KEY=sk-proj-tu_clave_de_openai_aqui...
 
 # xAI API Key (OPCIONAL - para análisis híbrido)
 # Obtener en: https://x.ai/
-XAI_API_KEY=xai-tu_clave_de_xai_aqui...
+# XAI_API_KEY=xai-tu_clave_de_xai_aqui...  # REMOVED: xAI integration removed
 
 # ===================================================================
 # 🪙 APIs DE DATOS DE CRIPTOMONEDAS

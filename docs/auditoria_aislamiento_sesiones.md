@@ -162,7 +162,7 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
 |----------------|-------------|-----------------|------------|
 | **personality_manager** | Sistema | ✅ Compartido | BAJO |
 | **ai_filter_engine** | IA System | ✅ Singleton | BAJO |
-| **xai_integration** | IA System | ✅ Singleton | BAJO |
+# | **xai_integration** | IA System | ✅ Singleton | BAJO |  # REMOVED: xAI integration removed
 | **cooldown_manager** | Sistema | ✅ Per-symbol/exchange | BAJO |
 | **price_cache** | Market Data | ✅ Thread-safe | BAJO |
 
@@ -194,20 +194,7 @@ should_filter, reason, analysis = await should_filter_signal(signal_data, sessio
 - ✅ **Configuración per-session**
 - ✅ **No almacena estado persistente**
 
-#### **3. xai_integration** ✅ **SEGURO**
-```python
-# Singleton global para integración XAI
-xai_integration = NexusXAIIntegration()
-
-# Uso: Consultas a API externa
-result = await xai_integration.query_xai(prompt)
-```
-**Por qué es seguro**:
-- ✅ **API calls stateless**
-- ✅ **Rate limiting global** (correcto)
-- ✅ **No estado por usuario**
-
-#### **4. cooldown_manager** ✅ **SEGURO**
+#### **3. cooldown_manager** ✅ **SEGURO**
 ```python
 # Global pero per-symbol/exchange
 cooldown_manager = DynamicCooldownManager()
@@ -220,7 +207,7 @@ if cooldown_manager.is_on_cooldown(symbol, exchange):
 - ✅ **No estado por usuario**
 - ✅ **Thread-safe**
 
-#### **5. price_cache** ✅ **SEGURO**
+#### **4. price_cache** ✅ **SEGURO**
 ```python
 # Singleton thread-safe para datos de mercado
 price_cache = get_price_cache()

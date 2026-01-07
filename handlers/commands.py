@@ -1118,9 +1118,8 @@ async def cmd_ai_status(message: Message, **kwargs):
         from servos.ai_filter import get_filter_stats
         filter_stats = get_filter_stats()
 
-        # Get xAI integration stats
-        from servos.xai_integration import xai_integration
-        xai_stats = xai_integration.get_usage_stats()
+        # xAI integration removed - using OpenAI only
+        xai_stats = {'xai_available': False}
 
         # Get session config
         ai_filter_enabled = session.config.get('sentiment_filter', True) if session else True
@@ -1136,21 +1135,12 @@ async def cmd_ai_status(message: Message, **kwargs):
         status_msg += (
             "✨ **AI FILTER (Filtrado Inteligente)**\n"
             f"• Estado: {'🟢 ACTIVO' if ai_filter_enabled else '🔴 DESACTIVADO'}\n"
-            f"• Sistema Híbrido: {'✅ Disponible' if xai_integration.xai_available else '❌ No disponible'}\n"
+            f"• Sistema AI: OpenAI-only (xAI removed)\n"
             f"• Cache: {filter_stats.get('cache_size', 0)} elementos\n"
             f"• Última actualización: {datetime.now().strftime('%H:%M:%S')}\n\n"
         )
 
-        # xAI Integration Status
-        status_msg += (
-            "🤖 **XAI INTEGRATION (Sistema Híbrido)**\n"
-            f"• Estado: {'🟢 ACTIVO' if xai_integration.xai_available else '🔴 DESACTIVADO'}\n"
-            f"• Modelo: {xai_stats.get('xai_model', 'N/A')}\n"
-            f"• Consultas totales: {xai_stats.get('xai_queries', 0)}\n"
-            f"• Tasa de éxito: {xai_stats.get('success_rate', 0):.1f}%\n"
-            f"• Tiempo respuesta promedio: {xai_stats.get('avg_response_time', 0):.2f}s\n"
-            f"• Costo total: ${xai_stats.get('total_cost', 0):.4f}\n\n"
-        )
+        # xAI Integration removed - using OpenAI only
 
         # ML Classifier Status
         status_msg += (
@@ -1172,8 +1162,8 @@ async def cmd_ai_status(message: Message, **kwargs):
         # System Health
         status_msg += (
             "🔧 **SALUD DEL SISTEMA**\n"
-            f"• Fallback automático: {'✅ Funcionando' if xai_integration.xai_available else '⚠️ Limitado'}\n"
-            f"• Redundancia: {'✅ Alta' if xai_integration.xai_available else '⚠️ Media'}\n"
+            f"• Fallback automático: ⚠️ Limitado (xAI removed)\n"
+            f"• Redundancia: ⚠️ Media (xAI removed)\n"
             f"• Último check: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         )
 

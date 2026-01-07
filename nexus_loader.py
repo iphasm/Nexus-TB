@@ -940,12 +940,8 @@ async def main():
         try:
             from nexus_system.core.engine import NexusCore
 
-            # Initialize xAI Integration for hybrid AI system
-            from servos.xai_integration import xai_integration
-            if xai_integration.xai_available:
-                nexus_logger.phase_success("xAI Grok connected", "Response <2s")
-            else:
-                nexus_logger.phase_warning("xAI not configured", "xAI features disabled")
+            # xAI Integration removed - using OpenAI only
+            nexus_logger.phase_info("AI System initialized", "OpenAI-only configuration")
 
             # Initialize AI Filter Engine
             from servos.ai_filter import initialize_ai_filter

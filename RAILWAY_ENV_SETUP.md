@@ -9,7 +9,7 @@ Este documento explica cómo configurar las variables de entorno necesarias para
 | Variable | Descripción | Requerida | Cómo obtener |
 |----------|-------------|-----------|--------------|
 | `OPENAI_API_KEY` | API Key de OpenAI para GPT-4o Mini | ✅ Sí | [OpenAI Platform](https://platform.openai.com/api-keys) |
-| `XAI_API_KEY` | API Key de xAI (opcional, para análisis híbrido) | ❌ No | [xAI Platform](https://x.ai/) |
+# | `XAI_API_KEY` | API Key de xAI (opcional, para análisis híbrido) | ❌ No | [xAI Platform](https://x.ai/) |  # REMOVED: xAI integration removed
 
 ### 🪙 APIs de Datos de Criptomonedas
 
@@ -41,7 +41,7 @@ COINGECKO_API_KEY=CG-tu_clave_de_coingecko_aqui...
 
 #### Variables Opcionales:
 ```
-XAI_API_KEY=xai-tu_clave_de_xai_aqui...
+# XAI_API_KEY=xai-tu_clave_de_xai_aqui...  # REMOVED: xAI integration removed
 CRYPTOPANIC_API_KEY=tu_clave_de_cryptopanic_aqui...
 DATABASE_URL=postgresql://usuario:contraseña@host:5432/base_datos
 ```

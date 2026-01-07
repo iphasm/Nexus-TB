@@ -37,7 +37,7 @@ class AIFilterEngine:
     def __init__(self):
         self.cache = {}
         self.cache_timeout = 300  # 5 minutos
-        self.xai_integration = None
+        # xai_integration removed - using OpenAI only
         self.valuation_system = None
         self.valuation_cache = {}  # Cache para valoraciones por cripto
         self.valuation_cache_timeout = 600  # 10 minutos para valoraciones
@@ -449,37 +449,13 @@ class AIFilterEngine:
             return {'score': 0.5, 'direction': 'Neutral', 'strength': 'Unknown', 'error': str(e)}
 
     async def _get_social_sentiment(self, symbol: str) -> Dict[str, Any]:
-        """Obtener sentimiento social usando el sistema híbrido."""
-        if not self.xai_integration:
-            return {'available': False, 'reason': 'Sistema híbrido no disponible'}
-
-        try:
-            # Usar xAI para analizar sentimiento social
-            query = f"Analiza el sentimiento actual en redes sociales para {symbol}. ¿Es predominantemente positivo, negativo o neutral? Proporciona un score de -1 a 1."
-
-            result = self.xai_integration.query_xai(query, context="analysis", max_retries=1)
-
-            if result['success']:
-                # Intentar extraer un score numérico de la respuesta
-                response_text = result['response'].lower()
-                if 'positivo' in response_text or 'bullish' in response_text:
-                    score = 0.7
-                elif 'negativo' in response_text or 'bearish' in response_text:
-                    score = -0.7
-                else:
-                    score = 0.0
-
-                return {
-                    'available': True,
-                    'score': score,
-                    'analysis': result['response'][:200],
-                    'provider': result['provider']
-                }
-            else:
-                return {'available': False, 'reason': 'Análisis falló', 'error': result.get('error')}
-
-        except Exception as e:
-            return {'available': False, 'reason': 'Error en análisis', 'error': str(e)}
+        """Obtener sentimiento social - SIMPLIFICADO sin xAI."""
+        # xAI removed - returning neutral sentiment by default
+        return {
+            'available': False,
+            'reason': 'Social sentiment analysis disabled (xAI removed)',
+            'score': 0.0
+        }
 
     async def _get_ai_valuation(self, symbol: str) -> Dict[str, Any]:
         """Obtener valoración completa de GPT-4o Mini para el símbolo."""
@@ -608,59 +584,9 @@ class AIFilterEngine:
 
     async def _analyze_with_hybrid_ai(self, signal_data: Dict[str, Any],
                                     sentiment_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Analizar la señal con IA híbrida."""
-        if not self.xai_integration:
-            return {'available': False, 'reason': 'Sistema híbrido no disponible'}
-
-        try:
-            # Crear un prompt inteligente para el análisis
-            prompt = f"""Analiza si esta señal de trading debería ser filtrada:
-
-SÍMBOLO: {signal_data['symbol']}
-DIRECCIÓN: {signal_data.get('side', 'UNKNOWN')}
-PRECIO ENTRADA: ${signal_data.get('entry_price', 0):.2f}
-
-DATOS DE SENTIMIENTO:
-- Fear & Greed Index: {sentiment_data.get('fear_greed', {}).get('value', 'N/A')} ({sentiment_data.get('fear_greed', {}).get('classification', 'N/A')})
-- Volatilidad: {sentiment_data.get('volatility', {}).get('classification', 'N/A')}
-- Momentum: {sentiment_data.get('momentum', {}).get('direction', 'N/A')} ({sentiment_data.get('momentum', {}).get('strength', 'N/A')})
-
-¿Debería filtrarse esta señal? Considera:
-1. ¿El sentimiento del mercado es favorable para esta dirección?
-2. ¿La volatilidad es apropiada para esta señal?
-3. ¿El momentum técnico confirma la dirección?
-4. ¿Hay riesgos de reversión basados en sentimiento?
-
-Responde SÍ/NO para filtrar, con explicación concisa."""
-
-            result = self.xai_integration.query_xai(prompt, context="alert", max_retries=1)
-
-            if result['success']:
-                response = result['response'].upper()
-                should_filter = 'SÍ' in response or 'SI' in response or 'FILTER' in response
-
-                return {
-                    'available': True,
-                    'should_filter': should_filter,
-                    'analysis': result['response'],
-                    'confidence': 0.8,  # Podríamos calcular esto basado en la respuesta
-                    'provider': result['provider']
-                }
-            else:
-                return {
-                    'available': False,
-                    'should_filter': False,  # Default: no filtrar si falla
-                    'reason': 'Análisis falló',
-                    'error': result.get('error')
-                }
-
-        except Exception as e:
-            return {
-                'available': False,
-                'should_filter': False,
-                'reason': 'Error en análisis IA',
-                'error': str(e)
-            }
+        """Analizar la señal - SIMPLIFICADO sin xAI."""
+        # xAI removed - simplified analysis
+        return {'available': False, 'reason': 'Hybrid AI analysis disabled (xAI removed)'}
 
     def _calculate_filter_decision(self, signal_data: Dict[str, Any],
                                  sentiment_data: Dict[str, Any],
@@ -854,7 +780,7 @@ Responde SÍ/NO para filtrar, con explicación concisa."""
             'cache_timeout': self.cache_timeout,
             'valuation_cache_size': len(self.valuation_cache),
             'valuation_cache_timeout': self.valuation_cache_timeout,
-            'xai_available': self.xai_integration is not None,
+            'xai_available': False,  # xAI removed
             'gpt_valuation_available': self.valuation_system is not None,
             'primary_model': self.valuation_system.primary_model['name'] if self.valuation_system else None,
             'apis_integrated': {

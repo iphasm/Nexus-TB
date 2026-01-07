@@ -169,13 +169,13 @@ class SessionIsolationAuditor:
         # Import global instances
         try:
             from servos.ai_filter import ai_filter_engine
-            from servos.xai_integration import xai_integration
+            # xai_integration removed
             from nexus_loader import cooldown_manager, personality_manager
 
             # These should exist and be singletons
             checks = [
                 (ai_filter_engine is not None, "AI filter engine exists"),
-                (xai_integration is not None, "XAI integration exists"),
+                # (xai_integration is not None, "XAI integration exists"),  # REMOVED
                 (cooldown_manager is not None, "Cooldown manager exists"),
                 (personality_manager is not None, "Personality manager exists"),
             ]
