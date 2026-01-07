@@ -431,15 +431,7 @@ class BybitAdapter(IExchangeAdapter):
                     order_label = 'Conditional'
 
                 # Set trigger price and ensure reduceOnly for closing orders
-                # For Bybit V5, ensure triggerPrice is compatible with triggerDirection
-                if params.get('triggerDirection') == 1 and stop_price <= float(current_price):
-                    # If triggerDirection=1 (rises above) but triggerPrice <= currentPrice, adjust upward
-                    # This is a workaround for Bybit API requirements
-                    adjusted_price = float(current_price) * 1.001  # 0.1% above current price
-                    params['triggerPrice'] = str(adjusted_price)
-                    print(f"⚠️ BybitAdapter: Adjusted {order_label} trigger from {stop_price} to {adjusted_price} for direction compatibility")
-                else:
-                    params['triggerPrice'] = str(stop_price)
+                params['triggerPrice'] = str(stop_price)
                 params['reduceOnly'] = True
                 
                 # Remove stopPrice from params if present (we use triggerPrice)
