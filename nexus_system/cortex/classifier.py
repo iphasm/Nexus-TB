@@ -52,7 +52,7 @@ class MarketClassifier:
         # --- CLASSIFICATION LOGIC (Reordered for Scalping Priority) ---
         
         # 1. EXTREME VOLATILITY → Force Scalping
-        # When ATR% is very high, scalping is the best approach regardless of trend
+        # When ATR% is very high, mean reversion is the best approach regardless of trend
         if atr_pct > 2.0:
             return MarketRegime(
                 regime="VOLATILE",

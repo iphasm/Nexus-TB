@@ -2014,7 +2014,7 @@ class AsyncTradingSession:
             if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
                 self.logger.info(f"🎯 {symbol} Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
 
-                # Si tenemos ATR disponible (estrategias como scalping lo usan), recalcular usando ATR
+                # Si tenemos ATR disponible, recalcular usando ATR (como hacen algunas estrategias)
                 if atr and atr > 0:
                     # Usar la misma lógica ATR que la estrategia original
                     if side == 'LONG':
@@ -2390,7 +2390,7 @@ class AsyncTradingSession:
             if abs(entry_price - decision_data['current_price']) / decision_data['current_price'] > 0.001:  # >0.1% diferencia
                 self.logger.info(f"🎯 {symbol} SHORT Recalculando TP: current_price={decision_data['current_price']:.6f}, entry_price={entry_price:.6f}")
 
-                # Si tenemos ATR disponible (estrategias como scalping lo usan), recalcular usando ATR
+                # Si tenemos ATR disponible, recalcular usando ATR (como hacen algunas estrategias)
                 if atr and atr > 0:
                     # Usar la misma lógica ATR que la estrategia original
                     if side == 'LONG':

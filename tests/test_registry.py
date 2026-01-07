@@ -22,7 +22,7 @@ class TestStrategyRegistry(unittest.TestCase):
         self.assertGreater(len(strategies), 0, "Should discover at least one strategy")
         
         # Check known strategies are found
-        known = ['TrendFollowingStrategy', 'ScalpingStrategy', 'GridTradingStrategy', 'MeanReversionStrategy']
+        known = ['TrendFollowingStrategy', 'GridTradingStrategy', 'MeanReversionStrategy']  # ScalpingStrategy disabled
         for name in known:
             self.assertIn(name, strategies, f"Should find {name}")
 

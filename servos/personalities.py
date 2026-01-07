@@ -221,7 +221,7 @@ class PersonalityManager:
             'WALLET_HEADER': "💳 **ACCOUNT BALANCE**",
             'STATUS_FOOTER': "\n*System nominal.*",
             'RISK_MSG': "🛡️ **RISK CONFIGURATION**\nStop Loss: `{sl_fixed}` | Margin: **{margin}**",
-            'STRATEGY_MSG': "🧠 **NEXUS STRATEGY**\n\nSystem uses adaptive algorithms:\n1. **Trend**: EMA crosses & ADX for long moves.\n2. **Range**: Grid Trading for chopping markets.\n3. **Volatility**: Breakout scalping for fast assets.",
+            'STRATEGY_MSG': "🧠 **NEXUS STRATEGY**\n\nSystem uses adaptive algorithms:\n1. **Trend**: EMA crosses & ADX for long moves.\n2. **Range**: Grid Trading for chopping markets.\n3. **Volatility**: Mean Reversion for volatile conditions.",
             'ABOUT_MSG': "ℹ️ **ABOUT NEXUS**\n\nAutonomous trading bot for Binance/Alpaca. Features risk management, multi-strategy execution, and adaptive personality modules.",
             'TRADE_LONG': (
                 "📢 SIGNAL TRADE TRIGGER 🤖\n\n"
@@ -1597,7 +1597,7 @@ class PersonalityManager:
             'NAME': "🧪 Rick Sanchez",
             'GREETING': [
                 "Wubba Lubba Dub Dub!",
-                "Aventura de 20 minutos de scalping, **{user_name}**.",
+                "Aventura de trading adaptativo, **{user_name}**.",
                 "El mercado bajista es dolor, **{user_name}**."
             ],
             'WELCOME': [

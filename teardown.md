@@ -81,7 +81,7 @@ The bot uses a Random Forest / XGBoost model to classify the market structure (T
 ### A. The Signal Loop
 1. **Tick**: WebSocket receives price update for `BTCUSDT`.
 2. **Shield**: `RiskManager` checks for Black Swan.
-3. **Cortex**: If safe, `StrategyFactory` selects strategy (e.g., `ScalpingStrategy`).
+3. **Cortex**: If safe, `StrategyFactory` selects strategy (e.g., `TrendFollowingStrategy`).
 4. **Analysis**: Strategy calculates RSI, EMA, ADX. Returns `Signal(BUY/SELL)`.
 5. **Core**: `NexusCore` dispatches Signal.
 6. **Servo**: `TradingManager` executes order on Binance/Alpaca.
