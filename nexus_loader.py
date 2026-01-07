@@ -941,7 +941,7 @@ async def main():
             from nexus_system.core.engine import NexusCore
 
             # xAI Integration removed - using OpenAI only
-            nexus_logger.phase_info("AI System initialized", "OpenAI-only configuration")
+            nexus_logger.phase_success("AI System initialized", "OpenAI-only configuration")
 
             # Initialize AI Filter Engine
             from servos.ai_filter import initialize_ai_filter
@@ -1022,13 +1022,13 @@ async def main():
                     # Nexus Core loop started
                     await engine.run()
                 except Exception as e:
-                    logger.error(f"❌ Nexus Core: Error crítico - {e}", exc_info=True)
+                    logger.error(f"❌ Nexus Core: Error crítico - {e}")
             
             # Create engine task (will run concurrently with bot)
             engine_task = asyncio.create_task(run_engine_with_logging())
             
         except Exception as e:
-            logger.warning(f"⚠️ Nexus Core init failed: {e}", exc_info=True)
+            logger.error(f"⚠️ Nexus Core init failed: {e}")
 
     # Phase 5: Exchanges & Connectivity
     nexus_logger.phase_start(5, "EXCHANGES & CONNECTIVITY", "🌐")
