@@ -249,3 +249,4 @@ Modificar los prompts en las funciones `get_openai_valuation()` y `get_grok_valu
 **Sistema integrado en Nexus Trading Bot** - Valoración inteligente de criptomonedas
 
 
+

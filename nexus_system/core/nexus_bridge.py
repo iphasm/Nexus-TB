@@ -515,7 +515,44 @@ class NexusBridge:
                 workingType=config.get("protection_trigger_by", "MARK_PRICE"),
             )
             if "error" in sl_res:
-                errors.append(f"SL: {sl_res['error']}")
+                error_msg = str(sl_res.get('error', ''))
+                
+                # FIX #2: Retry con precio ajustado si -2021 (ORDER_WOULD_IMMEDIATELY_TRIGGER)
+                if "ORDER_WOULD_IMMEDIATELY_TRIGGER" in error_msg or "-2021" in error_msg:
+                    print(f"🔄 Binance: SL -2021 detected for {symbol}, retrying with adjusted price...")
+                    
+                    # Obtener precio actual para ajustar SL
+                    current_price = await self.get_last_price(symbol, exchange="BINANCE")
+                    if current_price > 0:
+                        min_distance = current_price * 0.005  # 0.5% mínimo de distancia
+                        
+                        if side == "LONG":
+                            # SL para LONG debe estar DEBAJO del precio actual
+                            adjusted_sl = current_price - min_distance
+                        else:
+                            # SL para SHORT debe estar ARRIBA del precio actual
+                            adjusted_sl = current_price + min_distance
+                        
+                        # Reintentar con precio ajustado
+                        print(f"🔄 Binance: Adjusting SL from {sl:.6f} to {adjusted_sl:.6f}")
+                        sl_res2 = await self.place_order(
+                            symbol=symbol,
+                            side=close_side,
+                            order_type="STOP_MARKET",
+                            quantity=qty,
+                            price=adjusted_sl,
+                            reduceOnly=True,
+                            workingType=config.get("protection_trigger_by", "MARK_PRICE"),
+                        )
+                        if "error" not in sl_res2:
+                            applied["sl"] = True
+                            print(f"✅ Binance: SL placed with adjusted price for {symbol}")
+                        else:
+                            errors.append(f"SL (retry): {sl_res2['error']}")
+                    else:
+                        errors.append(f"SL: {error_msg} (could not get current price for adjustment)")
+                else:
+                    errors.append(f"SL: {error_msg}")
             else:
                 applied["sl"] = True
         except Exception as e:
@@ -560,7 +597,39 @@ class NexusBridge:
             except Exception as e:
                 errors.append(f"Trailing Exception: {e}")
 
-        ok = applied["sl"] or applied["tp"]  # Al menos SL o TP debe funcionar
+        # NUEVO: Verificación post-colocación (como Bybit)
+        import asyncio
+        await asyncio.sleep(0.3)  # Breve delay para propagación API
+        
+        try:
+            open_orders = await self.get_open_orders(symbol, exchange="BINANCE")
+            
+            # Verificar que SL realmente existe
+            has_sl_order = any(
+                o.get('type', '').upper() in ['STOP_MARKET', 'STOP'] 
+                for o in open_orders
+            )
+            has_tp_order = any(
+                o.get('type', '').upper() in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT'] 
+                for o in open_orders
+            )
+            
+            if applied["sl"] and not has_sl_order:
+                print(f"⚠️ Binance: SL verification failed for {symbol} - order not found")
+                applied["sl"] = False
+                errors.append("SL verification failed - order not found in open orders")
+            
+            if applied["tp"] and not has_tp_order:
+                print(f"⚠️ Binance: TP verification failed for {symbol} - order not found")
+                applied["tp"] = False
+                errors.append("TP verification failed - order not found in open orders")
+                
+        except Exception as verify_err:
+            print(f"⚠️ Binance: Verification check failed: {verify_err}")
+
+        # FIX CRÍTICO: Requiere AMBOS SL y TP para protección completa
+        # ANTES: ok = applied["sl"] or applied["tp"] (permitía sin SL si TP funcionaba)
+        ok = applied["sl"] and applied["tp"]
         details = f"Binance: SL={applied['sl']}, TP={applied['tp']}, Trailing={applied['trailing']}"
         if errors:
             details += f" | Errors: {errors}"

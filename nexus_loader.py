@@ -480,19 +480,25 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                 await safe_send_message(bot, session.chat_id, msg, parse_mode="Markdown")
 
             elif effective_mode == 'COPILOT':
+                # Safe casting to float to avoid "Unknown format code 'f' for object of type 'str'"
+                safe_price = float(price) if price is not None else 0.0
+                safe_tp = float(tp_prev) if tp_prev is not None else 0.0
+                safe_sl = float(sl_prev) if sl_prev is not None else 0.0
+                safe_ts = float(ts_prev) if ts_prev is not None else 0.0
+
                 if side == 'LONG':
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_LONG',
-                        asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        asset=symbol, price=safe_price, reason=reason,
+                        tp=safe_tp, sl=safe_sl, ts=safe_ts,
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name, exchange=exchange_display
                     )
                 else:
                     msg = personality_manager.get_message(
                         p_key, 'TRADE_SHORT',
-                        asset=symbol, price=price, reason=reason,
-                        tp=tp_prev, sl=sl_prev, ts=ts_prev,
+                        asset=symbol, price=safe_price, reason=reason,
+                        tp=safe_tp, sl=safe_sl, ts=safe_ts,
                         title=title, quote=quote, strategy_name=strategy,
                         user_name=user_name, exchange=exchange_display
                     )

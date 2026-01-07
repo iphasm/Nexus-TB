@@ -181,7 +181,14 @@ class MLClassifier:
             # Return the feature vector (last row only, as numpy array)
             features_df = df_with_all_features[available_features].iloc[-1:].copy()
 
-            return features_df
+            # NUEVO: Validar que no haya demasiados NaN
+            nan_count = features_df.isna().sum().sum()
+            if nan_count > len(available_features) * 0.2:  # >20% NaN
+                print(f"⚠️ Too many NaN in features ({nan_count}/{len(available_features)}), using fallback")
+                return MLClassifier._extract_basic_features(df)
+            
+            # Rellenar NaN restantes con 0
+            features_df = features_df.fillna(0)
             
             return features_df
             
@@ -226,7 +233,7 @@ class MLClassifier:
                 feature_name_check = any(symbol.upper() in str(name).upper() for name in cls._feature_names[:20])
                 if not feature_name_check:
                     print(f"🔄 ML Bypass: {symbol} likely not in training data (legacy check), using rule-based classifier")
-                    return None  # Trigger fallback to rule-based
+                return None  # Trigger fallback to rule-based
 
         features = cls._extract_features(market_data.get('dataframe'))
         if features is None:

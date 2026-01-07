@@ -595,8 +595,8 @@ class BybitAdapter(IExchangeAdapter):
                 print(f"ℹ️ BybitAdapter: Trading stop unchanged for {symbol} (not modified)")
                 return {'success': True, 'message': 'Trading stop unchanged (not modified)', 'result': {'code': 34040}}
             else:
-                print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
-                return {'success': False, 'message': str(e)}
+            print(f"⚠️ BybitAdapter: set_trading_stop error: {e}")
+            return {'success': False, 'message': str(e)}
 
     async def amend_order(
         self, 

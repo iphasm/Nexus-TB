@@ -253,3 +253,4 @@ Para mejorar el sistema:
 **Desarrollado para Nexus Trading Bot** - Sistema híbrido OpenAI + xAI
 
 
+

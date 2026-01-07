@@ -2159,6 +2159,13 @@ class PersonalityManager:
             # Pre-process kwargs to ensure numbers are safely formatted
             processed_kwargs = {}
             for k, v in kwargs.items():
+                # Defensive casting: Convert numeric strings to float
+                if k in ['price', 'tp', 'sl', 'ts'] and isinstance(v, str):
+                    try:
+                        v = float(v)
+                    except (ValueError, TypeError):
+                        pass # Keep as string if conversion fails
+
                 if isinstance(v, float) and k in ['price', 'tp', 'sl', 'ts']:
                     # Special handling for price fields - ensure no commas
                     processed_kwargs[k] = safe_format_number(v, 2)
@@ -2174,7 +2181,7 @@ class PersonalityManager:
             try:
                 # Basic cleanup of common placeholders if they are missing
                 defaults = {
-                    'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER',
+                    'status_text': 'Nominal', 'status_icon': '🟢', 'mode': 'WATCHER', 
                     'auth': 'User', 'asset': 'BTC', 'price': '0.00', 'tp': '0.00', 'sl': '0.00',
                     'ts': '0.00', 'reason': 'Análisis técnico', 'side_long': 'LONG',
                     'strategy_name': 'Nexus', 'quote': 'Génesis', 'title': 'ALERTA'

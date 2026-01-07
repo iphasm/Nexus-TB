@@ -2077,7 +2077,15 @@ class AsyncTradingSession:
             )
 
             # Append protection result (high-signal; avoids silent failures)
-            if sltp_msg:
+            if not sltp_ok:
+                # FIX #3: Alerta crítica si SL falla específicamente
+                warning_msg = (
+                    f"🚨 **ALERTA CRÍTICA**: Posición {symbol} puede estar SIN STOP LOSS\n"
+                    f"📋 Razón: {sltp_msg}\n"
+                    f"⚠️ Acción requerida: Verificar protección con /positions"
+                )
+                message = f"{warning_msg}\n\n{message}"
+            elif sltp_msg:
                 message = f"{message}\n\n🛡️ **Protección (SL/TP/TS):**\n{sltp_msg}"
 
             return True, message
@@ -2411,7 +2419,13 @@ class AsyncTradingSession:
             if protection_ok:
                 message = f"🛡️ **Protección:** {protection_msg}\n\n{message}"
             else:
-                message = f"⚠️ **Protección:** {protection_msg}\n\n{message}"
+                # FIX #3: Alerta crítica si SL falla
+                warning_msg = (
+                    f"🚨 **ALERTA CRÍTICA**: Posición SHORT {symbol} puede estar SIN STOP LOSS\n"
+                    f"📋 Razón: {protection_msg}\n"
+                    f"⚠️ Acción requerida: Verificar protección con /positions"
+                )
+                message = f"{warning_msg}\n\n{message}"
 
             return True, message
 

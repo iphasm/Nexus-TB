@@ -176,6 +176,10 @@ class StrategyEngine:
         squeeze_momentum_bullish = curr['sqz_mom'] > 0 and curr['sqz_mom'] > prev['sqz_mom']
         squeeze_momentum_bearish = curr['sqz_mom'] < 0 and curr['sqz_mom'] < prev['sqz_mom']
         
+        # NUEVO: Confirmación de volumen (volumen debe estar por encima del promedio)
+        vol_above_avg = curr['volume'] > curr['vol_sma'] * 1.2  # 20% por encima del promedio
+        vol_strong = curr['volume'] > curr['vol_sma'] * 1.5  # 50% por encima = confirmación fuerte
+        
         breakout_up = (curr['close'] > curr['bb_upper'])
         momentum_bullish = (curr['rsi'] > 50)
         
@@ -186,16 +190,22 @@ class StrategyEngine:
         adx_rising = curr['adx'] > prev['adx']
         adx_strong = curr['adx'] > 20
         
-        # ENTRY LONG
+        # ENTRY LONG (con confirmación de volumen)
         if trend_bullish and momentum_bullish and adx_rising:
             if squeeze_firing and squeeze_momentum_bullish:
-                fut_signal = "BUY"
-                fut_reason = "🚀 **SQUEEZE PRO BREAKOUT**: Compresión liberada + Momentum alcista."
+                if vol_above_avg:  # NUEVO: Requiere volumen confirmando
+                    fut_signal = "BUY"
+                    vol_note = "📊 Volumen fuerte" if vol_strong else "📊 Volumen confirma"
+                    fut_reason = f"🚀 **SQUEEZE PRO BREAKOUT**: Compresión liberada + Momentum alcista. {vol_note}"
+                else:
+                    # Squeeze sin volumen - señal más débil
+                    fut_signal = "BUY"
+                    fut_reason = "🚀 **SQUEEZE PRO BREAKOUT**: Compresión liberada + Momentum alcista. ⚠️ Volumen bajo"
             elif breakout_up and adx_strong and is_trending:
                 fut_signal = "BUY"
                 fut_reason = "🌊 **VELOCITY TREND**: Tendencia fuerte confirmada (Chop <38.2)."
 
-        # ENTRY SHORT
+        # ENTRY SHORT (con confirmación de volumen)
         breakout_down = (curr['close'] < curr['bb_lower'])
         momentum_bearish = (curr['rsi'] < 50)
         below_cloud = curr['close'] < cloud_bottom
@@ -204,8 +214,13 @@ class StrategyEngine:
         if trend_bearish and momentum_bearish and adx_rising:
             if fut_signal == "WAIT":
                 if squeeze_firing and squeeze_momentum_bearish:
-                    fut_signal = "SHORT"
-                    fut_reason = "🔻 **SQUEEZE PRO SHORT**: Compresión liberada + Momentum bajista."
+                    if vol_above_avg:  # NUEVO: Requiere volumen confirmando
+                        fut_signal = "SHORT"
+                        vol_note = "📊 Volumen fuerte" if vol_strong else "📊 Volumen confirma"
+                        fut_reason = f"🔻 **SQUEEZE PRO SHORT**: Compresión liberada + Momentum bajista. {vol_note}"
+                    else:
+                        fut_signal = "SHORT"
+                        fut_reason = "🔻 **SQUEEZE PRO SHORT**: Compresión liberada + Momentum bajista. ⚠️ Volumen bajo"
                 elif breakout_down and adx_strong and is_trending:
                     fut_signal = "SHORT"
                     fut_reason = "📉 **BEARISH VELOCITY**: Tendencia bajista confirmada."

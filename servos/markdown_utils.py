@@ -48,6 +48,27 @@ def sanitize_signal_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
             sanitized[key] = value
             continue
 
+        if isinstance(value, float):
+            # Smart formatting for floats:
+            # - Large numbers (>1): 2 decimals
+            # - Small numbers (<1): 4-5 decimals depending on zeros
+            abs_val = abs(value)
+            if abs_val == 0:
+                str_value = "0.00"
+            elif abs_val >= 1:
+                str_value = f"{value:.2f}"
+            elif abs_val >= 0.0001:
+                str_value = f"{value:.4f}"
+            else:
+                str_value = f"{value:.6f}"
+            
+            # Remove trailing zeros for cleanliness
+            if '.' in str_value:
+               str_value = str_value.rstrip('0').rstrip('.')
+            
+            sanitized[key] = str_value
+            continue
+            
         # Convert value to string and escape
         str_value = str(value)
 
@@ -62,7 +83,7 @@ def sanitize_signal_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         else:
             # Escape all other values
             sanitized[key] = escape_markdown(str_value)
-
+            
     return sanitized
 
 def safe_format_number(value: float, decimals: int = 2) -> str:

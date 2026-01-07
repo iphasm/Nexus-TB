@@ -37,3 +37,4 @@ for api in apis_to_check:
 print("\n💡 Si faltan APIs, configura el archivo .env")
 
 
+
