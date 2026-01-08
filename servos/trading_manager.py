@@ -2254,6 +2254,9 @@ class AsyncTradingSession:
         tp_price = decision_data['tp_price']
         current_price = decision_data['current_price']
 
+        # Debug logging for extracted values
+        print(f"🔍 SHORT Extracted from RiskPolicy: sl_price={sl_price}, tp_price={tp_price}, current_price={current_price}")
+
         # Low Budget Check (with exchange)
         has_liquidity, bal, msg = await self.check_liquidity(symbol, exchange=target_exchange)
         if not has_liquidity:

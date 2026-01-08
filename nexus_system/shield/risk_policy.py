@@ -204,6 +204,10 @@ class RiskPolicy:
         # 8) SL/TP calculation (usando ATR si disponible, con scaling)
         sl_price, tp_price = self._compute_sl_tp(intent, self.config, risk_multipliers)
 
+        # Debug logging for final values before RiskDecision
+        if intent.action == "OPEN_SHORT":
+            print(f"🔍 RISK DECISION SHORT: sl_price={sl_price}, tp_price={tp_price}")
+
         # 9) Preparar explicación del scaling aplicado
         scaling_explanation = self.risk_scaler.get_scaling_explanation(
             intent.confidence, intent.strategy_key, market_data
