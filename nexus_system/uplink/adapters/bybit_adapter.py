@@ -341,16 +341,114 @@ class BybitAdapter(IExchangeAdapter):
             print(f"⚠️ BybitAdapter: get_market_price error ({symbol}): {e}")
             return 0.0
 
-    async def set_leverage(self, symbol: str, leverage: int) -> bool:
-        """Set leverage for a symbol."""
+    async def get_leverage_limits(self, symbol: str) -> Dict[str, int]:
+        """Get leverage limits for a symbol from Bybit."""
         if not self._exchange:
-            return False
-            
+            return {'min': 1, 'max': 1}
+
         try:
             formatted = self._format_symbol(symbol)
+
+            # Use Bybit's leverage endpoint to get limits
+            # This requires the markets to be loaded
+            if not self._exchange.markets:
+                await self._exchange.load_markets()
+
+            # Try to get leverage info from market data
+            try:
+                market = self._exchange.market(formatted)
+                info = market.get('info', {})
+
+                # Bybit stores leverage limits in different places depending on the endpoint
+                # Try multiple sources
+                max_leverage = 1  # Default conservative value
+
+                # Check linear contract info (futures)
+                if 'leverageFilter' in info:
+                    lev_filter = info['leverageFilter']
+                    max_leverage = int(lev_filter.get('maxLeverage', 1))
+                elif 'leverage' in info:
+                    # Some endpoints provide leverage as a single value
+                    max_leverage = int(info.get('leverage', 1))
+                elif 'linear' in info:
+                    # Linear contract specific info
+                    linear_info = info.get('linear', {})
+                    if 'leverageFilter' in linear_info:
+                        lev_filter = linear_info['leverageFilter']
+                        max_leverage = int(lev_filter.get('maxLeverage', 1))
+
+                # Fallback: Try to fetch from API if market info doesn't have it
+                if max_leverage <= 1:
+                    try:
+                        # Use ccxt's built-in leverage info if available
+                        if hasattr(self._exchange, 'fetch_leverage_tiers'):
+                            tiers = await self._exchange.fetch_leverage_tiers([formatted])
+                            if formatted in tiers:
+                                tier_info = tiers[formatted]
+                                if isinstance(tier_info, list) and len(tier_info) > 0:
+                                    max_leverage = int(tier_info[0].get('maxLeverage', 1))
+                    except Exception:
+                        pass
+
+                # Conservative fallback for unknown symbols
+                if max_leverage <= 1:
+                    # Known leverage limits for common Bybit symbols
+                    leverage_defaults = {
+                        'BTCUSDT': 100,
+                        'ETHUSDT': 75,
+                        'SOLUSDT': 25,
+                        'BNBUSDT': 50,
+                        'ADAUSDT': 25,
+                        'XRPUSDT': 25,
+                        'DOTUSDT': 25,
+                        'LINKUSDT': 25,
+                        'AVAXUSDT': 20,
+                        'MATICUSDT': 25,
+                        'LTCUSDT': 25,
+                        'DOGEUSDT': 25
+                    }
+
+                    # Extract base symbol (remove USDT)
+                    base_symbol = symbol.replace('USDT', '').upper()
+                    max_leverage = leverage_defaults.get(base_symbol, 5)  # Default 5x for unknown
+
+                return {
+                    'min': 1,
+                    'max': max(max_leverage, 1)
+                }
+
+            except Exception as market_err:
+                print(f"⚠️ BybitAdapter: Could not get leverage info from market data: {market_err}")
+                return {'min': 1, 'max': 5}  # Conservative fallback
+
+        except Exception as e:
+            print(f"⚠️ BybitAdapter: Error getting leverage limits for {symbol}: {e}")
+            return {'min': 1, 'max': 5}  # Conservative fallback
+
+    async def set_leverage(self, symbol: str, leverage: int) -> bool:
+        """Set leverage for a symbol with automatic limit validation."""
+        if not self._exchange:
+            return False
+
+        try:
+            # First, get the leverage limits for this symbol
+            limits = await self.get_leverage_limits(symbol)
+            max_allowed = limits.get('max', 5)
+            min_allowed = limits.get('min', 1)
+
+            # Adjust leverage if it's outside allowed range
+            if leverage > max_allowed:
+                print(f"⚠️ BybitAdapter: Requested leverage {leverage}x exceeds max allowed {max_allowed}x for {symbol}, adjusting to {max_allowed}x")
+                leverage = max_allowed
+            elif leverage < min_allowed:
+                print(f"⚠️ BybitAdapter: Requested leverage {leverage}x below min allowed {min_allowed}x for {symbol}, adjusting to {min_allowed}x")
+                leverage = min_allowed
+
+            formatted = self._format_symbol(symbol)
             await self._exchange.set_leverage(leverage, formatted)
-            print(f"✅ BybitAdapter: Leverage set to {leverage}x for {symbol}")
+            print(f"✅ BybitAdapter: Leverage set to {leverage}x for {symbol} (max allowed: {max_allowed}x)")
             return True
+
         except Exception as e:
             error_str = str(e).lower()
             # 'leverage not modified' means it's already set to the requested value - not an error
