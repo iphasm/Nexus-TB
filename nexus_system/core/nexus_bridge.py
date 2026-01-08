@@ -853,12 +853,21 @@ class NexusBridge:
             binance_available = is_exchange_available('BINANCE')
             bybit_available = is_exchange_available('BYBIT')
 
-            # EQUAL WEIGHT LOGIC: Both exchanges have the same priority
+            # PRIMARY EXCHANGE LOGIC: Respect user preference for primary exchange
+            if self.primary_exchange in ['BINANCE', 'BYBIT']:
+                primary_available = is_exchange_available(self.primary_exchange)
+                if primary_available:
+                    print(f"🎯 Using primary exchange {self.primary_exchange} for {normalized_symbol}")
+                    return self.primary_exchange
+
+            # EQUAL WEIGHT LOGIC: Both exchanges have the same priority (fallback when no primary set)
             # Use deterministic distribution based on symbol ASCII sum for consistent routing
             if binance_available and bybit_available:
                 # Both available - distribute evenly using ASCII sum of symbol
                 ascii_sum = sum(ord(c) for c in normalized_symbol)
-                return 'BINANCE' if ascii_sum % 2 == 0 else 'BYBIT'
+                chosen = 'BINANCE' if ascii_sum % 2 == 0 else 'BYBIT'
+                print(f"⚖️ Equal distribution: {normalized_symbol} -> {chosen} (ASCII sum: {ascii_sum})")
+                return chosen
 
             # Only one available - use it
             if binance_available:
