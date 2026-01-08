@@ -36,6 +36,7 @@ class ExitPlan:
     entry_price: float
     entry_time: float
     current_quantity: float
+    initial_quantity: float  # Added to track if partial TPs happened
     exit_rules: List[ExitRule]
     trailing_stop_active: bool = False
     trailing_stop_level: float = 0.0
@@ -83,6 +84,7 @@ class ExitManager:
             entry_price=entry_price,
             entry_time=entry_time,
             current_quantity=quantity,
+            initial_quantity=quantity,
             exit_rules=exit_rules
         )
 
@@ -263,7 +265,7 @@ class ExitManager:
             return
 
         # Activar trailing después del primer TP parcial
-        if not plan.trailing_stop_active and plan.current_quantity < plan.current_quantity:  # Si ya se cerró algo
+        if not plan.trailing_stop_active and plan.current_quantity < plan.initial_quantity:  # Fixed comparison
             plan.trailing_stop_active = True
 
         # Actualizar nivel del trailing stop

@@ -165,7 +165,7 @@ def format_price_smart(price: float, max_decimals: int = 12) -> str:
         return price_str_full
 
 
-def ensure_price_separation(price: float, entry_price: float, tick_size: float, side: str, is_sl: bool) -> float:
+def ensure_price_separation(price: float, entry_price: float, tick_size: float, side: str, is_sl: bool, allow_profit_sl: bool = False) -> float:
     """
     Asegura que SL/TP tengan una separación mínima del precio de entrada.
     
@@ -175,6 +175,7 @@ def ensure_price_separation(price: float, entry_price: float, tick_size: float, 
         tick_size: Tick size del símbolo
         side: 'LONG' o 'SHORT'
         is_sl: True si es SL, False si es TP
+        allow_profit_sl: Si True, permite que el SL esté en zona de ganancia (breakeven/trailing)
     
     Returns:
         Precio ajustado con separación mínima garantizada
@@ -182,31 +183,41 @@ def ensure_price_separation(price: float, entry_price: float, tick_size: float, 
     if price <= 0 or entry_price <= 0:
         return price
     
-    # Calcular separación mínima (al menos 2 ticks para evitar problemas de redondeo)
-    min_separation = max(tick_size * 2, entry_price * 0.0001)  # Al menos 0.01% o 2 ticks
+    # Calcular separación mínima (Aumentado a 0.2% para seguridad contra spread/ruido)
+    # Antes era 0.01% lo cual es muy poco para crypto
+    min_separation = max(tick_size * 5, entry_price * 0.002) 
     
     if side == 'LONG':
         if is_sl:
-            # SL debe ser < entry, asegurar al menos min_separation de diferencia
+            if allow_profit_sl:
+                # Breakeven/Profit Protection: SL puede estar ARRIBA del entry
+                # pero siempre abajo del precio actual (check externo)
+                return round_to_tick_size(price, tick_size)
+            
+            # Normal SL (Loss Protection): SL debe ser < entry
             if price >= entry_price:
                 price = entry_price - min_separation
             elif (entry_price - price) < min_separation:
                 price = entry_price - min_separation
         else:
-            # TP debe ser > entry, asegurar al menos min_separation de diferencia
+            # TP debe ser > entry
             if price <= entry_price:
                 price = entry_price + min_separation
             elif (price - entry_price) < min_separation:
                 price = entry_price + min_separation
     else:  # SHORT
         if is_sl:
-            # SL debe ser > entry, asegurar al menos min_separation de diferencia
+            if allow_profit_sl:
+                # Breakeven/Profit Protection: SL puede estar ABAJO del entry
+                return round_to_tick_size(price, tick_size)
+
+            # Normal SL (Loss Protection): SL debe ser > entry
             if price <= entry_price:
                 price = entry_price + min_separation
             elif (price - entry_price) < min_separation:
                 price = entry_price + min_separation
         else:
-            # TP debe ser < entry, asegurar al menos min_separation de diferencia
+            # TP debe ser < entry
             if price >= entry_price:
                 price = entry_price - min_separation
             elif (entry_price - price) < min_separation:
@@ -3042,7 +3053,8 @@ class AsyncTradingSession:
                     new_tp = round_to_tick_size(entry_price - original_tp_distance, tick_size)
                 
             # 4. Apply price separation to ensure SL/TP validity
-            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True)
+            # allow_profit_sl=True because we are explicitly locking in PROFIT here
+            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True, allow_profit_sl=True)
             new_tp = ensure_price_separation(new_tp, entry_price, tick_size, side, is_sl=False)
 
             # 5. Apply via Bridge - CRITICAL: Use the exchange from position data
@@ -3331,7 +3343,8 @@ class AsyncTradingSession:
                     new_tp = round_to_tick_size(entry_price - original_tp_distance, tick_size)
 
             # Apply price separation to ensure SL/TP validity
-            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True)
+            # allow_profit_sl=True because we are checking ROI > 10%, so this IS a profitable SL
+            new_sl = ensure_price_separation(new_sl, entry_price, tick_size, side, is_sl=True, allow_profit_sl=True)
             new_tp = ensure_price_separation(new_tp, entry_price, tick_size, side, is_sl=False)
 
             # Apply the new SL/TP - CRITICAL: Use the exchange from position data
