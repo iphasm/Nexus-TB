@@ -370,6 +370,10 @@ class RiskPolicy:
         sl_mult = risk_multipliers.stop_loss_multiplier if risk_multipliers else 1.0
         tp_mult = risk_multipliers.take_profit_multiplier if risk_multipliers else 1.0
 
+        # Debug multipliers
+        if intent.action == "OPEN_SHORT":
+            print(f"🔍 SHORT Multipliers: sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}, risk_multipliers={risk_multipliers}")
+
         # Usar ATR si disponible
         if intent.atr and intent.atr > 0:
             mult = config.get('atr_multiplier', 2.0)
@@ -382,7 +386,9 @@ class RiskPolicy:
 
             # Debug logging for SHORT positions
             if intent.action == "OPEN_SHORT":
-                print(f"🔍 SHORT SL/TP Debug: price={intent.price:.6f}, atr={intent.atr:.6f}, mult={mult}, sl_dist={sl_dist:.6f}, tp_dist={tp_dist:.6f}")
+                print(f"🔍 SHORT ATR Calc: price={intent.price:.6f}, atr={intent.atr:.6f}, mult={mult}, sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}")
+                print(f"🔍 SHORT Distances: sl_dist={sl_dist:.6f}, tp_dist={tp_dist:.6f}")
+                print(f"🔍 SHORT Final: sl_price={intent.price + sl_dist:.6f}, tp_price={intent.price - tp_dist:.6f}")
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price - sl_dist
@@ -394,6 +400,7 @@ class RiskPolicy:
                 return None, None
         else:
             # Fallback a porcentajes
+            print(f"🔍 FALLBACK TO PERCENTAGES: ATR not available or zero (atr={intent.atr})")
             stop_pct = config.get('stop_loss_pct', 0.02)
             tp_ratio = config.get('tp_ratio', 1.5)
 
@@ -403,7 +410,9 @@ class RiskPolicy:
 
             # Debug logging for SHORT positions
             if intent.action == "OPEN_SHORT":
-                print(f"🔍 SHORT SL/TP Percent Debug: price={intent.price:.6f}, stop_pct={stop_pct:.4f}, tp_ratio={tp_ratio:.2f}, scaled_stop_pct={scaled_stop_pct:.6f}, scaled_tp_ratio={scaled_tp_ratio:.2f}")
+                print(f"🔍 SHORT SL/TP Percent Debug: price={intent.price:.6f}, stop_pct={stop_pct:.4f}, tp_ratio={tp_ratio:.2f}")
+                print(f"🔍 SHORT Scaling: sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}, scaled_stop_pct={scaled_stop_pct:.6f}, scaled_tp_ratio={scaled_tp_ratio:.2f}")
+                print(f"🔍 SHORT Percent Calc: sl_price={intent.price * (1 + scaled_stop_pct):.6f}, tp_price={intent.price * (1 - (scaled_stop_pct * scaled_tp_ratio)):.6f}")
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price * (1 - scaled_stop_pct)
@@ -413,6 +422,10 @@ class RiskPolicy:
                 tp_price = intent.price * (1 - (scaled_stop_pct * scaled_tp_ratio))
             else:
                 return None, None
+
+        # Final debug logging
+        if intent.action == "OPEN_SHORT":
+            print(f"🔍 SHORT FINAL RESULT: sl_price={sl_price:.6f}, tp_price={tp_price:.6f}")
 
         return sl_price, tp_price
 
