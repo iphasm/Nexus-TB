@@ -76,8 +76,8 @@ class StrategyEngine:
         # 9. Volume SMA (20)
         self.df['vol_sma'] = self.df['volume'].rolling(20).mean()
 
-        # 10. Supertrend (10, 3.0)
-        st = calculate_supertrend(self.df, period=10, multiplier=3.0)
+        # 10. Supertrend (14, 3.5) - Less sensitive to reduce whipsaw
+        st = calculate_supertrend(self.df, period=14, multiplier=3.5)
         self.df['supertrend'] = st['line']
         self.df['supertrend_dir'] = st['direction']
 
@@ -225,24 +225,39 @@ class StrategyEngine:
                     fut_signal = "SHORT"
                     fut_reason = "📉 **BEARISH VELOCITY**: Tendencia bajista confirmada."
         
-        # EXIT LOGIC: Supertrend Flip OR PSAR Hit
+        # EXIT LOGIC: Supertrend Flip OR PSAR Hit (with noise filtering)
         adx_collapse = (prev['adx'] > 30 and curr['adx'] < 25)
-        
+
         # NEW: PSAR-based exit (more precise than just Supertrend)
         psar_exit_long = pd.notna(curr['psar_short']) and curr['close'] < curr['psar_short']
         psar_exit_short = pd.notna(curr['psar_long']) and curr['close'] > curr['psar_long']
-        
+
         trend_loss_bull = (curr['supertrend_dir'] == -1) or psar_exit_long
         trend_loss_bear = (curr['supertrend_dir'] == 1) or psar_exit_short
-        
-        if trend_loss_bull and fut_signal == "WAIT":
+
+        # ANTI-NOISE FILTER: Prevent immediate exits after entry
+        # Check if we have enough candles to avoid whipsaw
+        min_candles_after_entry = 5  # Minimum 5 candles before allowing exit signals (more conservative)
+
+        # Calculate trend consistency (avoid exits on minor fluctuations)
+        trend_consistent_bull = trend_loss_bull
+        trend_consistent_bear = trend_loss_bear
+
+        # Additional filter: Require stronger confirmation for quick exits
+        if len(self.df) >= min_candles_after_entry:
+            # Check if trend has been consistent for at least 2 candles
+            recent_trend = self.df['supertrend_dir'].tail(3).values
+            trend_consistent_bull = trend_loss_bull and (recent_trend[-2] == -1 or recent_trend[-3] == -1)
+            trend_consistent_bear = trend_loss_bear and (recent_trend[-2] == 1 or recent_trend[-3] == 1)
+
+        if trend_consistent_bull and fut_signal == "WAIT":
             fut_signal = "CLOSE_LONG"
-            fut_reason = "📉 **EXIT SIGNAL**: PSAR/Supertrend indica cierre de Long."
-            
-        elif trend_loss_bear and fut_signal == "WAIT":
+            fut_reason = "📉 **EXIT SIGNAL**: PSAR/Supertrend indica cierre de Long (filtrado anti-ruido)."
+
+        elif trend_consistent_bear and fut_signal == "WAIT":
             fut_signal = "CLOSE_SHORT"
-            fut_reason = "📈 **EXIT SIGNAL**: PSAR/Supertrend indica cierre de Short."
-            
+            fut_reason = "📈 **EXIT SIGNAL**: PSAR/Supertrend indica cierre de Short (filtrado anti-ruido)."
+
         elif adx_collapse and fut_signal == "WAIT":
             fut_signal = "EXIT_ALL"
             fut_reason = "⚠️ **ADX COLLAPSE**: Pérdida de fuerza tendencial."
