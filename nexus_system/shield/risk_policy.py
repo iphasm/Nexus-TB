@@ -380,6 +380,10 @@ class RiskPolicy:
             sl_dist = base_sl_dist * sl_mult
             tp_dist = base_tp_dist * tp_mult
 
+            # Debug logging for SHORT positions
+            if intent.action == "OPEN_SHORT":
+                print(f"🔍 SHORT SL/TP Debug: price={intent.price:.6f}, atr={intent.atr:.6f}, mult={mult}, sl_dist={sl_dist:.6f}, tp_dist={tp_dist:.6f}")
+
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price - sl_dist
                 tp_price = intent.price + tp_dist
@@ -396,6 +400,10 @@ class RiskPolicy:
             # Aplicar scaling: SL más ajustado si confianza alta, TP más agresivo
             scaled_stop_pct = stop_pct / sl_mult  # SL más ajustado = menor distancia
             scaled_tp_ratio = tp_ratio * tp_mult  # TP más agresivo = mayor distancia
+
+            # Debug logging for SHORT positions
+            if intent.action == "OPEN_SHORT":
+                print(f"🔍 SHORT SL/TP Percent Debug: price={intent.price:.6f}, stop_pct={stop_pct:.4f}, tp_ratio={tp_ratio:.2f}, scaled_stop_pct={scaled_stop_pct:.6f}, scaled_tp_ratio={scaled_tp_ratio:.2f}")
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price * (1 - scaled_stop_pct)
