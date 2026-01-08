@@ -322,7 +322,7 @@ async def cmd_help(message: Message):
         'config': 8,     # config, strategies, assets, icons, togglegroup, personality, leverage, margin
         'seguridad': 3,  # exchanges, set_binance, delete_keys
         'utilidades': 5, # timezone, cooldowns, help, about, strategy
-        'admin': 7 if is_admin else 0,  # subs, addsub, addadmin, remsub, wsstatus, debug, reset_assets
+        'admin': 8 if is_admin else 0,  # subs, addsub, addadmin, remsub, wsstatus, debug, reset_assets, recover_protection
         'info': 3        # about, strategy, startup
     }
 
@@ -405,6 +405,7 @@ async def cmd_help(message: Message):
             "/remsub - Eliminar usuario\n"
             "/wsstatus - Estado conexiones WebSocket\n"
             "/debug - Diagnóstico completo del sistema\n"
+            "/recover_protection - Recuperar posiciones sin protección\n"
             "/reset_assets - Limpiar lista de activos\n"
         )
 
@@ -3226,3 +3227,29 @@ async def cmd_model_status(message: Message, **kwargs):
         
     except Exception as e:
         await message.answer(f"❌ **Error obteniendo estado del modelo:** {str(e)}")
+
+
+@router.message(Command("recover_protection"))
+@admin_only
+async def cmd_recover_protection(message: Message, **kwargs):
+    """Recover protection for unprotected positions: /recover_protection"""
+    session_manager = kwargs.get('session_manager')
+    if not session_manager:
+        await message.answer("❌ Session manager not available")
+        return
+
+    chat_id = str(message.chat.id)
+    session = session_manager.get_session(chat_id)
+
+    if not session:
+        await message.answer("❌ No active session found")
+        return
+
+    msg = await message.answer("🛡️ **Verificando posiciones sin protección...**")
+
+    try:
+        report = await session.check_and_recover_unprotected_positions()
+        await msg.edit_text(report, parse_mode="Markdown")
+
+    except Exception as e:
+        await msg.edit_text(f"❌ Error during protection recovery: {e}")

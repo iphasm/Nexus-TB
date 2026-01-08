@@ -1657,8 +1657,8 @@ class AsyncTradingSession:
         Returns: (success, details_message)
         """
         config = self.config
-        attempts = config.get('protection_retry_attempts', 2)
-        delay = config.get('protection_retry_delay_sec', 0.6)
+        attempts = config.get('protection_retry_attempts', 4)  # Aumentado de 2 a 4
+        delay = config.get('protection_retry_delay_sec', 1.0)  # Aumentado de 0.6 a 1.0
 
         for attempt in range(attempts + 1):  # +1 para el intento inicial
             try:
@@ -1681,14 +1681,148 @@ class AsyncTradingSession:
                     await asyncio.sleep(delay)
 
             except Exception as e:
-                self.logger.warning(f"Protection attempt {attempt + 1} failed for {symbol}: {e}")
+                error_details = str(e)
+                self.logger.warning(f"Protection attempt {attempt + 1}/{attempts + 1} failed for {symbol}: {error_details}")
+
+                # Log additional context for debugging
+                if "insufficient" in error_details.lower():
+                    self.logger.warning(f"💰 Possible balance/margin issue for {symbol} protection")
+                elif "leverage" in error_details.lower():
+                    self.logger.warning(f"⚙️ Possible leverage configuration issue for {symbol}")
+                elif "network" in error_details.lower() or "timeout" in error_details.lower():
+                    self.logger.warning(f"🌐 Network/connectivity issue during protection setup for {symbol}")
+
                 if attempt < attempts:
+                    self.logger.info(f"⏳ Retrying protection for {symbol} in {delay}s (attempt {attempt + 2}/{attempts + 1})")
                     await asyncio.sleep(delay)
 
-        # Si todos los intentos fallan
+        # Si todos los intentos fallan - implementar recuperación automática
         error_msg = f"Protección incompleta para {symbol} en {exchange} después de {attempts + 1} intentos"
         self.logger.error(error_msg)
-        return False, error_msg
+
+        # 🚨 RECUPERACIÓN AUTOMÁTICA: Intentar configuración básica sin trailing si falló con trailing
+        if trailing is not None:
+            self.logger.warning(f"🔄 Intentando recuperación automática sin trailing stops para {symbol}")
+            try:
+                # Intentar solo SL/TP sin trailing
+                basic_result = await self.bridge.set_position_protection(
+                    symbol=symbol,
+                    exchange=exchange,
+                    side=side,
+                    quantity=qty,
+                    stop_loss=sl_price,
+                    take_profit=tp_price,
+                    trailing=None,  # Sin trailing
+                    cancel_existing=True,
+                )
+
+                if basic_result.get("ok", False):
+                    recovery_msg = f"✅ Recuperación exitosa: Protección básica aplicada (sin trailing)"
+                    self.logger.warning(recovery_msg)
+                    return True, recovery_msg
+
+            except Exception as recovery_error:
+                self.logger.error(f"❌ Recuperación automática fallida para {symbol}: {recovery_error}")
+
+        # 🚨 ALERTA CRÍTICA: Posición sin protección adecuada
+        critical_alert = (
+            f"🚨 **POSICIÓN CRÍTICA SIN PROTECCIÓN**\n"
+            f"📊 {symbol} {side} en {exchange}\n"
+            f"💰 Cantidad: {qty}\n"
+            f"🎯 SL: {sl_price} | TP: {tp_price}\n"
+            f"⚠️ **ACCIÓN INMEDIATA REQUERIDA**\n"
+            f"• Cerrar posición manualmente si es necesario\n"
+            f"• Verificar balances y exposición\n"
+            f"• Revisar conectividad con {exchange}"
+        )
+
+        # Intentar notificación al usuario si es posible
+        try:
+            if hasattr(self, 'send_critical_alert'):
+                await self.send_critical_alert(critical_alert)
+        except Exception as notify_error:
+            self.logger.error(f"Failed to send critical alert: {notify_error}")
+
+        return False, f"{error_msg}\n\n{critical_alert}"
+
+    async def check_and_recover_unprotected_positions(self) -> str:
+        """
+        Verifica posiciones activas y recupera protección faltante.
+        Returns: Reporte de acciones tomadas
+        """
+        report = "🛡️ **POSITIONS PROTECTION RECOVERY REPORT**\n\n"
+
+        if not self.bridge:
+            return report + "❌ Bridge not available\n"
+
+        try:
+            # Get all active positions
+            positions_data = await self.bridge.get_positions()
+            if not positions_data:
+                return report + "ℹ️ No active positions found\n"
+
+            unprotected_count = 0
+            recovered_count = 0
+
+            for exchange, positions in positions_data.items():
+                if not positions:
+                    continue
+
+                for pos in positions:
+                    symbol = pos.get('symbol', '')
+                    side = pos.get('side', '')
+                    qty = abs(pos.get('quantity', 0))
+                    entry_price = pos.get('entryPrice', pos.get('avgPrice', 0))
+
+                    if qty <= 0.001:  # Skip dust positions
+                        continue
+
+                    # Check if position has protection
+                    has_sl = pos.get('stopLoss') is not None
+                    has_tp = pos.get('takeProfit') is not None
+
+                    if not has_sl or not has_tp:
+                        unprotected_count += 1
+                        report += f"⚠️ {symbol} {side}: Missing protection (SL:{has_sl}, TP:{has_tp})\n"
+
+                        # Attempt recovery
+                        try:
+                            # Calculate basic protection based on position
+                            risk_pct = self.config.get('stop_loss_pct', 0.02)
+                            if side == 'LONG':
+                                sl_price = entry_price * (1 - risk_pct)
+                                tp_price = entry_price * (1 + risk_pct * 2)
+                            else:  # SHORT
+                                sl_price = entry_price * (1 + risk_pct)
+                                tp_price = entry_price * (1 - risk_pct * 2)
+
+                            # Apply protection
+                            recovery_ok, recovery_msg = await self.apply_and_verify_protection(
+                                symbol=symbol,
+                                exchange=exchange,
+                                side=side,
+                                qty=qty,
+                                sl_price=sl_price,
+                                tp_price=tp_price
+                            )
+
+                            if recovery_ok:
+                                recovered_count += 1
+                                report += f"  ✅ Recovered: {recovery_msg}\n"
+                            else:
+                                report += f"  ❌ Recovery failed: {recovery_msg}\n"
+
+                        except Exception as recovery_error:
+                            report += f"  ❌ Recovery error: {recovery_error}\n"
+                    else:
+                        report += f"✅ {symbol} {side}: Protection OK\n"
+
+            report += f"\n📊 **SUMMARY:** {unprotected_count} unprotected, {recovered_count} recovered\n"
+
+        except Exception as e:
+            report += f"❌ Error during protection check: {e}\n"
+
+        return report
 
     async def diagnose_balance_issues(self) -> str:
         """Diagnose balance synchronization issues for debugging."""
