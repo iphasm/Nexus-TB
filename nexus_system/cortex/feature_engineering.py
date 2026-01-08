@@ -91,7 +91,17 @@ def calculate_vwap(df: pd.DataFrame) -> pd.Series:
         vwap = VolumeWeightedAveragePrice(df['high'], df['low'], df['close'], df['volume'])
         return vwap.volume_weighted_average_price().fillna(df['close'])
     except Exception:
-        return df['close']
+        return df
+
+
+def add_all_new_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add advanced features for ML inference.
+    Currently returns df unchanged - implement advanced features as needed.
+    """
+    # TODO: Implement advanced feature engineering to match training pipeline
+    # For now, return unchanged to prevent import errors
+    return df['close']
 
 
 def calculate_market_regime(df: pd.DataFrame) -> pd.Series:

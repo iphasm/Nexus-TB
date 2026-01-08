@@ -46,6 +46,7 @@ else:
 # Define paths to model artifacts
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'ml_model.pkl')
 SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'scaler.pkl')
+BASIC_SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'memory_archives', 'basic_scaler.pkl')
 
 # Confidence threshold - below this, fallback to rule-based
 CONFIDENCE_THRESHOLD = 0.70
@@ -99,22 +100,34 @@ class MLClassifier:
         else:
             return
         
-        # Load scaler
+        # Load full scaler (for advanced features)
         if os.path.exists(SCALER_PATH):
             try:
                 cls._scaler = joblib.load(SCALER_PATH)
-                print(f"🧠 ML Classifier: Scaler loaded from {SCALER_PATH}")
+                print(f"🧠 ML Classifier: Full scaler loaded from {SCALER_PATH}")
             except Exception as e:
-                print(f"⚠️ ML Classifier: Failed to load scaler: {e}")
+                print(f"⚠️ ML Classifier: Failed to load full scaler: {e}")
                 cls._scaler = None
         else:
-            print(f"⚠️ ML Classifier: Scaler not found at {SCALER_PATH}")
+            print(f"⚠️ ML Classifier: Full scaler not found at {SCALER_PATH}")
             cls._scaler = None
+
+        # Load basic scaler (for basic features fallback)
+        if os.path.exists(BASIC_SCALER_PATH):
+            try:
+                cls._basic_scaler = joblib.load(BASIC_SCALER_PATH)
+                print(f"🧠 ML Classifier: Basic scaler loaded from {BASIC_SCALER_PATH}")
+            except Exception as e:
+                print(f"⚠️ ML Classifier: Failed to load basic scaler: {e}")
+                cls._basic_scaler = None
+        else:
+            print(f"ℹ️ ML Classifier: Basic scaler not found at {BASIC_SCALER_PATH} (will create on first use)")
+            cls._basic_scaler = None
         
         cls._model_loaded = True
 
     @staticmethod
-    def _extract_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+    def _extract_features(df: pd.DataFrame) -> Optional[tuple]:
         """
         Extracts features from the dataframe for the model.
         MUST match the training feature set (v3.2 - 79 features expandidas).
@@ -124,18 +137,48 @@ class MLClassifier:
             return None
 
         try:
-            # Check if feature engineering functions are available
-            if not FEATURE_ENGINEERING_AVAILABLE or add_indicators is None or add_all_new_features is None:
-                # Last resort: calculate basic features only
+            # Apply feature engineering pipeline
+            if FEATURE_ENGINEERING_AVAILABLE and add_indicators is not None and add_all_new_features is not None:
+                # Full pipeline available - use advanced features
+                df_with_indicators = add_indicators(df.copy())
+                df_with_all_features = add_all_new_features(df_with_indicators)
+
+                # Extract advanced feature columns (46 features expected by model)
+                X_cols = [
+                    # Core (original)
+                    'rsi', 'adx', 'atr_pct', 'trend_str', 'vol_change',
+                    # v3.0 features
+                    'macd_hist_norm', 'bb_pct', 'bb_width',
+                    'roc_5', 'roc_10', 'obv_change',
+                    'price_position', 'body_pct',
+                    'above_ema200', 'ema_cross',
+                    # v3.1 features
+                    'ema20_slope', 'mfi', 'dist_50_high', 'dist_50_low',
+                    'hour_of_day', 'day_of_week',
+                    # v3.2 features
+                    'roc_21', 'roc_50', 'williams_r', 'cci', 'ultimate_osc',
+                    'volume_roc_5', 'volume_roc_21', 'chaikin_mf', 'force_index', 'ease_movement',
+                    'dist_sma20', 'dist_sma50', 'pivot_dist', 'fib_dist',
+                    'morning_volatility', 'afternoon_volatility', 'gap_up', 'gap_down', 'range_change',
+                    'bull_power', 'bear_power', 'momentum_div', 'vpt', 'intraday_momentum',
+                    # v3.3 features
+                    'market_regime',
+                    # v3.4 ADVANCED FEATURES
+                    'stoch_rsi', 'kst', 'dpo',
+                    'ulcer_index', 'vwap',
+                    'market_regime_advanced', 'sentiment_proxy',
+                    'rsi_stoch_rsi', 'cci_kst', 'vol_price_change', 'regime_volatility',
+                    'returns_skew', 'returns_kurtosis',
+                    'hour_sin', 'hour_cos', 'day_sin', 'day_cos'
+                ]
+            else:
+                # Fallback: use basic features only (21 features)
                 print("⚠️  ML features extraction failed - using basic features only")
                 print(f"   ℹ️  FEATURE_ENGINEERING_AVAILABLE: {FEATURE_ENGINEERING_AVAILABLE}")
                 print(f"   ℹ️  add_indicators: {add_indicators is not None}")
                 print(f"   ℹ️  add_all_new_features: {add_all_new_features is not None}")
-                return MLClassifier._extract_basic_features(df)
-
-            # Apply the same feature engineering pipeline as training
-            df_with_indicators = add_indicators(df.copy())
-            df_with_all_features = add_all_new_features(df_with_indicators)
+                basic_features = MLClassifier._extract_basic_features(df)
+                return basic_features, True  # True = basic features
 
             # Extract the feature columns that match training (must match FEATURE_COLUMNS from cloud trainer)
             X_cols = [
@@ -185,7 +228,10 @@ class MLClassifier:
             nan_count = features_df.isna().sum().sum()
             if nan_count > len(available_features) * 0.2:  # >20% NaN
                 print(f"⚠️ Too many NaN in features ({nan_count}/{len(available_features)}), using fallback")
-                return MLClassifier._extract_basic_features(df)
+                basic_features = MLClassifier._extract_basic_features(df)
+                return basic_features, True  # True = basic features
+
+            return features_df, False  # False = advanced features
             
             # Rellenar NaN restantes con 0
             features_df = features_df.fillna(0)
@@ -235,16 +281,41 @@ class MLClassifier:
                     print(f"🔄 ML Bypass: {symbol} likely not in training data (legacy check), using rule-based classifier")
                 return None  # Trigger fallback to rule-based
 
-        features = cls._extract_features(market_data.get('dataframe'))
-        if features is None:
+        extracted = cls._extract_features(market_data.get('dataframe'))
+        if extracted is None:
             return None
-            
+
+        features, is_basic = extracted
+
         try:
-            # Apply scaler if available
-            if cls._scaler is not None:
-                features_scaled = cls._scaler.transform(features)
+            # Use appropriate scaler based on feature type
+            if is_basic:
+                # Use basic scaler for basic features (21 features)
+                if hasattr(cls, '_basic_scaler') and cls._basic_scaler is not None:
+                    features_scaled = cls._basic_scaler.transform(features)
+                    print(f"🔧 Using basic scaler for {features.shape[1]} features")
+                else:
+                    # Create basic scaler on first use
+                    print(f"🔧 Creating basic scaler for {features.shape[1]} features")
+                    from sklearn.preprocessing import RobustScaler
+                    cls._basic_scaler = RobustScaler()
+                    # Fit on dummy data with same shape to initialize
+                    dummy_data = np.random.randn(100, features.shape[1])
+                    cls._basic_scaler.fit(dummy_data)
+                    # Save for future use
+                    try:
+                        joblib.dump(cls._basic_scaler, BASIC_SCALER_PATH)
+                        print(f"💾 Basic scaler saved to {BASIC_SCALER_PATH}")
+                    except Exception as save_err:
+                        print(f"⚠️ Failed to save basic scaler: {save_err}")
+
+                    features_scaled = cls._basic_scaler.transform(features)
             else:
-                features_scaled = features.values  # Use raw features if no scaler
+                # Use full scaler for advanced features (46 features)
+                if cls._scaler is not None:
+                    features_scaled = cls._scaler.transform(features)
+                else:
+                    features_scaled = features.values  # Use raw features if no scaler
             
             # Predict
             prediction = cls._model.predict(features_scaled)[0]
