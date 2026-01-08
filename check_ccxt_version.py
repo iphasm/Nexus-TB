@@ -7,7 +7,8 @@ try:
     import ccxt
     print(f"✅ CCXT instalado correctamente")
     print(f"📦 Versión: {ccxt.__version__}")
-    print(f"🔖 Versión completa: {ccxt.version}")
+    # Note: ccxt.version was removed in CCXT 4.5.31
+    print(f"🔖 Versión completa: {ccxt.__version__}")
 
     # Mostrar algunos exchanges disponibles
     print(f"🌐 Exchanges disponibles: {len(ccxt.exchanges)}")

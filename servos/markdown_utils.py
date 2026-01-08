@@ -128,14 +128,21 @@ def create_safe_reason(strategy: str, confidence: float, metadata: Dict[str, Any
 def safe_format_template(template: str, **kwargs) -> str:
     """
     Safely format a template string with Markdown escaping.
+    
+    IMPORTANT: Float values are preserved as-is to allow format specifiers like :,.2f
+    to work correctly in templates. Only string values are escaped.
     """
-    # Escape all string values in kwargs
+    # Process kwargs - escape strings but PRESERVE numeric types for format specs
     safe_kwargs = {}
     for key, value in kwargs.items():
         if isinstance(value, str):
             safe_kwargs[key] = escape_markdown(value)
-        elif isinstance(value, float):
-            safe_kwargs[key] = safe_format_number(value)
+        elif isinstance(value, (int, float)):
+            # PRESERVE numeric types for format specifiers like {price:,.2f}
+            safe_kwargs[key] = value
+        elif value is None:
+            # Handle None values gracefully
+            safe_kwargs[key] = 0.0
         else:
             safe_kwargs[key] = escape_markdown(str(value))
 
@@ -144,3 +151,4 @@ def safe_format_template(template: str, **kwargs) -> str:
     except (KeyError, ValueError) as e:
         # If formatting fails, return a safe fallback
         return f"Error formatting message: {escape_markdown(str(e))}"
+

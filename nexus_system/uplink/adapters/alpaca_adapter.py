@@ -290,6 +290,39 @@ class AlpacaAdapter(IExchangeAdapter):
             print(f"⚠️ AlpacaAdapter: get_positions error: {e}")
             return []
 
+    async def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
+        """Get open orders for a symbol (or all symbols if None)."""
+        if not self._trading_client:
+            return []
+            
+        try:
+            from alpaca.trading.enums import QueryOrderStatus
+            
+            params = {'status': QueryOrderStatus.OPEN}
+            if symbol:
+                params['symbols'] = [symbol]
+            
+            orders = self._trading_client.get_orders(**params)
+            
+            result = []
+            for o in orders:
+                result.append({
+                    'orderId': str(o.id),
+                    'symbol': o.symbol,
+                    'type': o.order_type.value.upper() if o.order_type else 'MARKET',
+                    'side': o.side.value.upper() if o.side else 'BUY',
+                    'quantity': float(o.qty) if o.qty else 0,
+                    'price': float(o.limit_price) if o.limit_price else 0,
+                    'stopPrice': float(o.stop_price) if o.stop_price else 0,
+                    'status': o.status.value if o.status else 'open',
+                    'source': 'alpaca'
+                })
+            return result
+            
+        except Exception as e:
+            print(f"⚠️ AlpacaAdapter: get_open_orders error: {e}")
+            return []
+
     async def close_position(self, symbol: str) -> bool:
         """Close specific position (Market)."""
         if not self._trading_client:

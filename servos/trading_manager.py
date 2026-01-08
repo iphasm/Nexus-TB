@@ -1121,6 +1121,41 @@ class AsyncTradingSession:
         report = []
         try:
             positions = await self.bridge.get_positions()
+            
+            # --- 1. Position Summary Report ---
+            report.append("📊 **POSITION SUMMARY**")
+            report.append("━━━━━━━━━━━━━━━━━━")
+            
+            if not positions:
+                report.append("ℹ️ No active positions found.")
+                return "\n".join(report)
+
+            for pos in positions:
+                try:
+                    p_sym = pos.get('symbol', 'Unknown')
+                    p_exc = pos.get('exchange', 'Unknown').upper()
+                    p_side = pos.get('side', 'Unknown')
+                    p_qty = float(pos.get('quantity', 0))
+                    p_entry = float(pos.get('entryPrice') or pos.get('entry_price') or 0)
+                    p_pnl = float(pos.get('unrealizedPnl') or pos.get('unrealized_pnl') or 0)
+                    p_curr = float(pos.get('currentPrice') or pos.get('current_price') or 0)
+                    
+                    # Try to fetch current price if missing
+                    if p_curr == 0 and self.bridge:
+                         p_curr = await self.bridge.get_last_price(p_sym, exchange=p_exc)
+
+                    pnl_icon = "🟢" if p_pnl >= 0 else "🔴"
+                    
+                    report.append(f"**{p_exc}** | {p_sym} ({p_side})")
+                    report.append(f"💰 PnL: {pnl_icon} `${p_pnl:,.2f}`")
+                    report.append(f"sz: {p_qty} | entry: {p_entry} | curr: {p_curr}")
+                    report.append("---")
+                except Exception as e:
+                    self.logger.error(f"Error formatting pos summary: {e}")
+
+            report.append("\n🔄 **SYNC ACTIONS**")
+
+            # --- 2. Sync Actions (Existing Logic) ---
             for pos in positions:
                 symbol = pos['symbol']
                 pos_exchange = pos.get('exchange')
