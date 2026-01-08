@@ -1821,13 +1821,20 @@ class AsyncTradingSession:
         net_qty = current_pos.get('quantity', 0)
         current_side = current_pos.get('side', '')
 
+        # Debug logging for position detection
+        print(f"🔍 LONG Position Check: symbol={symbol}, pos={current_pos}, qty={net_qty}, side='{current_side}'")
+
         # Only consider significant positions (> 0.001 to avoid dust)
         if abs(net_qty) > 0.001:
+            print(f"🔍 LONG Significant position detected: {current_side}")
             if current_side == 'LONG':
+                 print(f"🔍 LONG Updating SL/TP for existing LONG position")
                  return await self.execute_update_sltp(symbol, 'LONG', atr)
             elif current_side == 'SHORT':
                  print(f"🔄 Auto-Flip Triggered: Long requested for {symbol} (Current: Short)")
                  return await self.execute_flip_position(symbol, 'LONG', atr)
+            else:
+                 print(f"🔍 LONG Unknown side: '{current_side}', proceeding with new position")
 
         # Use RiskPolicy for comprehensive evaluation (incluye correlation guard)
         allow, decision_data, error_msg = await self._evaluate_trade_with_risk_policy(symbol, 'LONG', atr, strategy, force_exchange)
@@ -2219,13 +2226,20 @@ class AsyncTradingSession:
         net_qty = current_pos.get('quantity', 0)
         current_side = current_pos.get('side', '')
 
+        # Debug logging for position detection
+        print(f"🔍 SHORT Position Check: symbol={symbol}, pos={current_pos}, qty={net_qty}, side='{current_side}'")
+
         # Only consider significant positions (> 0.001 to avoid dust)
         if abs(net_qty) > 0.001:
+            print(f"🔍 SHORT Significant position detected: {current_side}")
             if current_side == 'SHORT':
+                 print(f"🔍 SHORT Updating SL/TP for existing SHORT position")
                  return await self.execute_update_sltp(symbol, 'SHORT', atr)
             elif current_side == 'LONG':
                  print(f"🔄 Auto-Flip Triggered: Short requested for {symbol} (Current: Long)")
                  return await self.execute_flip_position(symbol, 'SHORT', atr)
+            else:
+                 print(f"🔍 SHORT Unknown side: '{current_side}', proceeding with new position")
 
         # Use RiskPolicy for comprehensive evaluation (incluye correlation guard)
         allow, decision_data, error_msg = await self._evaluate_trade_with_risk_policy(symbol, 'SHORT', atr, strategy, force_exchange)
