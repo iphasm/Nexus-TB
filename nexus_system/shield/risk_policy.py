@@ -204,10 +204,6 @@ class RiskPolicy:
         # 8) SL/TP calculation (usando ATR si disponible, con scaling)
         sl_price, tp_price = self._compute_sl_tp(intent, self.config, risk_multipliers)
 
-        # Debug logging for final values before RiskDecision
-        if intent.action == "OPEN_SHORT":
-            print(f"🔍 RISK DECISION SHORT: sl_price={sl_price}, tp_price={tp_price}")
-
         # 9) Preparar explicación del scaling aplicado
         scaling_explanation = self.risk_scaler.get_scaling_explanation(
             intent.confidence, intent.strategy_key, market_data
@@ -374,10 +370,6 @@ class RiskPolicy:
         sl_mult = risk_multipliers.stop_loss_multiplier if risk_multipliers else 1.0
         tp_mult = risk_multipliers.take_profit_multiplier if risk_multipliers else 1.0
 
-        # Debug multipliers
-        if intent.action == "OPEN_SHORT":
-            print(f"🔍 SHORT Multipliers: sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}, risk_multipliers={risk_multipliers}")
-
         # Usar ATR si disponible
         if intent.atr and intent.atr > 0:
             mult = config.get('atr_multiplier', 2.0)
@@ -388,11 +380,6 @@ class RiskPolicy:
             sl_dist = base_sl_dist * sl_mult
             tp_dist = base_tp_dist * tp_mult
 
-            # Debug logging for SHORT positions
-            if intent.action == "OPEN_SHORT":
-                print(f"🔍 SHORT ATR Calc: price={intent.price:.6f}, atr={intent.atr:.6f}, mult={mult}, sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}")
-                print(f"🔍 SHORT Distances: sl_dist={sl_dist:.6f}, tp_dist={tp_dist:.6f}")
-                print(f"🔍 SHORT Final: sl_price={intent.price + sl_dist:.6f}, tp_price={intent.price - tp_dist:.6f}")
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price - sl_dist
@@ -404,19 +391,12 @@ class RiskPolicy:
                 return None, None
         else:
             # Fallback a porcentajes
-            print(f"🔍 FALLBACK TO PERCENTAGES: ATR not available or zero (atr={intent.atr})")
             stop_pct = config.get('stop_loss_pct', 0.02)
             tp_ratio = config.get('tp_ratio', 1.5)
 
             # Aplicar scaling: SL más ajustado si confianza alta, TP más agresivo
             scaled_stop_pct = stop_pct / sl_mult  # SL más ajustado = menor distancia
             scaled_tp_ratio = tp_ratio * tp_mult  # TP más agresivo = mayor distancia
-
-            # Debug logging for SHORT positions
-            if intent.action == "OPEN_SHORT":
-                print(f"🔍 SHORT SL/TP Percent Debug: price={intent.price:.6f}, stop_pct={stop_pct:.4f}, tp_ratio={tp_ratio:.2f}")
-                print(f"🔍 SHORT Scaling: sl_mult={sl_mult:.3f}, tp_mult={tp_mult:.3f}, scaled_stop_pct={scaled_stop_pct:.6f}, scaled_tp_ratio={scaled_tp_ratio:.2f}")
-                print(f"🔍 SHORT Percent Calc: sl_price={intent.price * (1 + scaled_stop_pct):.6f}, tp_price={intent.price * (1 - (scaled_stop_pct * scaled_tp_ratio)):.6f}")
 
             if intent.action == "OPEN_LONG":
                 sl_price = intent.price * (1 - scaled_stop_pct)
@@ -426,10 +406,6 @@ class RiskPolicy:
                 tp_price = intent.price * (1 - (scaled_stop_pct * scaled_tp_ratio))
             else:
                 return None, None
-
-        # Final debug logging
-        if intent.action == "OPEN_SHORT":
-            print(f"🔍 SHORT FINAL RESULT: sl_price={sl_price:.6f}, tp_price={tp_price:.6f}")
 
         return sl_price, tp_price
 
