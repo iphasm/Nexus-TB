@@ -2911,9 +2911,21 @@ class AsyncTradingSession:
 
                 side = 'LONG' if qty > 0 else 'SHORT'
                 entry_price = float(p['entry'])
+                source_exchange = p.get('source', 'Unknown')
 
                 # Get current price via Bridge (CCXT-compatible)
                 current_price = await self.bridge.get_last_price(symbol)
+                
+                # Calculate PnL
+                if side == 'LONG':
+                    pnl = (current_price - entry_price) * abs(qty)
+                else:
+                    pnl = (entry_price - current_price) * abs(qty)
+                pnl_icon = "🟢" if pnl >= 0 else "🔴"
+                
+                # Add position summary header
+                report.append(f"**{source_exchange}** | {symbol} ({side})")
+                report.append(f"💰 PnL: {pnl_icon} `${pnl:,.2f}` | Precio: ${current_price:,.4f}")
 
                 # Get precision
                 qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
@@ -2971,17 +2983,16 @@ class AsyncTradingSession:
                 )
                 
                 status_icon = "✅" if success else "⚠️"
-                report.append(f"**{symbol}** ({side}) {status_icon}")
                 if success:
                     # Formatear precios de forma inteligente (3 cifras después del último cero)
                     sl_formatted = format_price_smart(sl_price)
                     tp_formatted = format_price_smart(tp_price)
                     entry_formatted = format_price_smart(entry_price)
-                    report.append(f"   SL: {sl_formatted} ({sl_label}) | TP: {tp_formatted}")
+                    report.append(f"{status_icon} SL: {sl_formatted} ({sl_label}) | TP: {tp_formatted}")
                     report.append(f"   TS Act: {entry_formatted} (Entry)")
                 else:
-                    report.append(f"   Err: {msg}")
-                report.append("")
+                    report.append(f"⚠️ Err: {msg}")
+                report.append("---")
 
             return "\n".join(report)
 
