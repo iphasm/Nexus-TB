@@ -2156,21 +2156,20 @@ class PersonalityManager:
             kwargs['user_name'] = "Operador"
              
         try:
-            # Pre-process kwargs to ensure numbers are safely formatted
+            # Pre-process kwargs to ensure numbers remain as float for template formatting
             processed_kwargs = {}
             for k, v in kwargs.items():
-                # Defensive casting: Convert numeric strings to float
+                # Defensive casting: Convert numeric strings to float for known numeric fields
                 if k in ['price', 'tp', 'sl', 'ts'] and isinstance(v, str):
                     try:
                         v = float(v)
                     except (ValueError, TypeError):
-                        pass # Keep as string if conversion fails
+                        v = 0.0  # Default to 0.0 if conversion fails
 
-                if isinstance(v, float) and k in ['price', 'tp', 'sl', 'ts']:
-                    # Special handling for price fields - ensure no commas
-                    processed_kwargs[k] = safe_format_number(v, 2)
-                elif isinstance(v, float):
-                    processed_kwargs[k] = safe_format_number(v, 1)
+                # KEEP floats as floats - let template format with :,.2f
+                # This is the key fix: don't convert to string here!
+                if isinstance(v, (int, float)):
+                    processed_kwargs[k] = float(v)  # Ensure it's a float for :,.2f
                 else:
                     processed_kwargs[k] = v
 
