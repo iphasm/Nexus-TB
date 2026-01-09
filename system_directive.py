@@ -304,6 +304,14 @@ DEFAULT_SESSION_CONFIG = {
     "protection_retry_attempts": 2,
     "protection_retry_delay_sec": 0.6,
     "protection_tolerance_pct": 0.01,            # 1% tolerancia en verificación
+    
+    # --- DYNAMIC TP PROGRESSION ---
+    "dynamic_tp_enabled": True,                  # Enable progressive TP raising
+    "tp_progression_thresholds": [               # (progress%, tp_boost%)
+        (0.50, 0.25),  # At 50% → +25% TP
+        (0.70, 0.50),  # At 70% → +50% TP
+        (0.85, 0.75),  # At 85% → +75% TP
+    ],
 }
 
 # =================================================================

@@ -3614,6 +3614,178 @@ class AsyncTradingSession:
             return f"❌ Breakeven Check Error: {e}"
 
     
+    async def smart_tp_progression_check(self, progression_thresholds: list = None) -> str:
+        """
+        Smart TP Progression - Dynamically raises TP as position gains value.
+        
+        Rules:
+        - At 50% progress toward TP: Raise TP by +25% of original distance
+        - At 70% progress toward TP: Raise TP by +50% of original distance  
+        - At 85% progress toward TP: Raise TP by +75% of original distance
+        
+        This locks in higher profits while allowing for extended gains.
+        Called periodically alongside smart_breakeven_check.
+        """
+        if not self.client:
+            return "❌ No session."
+        
+        # Default progression thresholds: (progress%, tp_boost%)
+        if progression_thresholds is None:
+            progression_thresholds = self.config.get('tp_progression_thresholds', [
+                (0.50, 0.25),  # 50% progress → +25% TP boost
+                (0.70, 0.50),  # 70% progress → +50% TP boost
+                (0.85, 0.75),  # 85% progress → +75% TP boost
+            ])
+        
+        # Check if feature is enabled
+        if not self.config.get('dynamic_tp_enabled', True):
+            return "ℹ️ Dynamic TP disabled."
+        
+        try:
+            active_pos = await self.get_active_positions()
+            if not active_pos:
+                return "ℹ️ No positions to check."
+            
+            report = ["📈 **TP Progression Check:**", ""]
+            modified = 0
+            
+            for p in active_pos:
+                symbol = p['symbol']
+                qty = abs(float(p['amt']))
+                entry_price = float(p['entry'])
+                
+                if qty == 0 or entry_price == 0:
+                    continue
+                
+                # Determine side
+                side = 'LONG' if float(p['amt']) > 0 else 'SHORT'
+                
+                # Get current price
+                position_exchange = p.get('source', self.bridge._route_symbol(symbol) if self.bridge else None)
+                current_price = await self.bridge.get_last_price(symbol, exchange=position_exchange)
+                
+                if current_price <= 0:
+                    continue
+                
+                # Get symbol precision
+                qty_prec, price_prec, min_notional, tick_size, min_qty = await self.get_symbol_precision(symbol)
+                
+                # Get current TP from open orders
+                current_tp = None
+                current_sl = None
+                try:
+                    orders = await self.bridge.get_open_orders(symbol, exchange=position_exchange)
+                    for order in orders:
+                        order_type = order.get('type', '').upper()
+                        trigger_price = float(order.get('stopPrice', 0) or order.get('triggerPrice', 0))
+                        if order_type in ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT'] and trigger_price > 0:
+                            current_tp = trigger_price
+                        elif order_type in ['STOP_MARKET', 'STOP'] and trigger_price > 0:
+                            current_sl = trigger_price
+                except Exception:
+                    continue
+                
+                if not current_tp or current_tp <= 0:
+                    report.append(f"⏭️ **{symbol}** - No TP order found")
+                    continue
+                
+                # Get original TP from shadow wallet (or estimate from entry)
+                user_wallet = self.shadow_wallet._get_user_wallet(self.chat_id)
+                pos_data = user_wallet['positions'].get(symbol, {})
+                original_tp = pos_data.get('original_tp', current_tp)
+                tp_progression_level = pos_data.get('tp_progression_level', 0)
+                
+                # If no original_tp stored, store current one as baseline
+                if 'original_tp' not in pos_data:
+                    pos_data['original_tp'] = current_tp
+                    pos_data['tp_progression_level'] = 0
+                    original_tp = current_tp
+                
+                # Calculate original TP distance from entry
+                original_tp_distance = abs(original_tp - entry_price)
+                if original_tp_distance <= 0:
+                    continue
+                
+                # Calculate current progress toward original TP
+                if side == 'LONG':
+                    price_progress = current_price - entry_price
+                else:  # SHORT
+                    price_progress = entry_price - current_price
+                
+                # Skip if price is not in profit direction
+                if price_progress <= 0:
+                    report.append(f"⏭️ **{symbol}** - Not in profit yet")
+                    continue
+                
+                progress_pct = price_progress / original_tp_distance
+                
+                # Find the highest threshold we've crossed
+                new_level = 0
+                tp_boost = 0.0
+                for threshold, boost in progression_thresholds:
+                    if progress_pct >= threshold:
+                        new_level = progression_thresholds.index((threshold, boost)) + 1
+                        tp_boost = boost
+                
+                # Only upgrade if we haven't already applied this level
+                if new_level > tp_progression_level:
+                    # Calculate new TP with boost
+                    if side == 'LONG':
+                        new_tp = original_tp + (original_tp_distance * tp_boost)
+                    else:  # SHORT
+                        new_tp = original_tp - (original_tp_distance * tp_boost)
+                    
+                    new_tp = round_to_tick_size(new_tp, tick_size)
+                    
+                    # Validate new TP makes sense
+                    if side == 'LONG' and new_tp <= current_price:
+                        continue  # TP must be above current price for LONG
+                    if side == 'SHORT' and new_tp >= current_price:
+                        continue  # TP must be below current price for SHORT
+                    
+                    # Apply the new TP (keep existing SL)
+                    if current_sl and current_sl > 0:
+                        try:
+                            success, msg = await self.synchronize_sl_tp_safe(
+                                symbol, qty, current_sl, new_tp, side, 
+                                min_notional, qty_prec, min_qty,
+                                entry_price=entry_price, current_price=current_price, 
+                                exchange=position_exchange
+                            )
+                            if success:
+                                modified += 1
+                                # Update progression level in shadow wallet
+                                pos_data['tp_progression_level'] = new_level
+                                boost_pct = int(tp_boost * 100)
+                                report.append(
+                                    f"✅ **{symbol}** - Progress: {progress_pct*100:.0f}% → "
+                                    f"TP raised +{boost_pct}% (${current_tp:.2f} → ${new_tp:.2f})"
+                                )
+                            else:
+                                report.append(f"⚠️ **{symbol}** - TP update failed: {msg}")
+                        except Exception as e:
+                            report.append(f"❌ **{symbol}** - Error: {e}")
+                    else:
+                        report.append(f"⏭️ **{symbol}** - No SL to preserve")
+                else:
+                    # Already at this level or higher
+                    if progress_pct > 0.30:
+                        report.append(
+                            f"📊 **{symbol}** - Progress: {progress_pct*100:.0f}% "
+                            f"(Level {tp_progression_level}, TP: ${current_tp:.2f})"
+                        )
+            
+            # Summary
+            if modified > 0:
+                report.append("")
+                report.append(f"🚀 **{modified} TPs raised!**")
+            
+            return "\n".join(report)
+            
+        except Exception as e:
+            return f"❌ TP Progression Error: {e}"
+
+    
     async def execute_spot_buy(self, symbol: str) -> Tuple[bool, str]:
         """Execute SPOT market buy."""
         if not self.client:
