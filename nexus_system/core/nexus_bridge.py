@@ -334,8 +334,10 @@ class NexusBridge:
         - BTC_USDT (con guiones bajos)
         - BTC-USDT (con guiones)
 
+        IMPORTANT: Does NOT add USDT to stocks/ETFs - they remain as-is (AAPL, IWM, etc.)
+
         Returns:
-            str: Símbolo normalizado (ej: 'BTCUSDT')
+            str: Símbolo normalizado (ej: 'BTCUSDT' for crypto, 'IWM' for stocks/ETFs)
         """
         if not symbol or not isinstance(symbol, str):
             return symbol
@@ -367,12 +369,25 @@ class NexusBridge:
         if ':' in base:
             base = base.split(':')[0]
 
-        # Asegurar que la base no esté vacía y sea válida
+        # CRITICAL FIX: Check if this is a known stock/ETF BEFORE adding USDT
+        # This prevents routing issues like IWM -> IWMUSDT -> Bybit
+        try:
+            from system_directive import ASSET_GROUPS
+            stocks_etfs = ASSET_GROUPS.get('STOCKS', []) + ASSET_GROUPS.get('ETFS', [])
+            if base in stocks_etfs:
+                # This is a stock/ETF - do NOT add USDT suffix
+                return base
+        except ImportError:
+            pass  # If import fails, continue with normal logic
+
+        # Asegurar que la base no esté vacía y sea válida (for crypto, add USDT)
         if base and len(base) >= 2 and base.isalpha():
             return f"{base}USDT"
 
         # Fallback para casos extremos
         return symbol.upper().replace('/', '').replace(':', '').replace('_', '').replace('-', '')
+
+
 
     def format_symbol_for_exchange(self, symbol: str, exchange: str) -> str:
         """
@@ -488,21 +503,58 @@ class NexusBridge:
 
     async def cancel_protection_orders(self, symbol: str, exchange: str) -> bool:
         """
-        Cancela órdenes protectoras en el exchange correcto.
-        Binance: cancelar open orders condicionales.
-        Bybit: cancelar condicionales + reset trading-stop si aplica.
+        Cancela órdenes protectoras (SL/TP/Trailing) en el exchange correcto.
+        
+        Binance: Usa cancel_conditional_orders_only para cancelación individual verificada.
+        Bybit: Cancela condicionales + reset trading-stop si aplica.
+        
+        Returns: True if all protection orders were successfully cancelled
         """
+        import asyncio
+        
         ex = exchange.upper()
+        
         if ex == "BINANCE":
-            return await self.cancel_orders(symbol, exchange="BINANCE")
+            binance = self.adapters.get("BINANCE")
+            if not binance:
+                return False
+            
+            # Use the new dedicated method for conditional order cancellation
+            if hasattr(binance, 'cancel_conditional_orders_only'):
+                result = await binance.cancel_conditional_orders_only(symbol, max_retries=3, verify=True)
+                success = result.get('success', False)
+                
+                if not success:
+                    remaining = result.get('remaining', 0)
+                    print(f"⚠️ NexusBridge: {remaining} conditional orders still remain after cancellation attempt for {symbol}")
+                    
+                    # Fallback: try the full cancel_orders method
+                    await self.cancel_orders(symbol, exchange="BINANCE")
+                    
+                    # Final verification
+                    await asyncio.sleep(0.5)
+                    final_orders = await self.get_open_orders(symbol, exchange="BINANCE")
+                    conditional_types = ['STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET', 'STOP', 'TAKE_PROFIT']
+                    final_conditional = [o for o in final_orders if o.get('type', '').upper() in conditional_types]
+                    
+                    if final_conditional:
+                        print(f"❌ NexusBridge: Failed to clear all conditional orders for {symbol}")
+                        return False
+                
+                return True
+            else:
+                # Fallback to standard cancel_orders
+                return await self.cancel_orders(symbol, exchange="BINANCE")
+        
         if ex == "BYBIT":
-            # 1) cancel condicionales
+            # 1) Cancel condicionales
             await self.cancel_orders(symbol, exchange="BYBIT")
-            # 2) reset trading stop (0 cancela)
+            # 2) Reset trading stop (0 cancela)
             bybit = self.adapters.get("BYBIT")
             if bybit:
                 await bybit.set_trading_stop(symbol, take_profit=0, stop_loss=0, trailing_stop=0)
             return True
+        
         return True
 
 
