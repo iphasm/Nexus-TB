@@ -616,11 +616,25 @@ async def dispatch_nexus_signal(bot: Bot, signal, session_manager):
                     # Direction styling
                     direction = "🟢 LONG (Activo)" if side == 'LONG' else "🔴 SHORT (Activo)"
                     
-                    # Format prices safely (handle None values)
-                    price_str = f"${float(price):.2f}" if price and price != 0 else "N/A"
-                    ts_str = f"${float(ts_prev):.2f}" if ts_prev and ts_prev != 0 else "N/A"
-                    tp_str = f"${float(tp_prev):.2f}" if tp_prev and tp_prev != 0 else "N/A"
-                    sl_str = f"${float(sl_prev):.2f}" if sl_prev and sl_prev != 0 else "N/A"
+                    # Format prices safely with smart decimals for low-value assets
+                    def smart_price_format(p):
+                        """Format price with appropriate decimals based on magnitude."""
+                        if p is None or p == 0:
+                            return "N/A"
+                        pf = float(p)
+                        if pf >= 1000:
+                            return f"${pf:,.2f}"
+                        elif pf >= 1:
+                            return f"${pf:.4f}"
+                        elif pf >= 0.01:
+                            return f"${pf:.5f}"
+                        else:
+                            return f"${pf:.6f}"
+                    
+                    price_str = smart_price_format(price)
+                    ts_str = smart_price_format(ts_prev)
+                    tp_str = smart_price_format(tp_prev)
+                    sl_str = smart_price_format(sl_prev)
 
                     # Format other variables safely
                     formatted_quote = str(quote).rstrip('.!?,;:') if quote else "Online."

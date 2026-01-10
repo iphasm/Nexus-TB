@@ -5,6 +5,24 @@ Markdown utilities for safe Telegram message formatting
 import re
 from typing import Dict, Any
 
+# Friendly display names for technical parameters
+PARAM_DISPLAY_NAMES = {
+    'ema_diff': 'Δ EMA',
+    'adx': 'ADX',
+    'atr': 'ATR',
+    'rsi': 'RSI',
+    'macd': 'MACD',
+    'volume': 'Vol',
+    'trend': 'Trend',
+    'confidence': 'Conf',
+    'regime': 'Régimen',
+    'mtf_score': 'MTF',
+    'volatility': 'Volat',
+    'momentum': 'Mom',
+    'bb_width': 'BB',
+    'vwap_dist': 'VWAP',
+}
+
 def escape_markdown(text: str) -> str:
     """
     Escape special characters for Telegram Markdown parsing.
@@ -104,21 +122,36 @@ def safe_format_number(value: float, decimals: int = 2) -> str:
 def create_safe_reason(strategy: str, confidence: float, metadata: Dict[str, Any]) -> str:
     """
     Create a safe reason string for trading signals, properly escaped for Markdown.
+    Uses friendly parameter names and clean formatting.
     """
     # Sanitize metadata first
     safe_metadata = sanitize_signal_metadata(metadata)
 
-    # Build meta parameters
+    # Build meta parameters with friendly names
     meta_params = []
     for k, v in safe_metadata.items():
-        if k.lower() == 'strategy':
+        if k.lower() in ['strategy', 'dataframe', 'candles']:
             continue
-
+        
+        # Get friendly display name
+        param_key = k.lower().replace('_', '')
+        display_name = PARAM_DISPLAY_NAMES.get(k.lower(), 
+                       PARAM_DISPLAY_NAMES.get(param_key, k.upper()))
+        
         if isinstance(v, float):
-            # Use safe number formatting
-            meta_params.append(f"{escape_markdown(k.upper())}: {safe_format_number(v, 1)}")
+            # Smart formatting based on value magnitude
+            abs_val = abs(v)
+            if abs_val >= 100:
+                formatted = f"{v:.0f}"
+            elif abs_val >= 10:
+                formatted = f"{v:.1f}"
+            elif abs_val >= 1:
+                formatted = f"{v:.2f}"
+            else:
+                formatted = f"{v:.4f}"
+            meta_params.append(f"{display_name}: {formatted}")
         else:
-            meta_params.append(f"{escape_markdown(k.upper())}: {v}")
+            meta_params.append(f"{display_name}: {v}")
 
     params_str = " | ".join(meta_params)
     reason = f"[{escape_markdown(strategy)} | Conf: {confidence:.0%} | {params_str}]"
