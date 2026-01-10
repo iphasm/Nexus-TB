@@ -162,17 +162,15 @@ class NexusCore:
 
     async def _process_symbol_event(self, asset: str):
 
-        """Execute strategy analysis for a single symbol."""
+        """Execute strategy analysis for a single symbol with MTF filtering."""
         async with self._semaphore:
             try:
-                # 1. Fetch Market Data (From Cache - instantaneous)
-                # Use get_candles which checks cache first
-                # Ideally we pass different params for event driven? 
-                # For now, standard flow works as it hits cache.
+                # 1. Fetch Multi-Timeframe Data for confluence analysis
+                # Use get_multiframe_candles which fetches 1m, 15m, 4h
+                mtf_data = await self.market_stream.get_multiframe_candles(asset)
                 
-                # REMOVED: Premium Signals MTF analysis - redundant with AI Filter
-                # AI Filter now provides intelligent multi-factor analysis
-                market_data = await self.market_stream.get_candles(asset)
+                # Use main timeframe for strategy analysis
+                market_data = mtf_data.get('main', {})
                 
                 if market_data.get('dataframe') is None or market_data['dataframe'].empty:
                     return
@@ -202,7 +200,28 @@ class NexusCore:
                 if signal is None or signal.action == 'HOLD':
                     return
                 
-                # 5. Emit Signal
+                # 5. MTF Confluence Filter (NEW)
+                # Skip MTF for Sentinel overrides (emergency actions)
+                if override_action not in ['BLACK_SWAN', 'SHARK_MODE']:
+                    from ..cortex.mtf_filter import get_mtf_filter
+                    from system_directive import MTF_MIN_CONFLUENCE_SCORE
+                    
+                    mtf_filter = get_mtf_filter(MTF_MIN_CONFLUENCE_SCORE)
+                    should_trade, analysis = mtf_filter.should_trade(asset, mtf_data, signal.action)
+                    
+                    if not should_trade:
+                        self.logger.info(f"🔍 MTF FILTER: {asset} signal rejected - {analysis.reason}")
+                        return
+                    
+                    # Add confluence data to signal metadata
+                    if not hasattr(signal, 'metadata') or signal.metadata is None:
+                        signal.metadata = {}
+                    signal.metadata['mtf_score'] = analysis.confluence_score
+                    signal.metadata['mtf_trend'] = analysis.macro_trend.value
+                    
+                    self.logger.info(f"✅ MTF PASSED: {asset} confluence={analysis.confluence_score:.1f}/10")
+                
+                # 6. Emit Signal
                 signal.strategy = strategy.name
                 self.logger.info(f"⚡ EVENT TRIGGER: {signal.action} on {asset} ({strategy.name}) | Conf: {signal.confidence:.2f}")
                 

@@ -220,6 +220,12 @@ AI_FILTER_ENABLED = True
 ML_CLASSIFIER_ENABLED = True
 # PREMIUM_SIGNALS_ENABLED = False  # REMOVED: Redundant with AI Filter
 
+# --- MTF (Multi-Timeframe) Confluence Filter ---
+MTF_FILTER_ENABLED = True           # Enable/disable MTF filter
+MTF_MIN_CONFLUENCE_SCORE = 6.0      # Minimum score (0-10) to pass signal (higher = fewer trades, better quality)
+MTF_TIMEFRAMES = ['1m', '15m', '4h'] # Timeframes used for analysis
+
+
 # OpenAI Configuration
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # Default to gpt-4o
 # --- RISK & MANAGEMENT ---

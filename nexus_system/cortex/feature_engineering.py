@@ -101,7 +101,7 @@ def add_all_new_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     # TODO: Implement advanced feature engineering to match training pipeline
     # For now, return unchanged to prevent import errors
-    return df['close']
+    return df
 
 
 def calculate_market_regime(df: pd.DataFrame) -> pd.Series:

@@ -25,6 +25,7 @@ from servos.ai_analyst import NexusAnalyst
 from nexus_system.shield.correlation import CorrelationManager
 from nexus_system.shield.risk_policy import RiskPolicy, StrategyIntent, build_portfolio_state
 from nexus_system.core.exit_manager import ExitManager
+from nexus_system.core.slippage import get_slippage_model, estimate_slippage
 
 # Personalities
 from servos.personalities import PersonalityManager
@@ -2199,11 +2200,26 @@ class AsyncTradingSession:
 
                  return False, f"❌ {symbol}: Insufficient capital."
 
-            # Diagnostic logging
+            # Diagnostic logging with slippage estimation
             notional = quantity * current_price
             margin_required = notional / leverage
+            
+            # Estimate slippage before execution
+            slippage_model = get_slippage_model()
+            slippage_result = slippage_model.estimate_execution_cost(
+                symbol=symbol,
+                price=current_price,
+                quantity=quantity,
+                side='BUY',
+                exchange=target_exchange,
+                atr=atr
+            )
+            expected_slippage_pct = slippage_result['slippage_pct']
+            expected_total_cost = slippage_result['total_cost']
+            
             print(f"📊 {symbol} Order Details: Qty={quantity}, Price=${current_price:.4f}, Notional=${notional:.2f}")
             print(f"📊 {symbol} Risk Params: Leverage={leverage}x, Margin Required=${margin_required:.2f}, Equity=${total_equity:.2f}")
+            print(f"📊 {symbol} Slippage Est: {expected_slippage_pct:.4f}%, Total Cost=${expected_total_cost:.4f}")
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
             lev_result = await self.bridge.set_leverage(symbol, leverage, exchange=target_exchange)
@@ -2217,13 +2233,23 @@ class AsyncTradingSession:
 
             entry_price = float(res.get('price', current_price) or current_price)
 
-            # Log Trade Entry (Fase 4)
+            # Log Trade Entry (Fase 4) with slippage tracking
             from servos.db import log_trade_entry
+            
+            # Calculate actual slippage from execution
+            actual_slippage = 0.0
+            if current_price > 0 and entry_price > 0:
+                actual_slippage = (entry_price - current_price) / current_price  # Positive = worse for buyer
+            
             metadata = {
                 'atr': atr,
                 'strategy': strategy,
                 'tick_size': tick_size,
-                'min_notional': min_notional
+                'min_notional': min_notional,
+                'expected_slippage_pct': expected_slippage_pct,
+                'actual_slippage_pct': actual_slippage * 100,
+                'expected_cost': expected_total_cost,
+                'expected_fill_price': slippage_result.get('expected_fill', current_price)
             }
             log_trade_entry(
                 chat_id=self.chat_id,
@@ -2576,11 +2602,26 @@ class AsyncTradingSession:
             if (quantity * current_price) < min_notional:
                  return False, f"❌ {symbol}: Insufficient capital."
 
-            # Diagnostic logging
+            # Diagnostic logging with slippage estimation
             notional = quantity * current_price
             margin_required = notional / leverage
+            
+            # Estimate slippage before execution
+            slippage_model = get_slippage_model()
+            slippage_result = slippage_model.estimate_execution_cost(
+                symbol=symbol,
+                price=current_price,
+                quantity=quantity,
+                side='SELL',
+                exchange=target_exchange,
+                atr=atr
+            )
+            expected_slippage_pct = slippage_result['slippage_pct']
+            expected_total_cost = slippage_result['total_cost']
+            
             print(f"📊 {symbol} Order Details: Qty={quantity}, Price=${current_price:.4f}, Notional=${notional:.2f}")
             print(f"📊 {symbol} Risk Params: Leverage={leverage}x, Margin Required=${margin_required:.2f}, Equity=${total_equity:.2f}")
+            print(f"📊 {symbol} Slippage Est: {expected_slippage_pct:.4f}%, Total Cost=${expected_total_cost:.4f}")
 
             # 4. Set Leverage BEFORE placing order (critical for margin calculation)
             await self.bridge.set_leverage(symbol, leverage)
@@ -2592,13 +2633,23 @@ class AsyncTradingSession:
 
             entry_price = float(res.get('price', current_price) or current_price)
 
-            # Log Trade Entry (Fase 4)
+            # Log Trade Entry (Fase 4) with slippage tracking
             from servos.db import log_trade_entry
+            
+            # Calculate actual slippage from execution
+            actual_slippage = 0.0
+            if current_price > 0 and entry_price > 0:
+                actual_slippage = (current_price - entry_price) / current_price  # Positive = worse for seller
+            
             metadata = {
                 'atr': atr,
                 'strategy': strategy,
                 'tick_size': tick_size,
-                'min_notional': min_notional
+                'min_notional': min_notional,
+                'expected_slippage_pct': expected_slippage_pct,
+                'actual_slippage_pct': actual_slippage * 100,
+                'expected_cost': expected_total_cost,
+                'expected_fill_price': slippage_result.get('expected_fill', current_price)
             }
             log_trade_entry(
                 chat_id=self.chat_id,

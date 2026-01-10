@@ -785,9 +785,144 @@ class BinanceAdapter(IExchangeAdapter):
         }
 
 
-    async def cancel_orders(self, symbol: str) -> bool:
+    # Conditional order types that need special handling
+    CONDITIONAL_ORDER_TYPES = [
+        'STOP_MARKET', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET',
+        'STOP', 'TAKE_PROFIT', 'TRAILING_STOP',
+        'stop_market', 'take_profit_market', 'trailing_stop_market'
+    ]
+
+    async def cancel_conditional_orders_only(
+        self, 
+        symbol: str, 
+        max_retries: int = 3,
+        verify: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Cancel ONLY conditional orders (SL/TP/Trailing) for a symbol.
+        Preserves limit orders and other non-conditional order types.
+        
+        This is the KEY method for fixing Binance conditional order accumulation.
+        Uses individual cancellation with verification loop to ensure orders are cancelled.
+        
+        Args:
+            symbol: Trading pair (e.g., 'BTCUSDT')
+            max_retries: Maximum number of cancellation attempts
+            verify: If True, verify orders are actually cancelled
+            
+        Returns:
+            Dict with 'cancelled' count, 'remaining' count, and 'success' bool
+        """
+        import asyncio
+        
+        if not self._exchange:
+            return {'cancelled': 0, 'remaining': 0, 'success': False, 'error': 'Not initialized'}
+        
+        formatted = self._format_symbol(symbol)
+        raw_symbol = symbol.replace('/USDT:USDT', 'USDT').replace('/', '')
+        
+        total_cancelled = 0
+        
+        for attempt in range(max_retries):
+            try:
+                # 1. Get ALL open orders for this symbol
+                all_orders = await self.get_open_orders(raw_symbol)
+                
+                if not all_orders:
+                    print(f"✅ BinanceAdapter: No orders to cancel for {symbol}")
+                    return {'cancelled': total_cancelled, 'remaining': 0, 'success': True}
+                
+                # 2. Filter to conditional orders only
+                conditional_orders = [
+                    o for o in all_orders 
+                    if (o.get('type', '') or '').upper() in [t.upper() for t in self.CONDITIONAL_ORDER_TYPES]
+                ]
+                
+                if not conditional_orders:
+                    print(f"✅ BinanceAdapter: No conditional orders to cancel for {symbol} (total orders: {len(all_orders)})")
+                    return {'cancelled': total_cancelled, 'remaining': 0, 'success': True}
+                
+                print(f"🧹 BinanceAdapter: Cancelling {len(conditional_orders)} conditional orders for {symbol} (attempt {attempt + 1}/{max_retries})")
+                
+                # 3. Cancel each conditional order individually
+                cancelled_this_round = 0
+                for order in conditional_orders:
+                    order_id = order.get('orderId')
+                    order_type = order.get('type', 'UNKNOWN')
+                    
+                    if not order_id:
+                        continue
+                    
+                    try:
+                        # Use CCXT cancel_order with formatted symbol
+                        await self._exchange.cancel_order(str(order_id), formatted)
+                        cancelled_this_round += 1
+                        total_cancelled += 1
+                        print(f"   ✅ Cancelled {order_type} order {order_id}")
+                    except Exception as cancel_err:
+                        error_str = str(cancel_err).lower()
+                        # Order already cancelled or doesn't exist - count as success
+                        if 'does not exist' in error_str or 'not found' in error_str or '-2011' in str(cancel_err):
+                            cancelled_this_round += 1
+                            total_cancelled += 1
+                            print(f"   ℹ️ Order {order_id} already cancelled")
+                        else:
+                            print(f"   ⚠️ Failed to cancel {order_type} {order_id}: {cancel_err}")
+                
+                # 4. Verification step - wait and check if orders are actually gone
+                if verify:
+                    await asyncio.sleep(0.5 + (attempt * 0.3))  # Progressive delay
+                    
+                    remaining_orders = await self.get_open_orders(raw_symbol)
+                    remaining_conditional = [
+                        o for o in remaining_orders 
+                        if (o.get('type', '') or '').upper() in [t.upper() for t in self.CONDITIONAL_ORDER_TYPES]
+                    ]
+                    
+                    if not remaining_conditional:
+                        print(f"✅ BinanceAdapter: All conditional orders cancelled for {symbol} (total: {total_cancelled})")
+                        return {'cancelled': total_cancelled, 'remaining': 0, 'success': True}
+                    else:
+                        print(f"🔄 BinanceAdapter: {len(remaining_conditional)} conditional orders still remain, retrying...")
+                        # Continue to next attempt
+                else:
+                    # No verification - assume success
+                    return {'cancelled': total_cancelled, 'remaining': 0, 'success': True}
+                    
+            except Exception as e:
+                print(f"⚠️ BinanceAdapter: cancel_conditional_orders_only error (attempt {attempt + 1}): {e}")
+                await asyncio.sleep(0.5)
+        
+        # After all retries, check final state
+        try:
+            final_orders = await self.get_open_orders(raw_symbol)
+            final_conditional = [
+                o for o in final_orders 
+                if (o.get('type', '') or '').upper() in [t.upper() for t in self.CONDITIONAL_ORDER_TYPES]
+            ]
+            remaining_count = len(final_conditional)
+            
+            if remaining_count > 0:
+                print(f"⚠️ BinanceAdapter: {remaining_count} conditional orders still remain after {max_retries} attempts")
+                for o in final_conditional:
+                    print(f"   - Remaining: {o.get('type')} {o.get('orderId')}")
+            
+            return {
+                'cancelled': total_cancelled, 
+                'remaining': remaining_count, 
+                'success': remaining_count == 0
+            }
+        except Exception as e:
+            return {'cancelled': total_cancelled, 'remaining': -1, 'success': False, 'error': str(e)}
+
+    async def cancel_orders(self, symbol: str, max_retries: int = 3) -> bool:
         """
         Cancel all open orders for symbol (standard + conditional).
+        
+        Enhanced version with:
+        - Individual order cancellation for reliability
+        - Verification loop to ensure orders are actually cancelled
+        - Multiple retry attempts with progressive delays
         
         Binance requiere cancelación individual de órdenes condicionales ya que
         cancel_all_orders() puede no cancelarlas correctamente.
@@ -971,7 +1106,59 @@ class BinanceAdapter(IExchangeAdapter):
                                 failed_count += 1
                                 print(f"   ❌ Error cancelando ALGO: {e}")
             
-            # 5. Respaldo: intentar cancel_all_orders (por si algo queda)
+            # 5. ENHANCED VERIFICATION LOOP - Key fix for conditional order accumulation
+            import asyncio
+            
+            for verify_attempt in range(max_retries):
+                # Wait for API to propagate cancellations
+                await asyncio.sleep(0.5 + (verify_attempt * 0.3))
+                
+                # Check what orders remain
+                remaining_orders = await self.get_open_orders(raw_symbol)
+                
+                if not remaining_orders:
+                    print(f"✅ BinanceAdapter: All {cancelled_count} orders cancelled and verified for {symbol}")
+                    return True
+                
+                # Check for remaining conditional orders specifically
+                remaining_conditional = [
+                    o for o in remaining_orders 
+                    if (o.get('type', '') or '').upper() in [t.upper() for t in self.CONDITIONAL_ORDER_TYPES]
+                ]
+                
+                if remaining_conditional:
+                    print(f"🔄 BinanceAdapter: {len(remaining_conditional)} conditional orders still remain, retrying cancellation...")
+                    
+                    # Cancel remaining conditional orders individually
+                    for order in remaining_conditional:
+                        order_id = order.get('orderId')
+                        if order_id:
+                            try:
+                                await self._exchange.cancel_order(str(order_id), formatted)
+                                cancelled_count += 1
+                                print(f"   ✅ Retry cancelled order {order_id}")
+                            except Exception as retry_err:
+                                if '-2011' not in str(retry_err):
+                                    print(f"   ⚠️ Retry cancel failed for {order_id}: {retry_err}")
+                else:
+                    # Only non-conditional orders remain - that's acceptable
+                    print(f"✅ BinanceAdapter: Conditional orders cleared. {len(remaining_orders)} non-conditional orders remain.")
+                    return True
+            
+            # Final check after all retries
+            final_remaining = await self.get_open_orders(raw_symbol)
+            final_conditional = [
+                o for o in final_remaining 
+                if (o.get('type', '') or '').upper() in [t.upper() for t in self.CONDITIONAL_ORDER_TYPES]
+            ]
+            
+            if final_conditional:
+                print(f"⚠️ BinanceAdapter: {len(final_conditional)} conditional orders STILL remain after {max_retries} verification attempts:")
+                for o in final_conditional:
+                    print(f"   - {o.get('type')} {o.get('orderId')}")
+                return False
+            
+            # 6. Respaldo: intentar cancel_all_orders (por si algo queda)
             try:
                 await self._exchange.cancel_all_orders(formatted)
             except Exception:
