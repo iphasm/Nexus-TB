@@ -3576,8 +3576,9 @@ class AsyncTradingSession:
                     except Exception:
                         pass  # Use fallback if ATR calculation fails
 
-                    # Dynamic buffer: max(0.4%, 0.5 * ATR/entry_price) to ensure separation
-                    base_buffer = max(0.004, 0.5 * (atr_value / entry_price)) if atr_value > 0 else 0.004
+                    # FIX: Increased buffer from 0.4% to 1.5%, use 1x ATR for more breathing room
+                    # This prevents premature SL triggers on normal retracements
+                    base_buffer = max(0.015, 1.0 * (atr_value / entry_price)) if atr_value > 0 else 0.015
 
                     # Calculate profit capture level: 30-40% of the realized gain
                     profit_distance = abs(current_price - entry_price)
@@ -3588,8 +3589,9 @@ class AsyncTradingSession:
                         # SL at entry + captured profit + buffer (guarantee 35% profit capture)
                         breakeven_level = entry_price + captured_profit
                         new_sl = round_to_tick_size(breakeven_level * (1 + base_buffer), tick_size)
-                        # Ensure SL doesn't exceed current price - buffer
-                        new_sl = min(new_sl, current_price * (1 - base_buffer))
+                        # FIX: Ensure at least 1.5% gap from current price to avoid premature trigger
+                        min_gap = max(base_buffer, 0.015)
+                        new_sl = min(new_sl, current_price * (1 - min_gap))
 
                         # Keep existing TP - get it from current orders
                         new_tp = None
@@ -3611,8 +3613,9 @@ class AsyncTradingSession:
                         # SL at entry - captured profit - buffer
                         breakeven_level = entry_price - captured_profit
                         new_sl = round_to_tick_size(breakeven_level * (1 - base_buffer), tick_size)
-                        # Ensure SL doesn't go below current price + buffer
-                        new_sl = max(new_sl, current_price * (1 + base_buffer))
+                        # FIX: Ensure at least 1.5% gap from current price to avoid premature trigger
+                        min_gap = max(base_buffer, 0.015)
+                        new_sl = max(new_sl, current_price * (1 + min_gap))
 
                         # Keep existing TP - get it from current orders
                         new_tp = None
